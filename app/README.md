@@ -19,7 +19,7 @@ The bootstrap script generates the Android native runner for your installed Flut
 - Multiple profiles with explicit switch, delete and credential erasure; per-profile Dio instance, no redirects.
 - Cluster resource dashboard showing nodes and QEMU/LXC inventory; searchable guest list with last refresh timestamp.
 - Guest details showing server-reported CPU and memory usage; start/shutdown/reboot/force-stop confirmation.
-- Fresh guest-state preflight before mutation; **exactly one POST**; asynchronous UPID task monitoring and final exit status.
+- Fresh guest-state preflight and inventory identity check before mutation; **exactly one POST**; a per-guest lock prevents duplicate commands while preflight/submission/task tracking is active. Ambiguous outcomes block further commands until the operator verifies server state and reconnects. Asynchronous UPID task monitoring determines final result.
 - Foreground-only task polling, last-known stale UI, safe error and permission-denied messages.
 - Unit and widget tests; CI Flutter analyze/test/debug APK generation.
 
@@ -38,4 +38,4 @@ Use a dedicated, least-privilege Proxmox VE API token, for example `operator@pve
 - https://docs.flutter.dev/platform-integration/android/setup
 
 ### Pinned CI toolchain
-The CI workflow uses Flutter **3.44.4** with an Android-only generated runner, as a temporary pinned compatibility baseline. A first run against Flutter 3.47.9 passed Dart analysis and tests but failed in Gradle/Kotlin 2.3.0/AGP 9 artifact resolution before producing an APK. Subsequent CI results determine whether the pin resolves the build; this is not a claim of APK success. CI uploads a **debug-only, unsigned-for-distribution** APK artifact when compilation passes.
+The CI workflow uses Flutter **3.44.4** with an Android-only generated runner, as a temporary pinned compatibility baseline. A first run against Flutter 3.47.9 passed Dart analysis and tests but failed in Gradle/Kotlin 2.3.0/AGP 9 artifact resolution before producing an APK. CI run [41712997783](https://github.com/s4daharu/VirtHelm/actions/runs/41712997783) passed Dart analysis, tests, and Android debug build. CI uploads a **debug-only, unsigned-for-distribution** APK artifact. This is not production or device/PVE validation.
