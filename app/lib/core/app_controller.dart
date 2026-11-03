@@ -292,6 +292,7 @@ class AppController extends ChangeNotifier {
     final generation = _generation;
     final gateway = _gateway!;
     var finished = false;
+    final completedTargets = <String>[];
     try {
       for (final pendingTask in pending) {
         try {
@@ -311,9 +312,13 @@ class AppController extends ChangeNotifier {
           );
           final target = _taskTargets.remove(pendingTask.upid);
           if (target != null) {
-            _pendingGuestOperations.remove(target);
             if (result == OperationOutcome.unknown) {
               _uncertainGuestOperations.add(target);
+              _pendingGuestOperations.remove(target);
+            } else {
+              // A terminal UPID is not an authoritative guest-state refresh.
+              // Keep writes locked until inventory has reconciled.
+              completedTargets.add(target);
             }
           }
           finished = true;
@@ -325,7 +330,21 @@ class AppController extends ChangeNotifier {
     } finally {
       _polling = false;
     }
-    if (finished && generation == _generation) await refresh();
+    if (finished && generation == _generation) {
+      await refresh();
+      if (generation != _generation || _disposed) return;
+      for (final target in completedTargets) {
+        if (isInventoryFresh) {
+          _pendingGuestOperations.remove(target);
+        } else {
+          // Reconciliation failed; an operator must check the server before
+          // intentionally reconnecting to re-enable the operation.
+          _uncertainGuestOperations.add(target);
+          _pendingGuestOperations.remove(target);
+        }
+      }
+      _notify();
+    }
   }
 
   Future<void> deleteProfile(String id) async {
