@@ -17,6 +17,16 @@ class _Vault implements CredentialVault {
   Future<void> remove(String id) async { values.remove(id); }
 }
 
+class _PausedVault extends _Vault {
+  final removeGate = Completer<void>();
+
+  @override
+  Future<void> remove(String id) async {
+    await removeGate.future;
+    await super.remove(id);
+  }
+}
+
 class _Gateway implements PveGateway {
   int submissions = 0;
   String status = 'running';
@@ -256,6 +266,44 @@ void main() {
     expect(ctl.isGuestActionBlocked(guest), isFalse);
     expect(ctl.inventory!.guests.single, isNot(same(guest)));
   });
+
+  test('deleting an active profile invalidates preflight before vault I/O completes', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final vault = _PausedVault();
+    final gateways = <_Gateway>[];
+    final ctl = AppController(
+      repository: ProfileRepository(prefs, vault),
+      gatewayFactory: (p, c) {
+        final gateway = _Gateway();
+        gateways.add(gateway);
+        return gateway;
+      },
+    );
+    addTearDown(ctl.dispose);
+    await ctl.initialize();
+    await ctl.connect(
+      name: 'Lab', address: 'https://pve.local',
+      tokenId: 'me@pve!app', secret: 's3cr3t',
+    );
+    final gateway = gateways.last;
+    final guest = ctl.inventory!.guests.single;
+    final profileId = ctl.active!.id;
+    gateway.preflight = Completer<String>();
+    final action = ctl.runAction(
+      guest, GuestAction.shutdown, profileId: profileId,
+    );
+
+    final deleting = ctl.deleteProfile(profileId);
+    expect(ctl.active, isNull);
+    gateway.preflight!.complete('running');
+    await expectLater(action, throwsA(isA<PveFailure>()));
+    expect(gateway.submissions, 0);
+
+    vault.removeGate.complete();
+    await deleting;
+    expect(ctl.profiles, isEmpty);
+  });
+
 
 }
 
