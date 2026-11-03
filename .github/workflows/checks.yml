@@ -10,6 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 scripts/check_docs.py
+      - run: python3 scripts/check_premium.py
   detect-app:
     runs-on: ubuntu-latest
     permissions:

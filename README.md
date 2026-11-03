@@ -20,6 +20,22 @@ VirtHelm is an independent, unofficial Android mobile client to observe and admi
 
 Also see [CSV endpoint index](docs/api-endpoint-index.csv), [manual API smoke-test recipes](examples/README.md), [security policy](SECURITY.md), [contributing](CONTRIBUTING.md), [definition of done](docs/19-definition-of-done.md).
 
+## Premium expansion plan (v2 — planning only)
+
+VirtHelm's **premium product vision** is specified in the 2026-11-04 extension. These are scoped **design and delivery plans**, not functioning features, builds, or validated live API integrations. Start with the [premium product strategy](docs/21-premium-product-strategy.md), [feature specification](docs/22-premium-feature-specification.md), and **200-feature [machine-readable catalogue](docs/premium-feature-catalog.csv)**.
+
+| Topic | Planning documents |
+|---|---|
+| UX and Android polish | [Premium information architecture](docs/23-premium-ux-information-architecture.md), [Android native experience](docs/31-android-native-premium-experience.md) |
+| QEMU/LXC operations | [Advanced guest workflows](docs/24-guest-lifecycle-advanced-workflows.md), [secure console and identity](docs/29-premium-security-identity-console.md) |
+| Monitoring | [Alerting, capacity and insights](docs/25-monitoring-alerting-intelligence.md) |
+| Disaster recovery | [Backup and PBS](docs/26-backup-disaster-recovery-pbs.md) |
+| Cluster admin | [HA, Ceph, SDN, storage and networking](docs/27-cluster-ha-storage-ceph-sdn.md), [multi-site and PDM](docs/28-multisite-pdm-integration.md) |
+| Engineering | [Flutter module contracts](docs/30-flutter-architecture-modules-and-contracts.md), [epic roadmap](docs/32-delivery-epics-sequencing.md), [release acceptance gates](docs/33-test-acceptance-release-gates.md) |
+| Product and assurance | [Brand/pricing/privacy](docs/34-business-model-privacy-and-licensing.md), [verified-vs-proposed research](docs/35-research-verified-vs-proposed.md), [premium ADRs and risks](docs/36-premium-risks-and-design-decisions.md) |
+
+**Compatibility scope:** PVE 9.2 primary / 8.4 regression; separately-gated PBS 4.2 and PDM 1.1. Background alerts from a sleeping Android phone are not guaranteed; an optional self-hosted relay is future research. All irreversible operations require explicit preflight and live integration evidence. For the extended documentation, run `python3 scripts/check_premium.py`.
+
 ## Architecture at a glance
 
 ```text

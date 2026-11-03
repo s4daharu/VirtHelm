@@ -16,5 +16,10 @@
   "github_repository_url": "https://github.com/s4daharu/VirtHelm",
   "documentation_uploaded_and_verified": true,
   "docs_initial_remote_commit": "4fdfcd704aced213508f798533fd6370573ac284",
-  "docs_initial_ci": "success"
+  "docs_initial_ci": "success",
+  "premium_plan_reviewed": "2026-11-04",
+  "premium_feature_catalog_count": 200,
+  "premium_plan_docs": "docs/21 to docs/36 (sixteen additional documents)",
+  "premium_plan_status": "proposed_unimplemented",
+  "premium_services": "PVE 9.2 primary; PVE 8.4 regression; optional PBS 4.2/PDM 1.1"
 }

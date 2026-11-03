@@ -1,0 +1,201 @@
+feature_id,domain,title,release_lane,risk,backend,prerequisite,verification
+CON-001,Connection and identity,Named secure HTTPS profiles,F0,R0,PVE,TLS,planned_unimplemented
+CON-002,Connection and identity,Connection test and version detection,F0,R0,PVE,API,planned_unimplemented
+CON-003,Connection and identity,Explicit certificate trust review,F0,R1,PVE,TLS,planned_unimplemented
+CON-004,Connection and identity,Certificate change warning and block,F0,R1,PVE,TLS,planned_unimplemented
+CON-005,Connection and identity,API token credential vault,F0,R1,PVE,KEYSTORE,planned_unimplemented
+CON-006,Connection and identity,Token privilege check and hints,F0,R0,PVE,ACL,planned_unimplemented
+CON-007,Connection and identity,Multiple identities per profile,F1,R1,PVE,AUTH,planned_unimplemented
+CON-008,Connection and identity,Ticket and MFA login,F2,R1,PVE,AUTH-SPIKE,planned_unimplemented
+CON-009,Connection and identity,Profile switch isolation,F0,R0,PVE,ISOLATION,planned_unimplemented
+CON-010,Connection and identity,Verified QR profile onboarding,F2,R1,PVE,SECURITY-RFC,planned_unimplemented
+CON-011,Connection and identity,VPN connectivity guide,F0,R0,PVE,LOCAL,planned_unimplemented
+CON-012,Connection and identity,Connection diagnostic panel,F0,R0,PVE,API,planned_unimplemented
+CON-013,Connection and identity,Trusted certificate rotation wizard,F2,R1,PVE,TLS,planned_unimplemented
+CON-014,Connection and identity,Secure profile metadata export,F1,R1,PVE,STORAGE,planned_unimplemented
+HOME-001,Home and discovery,Incident-first cluster overview,F0,R0,PVE,API,planned_unimplemented
+HOME-002,Home and discovery,Customizable dashboard widgets,F1,R0,PVE,LOCAL,planned_unimplemented
+HOME-003,Home and discovery,Multi-profile summary cards,F1,R0,PVE,ISOLATION,planned_unimplemented
+HOME-004,Home and discovery,Favorite guests and nodes,F0,R0,PVE,LOCAL,planned_unimplemented
+HOME-005,Home and discovery,Global inventory search,F0,R0,PVE,API,planned_unimplemented
+HOME-006,Home and discovery,Saved smart filters,F1,R0,PVE,LOCAL,planned_unimplemented
+HOME-007,Home and discovery,Tag and pool browsing,F1,R0,PVE,API,planned_unimplemented
+HOME-008,Home and discovery,Recent resources shortcuts,F1,R0,PVE,LOCAL,planned_unimplemented
+HOME-009,Home and discovery,Permission-restricted resource indicators,F0,R0,PVE,ACL,planned_unimplemented
+HOME-010,Home and discovery,Stale data and last sync indicators,F0,R0,PVE,CACHE,planned_unimplemented
+HOME-011,Home and discovery,Topology graph of node guest relationships,F2,R0,PVE,API,planned_unimplemented
+HOME-012,Home and discovery,Global command palette for navigation,F2,R0,PVE,UX,planned_unimplemented
+HOME-013,Home and discovery,Personalized read-only homescreen views,F1,R0,PVE,LOCAL,planned_unimplemented
+GUEST-001,VM and container control,QEMU status and details,F0,R0,PVE,API,planned_unimplemented
+GUEST-002,VM and container control,LXC status and details,F0,R0,PVE,API,planned_unimplemented
+GUEST-003,VM and container control,Guest start,F0,R1,PVE,TASK,planned_unimplemented
+GUEST-004,VM and container control,Graceful guest shutdown,F0,R2,PVE,TASK,planned_unimplemented
+GUEST-005,VM and container control,Guest reboot,F0,R2,PVE,TASK,planned_unimplemented
+GUEST-006,VM and container control,Force guest stop,F0,R3,PVE,TASK,planned_unimplemented
+GUEST-007,VM and container control,Guest suspend or resume,F2,R2,PVE,API,planned_unimplemented
+GUEST-008,VM and container control,Guest configuration inspection,F1,R0,PVE,API,planned_unimplemented
+GUEST-009,VM and container control,CPU memory boot configuration editor,F2,R3,PVE,API,planned_unimplemented
+GUEST-010,VM and container control,Disk and NIC configuration editor,F2,R3,PVE,API,planned_unimplemented
+GUEST-011,VM and container control,Cloud-init view and editor,F2,R2,PVE,API,planned_unimplemented
+GUEST-012,VM and container control,QEMU create wizard,F2,R3,PVE,API,planned_unimplemented
+GUEST-013,VM and container control,LXC create wizard,F2,R3,PVE,API,planned_unimplemented
+GUEST-014,VM and container control,Template browsing,F1,R0,PVE,API,planned_unimplemented
+GUEST-015,VM and container control,Linked and full clone wizard,F2,R3,PVE,API,planned_unimplemented
+GUEST-016,VM and container control,Guest migration planner,F2,R3,PVE,API,planned_unimplemented
+GUEST-017,VM and container control,Guest snapshot tree,F1,R0,PVE,API,planned_unimplemented
+GUEST-018,VM and container control,Guest snapshot create,F2,R2,PVE,API,planned_unimplemented
+GUEST-019,VM and container control,Guest snapshot rollback,F2,R3,PVE,API,planned_unimplemented
+GUEST-020,VM and container control,Guest snapshot deletion,F2,R3,PVE,API,planned_unimplemented
+GUEST-021,VM and container control,Guest disk resize wizard,F2,R3,PVE,API,planned_unimplemented
+GUEST-022,VM and container control,Guest delete protected workflow,F3,R4,PVE,API,planned_unimplemented
+GUEST-023,VM and container control,Batch operations with per-guest preflight,F3,R3,PVE,TASK,planned_unimplemented
+GUEST-024,VM and container control,Guest network utilization graph,F1,R0,PVE,RRD,planned_unimplemented
+GUEST-025,VM and container control,QEMU guest agent details,F2,R0,PVE,API,planned_unimplemented
+CONSOLE-001,Interactive console,Secure ticket-gated console entry,F2,R1,PVE,CONSOLE-RFC,planned_unimplemented
+CONSOLE-002,Interactive console,QEMU graphical VNC console,F2,R1,PVE,CONSOLE-RFC,planned_unimplemented
+CONSOLE-003,Interactive console,LXC shell terminal,F2,R1,PVE,CONSOLE-RFC,planned_unimplemented
+CONSOLE-004,Interactive console,Console MFA and expiry handling,F2,R1,PVE,AUTH-SPIKE,planned_unimplemented
+CONSOLE-005,Interactive console,Mobile virtual keyboard special keys,F2,R0,PVE,CONSOLE-RFC,planned_unimplemented
+CONSOLE-006,Interactive console,Touch mouse pointer gesture modes,F2,R0,PVE,CONSOLE-RFC,planned_unimplemented
+CONSOLE-007,Interactive console,Console zoom and scaling,F2,R0,PVE,CONSOLE-RFC,planned_unimplemented
+CONSOLE-008,Interactive console,Landscape console mode,F2,R0,PVE,CONSOLE-RFC,planned_unimplemented
+CONSOLE-009,Interactive console,Explicit clipboard sharing,F2,R1,PVE,CONSOLE-RFC,planned_unimplemented
+CONSOLE-010,Interactive console,Console reconnect and state cleanup,F2,R1,PVE,CONSOLE-RFC,planned_unimplemented
+TASK-001,Tasks and operations,Task history list,F0,R0,PVE,API,planned_unimplemented
+TASK-002,Tasks and operations,Task live status tracking,F0,R0,PVE,API,planned_unimplemented
+TASK-003,Tasks and operations,Task log viewer with redaction,F1,R0,PVE,API,planned_unimplemented
+TASK-004,Tasks and operations,Per-guest task timeline,F1,R0,PVE,API,planned_unimplemented
+TASK-005,Tasks and operations,Task filtering by status and actor,F1,R0,PVE,API,planned_unimplemented
+TASK-006,Tasks and operations,Operation confirmation preflight engine,F0,R1,PVE,OP,planned_unimplemented
+TASK-007,Tasks and operations,Unknown write outcome handling,F0,R1,PVE,OP,planned_unimplemented
+TASK-008,Tasks and operations,User operation activity journal,F2,R0,PVE,LOCAL,planned_unimplemented
+TASK-009,Tasks and operations,Safe task correlation and support export,F2,R0,PVE,LOCAL,planned_unimplemented
+TASK-010,Tasks and operations,Task outcome notification,F1,R0,PVE,ANDROID,planned_unimplemented
+MON-001,Metrics and analytics,Cluster CPU and memory statistics,F0,R0,PVE,API,planned_unimplemented
+MON-002,Metrics and analytics,Node CPU memory disk usage,F0,R0,PVE,API,planned_unimplemented
+MON-003,Metrics and analytics,Per-guest CPU and RAM metrics,F0,R0,PVE,API,planned_unimplemented
+MON-004,Metrics and analytics,RRD timeseries charts,F1,R0,PVE,RRD,planned_unimplemented
+MON-005,Metrics and analytics,24-hour performance comparison,F1,R0,PVE,RRD,planned_unimplemented
+MON-006,Metrics and analytics,7-day capacity trend,F1,R0,PVE,RRD,planned_unimplemented
+MON-007,Metrics and analytics,30-day capacity trend,F2,R0,PVE,RRD,planned_unimplemented
+MON-008,Metrics and analytics,Top CPU and RAM consumers,F1,R0,PVE,API,planned_unimplemented
+MON-009,Metrics and analytics,Storage capacity estimates,F1,R0,PVE,API,planned_unimplemented
+MON-010,Metrics and analytics,Metric quality and missing point labels,F1,R0,PVE,RRD,planned_unimplemented
+MON-011,Metrics and analytics,Capacity runway estimates,F3,R0,PVE,HEURISTICS,planned_unimplemented
+MON-012,Metrics and analytics,Node load comparison graph,F2,R0,PVE,RRD,planned_unimplemented
+MON-013,Metrics and analytics,Timeline of incidents and tasks,F2,R0,PVE,API,planned_unimplemented
+MON-014,Metrics and analytics,Annotated metric anomaly candidates,F3,R0,PVE,HEURISTICS,planned_unimplemented
+ALERT-001,Alerts and notifications,In-app incident inbox,F1,R0,Local-or-relay,API,planned_unimplemented
+ALERT-002,Alerts and notifications,Foreground CPU threshold rules,F1,R0,Local-or-relay,POLL,planned_unimplemented
+ALERT-003,Alerts and notifications,Foreground storage threshold rules,F1,R0,Local-or-relay,POLL,planned_unimplemented
+ALERT-004,Alerts and notifications,Failed task notifications,F1,R0,Local-or-relay,POLL,planned_unimplemented
+ALERT-005,Alerts and notifications,Node offline detection when polling,F1,R0,Local-or-relay,POLL,planned_unimplemented
+ALERT-006,Alerts and notifications,Rule duration and hysteresis,F2,R0,Local-or-relay,RULES,planned_unimplemented
+ALERT-007,Alerts and notifications,Quiet hours and cooldown,F2,R0,Local-or-relay,RULES,planned_unimplemented
+ALERT-008,Alerts and notifications,Alert acknowledgement and history,F2,R0,Local-or-relay,RULES,planned_unimplemented
+ALERT-009,Alerts and notifications,Android WorkManager periodic checks,F2,R0,Local-or-relay,ANDROID,planned_unimplemented
+ALERT-010,Alerts and notifications,Notification lock-screen privacy,F1,R1,Local-or-relay,ANDROID,planned_unimplemented
+ALERT-011,Alerts and notifications,Relay push alert integration,F4,R1,Local-or-relay,RELAY-RFC,planned_unimplemented
+ALERT-012,Alerts and notifications,Optional self-hosted webhook integrations,F4,R1,Local-or-relay,RELAY-RFC,planned_unimplemented
+ALERT-013,Alerts and notifications,Certificate expiry reminder,F2,R0,Local-or-relay,API,planned_unimplemented
+ALERT-014,Alerts and notifications,Backup freshness reminder,F2,R0,Local-or-relay,API,planned_unimplemented
+BKP-001,Backup and recovery,PVE backup job status,F1,R0,PVE-or-PBS,API,planned_unimplemented
+BKP-002,Backup and recovery,Latest backup per guest,F1,R0,PVE-or-PBS,API,planned_unimplemented
+BKP-003,Backup and recovery,Backup success and failure timeline,F1,R0,PVE-or-PBS,API,planned_unimplemented
+BKP-004,Backup and recovery,One-time backup action,F2,R2,PVE-or-PBS,API,planned_unimplemented
+BKP-005,Backup and recovery,Backup schedule read and filter,F2,R0,PVE-or-PBS,API,planned_unimplemented
+BKP-006,Backup and recovery,Backup schedule edit,F3,R3,PVE-or-PBS,API,planned_unimplemented
+BKP-007,Backup and recovery,Backup restore plan wizard,F3,R3,PVE-or-PBS,API,planned_unimplemented
+BKP-008,Backup and recovery,Restore target conflict preflight,F3,R3,PVE-or-PBS,API,planned_unimplemented
+BKP-009,Backup and recovery,Backup validation confidence card,F2,R0,PVE-or-PBS,API,planned_unimplemented
+BKP-010,Backup and recovery,Last tested restore declaration,F2,R0,PVE-or-PBS,LOCAL,planned_unimplemented
+BKP-011,Backup and recovery,PBS datastore list,F4,R0,PVE-or-PBS,PBS-ADAPTER,planned_unimplemented
+BKP-012,Backup and recovery,PBS snapshot explorer,F4,R0,PVE-or-PBS,PBS-ADAPTER,planned_unimplemented
+BKP-013,Backup and recovery,PBS verification task status,F4,R0,PVE-or-PBS,PBS-ADAPTER,planned_unimplemented
+BKP-014,Backup and recovery,PBS sync job health,F4,R0,PVE-or-PBS,PBS-ADAPTER,planned_unimplemented
+BKP-015,Backup and recovery,PBS prune and GC read-only status,F4,R0,PVE-or-PBS,PBS-ADAPTER,planned_unimplemented
+BKP-016,Backup and recovery,PBS advanced retention editing,F4,R4,PVE-or-PBS,PBS-ADAPTER,planned_unimplemented
+BKP-017,Backup and recovery,PBS S3-backed storage metrics,F4,R0,PVE-or-PBS,PBS-ADAPTER,planned_unimplemented
+INF-001,Nodes and HA,Node detail health,F1,R0,PVE,API,planned_unimplemented
+INF-002,Nodes and HA,Node process and service status,F2,R0,PVE,API,planned_unimplemented
+INF-003,Nodes and HA,Node updates pending list,F2,R0,PVE,API,planned_unimplemented
+INF-004,Nodes and HA,Node reboot maintenance workflow,F3,R4,PVE,HA-LAB,planned_unimplemented
+INF-005,Nodes and HA,Node shutdown maintenance workflow,F3,R4,PVE,HA-LAB,planned_unimplemented
+INF-006,Nodes and HA,Cluster quorum overview,F1,R0,PVE,API,planned_unimplemented
+INF-007,Nodes and HA,HA resource visibility,F2,R0,PVE,HA-LAB,planned_unimplemented
+INF-008,Nodes and HA,HA resource management,F3,R4,PVE,HA-LAB,planned_unimplemented
+INF-009,Nodes and HA,HA arm and disarm visibility 9.2,F3,R0,PVE,PVE-9.2,planned_unimplemented
+INF-010,Nodes and HA,HA arm and disarm changes 9.2,F3,R4,PVE,HA-LAB,planned_unimplemented
+INF-011,Nodes and HA,Dynamic load balancing state 9.2,F3,R0,PVE,PVE-9.2,planned_unimplemented
+INF-012,Nodes and HA,Dynamic load balancing policy controls 9.2,F3,R4,PVE,HA-LAB,planned_unimplemented
+INF-013,Nodes and HA,Maintenance checklist and runbook,F3,R1,PVE,RUNBOOK,planned_unimplemented
+INF-014,Nodes and HA,Custom CPU model display 9.2,F3,R0,PVE,PVE-9.2,planned_unimplemented
+STOR-001,Storage and Ceph,Storage usage overview,F0,R0,PVE,API,planned_unimplemented
+STOR-002,Storage and Ceph,Storage content and availability,F1,R0,PVE,API,planned_unimplemented
+STOR-003,Storage and Ceph,ZFS pool and filesystem health,F2,R0,PVE,API,planned_unimplemented
+STOR-004,Storage and Ceph,Disk and SMART readouts,F2,R0,PVE,API,planned_unimplemented
+STOR-005,Storage and Ceph,Storage configuration editor,F3,R4,PVE,LAB,planned_unimplemented
+STOR-006,Storage and Ceph,Ceph cluster summary,F2,R0,PVE,CEPH-LAB,planned_unimplemented
+STOR-007,Storage and Ceph,Ceph OSD health and tree,F2,R0,PVE,CEPH-LAB,planned_unimplemented
+STOR-008,Storage and Ceph,Ceph PG and pool state,F2,R0,PVE,CEPH-LAB,planned_unimplemented
+STOR-009,Storage and Ceph,Ceph slow operation diagnostics,F3,R0,PVE,CEPH-LAB,planned_unimplemented
+STOR-010,Storage and Ceph,Ceph pool operations,F3,R4,PVE,CEPH-LAB,planned_unimplemented
+STOR-011,Storage and Ceph,Ceph OSD operations,F3,R4,PVE,CEPH-LAB,planned_unimplemented
+STOR-012,Storage and Ceph,Storage capacity anomaly insights,F3,R0,PVE,HEURISTICS,planned_unimplemented
+NET-001,Networks SDN and firewall,Network interfaces summary,F2,R0,PVE,API,planned_unimplemented
+NET-002,Networks SDN and firewall,Bridge and VLAN inventory,F2,R0,PVE,API,planned_unimplemented
+NET-003,Networks SDN and firewall,SDN zone and VNet inventory,F2,R0,PVE,API,planned_unimplemented
+NET-004,Networks SDN and firewall,Firewall rules read-only viewer,F2,R0,PVE,API,planned_unimplemented
+NET-005,Networks SDN and firewall,SDN fabric visibility 9.2,F3,R0,PVE,PVE-9.2,planned_unimplemented
+NET-006,Networks SDN and firewall,WireGuard SDN overview 9.2,F3,R0,PVE,PVE-9.2,planned_unimplemented
+NET-007,Networks SDN and firewall,BGP EVPN policies overview 9.2,F3,R0,PVE,PVE-9.2,planned_unimplemented
+NET-008,Networks SDN and firewall,Virtual network change preview,F3,R4,PVE,NETWORK-LAB,planned_unimplemented
+NET-009,Networks SDN and firewall,Firewall rule editor with recovery gate,F3,R4,PVE,NETWORK-LAB,planned_unimplemented
+NET-010,Networks SDN and firewall,SDN configuration editor,F3,R4,PVE,NETWORK-LAB,planned_unimplemented
+NET-011,Networks SDN and firewall,Certificate and ACME status,F2,R0,PVE,API,planned_unimplemented
+SEC-001,Security and administration,Role and permission hints,F0,R0,PVE,ACL,planned_unimplemented
+SEC-002,Security and administration,Local biometric app lock,F1,R1,PVE,KEYSTORE,planned_unimplemented
+SEC-003,Security and administration,Security posture dashboard,F2,R0,PVE,API,planned_unimplemented
+SEC-004,Security and administration,Session expiry and reauthentication,F2,R1,PVE,AUTH,planned_unimplemented
+SEC-005,Security and administration,Secure profile deletion,F0,R1,PVE,STORAGE,planned_unimplemented
+SEC-006,Security and administration,Per-profile cache purge,F0,R1,PVE,STORAGE,planned_unimplemented
+SEC-007,Security and administration,Passwordless token rotation guidance,F2,R0,PVE,API,planned_unimplemented
+SEC-008,Security and administration,Users and ACL read-only explorer,F2,R0,PVE,ACL,planned_unimplemented
+SEC-009,Security and administration,User and token management wizard,F3,R4,PVE,ACL-LAB,planned_unimplemented
+SEC-010,Security and administration,Redacted diagnostics report,F2,R1,PVE,PRIVACY,planned_unimplemented
+SEC-011,Security and administration,Critical action reauthentication,F3,R1,PVE,AUTH,planned_unimplemented
+SEC-012,Security and administration,Server certificate pin rotation,F2,R1,PVE,TLS,planned_unimplemented
+AND-001,Android polish,Material 3 dark and light themes,F0,R0,Android,UI,planned_unimplemented
+AND-002,Android polish,AMOLED theme,F1,R0,Android,UI,planned_unimplemented
+AND-003,Android polish,Dynamic color option,F1,R0,Android,UI,planned_unimplemented
+AND-004,Android polish,Accessible charts with text alternative,F1,R0,Android,A11Y,planned_unimplemented
+AND-005,Android polish,TalkBack navigation,F0,R0,Android,A11Y,planned_unimplemented
+AND-006,Android polish,Large text and high contrast,F0,R0,Android,A11Y,planned_unimplemented
+AND-007,Android polish,Reduced motion preference,F1,R0,Android,A11Y,planned_unimplemented
+AND-008,Android polish,Safe home screen health widgets,F2,R0,Android,ANDROID,planned_unimplemented
+AND-009,Android polish,Android notification channels,F1,R0,Android,ANDROID,planned_unimplemented
+AND-010,Android polish,Notification deep link to unlocked view,F2,R1,Android,ANDROID,planned_unimplemented
+AND-011,Android polish,Offline stale-aware inventory,F0,R0,Android,CACHE,planned_unimplemented
+AND-012,Android polish,Android quick app shortcuts,F2,R0,Android,ANDROID,planned_unimplemented
+AND-013,Android polish,Localized UI foundation,F1,R0,Android,L10N,planned_unimplemented
+AND-014,Android polish,Haptic feedback on confirmations,F1,R0,Android,UI,planned_unimplemented
+ECO-001,Ecosystem and multi-site,Read-only all-sites overview,F2,R0,PDM-or-PBS,ISOLATION,planned_unimplemented
+ECO-002,Ecosystem and multi-site,Cross-profile tagging and saved views,F2,R0,PDM-or-PBS,LOCAL,planned_unimplemented
+ECO-003,Ecosystem and multi-site,PBS separate authenticated connector,F4,R1,PDM-or-PBS,PBS-ADAPTER,planned_unimplemented
+ECO-004,Ecosystem and multi-site,PDM separate authenticated connector,F4,R1,PDM-or-PBS,PDM-ADAPTER,planned_unimplemented
+ECO-005,Ecosystem and multi-site,PDM cross-remote guest inventory,F4,R0,PDM-or-PBS,PDM-ADAPTER,planned_unimplemented
+ECO-006,Ecosystem and multi-site,PDM Ceph overview,F4,R0,PDM-or-PBS,PDM-ADAPTER,planned_unimplemented
+ECO-007,Ecosystem and multi-site,PDM snapshot inventory,F4,R0,PDM-or-PBS,PDM-ADAPTER,planned_unimplemented
+ECO-008,Ecosystem and multi-site,PDM remote tasks and changes,F4,R0,PDM-or-PBS,PDM-ADAPTER,planned_unimplemented
+ECO-009,Ecosystem and multi-site,Self-hosted relay enrollment,F4,R1,PDM-or-PBS,RELAY-RFC,planned_unimplemented
+ECO-010,Ecosystem and multi-site,Multiple customer privacy boundaries,F0,R1,PDM-or-PBS,ISOLATION,planned_unimplemented
+INT-001,Intelligence and assistance,Failed task root cause hints,F3,R0,Local,HEURISTICS,planned_unimplemented
+INT-002,Intelligence and assistance,Explanations with evidence links,F3,R0,Local,HEURISTICS,planned_unimplemented
+INT-003,Intelligence and assistance,Predictive free space estimate,F3,R0,Local,HEURISTICS,planned_unimplemented
+INT-004,Intelligence and assistance,Unusual restart pattern hints,F3,R0,Local,HEURISTICS,planned_unimplemented
+INT-005,Intelligence and assistance,Workload right-sizing suggestions,F3,R0,Local,HEURISTICS,planned_unimplemented
+INT-006,Intelligence and assistance,Backup gap detection,F3,R0,Local,HEURISTICS,planned_unimplemented
+INT-007,Intelligence and assistance,Local language command palette,F3,R0,Local,PRIVACY,planned_unimplemented
+INT-008,Intelligence and assistance,Opt-in on-device conversational assistant research,F4,R0,Local,LLM-RFC,planned_unimplemented
+INT-009,Intelligence and assistance,Incident postmortem summary draft,F3,R0,Local,PRIVACY,planned_unimplemented
+INT-010,Intelligence and assistance,Never-auto-execute safety shield,F0,R1,Local,SECURITY,planned_unimplemented
