@@ -14,5 +14,7 @@
   "regression_pve": "8.4",
   "source_type": "documentation & Git bootstrap",
   "github_repository_url": "https://github.com/s4daharu/VirtHelm",
-  "documentation_uploaded_and_verified": false
+  "documentation_uploaded_and_verified": true,
+  "docs_initial_remote_commit": "4fdfcd704aced213508f798533fd6370573ac284",
+  "docs_initial_ci": "success"
 }
