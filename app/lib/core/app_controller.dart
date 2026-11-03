@@ -30,6 +30,22 @@ class AppController extends ChangeNotifier {
   bool _foreground = true;
   bool _disposed = false;
 
+  // A guest is single-flight across preflight, submission and UPID completion.
+  // Unknown outcomes remain blocked for this connection session.
+  final Set<String> _pendingGuestOperations = {};
+  final Set<String> _uncertainGuestOperations = {};
+  final Map<String, String> _taskTargets = {};
+
+  String _guestKey(Guest guest) =>
+      '${guest.kind}:${guest.node}:${guest.vmid}';
+
+  bool isGuestActionBlocked(Guest guest) {
+    final key = _guestKey(guest);
+    return _pendingGuestOperations.contains(key) ||
+        _uncertainGuestOperations.contains(key);
+  }
+
+
   void _notify() {
     if (!_disposed) notifyListeners();
   }
@@ -87,6 +103,9 @@ class AppController extends ChangeNotifier {
     active = profile;
     inventory = null;
     tasks.clear();
+    _pendingGuestOperations.clear();
+    _uncertainGuestOperations.clear();
+    _taskTargets.clear();
     message = null;
     refreshing = false;
     _notify();
@@ -136,42 +155,114 @@ class AppController extends ChangeNotifier {
       message == null &&
       DateTime.now().difference(inventory!.fetchedAt) < const Duration(minutes: 2);
 
-  Future<void> runAction(Guest guest, GuestAction action, {required String profileId}) async {
+  Future<void> runAction(
+    Guest guest,
+    GuestAction action, {
+    required String profileId,
+  }) async {
     final gateway = _gateway;
     final generation = _generation;
-    if (active?.id != profileId) {
-      throw const PveFailure('Connection changed; return to the guest list before acting.');
+    if (_disposed || active?.id != profileId) {
+      throw const PveFailure(
+        'Connection changed; return to the guest list before acting.',
+      );
     }
-    if (gateway == null || active == null || !isInventoryFresh) {
+    if (gateway == null || !isInventoryFresh || refreshing) {
       throw const PveFailure('Refresh live inventory before making changes.');
     }
-    if (!action.allowedFor(guest)) {
-      throw const PveFailure('This action is not available for the current guest state.');
-    }
-    final actual = await gateway.guestStatus(guest);
-    if (generation != _generation || active?.id != profileId || _disposed) {
-      throw const PveFailure('Connection changed; action canceled.');
-    }
-    if (actual != guest.status) {
-      throw const PveFailure('Guest state changed. Refresh and review before retrying.');
-    }
-    // Exactly one POST. A timeout must never trigger an automatic retry.
-    final upid = await gateway.submit(guest, action);
-    if (generation != _generation || _disposed) {
+
+    // A guest shown by an old screen must not authorize a command. A VMID
+    // present at multiple nodes is ambiguous even if its status matches.
+    final snapshot = inventory!;
+    final matches = snapshot.guests
+        .where((item) => item.kind == guest.kind && item.vmid == guest.vmid)
+        .toList();
+    if (matches.length != 1 ||
+        !identical(matches.single, guest) ||
+        matches.single.node != guest.node ||
+        matches.single.status != guest.status) {
       throw const PveFailure(
-        'Connection changed after submission. Check server task history.',
+        'Guest inventory changed. Refresh and review the target again.',
+      );
+    }
+    if (!action.allowedFor(guest)) {
+      throw const PveFailure(
+        'This action is not available for the current guest state.',
+      );
+    }
+
+    final key = _guestKey(guest);
+    if (_uncertainGuestOperations.contains(key)) {
+      throw const PveFailure(
+        'An earlier action has an unknown outcome. Verify the guest and '
+        'server task history before reconnecting and trying again.',
         mayHaveExecuted: true,
       );
     }
-    tasks.insert(0, TrackedTask(
-      upid: upid,
-      node: guest.node,
-      title: '${action.label} ${guest.name} (${guest.vmid})',
-      startedAt: DateTime.now(),
-      outcome: OperationOutcome.running,
-    ));
+    if (_pendingGuestOperations.contains(key)) {
+      throw const PveFailure(
+        'An operation is already pending for this guest. Check Tasks.',
+      );
+    }
+    // Reserve the target synchronously before the first await. This prevents
+    // double-taps or independent screens from submitting duplicate writes.
+    _pendingGuestOperations.add(key);
     _notify();
-    if (_foreground) _startPolling();
+    var postAttempted = false;
+    try {
+      final actual = await gateway.guestStatus(guest);
+      if (generation != _generation || active?.id != profileId || _disposed) {
+        throw const PveFailure('Connection changed; action canceled.');
+      }
+      if (!identical(snapshot, inventory) ||
+          refreshing ||
+          !isInventoryFresh) {
+        throw const PveFailure(
+          'Inventory changed during verification. Refresh and review again.',
+        );
+      }
+      if (actual != guest.status) {
+        throw const PveFailure(
+          'Guest state changed. Refresh and review before retrying.',
+        );
+      }
+
+      // Exactly one POST; no automatic retry after an ambiguous failure.
+      postAttempted = true;
+      final upid = await gateway.submit(guest, action);
+      if (generation != _generation || active?.id != profileId || _disposed) {
+        throw const PveFailure(
+          'Connection changed after submission. Check server task history.',
+          mayHaveExecuted: true,
+        );
+      }
+      _taskTargets[upid] = key;
+      tasks.insert(
+        0,
+        TrackedTask(
+          upid: upid,
+          node: guest.node,
+          title: '${action.label} ${guest.name} (${guest.vmid})',
+          startedAt: DateTime.now(),
+          outcome: OperationOutcome.running,
+        ),
+      );
+      _notify();
+      if (_foreground) _startPolling();
+    } catch (error) {
+      // A failed POST can have executed on the server; do not allow another
+      // local submission until the operator reviews the server-side result.
+      if (generation == _generation &&
+          (error is PveFailure ? error.mayHaveExecuted : postAttempted)) {
+        _uncertainGuestOperations.add(key);
+      }
+      rethrow;
+    } finally {
+      if (generation == _generation && !_taskTargets.containsValue(key)) {
+        _pendingGuestOperations.remove(key);
+      }
+      if (generation == _generation) _notify();
+    }
   }
 
   void setForeground(bool visible) {
@@ -218,6 +309,13 @@ class AppController extends ChangeNotifier {
             result,
             detail: status.exitStatus ?? 'Task ended without a known exit status.',
           );
+          final target = _taskTargets.remove(pendingTask.upid);
+          if (target != null) {
+            _pendingGuestOperations.remove(target);
+            if (result == OperationOutcome.unknown) {
+              _uncertainGuestOperations.add(target);
+            }
+          }
           finished = true;
           _notify();
         } catch (_) {
@@ -241,6 +339,9 @@ class AppController extends ChangeNotifier {
       active = null;
       inventory = null;
       tasks.clear();
+      _pendingGuestOperations.clear();
+      _uncertainGuestOperations.clear();
+      _taskTargets.clear();
       message = null;
       if (profiles.isNotEmpty) await activate(profiles.first);
     }
