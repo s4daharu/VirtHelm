@@ -1,0 +1,18 @@
+{
+  "project": "VirtHelm",
+  "as_of": "2026-11-04",
+  "app_code_written": false,
+  "flutter_build_executed": false,
+  "live_pve_tested": false,
+  "github_private_repo_created": true,
+  "github_owner_identified": "s4daharu",
+  "requested_repo_name": "VirtHelm",
+  "target": "Android phone only",
+  "language": "Dart",
+  "framework": "Flutter",
+  "primary_pve": "9.2",
+  "regression_pve": "8.4",
+  "source_type": "documentation & Git bootstrap",
+  "github_repository_url": "https://github.com/s4daharu/VirtHelm",
+  "documentation_uploaded_and_verified": false
+}

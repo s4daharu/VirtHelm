@@ -1,0 +1,26 @@
+# secrets, developer data, signing
+.env
+.env.*
+!.env.example
+**/key.properties
+**/*.jks
+**/*.keystore
+**/*.p12
+**/*-private.key
+**/pve-auth*.json
+**/secrets*.json
+*.log
+.DS_Store
+.idea/
+.vscode/
+# Flutter and Android generated
+app/.dart_tool/
+app/.flutter-plugins*
+app/.packages
+app/build/
+app/android/.gradle/
+app/android/local.properties
+app/android/captures/
+app/coverage/
+app/*.iml
+# Keep pubspec.lock checked in for reproducible Android application builds
