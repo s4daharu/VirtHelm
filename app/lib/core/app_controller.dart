@@ -348,9 +348,10 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> deleteProfile(String id) async {
-    await repository.delete(id);
-    profiles = repository.readProfiles();
-    if (active?.id == id) {
+    final deletingActiveProfile = active?.id == id;
+    if (deletingActiveProfile) {
+      // Revoke the in-memory session immediately, before an asynchronous
+      // credential deletion could race an in-flight guest preflight.
       _generation++;
       _pollTimer?.cancel();
       _gateway?.close();
@@ -362,7 +363,16 @@ class AppController extends ChangeNotifier {
       _uncertainGuestOperations.clear();
       _taskTargets.clear();
       message = null;
-      if (profiles.isNotEmpty) await activate(profiles.first);
+      refreshing = false;
+      _notify();
+    }
+
+    // On deletion failure remain disconnected: failing closed is safer than
+    // silently restoring a session whose credential state is uncertain.
+    await repository.delete(id);
+    profiles = repository.readProfiles();
+    if (deletingActiveProfile && profiles.isNotEmpty) {
+      await activate(profiles.first);
     }
     _notify();
   }
