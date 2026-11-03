@@ -1,0 +1,152 @@
+import 'package:dio/dio.dart';
+
+import 'models.dart';
+
+abstract class PveGateway {
+  Future<String> version();
+  Future<Inventory> inventory();
+  Future<String> guestStatus(Guest guest);
+  Future<String> submit(Guest guest, GuestAction action);
+  Future<ServerTaskStatus> taskStatus(TrackedTask task);
+  void close();
+}
+
+typedef GatewayFactory = PveGateway Function(
+  ConnectionProfile profile,
+  ApiCredentials credentials,
+);
+
+/// A new Dio instance is created for each profile; credentials are origin-scoped.
+/// Redirects are rejected so Authorization is never forwarded to another host.
+class DioPveGateway implements PveGateway {
+  DioPveGateway(ConnectionProfile profile, ApiCredentials credentials,
+      {Dio? http})
+      : _http = http ??
+            Dio(BaseOptions(
+              baseUrl: '${profile.endpoint}/api2/json',
+              connectTimeout: const Duration(seconds: 10),
+              receiveTimeout: const Duration(seconds: 25),
+              sendTimeout: const Duration(seconds: 15),
+              followRedirects: false,
+              maxRedirects: 0,
+              headers: {'Authorization': credentials.header},
+              validateStatus: (status) =>
+                  status != null && status >= 200 && status < 300,
+            )) {
+    if (!credentials.isValid) {
+      throw const FormatException('Invalid token identifier or secret.');
+    }
+    // Revalidate even if a profile came from corrupted preferences.
+    if (normalizePveEndpoint(profile.endpoint) != profile.endpoint) {
+      throw const FormatException('Invalid stored endpoint.');
+    }
+  }
+
+  final Dio _http;
+
+  static String _segment(String value) => Uri.encodeComponent(value);
+
+  Future<dynamic> _request(String path, {bool mutation = false}) async {
+    try {
+      final response = mutation
+          ? await _http.post<dynamic>(path)
+          : await _http.get<dynamic>(path);
+      final raw = response.data;
+      if (raw is! Map || !raw.containsKey('data')) {
+        throw const PveFailure('Unexpected Proxmox API response.');
+      }
+      return raw['data'];
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      final unknown = mutation &&
+          (e.type == DioExceptionType.connectionError ||
+              e.type == DioExceptionType.connectionTimeout ||
+              e.type == DioExceptionType.receiveTimeout ||
+              e.type == DioExceptionType.sendTimeout ||
+              (code != null && code >= 500));
+      final message = switch (code) {
+        401 => 'Authentication failed. Check or rotate your API token.',
+        403 => 'Permission denied by Proxmox. Check token ACLs.',
+        404 => 'Resource not found. It may have moved or been removed.',
+        null => unknown
+            ? 'Connection lost. The action may have executed; inspect server tasks before retrying.'
+            : 'Could not reach this Proxmox server. Check network, VPN, and certificate trust.',
+        _ => code >= 300 && code < 400
+            ? 'The server tried to redirect the request. Redirects are blocked for security.'
+            : unknown
+                ? 'Server error; the action outcome is unknown. Inspect server tasks before retrying.'
+                : 'Proxmox request failed (HTTP $code).',
+      };
+      throw PveFailure(message, status: code, mayHaveExecuted: unknown);
+    }
+  }
+
+  @override
+  Future<String> version() async {
+    final value = await _request('/version');
+    if (value is! Map) {
+      throw const PveFailure('Unexpected server version response.');
+    }
+    return asText(value['version']) ?? 'Unknown';
+  }
+
+  @override
+  Future<Inventory> inventory() async {
+    final value = await _request('/cluster/resources');
+    if (value is! List) {
+      throw const PveFailure('Unexpected cluster resources response.');
+    }
+    return Inventory.fromResources(value);
+  }
+
+  String _guestPath(Guest guest) {
+    if (guest.kind != 'qemu' && guest.kind != 'lxc') {
+      throw const FormatException('Unsupported guest kind.');
+    }
+    if (guest.vmid < 1 || guest.node.isEmpty) {
+      throw const FormatException('Invalid guest identity.');
+    }
+    return '/nodes/${_segment(guest.node)}/${guest.kind}/${guest.vmid}';
+  }
+
+  @override
+  Future<String> guestStatus(Guest guest) async {
+    final value = await _request('${_guestPath(guest)}/status/current');
+    if (value is! Map) {
+      throw const PveFailure('Unexpected guest status response.');
+    }
+    return asText(value['status']) ?? 'unknown';
+  }
+
+  @override
+  Future<String> submit(Guest guest, GuestAction action) async {
+    final value = await _request(
+      '${_guestPath(guest)}/status/${action.apiAction}',
+      mutation: true,
+    );
+    if (value is! String || !value.startsWith('UPID:')) {
+      throw const PveFailure(
+        'Server returned an unexpected task identifier. Check task history.',
+        mayHaveExecuted: true,
+      );
+    }
+    return value;
+  }
+
+  @override
+  Future<ServerTaskStatus> taskStatus(TrackedTask task) async {
+    final value = await _request(
+      '/nodes/${_segment(task.node)}/tasks/${_segment(task.upid)}/status',
+    );
+    if (value is! Map) {
+      throw const PveFailure('Unexpected task status response.');
+    }
+    return ServerTaskStatus(
+      status: asText(value['status']) ?? 'unknown',
+      exitStatus: asText(value['exitstatus']),
+    );
+  }
+
+  @override
+  void close() => _http.close(force: true);
+}

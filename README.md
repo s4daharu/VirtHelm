@@ -36,6 +36,12 @@ VirtHelm's **premium product vision** is specified in the 2026-11-04 extension. 
 
 **Compatibility scope:** PVE 9.2 primary / 8.4 regression; separately-gated PBS 4.2 and PDM 1.1. Background alerts from a sleeping Android phone are not guaranteed; an optional self-hosted relay is future research. All irreversible operations require explicit preflight and live integration evidence. For the extended documentation, run `python3 scripts/check_premium.py`.
 
+## Implemented Flutter Android source (M1 preview)
+
+**Source code now exists in [app/](app/README.md).** This first vertical slice includes HTTPS-only API-token profiles with Android secure storage, a Material 3 dashboard, node/QEMU/LXC inventory, search, guest power controls with fresh-state preflight and a session-local task monitor. It is not the complete 200-feature premium product and has not yet been validated against a real PVE installation.
+
+On a workstation with Flutter and Android SDKs installed, generate the **Android-only** runner with `bash scripts/bootstrap_android.sh`, then run `cd app && flutter analyze && flutter test && flutter build apk --debug`. The native Android runner is intentionally generated per SDK until a tested toolchain and Gradle files can be committed. See [implementation status and test gaps](docs/37-implementation-m1.md).
+
 ## Architecture at a glance
 
 ```text

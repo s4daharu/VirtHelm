@@ -1,0 +1,501 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '../core/app_controller.dart';
+import '../core/models.dart';
+import 'connect_page.dart';
+import 'guest_page.dart';
+import 'theme.dart';
+
+class ShellPage extends StatefulWidget {
+  const ShellPage({super.key, required this.controller});
+  final AppController controller;
+
+  @override
+  State<ShellPage> createState() => _ShellPageState();
+}
+
+class _ShellPageState extends State<ShellPage> {
+  int selectedIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final profile = controller.active;
+    return Scaffold(
+      appBar: AppBar(
+        titleSpacing: 16,
+        title: Row(
+          children: [
+            Icon(Icons.hub_rounded, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('VirtHelm'),
+                  Text(profile?.name ?? 'No connection',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          if (controller.refreshing)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: SizedBox(width: 18, height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2)),
+            )
+          else
+            IconButton(
+              onPressed: () => unawaited(controller.refresh()),
+              icon: const Icon(Icons.refresh_rounded),
+              tooltip: 'Refresh inventory',
+            ),
+          PopupMenuButton<String>(
+            tooltip: 'Switch connection',
+            onSelected: (value) {
+              if (value == '__add') {
+                Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => ConnectPage(controller: controller),
+                ));
+                return;
+              }
+              for (final p in controller.profiles) {
+                if (p.id == value) {
+                  unawaited(controller.activate(p));
+                  break;
+                }
+              }
+            },
+            itemBuilder: (context) => [
+              for (final p in controller.profiles)
+                PopupMenuItem(value: p.id,
+                  child: Row(children: [
+                    Icon(p.id == profile?.id ? Icons.check_circle : Icons.dns_outlined, size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(p.name)),
+                  ])),
+              const PopupMenuDivider(),
+              const PopupMenuItem(value: '__add',
+                child: Row(children: [
+                  Icon(Icons.add_circle_outline, size: 18),
+                  SizedBox(width: 10),
+                  Text('Add connection'),
+                ])),
+            ],
+          ),
+        ],
+      ),
+      body: IndexedStack(index: selectedIndex, children: [
+        _OverviewTab(controller: controller, onOpenGuests: () => setState(() => selectedIndex = 1)),
+        _GuestsTab(controller: controller),
+        _TasksTab(controller: controller),
+        _SettingsTab(controller: controller),
+      ]),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: selectedIndex,
+        onDestinationSelected: (value) => setState(() => selectedIndex = value),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard_rounded), label: 'Home'),
+          NavigationDestination(icon: Icon(Icons.dns_outlined),
+            selectedIcon: Icon(Icons.dns_rounded), label: 'Guests'),
+          NavigationDestination(icon: Icon(Icons.timeline_outlined),
+            selectedIcon: Icon(Icons.timeline_rounded), label: 'Tasks'),
+          NavigationDestination(icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings_rounded), label: 'Settings'),
+        ],
+      ),
+    );
+  }
+}
+
+class _OverviewTab extends StatelessWidget {
+  const _OverviewTab({required this.controller, required this.onOpenGuests});
+  final AppController controller;
+  final VoidCallback onOpenGuests;
+
+  @override
+  Widget build(BuildContext context) {
+    final inv = controller.inventory;
+    final scheme = Theme.of(context).colorScheme;
+    final countRunning = inv?.guests.where((g) => g.isRunning).length ?? 0;
+    final countStopped = inv?.guests.where((g) => g.isStopped).length ?? 0;
+    final nodeOnline = inv?.nodes.where((n) => n.status == 'online').length ?? 0;
+    return RefreshIndicator(
+      onRefresh: controller.refresh,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 20, 18, 30),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: LinearGradient(colors: [
+                scheme.primaryContainer,
+                scheme.tertiaryContainer.withValues(alpha: 0.72),
+              ], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Icon(Icons.shield_outlined, color: scheme.onPrimaryContainer),
+                const SizedBox(width: 8),
+                Text('CLUSTER OVERVIEW', style: TextStyle(
+                    color: scheme.onPrimaryContainer, fontSize: 11,
+                    letterSpacing: 1.2, fontWeight: FontWeight.w700)),
+              ]),
+              const SizedBox(height: 16),
+              Text(controller.active?.name ?? 'Cluster',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: scheme.onPrimaryContainer, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 8),
+              Text(inv == null
+                    ? 'Waiting for live inventory'
+                    : controller.isInventoryFresh
+                        ? 'Live snapshot • ${_age(inv.fetchedAt)}'
+                        : 'STALE snapshot • ${_age(inv.fetchedAt)}',
+                style: TextStyle(color: scheme.onPrimaryContainer)),
+              const SizedBox(height: 18),
+              Text(controller.active?.endpoint ?? '',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, color: scheme.onPrimaryContainer)),
+            ]),
+          ),
+          if (controller.message != null) ...[
+            const SizedBox(height: 14),
+            Card(color: scheme.errorContainer, child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(children: [
+                Icon(Icons.warning_amber_rounded, color: scheme.onErrorContainer),
+                const SizedBox(width: 10),
+                Expanded(child: Text(controller.message!,
+                  style: TextStyle(color: scheme.onErrorContainer))),
+              ]),
+            )),
+          ],
+          const SizedBox(height: 24),
+          _SectionHeading(title: 'Infrastructure', trailing: 'CURRENT SNAPSHOT'),
+          const SizedBox(height: 12),
+          GridView.count(
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 1.55,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _MetricCard(title: 'Nodes online',
+                value: inv == null ? '—' : '$nodeOnline / ${inv.nodes.length}',
+                icon: Icons.hub_outlined, color: const Color(0xFF20BFAF)),
+              _MetricCard(title: 'Guests total',
+                value: inv == null ? '—' : '${inv.guests.length}',
+                icon: Icons.computer_outlined, color: const Color(0xFF6498F8)),
+              _MetricCard(title: 'Running',
+                value: inv == null ? '—' : '$countRunning',
+                icon: Icons.play_circle_outline, color: const Color(0xFF20BFAF)),
+              _MetricCard(title: 'Stopped',
+                value: inv == null ? '—' : '$countStopped',
+                icon: Icons.pause_circle_outline, color: const Color(0xFFE9A95D)),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _SectionHeading(title: 'Nodes', trailing: inv == null ? '' : '${inv.nodes.length} FOUND'),
+          const SizedBox(height: 12),
+          if (inv == null)
+            const _MessageCard(text: 'Connect to load node health. Pull to refresh.')
+          else if (inv.nodes.isEmpty)
+            const _MessageCard(text: 'No nodes are visible to this token. Review permissions.')
+          else
+            for (final node in inv.nodes) ...[
+              Card(child: ListTile(
+                leading: const Icon(Icons.storage_rounded),
+                title: Text(node.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle: Text('CPU ${formatPercent(node.cpu)}  •  RAM ${formatBytes(node.mem)}'),
+                trailing: StatusChip(status: node.status),
+              )),
+              const SizedBox(height: 8),
+            ],
+          const SizedBox(height: 22),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('Workloads', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
+            TextButton(onPressed: onOpenGuests, child: const Text('View all')),
+          ]),
+          const SizedBox(height: 8),
+          if (inv != null)
+            for (final guest in inv.guests.take(5)) ...[
+              _GuestTile(guest: guest, controller: controller),
+              const SizedBox(height: 8),
+            ],
+          if (inv != null && inv.guests.isEmpty)
+            const _MessageCard(text: 'No QEMU VMs or LXC containers are visible.'),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading({required this.title, required this.trailing});
+  final String title;
+  final String trailing;
+  @override
+  Widget build(BuildContext context) => Row(children: [
+    Expanded(child: Text(title,
+      style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700))),
+    Text(trailing, style: TextStyle(fontSize: 10, letterSpacing: 1,
+      color: Theme.of(context).colorScheme.onSurfaceVariant)),
+  ]);
+}
+
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({required this.title, required this.value, required this.icon, required this.color});
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+  @override
+  Widget build(BuildContext context) => Card(child: Padding(
+    padding: const EdgeInsets.all(16),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Row(children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 8),
+          Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurfaceVariant))),
+        ]),
+        Text(value, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+      ]),
+  ));
+}
+
+class _MessageCard extends StatelessWidget {
+  const _MessageCard({required this.text});
+  final String text;
+  @override
+  Widget build(BuildContext context) => Card(child: Padding(
+      padding: const EdgeInsets.all(18), child: Text(text)));
+}
+
+class _GuestTile extends StatelessWidget {
+  const _GuestTile({required this.guest, required this.controller});
+  final Guest guest;
+  final AppController controller;
+  @override
+  Widget build(BuildContext context) => Card(child: ListTile(
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+    leading: CircleAvatar(
+      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+      foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+      child: Icon(guest.kind == 'qemu' ? Icons.computer_rounded : Icons.view_in_ar_rounded),
+    ),
+    title: Text(guest.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+    subtitle: Text('${guest.kind.toUpperCase()} • ${guest.vmid} • ${guest.node}'),
+    trailing: StatusChip(status: guest.status),
+    onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => GuestPage(controller: controller, guest: guest))),
+  ));
+}
+
+class _GuestsTab extends StatefulWidget {
+  const _GuestsTab({required this.controller});
+  final AppController controller;
+  @override
+  State<_GuestsTab> createState() => _GuestsTabState();
+}
+
+class _GuestsTabState extends State<_GuestsTab> {
+  final search = TextEditingController();
+  String query = '';
+
+  @override
+  void dispose() {
+    search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inv = widget.controller.inventory;
+    final guests = (inv?.guests ?? <Guest>[])
+        .where((g) => g.name.toLowerCase().contains(query.toLowerCase()) ||
+            g.vmid.toString().contains(query) ||
+            g.node.toLowerCase().contains(query.toLowerCase()))
+        .toList();
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+        child: TextField(
+          controller: search,
+          onChanged: (value) => setState(() => query = value),
+          decoration: const InputDecoration(
+              hintText: 'Search guests, VMID, or node',
+              prefixIcon: Icon(Icons.search_rounded)),
+        ),
+      ),
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Row(children: [
+        Text('${guests.length} workloads', style: const TextStyle(fontWeight: FontWeight.w700)),
+        const Spacer(),
+        Text(inv == null ? 'No live data' :
+          widget.controller.isInventoryFresh ? 'Live' : 'STALE',
+          style: TextStyle(fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      ])),
+      const SizedBox(height: 12),
+      Expanded(child: inv == null
+        ? const EmptyState(icon: Icons.cloud_off_outlined, title: 'Not connected',
+            body: 'Refresh or verify the connection to browse workloads.')
+        : guests.isEmpty
+          ? const EmptyState(icon: Icons.search_off_rounded, title: 'No workloads found',
+              body: 'Try a different search or check token permissions.')
+          : RefreshIndicator(
+              onRefresh: widget.controller.refresh,
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
+                itemCount: guests.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                itemBuilder: (context, index) =>
+                    _GuestTile(guest: guests[index], controller: widget.controller),
+              ),
+            )),
+    ]);
+  }
+}
+
+class _TasksTab extends StatelessWidget {
+  const _TasksTab({required this.controller});
+  final AppController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final tasks = controller.tasks;
+    if (tasks.isEmpty) {
+      return const EmptyState(
+          icon: Icons.receipt_long_outlined,
+          title: 'No operations this session',
+          body: 'VirtHelm tracks submitted tasks here. Server-wide task history is a later milestone.');
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.all(18),
+      itemCount: tasks.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final task = tasks[index];
+        final finished = task.outcome != OperationOutcome.running;
+        return Card(child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Icon(finished ? Icons.task_alt_rounded : Icons.pending_actions_rounded,
+                  color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 12),
+              Expanded(child: Text(task.title, style: const TextStyle(fontWeight: FontWeight.w700))),
+              StatusChip(status: task.outcome.name),
+            ]),
+            const SizedBox(height: 10),
+            Text('${task.node} • ${_age(task.startedAt)}',
+                style: Theme.of(context).textTheme.bodySmall),
+            if (task.detail != null) ...[
+              const SizedBox(height: 6),
+              Text(task.detail!, style: Theme.of(context).textTheme.bodySmall),
+            ],
+            const SizedBox(height: 6),
+            Text('UPID: ${task.upid}',
+              maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall),
+          ]),
+        ));
+      },
+    );
+  }
+}
+
+class _SettingsTab extends StatelessWidget {
+  const _SettingsTab({required this.controller});
+  final AppController controller;
+
+  Future<void> _remove(BuildContext context, ConnectionProfile profile) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+      title: const Text('Remove connection?'),
+      content: Text('Delete ${profile.name} and its locally stored API token. This will not revoke the token on the Proxmox server.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Remove')),
+      ],
+    ));
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await controller.deleteProfile(profile.id);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not remove stored connection.')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(18),
+    children: [
+      Text('Connections', style: Theme.of(context).textTheme.titleLarge),
+      const SizedBox(height: 12),
+      for (final profile in controller.profiles) ...[
+        Card(child: ListTile(
+          leading: Icon(profile.id == controller.active?.id
+              ? Icons.check_circle_rounded : Icons.dns_outlined),
+          title: Text(profile.name),
+          subtitle: Text(profile.endpoint, maxLines: 1, overflow: TextOverflow.ellipsis),
+          onTap: () => unawaited(controller.activate(profile)),
+          trailing: IconButton(
+            tooltip: 'Remove ${profile.name}',
+            onPressed: () => _remove(context, profile),
+            icon: const Icon(Icons.delete_outline_rounded),
+          ),
+        )),
+        const SizedBox(height: 8),
+      ],
+      const SizedBox(height: 10),
+      OutlinedButton.icon(
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+            builder: (_) => ConnectPage(controller: controller))),
+        icon: const Icon(Icons.add_rounded), label: const Text('Add connection'),
+      ),
+      const SizedBox(height: 28),
+      Text('Security', style: Theme.of(context).textTheme.titleLarge),
+      const SizedBox(height: 10),
+      const Card(child: Padding(
+        padding: EdgeInsets.all(18),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Protected by design', style: TextStyle(fontWeight: FontWeight.w700)),
+          SizedBox(height: 8),
+          Text('HTTPS certificate verification • encrypted token storage • no automatic write retries • no analytics backend'),
+          SizedBox(height: 12),
+          Text('Version 0.1: No console, background monitoring, or guest deletion. Use VPN for remote access.'),
+        ]),
+      )),
+      const SizedBox(height: 26),
+      Text('VirtHelm 0.1.0', style: Theme.of(context).textTheme.bodySmall),
+      const SizedBox(height: 4),
+      Text('Independent, unofficial Proxmox VE client',
+        style: Theme.of(context).textTheme.bodySmall),
+    ],
+  );
+}
+
+String _age(DateTime time) {
+  final diff = DateTime.now().difference(time);
+  if (diff.isNegative || diff.inSeconds < 60) return 'just now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+  if (diff.inHours < 24) return '${diff.inHours} h ago';
+  return '${diff.inDays} days ago';
+}
