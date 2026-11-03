@@ -19,3 +19,6 @@ Flutter 3.47 stable-compatible Dart source, Android phone-only generator, Materi
 
 ## Acceptance check
 From root `bash scripts/bootstrap_android.sh`, then `cd app && flutter analyze && flutter test && flutter build apk --debug` on machine with Android SDK. CI runs the same. Never claim a debug build as production-ready or 100% correct without full server/device validation.
+
+## Initial Android CI diagnosis (2026-11-04)
+First Flutter build run used 3.47.9. Dart analysis and unit/widget tests passed, but Android debug compilation failed resolving Kotlin 2.3.0/AGP 9 Gradle artifacts and the old Android DSL. Pin Flutter 3.44.4 while investigating current Kotlin/AGP compatibility. Capture the next CI run before declaring an APK deliverable. References: https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin and https://github.com/flutter/flutter/blob/master/CHANGELOG.md.

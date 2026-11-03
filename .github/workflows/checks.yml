@@ -41,9 +41,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          channel: stable  # TODO: pin to exact known-good Flutter version before release
+          channel: stable
+          flutter-version: '3.44.4'  # AGP 8-era template; avoid current AGP 9 plugin resolution regression
       - run: bash ../scripts/bootstrap_android.sh
       - run: dart format lib test
       - run: flutter analyze --fatal-infos
       - run: flutter test
       - run: flutter build apk --debug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VirtHelm-debug-APK
+          path: app/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error

@@ -36,3 +36,6 @@ Use a dedicated, least-privilege Proxmox VE API token, for example `operator@pve
 - https://github.com/proxmox/pve-docs/blob/master/pveum.adoc
 - https://pve.proxmox.com/pve-docs/api-viewer/
 - https://docs.flutter.dev/platform-integration/android/setup
+
+### Pinned CI toolchain
+The CI workflow uses Flutter **3.44.4** with an Android-only generated runner, as a temporary pinned compatibility baseline. A first run against Flutter 3.47.9 passed Dart analysis and tests but failed in Gradle/Kotlin 2.3.0/AGP 9 artifact resolution before producing an APK. Subsequent CI results determine whether the pin resolves the build; this is not a claim of APK success. CI uploads a **debug-only, unsigned-for-distribution** APK artifact when compilation passes.
