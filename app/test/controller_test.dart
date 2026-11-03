@@ -73,7 +73,7 @@ void main() {
     await ctl.connect(name: 'Lab', address: 'https://pve.local:8006',
         tokenId: 'me@pve!app', secret: 's3cr3t');
     final guest = ctl.inventory!.guests.single;
-    await ctl.runAction(guest, GuestAction.shutdown);
+    await ctl.runAction(guest, GuestAction.shutdown, profileId: ctl.active!.id);
     expect(gateways.last.submissions, 1);
     expect(ctl.tasks.length, 1);
     expect(ctl.tasks.single.outcome, OperationOutcome.running);
@@ -93,7 +93,8 @@ void main() {
         tokenId: 'me@pve!app', secret: 's3cr3t');
     gateway.status = 'stopped';
     final guest = ctl.inventory!.guests.single;
-    await expectLater(ctl.runAction(guest, GuestAction.shutdown), throwsA(isA<PveFailure>()));
+    await expectLater(ctl.runAction(guest, GuestAction.shutdown, profileId: ctl.active!.id), throwsA(isA<PveFailure>()));
     expect(gateway.submissions, 0);
   });
 }
+

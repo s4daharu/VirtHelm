@@ -29,7 +29,9 @@ class ConnectionProfile {
   static ConnectionProfile create({required String name, required String address}) {
     final id = '${DateTime.now().microsecondsSinceEpoch}_'
         '${Random.secure().nextInt(0x7fffffff)}';
-    if (name.trim().isEmpty) throw const FormatException('Enter a profile name.');
+    if (name.trim().isEmpty) {
+      throw const FormatException('Enter a profile name.');
+    }
     return ConnectionProfile(
       id: id,
       name: name.trim(),

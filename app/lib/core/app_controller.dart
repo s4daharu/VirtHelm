@@ -136,9 +136,12 @@ class AppController extends ChangeNotifier {
       message == null &&
       DateTime.now().difference(inventory!.fetchedAt) < const Duration(minutes: 2);
 
-  Future<void> runAction(Guest guest, GuestAction action) async {
+  Future<void> runAction(Guest guest, GuestAction action, {required String profileId}) async {
     final gateway = _gateway;
     final generation = _generation;
+    if (active?.id != profileId) {
+      throw const PveFailure('Connection changed; return to the guest list before acting.');
+    }
     if (gateway == null || active == null || !isInventoryFresh) {
       throw const PveFailure('Refresh live inventory before making changes.');
     }
@@ -146,7 +149,7 @@ class AppController extends ChangeNotifier {
       throw const PveFailure('This action is not available for the current guest state.');
     }
     final actual = await gateway.guestStatus(guest);
-    if (generation != _generation || _disposed) {
+    if (generation != _generation || active?.id != profileId || _disposed) {
       throw const PveFailure('Connection changed; action canceled.');
     }
     if (actual != guest.status) {

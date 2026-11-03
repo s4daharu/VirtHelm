@@ -301,7 +301,8 @@ class _GuestTile extends StatelessWidget {
     subtitle: Text('${guest.kind.toUpperCase()} • ${guest.vmid} • ${guest.node}'),
     trailing: StatusChip(status: guest.status),
     onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-        builder: (_) => GuestPage(controller: controller, guest: guest))),
+        builder: (_) => GuestPage(controller: controller, guest: guest,
+          profileId: controller.active!.id))),
   ));
 }
 

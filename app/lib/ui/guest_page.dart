@@ -5,9 +5,10 @@ import '../core/models.dart';
 import 'theme.dart';
 
 class GuestPage extends StatefulWidget {
-  const GuestPage({super.key, required this.controller, required this.guest});
+  const GuestPage({super.key, required this.controller, required this.guest, required this.profileId});
   final AppController controller;
   final Guest guest;
+  final String profileId;
 
   @override
   State<GuestPage> createState() => _GuestPageState();
@@ -17,6 +18,7 @@ class _GuestPageState extends State<GuestPage> {
   bool submitting = false;
 
   Guest? currentGuest() {
+    if (widget.controller.active?.id != widget.profileId) return null;
     final inv = widget.controller.inventory;
     if (inv == null) return null;
     for (final guest in inv.guests) {
@@ -50,7 +52,7 @@ class _GuestPageState extends State<GuestPage> {
     if (confirmed != true || !mounted) return;
     setState(() => submitting = true);
     try {
-      await widget.controller.runAction(guest, action);
+      await widget.controller.runAction(guest, action, profileId: widget.profileId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Task submitted. Check Tasks for its final result.'),
@@ -152,9 +154,9 @@ class _GuestPageState extends State<GuestPage> {
                         : action == GuestAction.shutdown
                             ? 'Request a graceful shutdown'
                             : 'Request guest reboot'),
-                enabled: allowed && guest != null && action.allowedFor(guest),
+                enabled: allowed && action.allowedFor(guest),
                 trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: allowed && guest != null && action.allowedFor(guest)
+                onTap: allowed && action.allowedFor(guest)
                     ? () => execute(guest, action) : null,
               )),
               const SizedBox(height: 8),
