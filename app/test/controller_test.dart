@@ -54,6 +54,19 @@ class _FailingStoreVault extends _Vault {
   }
 }
 
+class _FailNextStoreVault extends _Vault {
+  bool failNextStore = false;
+
+  @override
+  Future<void> store(String id, ApiCredentials credentials) async {
+    await super.store(id, credentials);
+    if (failNextStore) {
+      failNextStore = false;
+      throw StateError('Failed after replacement write');
+    }
+  }
+}
+
 class _Gateway implements PveGateway {
   int submissions = 0;
   int inventoryCalls = 0;
@@ -250,7 +263,96 @@ void main() {
         contains('qemu:pve1:101'),
       );
       expect(repo.readGuestViews(profile.id).single.name, 'Running');
-      expect(await vault.retrieve(profile.id), replacementCredentials);
+      final stored = await vault.retrieve(profile.id);
+      expect(stored?.tokenId, replacementCredentials.tokenId);
+      expect(stored?.secret, replacementCredentials.secret);
+    },
+  );
+
+  test(
+    'failed profile update restores metadata and encrypted credentials',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final vault = _FailNextStoreVault();
+      final repo = ProfileRepository(prefs, vault);
+      final profile = ConnectionProfile.create(
+        name: 'Lab',
+        address: 'https://pve.local',
+      );
+      const original = ApiCredentials(
+        tokenId: 'me@pve!old',
+        secret: 'old-secret',
+      );
+      await repo.save(profile, original);
+      vault.failNextStore = true;
+
+      await expectLater(
+        repo.update(
+          ConnectionProfile(
+            id: profile.id,
+            name: 'Changed',
+            endpoint: 'https://changed.example:8006',
+          ),
+          const ApiCredentials(
+            tokenId: 'me@pve!new',
+            secret: 'new-secret',
+          ),
+        ),
+        throwsStateError,
+      );
+
+      final persisted = repo.readProfiles().single;
+      expect(persisted.id, profile.id);
+      expect(persisted.name, profile.name);
+      expect(persisted.endpoint, profile.endpoint);
+      final stored = await vault.retrieve(profile.id);
+      expect(stored?.tokenId, original.tokenId);
+      expect(stored?.secret, original.secret);
+    },
+  );
+
+  test(
+    'controller profile edit reuses saved token and revalidates before persistence',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final vault = _Vault();
+      final repo = ProfileRepository(prefs, vault);
+      final profile = ConnectionProfile.create(
+        name: 'Lab',
+        address: 'https://pve.local',
+      );
+      const credentials = ApiCredentials(
+        tokenId: 'me@pve!test',
+        secret: 'test-secret',
+      );
+      await repo.save(profile, credentials);
+      final createdGateways = <ConnectionProfile>[];
+      final ctl = AppController(
+        repository: repo,
+        gatewayFactory: (candidate, credential) {
+          createdGateways.add(candidate);
+          expect(credential.tokenId, credentials.tokenId);
+          expect(credential.secret, credentials.secret);
+          return _Gateway();
+        },
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+
+      await ctl.updateConnection(
+        profileId: profile.id,
+        name: 'Edited Lab',
+        address: 'https://edited.example',
+      );
+
+      expect(createdGateways, isNotEmpty);
+      expect(createdGateways.last.id, profile.id);
+      expect(createdGateways.last.endpoint, 'https://edited.example:8006');
+      expect(repo.readProfiles().single.id, profile.id);
+      expect(repo.readProfiles().single.name, 'Edited Lab');
+      final stored = await vault.retrieve(profile.id);
+      expect(stored?.tokenId, credentials.tokenId);
+      expect(stored?.secret, credentials.secret);
     },
   );
 
