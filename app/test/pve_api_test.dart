@@ -511,6 +511,7 @@ void main() {
       expect(delays[1].inMilliseconds, inInclusiveRange(400, 499));
     },
   );
+
   test('repeated transient GET failures stop after three attempts', () async {
     final dio = Dio();
     var requests = 0;
@@ -581,6 +582,7 @@ void main() {
       }
     },
   );
+
   test(
     'TLS and malformed successful GET responses are never retried',
     () async {
@@ -625,6 +627,7 @@ void main() {
       }
     },
   );
+
   test('transient POST failure is never automatically retried', () async {
     final dio = Dio();
     var requests = 0;
@@ -755,4 +758,5 @@ void main() {
       );
       expect(requests, 1);
     },
-  );}
+  );
+}
