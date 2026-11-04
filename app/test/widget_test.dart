@@ -489,7 +489,7 @@ void main() {
     await tester.tap(find.text('PVE2 stopped'));
     await tester.pumpAndSettle();
     expect(find.text('1 workloads'), findsOneWidget);
-    expect(find.text('Beta'), findsOneWidget);
+    expect(find.widgetWithText(ListTile, 'Beta'), findsOneWidget);
     expect(find.text('Sort: VMID'), findsOneWidget);
     expect(find.text('Node: pve2'), findsOneWidget);
     expect(
