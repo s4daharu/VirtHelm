@@ -608,6 +608,22 @@ class AppController extends ChangeNotifier {
           if (generation != _generation) return;
           if (error.status == 401) {
             message = error.message;
+            final index = tasks.indexWhere(
+              (task) => task.upid == pendingTask.upid,
+            );
+            if (index >= 0) {
+              tasks[index] = pendingTask.withOutcome(
+                OperationOutcome.unknown,
+                detail:
+                    'Task verification lost authentication. Check server task history and guest state before another action.',
+              );
+            }
+            final target = _taskTargets.remove(pendingTask.upid);
+            if (target != null) {
+              _pendingGuestOperations.remove(target);
+              _uncertainGuestOperations.add(target);
+            }
+            finished = true;
             _notify();
             continue;
           }

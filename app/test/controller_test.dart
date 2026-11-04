@@ -56,6 +56,7 @@ class _FailingStoreVault extends _Vault {
 class _Gateway implements PveGateway {
   int submissions = 0;
   int inventoryCalls = 0;
+  int taskStatusCalls = 0;
   String status = 'running';
   Completer<Inventory>? inventoryGate;
   bool connected = true;
@@ -139,6 +140,7 @@ class _Gateway implements PveGateway {
 
   @override
   Future<ServerTaskStatus> taskStatus(TrackedTask task) async {
+    taskStatusCalls++;
     if (taskStarted?.isCompleted == false) taskStarted!.complete();
     if (taskGate != null) return taskGate!.future;
     if (taskFailure != null) throw taskFailure!;
@@ -1110,8 +1112,9 @@ void main() {
       );
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(ctl.message, contains('Authentication failed'));
-      expect(ctl.tasks.single.outcome, OperationOutcome.running);
-      expect(ctl.isInventoryFresh, isFalse);
+      expect(ctl.tasks.single.outcome, OperationOutcome.unknown);
+      expect(ctl.isGuestActionBlocked(guest), isTrue);
+      expect(gateway.taskStatusCalls, 1);
     },
   );
 
