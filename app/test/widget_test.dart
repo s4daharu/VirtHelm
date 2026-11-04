@@ -425,10 +425,7 @@ void main() {
 
     await tester.tap(find.text('Save view'));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byType(TextField).last,
-      'PVE2 stopped',
-    );
+    await tester.enterText(find.byType(TextField).last, 'PVE2 stopped');
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
     expect(find.text('PVE2 stopped'), findsOneWidget);
