@@ -96,10 +96,11 @@
       "invalid map keys in supplemental lists must not discard valid neighboring records (fixed and regression-tested)",
       "controller disposal during secure profile persistence must roll back the newly-created local connection (fixed in full cross-check)",
       "profile deletion must clear malformed saved-view/favorite metadata roots (fixed in full cross-check)",
-      "an add-connection route must not be dismissed while its connection check is pending (fixed in full cross-check)"
+      "an add-connection route must not be dismissed while its connection check is pending (fixed in full cross-check)",
+      "malformed profile metadata must not block valid neighboring profiles or future onboarding (fixed in full cross-check)"
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 74,
+    "current_flutter_tests_defined": 75,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,

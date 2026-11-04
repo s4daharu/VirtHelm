@@ -6,7 +6,7 @@
 
 This is a source-level and automated-build cross-check. It can establish that the tracked implementation is internally consistent with its automated tests and documented safety rules; it cannot prove that every defect is absent. VirtHelm is still an implementation preview, not a production-certified Proxmox management client.
 
-The pre-audit saved-view head had two successful GitHub Actions runs with documentation/source checks, immutable Dart formatting, `flutter analyze --fatal-infos`, 71 Flutter tests and Android debug APK compilation. The delivery suite contained 14 passing Python workflow/hardening tests. This cross-check adds three Flutter regressions; the final audit commit must pass the same complete CI gate before merge.
+The pre-audit saved-view head had two successful GitHub Actions runs with documentation/source checks, immutable Dart formatting, `flutter analyze --fatal-infos`, 71 Flutter tests and Android debug APK compilation. The delivery suite contained 14 passing Python workflow/hardening tests. This cross-check adds four Flutter regressions; the final audit commit must pass the same complete CI gate before merge.
 
 ## Entire implemented surface reviewed
 
@@ -30,6 +30,7 @@ No application `print`, `debugPrint` or equivalent application logging calls wer
 3. **Malformed local metadata cleanup.** Invalid saved-view/favorite preference roots were ignored for reading, but a malformed root could survive profile deletion. Deletion now removes invalid roots, with regression coverage, so corrupted local guest-discovery metadata is not deliberately retained.
 4. **Coverage of repository smoke checks.** The source/document smoke-check manifests predated guest filtering and saved views. They now require the current filter/saved-view source, tests and current implementation cross-check documents.
 5. **Stale implementation claims.** Earlier audits still listed saved views and expanded filtering as deferred and reported older 57-Flutter/5-delivery-test evidence. Those files are retained as historical evidence but now point to this review; current status no longer treats already-implemented saved views/sorting as missing.
+6. **Malformed profile metadata recovery.** A malformed profile preference document could previously make every later profile save fail because onboarding re-read the same corrupt root. Profile parsing now ignores invalid rows, rejects non-canonical/unsafe stored endpoints, de-duplicates IDs, retains valid neighboring profiles and permits a new valid connection to replace an unusable root. A regression covers both partial and whole-document corruption.
 
 ## Implemented versus still missing
 

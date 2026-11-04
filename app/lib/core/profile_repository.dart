@@ -58,10 +58,33 @@ class ProfileRepository {
   List<ConnectionProfile> readProfiles() {
     final raw = _prefs.getString(_profilesKey);
     if (raw == null) return [];
-    final decoded = jsonDecode(raw) as List<dynamic>;
-    return decoded
-        .map((item) => ConnectionProfile.fromJson(item as Map<String, dynamic>))
-        .toList(growable: false);
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return [];
+      final profiles = <ConnectionProfile>[];
+      final ids = <String>{};
+      for (final item in decoded) {
+        if (item is! Map) continue;
+        try {
+          final profile = ConnectionProfile.fromJson(
+            Map<String, dynamic>.from(item),
+          );
+          if (profile.id.trim().isEmpty ||
+              profile.name.trim().isEmpty ||
+              normalizePveEndpoint(profile.endpoint) != profile.endpoint ||
+              !ids.add(profile.id)) {
+            continue;
+          }
+          profiles.add(profile);
+        } catch (_) {
+          // Corrupt non-secret metadata must not prevent access to valid
+          // neighboring profiles or block the operator from adding a new one.
+        }
+      }
+      return List.unmodifiable(profiles);
+    } catch (_) {
+      return [];
+    }
   }
 
   String? get activeId => _prefs.getString(_activeKey);

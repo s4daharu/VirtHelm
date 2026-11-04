@@ -156,6 +156,44 @@ void main() {
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  test(
+    'malformed profile metadata cannot brick valid profiles or new onboarding',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final repo = ProfileRepository(prefs, _Vault());
+      const valid = ConnectionProfile(
+        id: 'valid-profile',
+        name: 'Valid',
+        endpoint: 'https://valid.example:8006',
+      );
+      await prefs.setString(
+        'profile_metadata_v1',
+        jsonEncode([
+          {'id': 'bad-type', 'name': 7, 'endpoint': 'https://bad.example:8006'},
+          valid.toJson(),
+          {'id': 'unsafe', 'name': 'Unsafe', 'endpoint': 'http://bad.example'},
+          valid.toJson(),
+        ]),
+      );
+
+      expect(repo.readProfiles(), hasLength(1));
+      expect(repo.readProfiles().single.id, valid.id);
+
+      await prefs.setString('profile_metadata_v1', '{malformed-json');
+      expect(repo.readProfiles(), isEmpty);
+
+      final replacement = ConnectionProfile.create(
+        name: 'Replacement',
+        address: 'https://replacement.example',
+      );
+      await repo.save(
+        replacement,
+        const ApiCredentials(tokenId: 'me@pve!test', secret: 'test'),
+      );
+      expect(repo.readProfiles().single.id, replacement.id);
+    },
+  );
+
   test('overlapping profile saves cannot lose another profile', () async {
     final prefs = await SharedPreferences.getInstance();
     final vault = _PausedStoreVault();
