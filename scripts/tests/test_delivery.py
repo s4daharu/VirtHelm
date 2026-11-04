@@ -118,6 +118,11 @@ android {
         text = (ROOT / '.github/workflows/release-android.yml').read_text()
         self.assertIn('umask 077', release_script('Restore required release keystore'))
         self.assertRegex(text, r'name: Remove temporary signing material\n\s+if: always\(\)')
+        self.assertIn(
+            "awk -F': ' '/certificate SHA-256 digest:/ {print $NF; exit}'",
+            text,
+        )
+        self.assertIn('test -n "$signer_digest"', text)
         self.assertIn('test "$signer_digest" = "$expected_digest"', text)
         self.assertIn(
             "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'",

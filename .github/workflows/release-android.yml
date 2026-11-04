@@ -214,7 +214,8 @@ jobs:
           for apk in "$ARM64" "$ARMV7"; do
             report="$("$APKSIGNER" verify --verbose --print-certs "$apk")"
             printf '%s\n' "$report"
-            signer_digest="$(printf '%s\n' "$report" | awk -F': ' '/Signer #1 certificate SHA-256 digest:/ {print $2}')"
+            signer_digest="$(printf '%s\n' "$report" | awk -F': ' '/certificate SHA-256 digest:/ {print $NF; exit}')"
+            test -n "$signer_digest"
             test "$signer_digest" = "$expected_digest"
           done
 
