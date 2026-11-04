@@ -673,13 +673,12 @@ class _GuestsTabState extends State<_GuestsTab> {
   Future<void> _saveCurrentView(BuildContext context) async {
     final scopedProfileId = profileId;
     if (scopedProfileId == null) return;
-    final nameController = TextEditingController();
+    var viewName = '';
     final name = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Save guest view'),
         content: TextField(
-          controller: nameController,
           autofocus: true,
           maxLength: maxSavedGuestViewNameLength,
           decoration: const InputDecoration(
@@ -687,6 +686,7 @@ class _GuestsTabState extends State<_GuestsTab> {
             helperText: 'Saving the same name updates that view.',
           ),
           textInputAction: TextInputAction.done,
+          onChanged: (value) => viewName = value,
           onSubmitted: (value) => Navigator.pop(dialogContext, value),
         ),
         actions: [
@@ -695,13 +695,12 @@ class _GuestsTabState extends State<_GuestsTab> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, nameController.text),
+            onPressed: () => Navigator.pop(dialogContext, viewName),
             child: const Text('Save'),
           ),
         ],
       ),
     );
-    nameController.dispose();
     if (name == null || !mounted) return;
     try {
       final view = SavedGuestView.create(
