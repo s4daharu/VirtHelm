@@ -78,7 +78,16 @@ class _ConnectPageState extends State<ConnectPage> {
       );
       if (!mounted) return;
       tokenSecret.clear();
-      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+      if (Navigator.of(context).canPop()) {
+        // PopScope intentionally blocks user navigation while busy. Rebuild it
+        // as poppable before closing this route after a successful connection.
+        setState(() => busy = false);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+        });
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -92,7 +101,7 @@ class _ConnectPageState extends State<ConnectPage> {
         });
       }
     } finally {
-      if (mounted) setState(() => busy = false);
+      if (mounted && busy) setState(() => busy = false);
     }
   }
 
