@@ -39,6 +39,7 @@ class ProfileRepository {
 
   static const _profilesKey = 'profile_metadata_v1';
   static const _activeKey = 'active_profile_v1';
+  static const _favoritesKey = 'guest_favorites_v1';
 
   List<ConnectionProfile> readProfiles() {
     final raw = _prefs.getString(_profilesKey);
@@ -50,6 +51,70 @@ class ProfileRepository {
   }
 
   String? get activeId => _prefs.getString(_activeKey);
+
+  Set<String> readGuestFavorites(String profileId) {
+    final raw = _prefs.getString(_favoritesKey);
+    if (raw == null) return <String>{};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) return <String>{};
+      final values = decoded[profileId];
+      if (values is! List) return <String>{};
+      return values.whereType<String>().toSet();
+    } catch (_) {
+      return <String>{};
+    }
+  }
+
+  Future<void> setGuestFavorite(
+    String profileId,
+    String guestKey,
+    bool favorite,
+  ) async {
+    final raw = _prefs.getString(_favoritesKey);
+    final decoded = <String, dynamic>{};
+    if (raw != null) {
+      try {
+        final value = jsonDecode(raw);
+        if (value is Map<String, dynamic>) decoded.addAll(value);
+      } catch (_) {}
+    }
+    final favorites = readGuestFavorites(profileId);
+    if (favorite) {
+      favorites.add(guestKey);
+    } else {
+      favorites.remove(guestKey);
+    }
+    if (favorites.isEmpty) {
+      decoded.remove(profileId);
+    } else {
+      final sorted = favorites.toList()..sort();
+      decoded[profileId] = sorted;
+    }
+    final saved = decoded.isEmpty
+        ? await _prefs.remove(_favoritesKey)
+        : await _prefs.setString(_favoritesKey, jsonEncode(decoded));
+    if (!saved) throw StateError('Could not update guest favorites.');
+  }
+
+  Future<void> clearGuestFavorites(String profileId) async {
+    final raw = _prefs.getString(_favoritesKey);
+    if (raw == null) return;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic> || !decoded.containsKey(profileId)) {
+        return;
+      }
+      decoded.remove(profileId);
+      final saved = decoded.isEmpty
+          ? await _prefs.remove(_favoritesKey)
+          : await _prefs.setString(_favoritesKey, jsonEncode(decoded));
+      if (!saved) throw StateError('Could not clear guest favorites.');
+    } catch (error) {
+      if (error is StateError) rethrow;
+      await _prefs.remove(_favoritesKey);
+    }
+  }
 
   Future<void> _writeProfiles(List<ConnectionProfile> profiles) async {
     final saved = await _prefs.setString(
@@ -102,6 +167,7 @@ class ProfileRepository {
     // Delete the encrypted token first; failure stops profile removal.
     await vault.remove(id);
     await _writeProfiles(remaining);
+    await clearGuestFavorites(id);
     if (activeId == id) {
       await setActive(remaining.isEmpty ? null : remaining.first.id);
     }
