@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
+import '../core/models.dart';
 
 class ConnectPage extends StatefulWidget {
   const ConnectPage({super.key, required this.controller});
@@ -19,6 +20,7 @@ class _ConnectPageState extends State<ConnectPage> {
   String? error;
   bool busy = false;
   bool showSecret = false;
+  bool allowInvalidCertificates = false;
 
   @override
   void dispose() {
@@ -36,20 +38,57 @@ class _ConnectPageState extends State<ConnectPage> {
       error = null;
     });
     try {
+      // Normalize before displaying the exact origin being authorized.
+      final address = normalizePveEndpoint(endpoint.text);
+      if (allowInvalidCertificates) {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Disable certificate verification?'),
+            content: SingleChildScrollView(
+              child: Text(
+                'Server: $address\n\n'
+                'The server identity will not be verified. An attacker could '
+                'steal your API token, read data, or change commands, even on a '
+                'local network. HTTPS encryption alone does not prevent this.\n\n'
+                'This exception is saved for this connection, including future '
+                'sessions. Prefer a trusted certificate and VPN.',
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Connect without verification'),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true || !mounted) return;
+      }
       await widget.controller.connect(
         name: alias.text,
-        address: endpoint.text,
+        address: address,
         tokenId: tokenId.text,
         secret: tokenSecret.text,
+        allowInvalidCertificates: allowInvalidCertificates,
       );
-      tokenSecret.clear();
       if (!mounted) return;
+      tokenSecret.clear();
       if (Navigator.of(context).canPop()) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
         setState(() {
-          // Exception messages are sanitized by the API gateway.
-          error = e.toString().replaceFirst('FormatException: ', '');
+          // Plugin/storage exceptions are not necessarily sanitized. Never
+          // expose arbitrary exception text from a credential operation.
+          error = e is PveFailure
+              ? e.message
+              : e is FormatException
+              ? e.message
+              : 'Could not save or open this connection. Check local secure storage and try again.';
         });
       }
     } finally {
@@ -163,6 +202,21 @@ class _ConnectPageState extends State<ConnectPage> {
                           v == null || v.isEmpty ? 'Enter the secret' : null,
                     ),
                     const SizedBox(height: 16),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Disable certificate verification'),
+                      subtitle: const Text(
+                        'Insecure: for self-signed servers or lab use. '
+                        'Saved only for this connection; available for any host.',
+                      ),
+                      value: allowInvalidCertificates,
+                      onChanged: busy
+                          ? null
+                          : (value) => setState(
+                              () => allowInvalidCertificates = value,
+                            ),
+                    ),
+                    const SizedBox(height: 16),
                     if (displayedError != null) ...[
                       Container(
                         padding: const EdgeInsets.all(14),
@@ -185,9 +239,17 @@ class _ConnectPageState extends State<ConnectPage> {
                               height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.lock_outline_rounded),
+                          : Icon(
+                              allowInvalidCertificates
+                                  ? Icons.warning_amber_rounded
+                                  : Icons.lock_outline_rounded,
+                            ),
                       label: Text(
-                        busy ? 'Verifying connection…' : 'Connect securely',
+                        busy
+                            ? 'Checking connection…'
+                            : allowInvalidCertificates
+                            ? 'Connect (insecure)'
+                            : 'Connect securely',
                       ),
                       style: FilledButton.styleFrom(
                         minimumSize: const Size.fromHeight(54),
@@ -195,7 +257,9 @@ class _ConnectPageState extends State<ConnectPage> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'TLS certificates and hostnames are verified. Self-signed or private CA certificates must be trusted by Android; certificate bypass is not supported.',
+                      allowInvalidCertificates
+                          ? 'Certificate and hostname verification will be disabled for this connection. Your API token may be exposed to an impersonated server.'
+                          : 'TLS certificates and hostnames are verified by default. Use a trusted certificate or securely provisioned private CA.',
                       style: TextStyle(
                         fontSize: 12,
                         color: scheme.onSurfaceVariant,

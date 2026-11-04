@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/app_controller.dart';
 import '../core/models.dart';
 import 'theme.dart';
+import 'tls_warning.dart';
 
 class GuestPage extends StatefulWidget {
   const GuestPage({
@@ -39,6 +40,10 @@ class _GuestPageState extends State<GuestPage> {
   Future<void> execute(Guest guest, GuestAction action) async {
     if (submitting) return;
     final isForce = action == GuestAction.stop;
+    final tlsWarning =
+        widget.controller.active?.allowInvalidCertificates == true
+        ? '\n\nINSECURE: server certificate verification is disabled.'
+        : '';
     final target =
         'Target: ${widget.controller.active?.name ?? 'Unknown connection'} / '
         '${guest.node} / ${guest.kind.toUpperCase()} ${guest.vmid}.';
@@ -46,12 +51,15 @@ class _GuestPageState extends State<GuestPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text('${action.label} ${guest.name}?'),
-        content: Text(
-          isForce
-              ? '$target\n\nForce stop immediately terminates this guest '
-                    'without a graceful shutdown and can cause data loss. '
-                    'Check the connection, node, VMID, and running services.'
-              : '$target\n\nProxmox will run this operation asynchronously.',
+        content: SingleChildScrollView(
+          child: Text(
+            (isForce
+                    ? '$target\n\nForce stop immediately terminates this guest '
+                          'without a graceful shutdown and can cause data loss. '
+                          'Check the connection, node, VMID, and running services.'
+                    : '$target\n\nProxmox will run this operation asynchronously.') +
+                tlsWarning,
+          ),
         ),
         actions: [
           TextButton(
@@ -120,6 +128,8 @@ class _GuestPageState extends State<GuestPage> {
         body: ListView(
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 30),
           children: [
+            if (widget.controller.active?.allowInvalidCertificates == true)
+              const TlsWarning(),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -346,13 +356,21 @@ class _ResourceMeter extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            LinearProgressIndicator(
-              minHeight: 8,
-              borderRadius: BorderRadius.circular(5),
-              value: fraction != null && fraction!.isFinite
-                  ? fraction!.clamp(0.0, 1.0).toDouble()
-                  : null,
-              backgroundColor: scheme.surfaceContainerHighest,
+            Semantics(
+              label: fraction == null || !fraction!.isFinite
+                  ? '$label unavailable'
+                  : label,
+              child: ExcludeSemantics(
+                excluding: fraction == null || !fraction!.isFinite,
+                child: LinearProgressIndicator(
+                  minHeight: 8,
+                  borderRadius: BorderRadius.circular(5),
+                  value: fraction != null && fraction!.isFinite
+                      ? fraction!.clamp(0.0, 1.0).toDouble()
+                      : 0,
+                  backgroundColor: scheme.surfaceContainerHighest,
+                ),
+              ),
             ),
           ],
         ),

@@ -1,7 +1,7 @@
 # Security Architecture, Authentication, Threat Model
 
 ## Primary security rule
-This client controls real infrastructure. TLS validation, authorization boundaries and secret handling are release blockers. **Never implement `badCertificateCallback => true`, `verify_ssl=false`, ignored hostname mismatches, plain HTTP, embedded long-lived root password, or public port 8006 exposure as default or suggested production paths.**
+This client controls real infrastructure. Strict TLS defaults, authorization boundaries and secret handling are release blockers. **Never implement a global TLS bypass, automatic insecure fallback, plain HTTP, embedded long-lived root password, or public port 8006 exposure as default or suggested production paths.** The user-requested per-profile insecure exception is defined in [TLS option](40-profile-tls-option.md) and supersedes earlier blanket prohibitions in planning documents. It is not recommended for production.
 
 ## Authentication modes
 ### MVP — API token (recommended for ordinary read/control APIs)
@@ -20,7 +20,7 @@ This client controls real infrastructure. TLS validation, authorization boundari
 
 ## Transport and certificate strategy
 1. Default: validate server certificate using normal Android/OS trust plus hostname. Recommend a real trusted cert or organization's internal CA distributed securely to device.
-2. An internal CA/self-signed certificate should be **explicitly trusted**, not bypassed. For arbitrary user-selected hosts, Android static network-security-config alone is not a runtime per-host trust workflow; investigate a scoped `SecurityContext` plus verified CA/cert enrollment and rotation semantics for future versions. Do not ship an insecure fallback.
+2. Prefer securely enrolled trust for an internal CA/self-signed certificate. Runtime per-host CA/certificate enrollment remains future work. Users may instead explicitly disable verification per profile after a warning and origin-specific confirmation. This saved opt-in accepts invalid chains, expired certificates and hostname mismatches for that client's exact host/port; it does not authenticate the server. Never apply it globally or as automatic fallback.
 3. Android network config should disallow cleartext traffic. Debug-only CA support may be configured in debug builds, never release-wide exception.
 4. Certificate pinning is not automatically “more secure”; it creates rotation risk. If implemented, require out-of-band verification, backup/rotation plan and no silent trust-on-first-use claim.
 5. Recommend VPN/private network reachability (e.g. WireGuard or managed VPN). Avoid forwarding PVE HTTPS port 8006 directly to the public Internet.
@@ -28,7 +28,7 @@ This client controls real infrastructure. TLS validation, authorization boundari
 ## Threat model (STRIDE-oriented)
 | Threat | Attack/impact | Control and test |
 |---|---|---|
-| Spoofing | Fake PVE server/MITM | verified TLS hostname/CA, reject mismatch, adversarial proxy test |
+| Spoofing | Fake PVE server/MITM | verified TLS hostname/CA by default; insecure opt-in sacrifices this protection and must remain visibly marked; adversarial proxy test |
 | Tampering | Modified requests/action replay | HTTPS, single-flight mutation, explicit confirm, no write retry on timeout |
 | Repudiation | Unclear initiator of critical action | local non-secret action metadata/task UPID, server logs; no false audit claims |
 | Information disclosure | Exfiltrated token, guest names, task logs | Keystore storage, log redaction, no third-party tracking, cleanup and secure backup policy |

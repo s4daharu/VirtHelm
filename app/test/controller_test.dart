@@ -32,6 +32,26 @@ class _PausedVault extends _Vault {
   }
 }
 
+class _PausedStoreVault extends _Vault {
+  final started = Completer<void>();
+  final gate = Completer<void>();
+
+  @override
+  Future<void> store(String id, ApiCredentials credentials) async {
+    if (!started.isCompleted) started.complete();
+    await gate.future;
+    await super.store(id, credentials);
+  }
+}
+
+class _FailingStoreVault extends _Vault {
+  @override
+  Future<void> store(String id, ApiCredentials credentials) async {
+    await super.store(id, credentials);
+    throw StateError('Failed after write');
+  }
+}
+
 class _Gateway implements PveGateway {
   int submissions = 0;
   int inventoryCalls = 0;
@@ -42,6 +62,8 @@ class _Gateway implements PveGateway {
   PveFailure? submissionError;
   ServerTaskStatus taskResult = const ServerTaskStatus(status: 'running');
   PveFailure? taskFailure;
+  Completer<ServerTaskStatus>? taskGate;
+  Completer<void>? taskStarted;
   ReadCollection<StoragePool> storageResult = ReadCollection(
     values: const [
       StoragePool(
@@ -116,6 +138,8 @@ class _Gateway implements PveGateway {
 
   @override
   Future<ServerTaskStatus> taskStatus(TrackedTask task) async {
+    if (taskStarted?.isCompleted == false) taskStarted!.complete();
+    if (taskGate != null) return taskGate!.future;
     if (taskFailure != null) throw taskFailure!;
     return taskResult;
   }
@@ -130,6 +154,297 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  test('overlapping profile saves cannot lose another profile', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final vault = _PausedStoreVault();
+    final repo = ProfileRepository(prefs, vault);
+    final a = ConnectionProfile.create(name: 'A', address: 'https://a.example');
+    final b = ConnectionProfile.create(name: 'B', address: 'https://b.example');
+    const creds = ApiCredentials(tokenId: 'me@pve!test', secret: 'test');
+    final first = repo.save(a, creds);
+    final second = repo.save(b, creds);
+    await vault.started.future;
+    vault.gate.complete();
+    await Future.wait([first, second]);
+    expect(repo.readProfiles().map((profile) => profile.id), [a.id, b.id]);
+    expect(vault.values.keys.toSet(), {a.id, b.id});
+  });
+
+  test(
+    'a partial vault write is rolled back and a failed write does not poison the queue',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final vault = _FailingStoreVault();
+      final repo = ProfileRepository(prefs, vault);
+      final profile = ConnectionProfile.create(
+        name: 'Lab',
+        address: 'https://pve.local',
+      );
+      const creds = ApiCredentials(tokenId: 'me@pve!test', secret: 'test');
+      await expectLater(repo.save(profile, creds), throwsStateError);
+      expect(vault.values, isEmpty);
+      expect(repo.readProfiles(), isEmpty);
+      await repo.setActive(null);
+      expect(repo.activeId, isNull);
+    },
+  );
+
+  test(
+    'deleted connections cannot be recreated by a late favorite update',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final repo = ProfileRepository(prefs, _Vault());
+      final profile = ConnectionProfile.create(
+        name: 'Lab',
+        address: 'https://pve.local',
+      );
+      await repo.save(
+        profile,
+        const ApiCredentials(tokenId: 'me@pve!test', secret: 'test'),
+      );
+      await repo.delete(profile.id);
+      await expectLater(
+        repo.setGuestFavorite(profile.id, 'qemu:pve1:101', true),
+        throwsStateError,
+      );
+      expect(repo.readGuestFavorites(profile.id), isEmpty);
+    },
+  );
+
+  test(
+    'deletion cannot override a connection selected while vault I/O is pending',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final vault = _PausedVault();
+      final repo = ProfileRepository(prefs, vault);
+      final profiles = [
+        for (final name in ['a', 'b', 'c'])
+          ConnectionProfile.create(
+            name: name,
+            address: 'https://$name.example',
+          ),
+      ];
+      for (final profile in profiles) {
+        await repo.save(
+          profile,
+          const ApiCredentials(tokenId: 'me@pve!test', secret: 'test'),
+        );
+      }
+      final ctl = AppController(
+        repository: repo,
+        gatewayFactory: (p, c) => _Gateway(),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      final deleting = ctl.deleteProfile(profiles.last.id);
+      // Activation is intentionally started without waiting: repository writes
+      // are serialized behind the pending deletion.
+      final activating = ctl.activate(profiles[1]);
+      vault.removeGate.complete();
+      await Future.wait([deleting, activating]);
+      expect(ctl.active!.id, profiles[1].id);
+      expect(repo.activeId, profiles[1].id);
+    },
+  );
+
+  test('a connection pending deletion cannot be reactivated', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final vault = _PausedVault();
+    final repo = ProfileRepository(prefs, vault);
+    final a = ConnectionProfile.create(name: 'A', address: 'https://a.example');
+    final b = ConnectionProfile.create(name: 'B', address: 'https://b.example');
+    for (final profile in [a, b]) {
+      await repo.save(
+        profile,
+        const ApiCredentials(tokenId: 'me@pve!test', secret: 'test'),
+      );
+    }
+    final ctl = AppController(
+      repository: repo,
+      gatewayFactory: (p, c) => _Gateway(),
+    );
+    addTearDown(ctl.dispose);
+    await ctl.initialize();
+    final deleting = ctl.deleteProfile(a.id);
+    await ctl.activate(a);
+    expect(ctl.active!.id, b.id);
+    vault.removeGate.complete();
+    await deleting;
+    expect(ctl.active!.id, b.id);
+  });
+
+  test(
+    'a hung old-session poll never blocks or changes new-session tasks',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (p, c) => gateway = _Gateway(),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'A',
+        address: 'https://a.example',
+        tokenId: 'me@pve!test',
+        secret: 'test',
+      );
+      final old = gateway;
+      old.taskGate = Completer<ServerTaskStatus>();
+      old.taskStarted = Completer<void>();
+      await ctl.runAction(
+        ctl.inventory!.guests.single,
+        GuestAction.shutdown,
+        profileId: ctl.active!.id,
+      );
+      await old.taskStarted!.future;
+      await ctl.connect(
+        name: 'B',
+        address: 'https://b.example',
+        tokenId: 'me@pve!test',
+        secret: 'test',
+      );
+      gateway.taskResult = const ServerTaskStatus(
+        status: 'stopped',
+        exitStatus: 'OK',
+      );
+      final guest = ctl.inventory!.guests.single;
+      final completed = Completer<void>();
+      ctl.addListener(() {
+        if (!completed.isCompleted &&
+            ctl.tasks.isNotEmpty &&
+            ctl.tasks.single.outcome == OperationOutcome.succeeded &&
+            !ctl.isGuestActionBlocked(guest)) {
+          completed.complete();
+        }
+      });
+      await ctl.runAction(
+        guest,
+        GuestAction.shutdown,
+        profileId: ctl.active!.id,
+      );
+      await completed.future.timeout(const Duration(seconds: 2));
+      old.taskGate!.completeError(StateError('Old connection closed'));
+      await Future<void>.delayed(Duration.zero);
+      expect(ctl.tasks.single.outcome, OperationOutcome.succeeded);
+      expect(ctl.active!.name, 'B');
+    },
+  );
+
+  test('backgrounding during preflight prevents a late POST', () async {
+    final prefs = await SharedPreferences.getInstance();
+    late _Gateway gateway;
+    final ctl = AppController(
+      repository: ProfileRepository(prefs, _Vault()),
+      gatewayFactory: (p, c) => gateway = _Gateway(),
+    );
+    addTearDown(ctl.dispose);
+    await ctl.initialize();
+    await ctl.connect(
+      name: 'Lab',
+      address: 'https://pve.local',
+      tokenId: 'me@pve!test',
+      secret: 'test',
+    );
+    gateway.preflight = Completer<String>();
+    final action = ctl.runAction(
+      ctl.inventory!.guests.single,
+      GuestAction.shutdown,
+      profileId: ctl.active!.id,
+    );
+    ctl.setForeground(false);
+    gateway.preflight!.complete('running');
+    await expectLater(action, throwsA(isA<PveFailure>()));
+    expect(gateway.submissions, 0);
+    final before = gateway.inventoryCalls;
+    ctl.setForeground(true);
+    await ctl.refresh();
+    expect(gateway.inventoryCalls, before + 1);
+  });
+
+  test(
+    'disposal during onboarding does not persist a late connection',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final gateway = _Gateway()..inventoryGate = Completer<Inventory>();
+      final repo = ProfileRepository(prefs, _Vault());
+      final ctl = AppController(
+        repository: repo,
+        gatewayFactory: (p, c) => gateway,
+      );
+      final connecting = ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!test',
+        secret: 'test',
+      );
+      await Future<void>.delayed(Duration.zero);
+      ctl.dispose();
+      gateway.inventoryGate!.complete(Inventory.fromResources([]));
+      await expectLater(connecting, throwsA(isA<PveFailure>()));
+      expect(repo.readProfiles(), isEmpty);
+    },
+  );
+
+  test('future-dated inventory cannot authorize writes', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final ctl = AppController(repository: ProfileRepository(prefs, _Vault()));
+    addTearDown(ctl.dispose);
+    ctl.inventory = Inventory.fromResources(
+      [],
+      fetchedAt: DateTime.now().add(const Duration(hours: 1)),
+    );
+    expect(ctl.isInventoryFresh, isFalse);
+  });
+
+  test(
+    'TLS opt-in persists across restart without affecting other profiles',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final repo = ProfileRepository(prefs, _Vault());
+      final seen = <ConnectionProfile>[];
+      PveGateway factory(
+        ConnectionProfile profile,
+        ApiCredentials credentials,
+      ) {
+        seen.add(profile);
+        return _Gateway();
+      }
+
+      final ctl = AppController(repository: repo, gatewayFactory: factory);
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://lab.example',
+        tokenId: 'me@pve!app',
+        secret: 'test-secret',
+        allowInvalidCertificates: true,
+      );
+      expect(seen.every((profile) => profile.allowInvalidCertificates), isTrue);
+      final lab = ctl.active!;
+      await ctl.connect(
+        name: 'Strict',
+        address: 'https://strict.example',
+        tokenId: 'me@pve!app',
+        secret: 'test-secret',
+      );
+      expect(ctl.active!.allowInvalidCertificates, isFalse);
+      expect(seen.last.allowInvalidCertificates, isFalse);
+      await ctl.activate(lab);
+      final restarted = AppController(
+        repository: repo,
+        gatewayFactory: factory,
+      );
+      addTearDown(restarted.dispose);
+      await restarted.initialize();
+      expect(restarted.active!.allowInvalidCertificates, isTrue);
+      expect(seen.last.allowInvalidCertificates, isTrue);
+      expect(repo.readProfiles().last.allowInvalidCertificates, isFalse);
+    },
+  );
 
   test('profile secrets are outside unencrypted preference records', () async {
     final prefs = await SharedPreferences.getInstance();

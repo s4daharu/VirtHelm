@@ -13,7 +13,12 @@
 .DS_Store
 .idea/
 .vscode/
+__pycache__/
+*.py[cod]
 # Flutter and Android generated
+app/android/
+app/.metadata
+app/.gitignore
 app/.dart_tool/
 app/.flutter-plugins*
 app/.packages

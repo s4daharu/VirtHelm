@@ -18,6 +18,7 @@ The committed `pubspec.lock` is enforced. The bootstrap generates the Android ru
 
 ## Implemented
 - HTTPS-only named PVE profiles with strict endpoint validation and encrypted API-token storage.
+- Certificate verification on by default, with an explicitly confirmed per-profile insecure opt-in for any host; saved profiles and active screens display warnings.
 - Multiple isolated profiles, explicit switch/delete, no redirect credential forwarding.
 - Cluster nodes and QEMU/LXC inventory with search, freshness, CPU/memory/disk/uptime.
 - Read-only per-node storage and recent server task history with partial permission/error reporting.
@@ -28,8 +29,8 @@ The committed `pubspec.lock` is enforced. The bootstrap generates the Android ru
 - CI format/analyzer/coverage tests and Android debug APK compile verification.
 
 ## Not yet release-complete
-No real PVE 8.4/9.2 lab matrix or production-signed APK is claimed. Physical-device certificate/backup/Keystore behavior, accessibility/font scaling, 200-guest performance, dependency/security review and release signing remain gates. Full premium M2 features such as charts, favorites, alerts/notification center, persistent offline cache and richer saved filters remain unimplemented.
+No real PVE 8.4/9.2 lab matrix or production-signed APK is claimed. Physical-device certificate/backup/Keystore behavior, accessibility/font scaling, 200-guest performance, dependency/security review and signed-APK/device verification remain gates. Release signing secrets are configured; this alone does not verify a signed build. Full premium M2 features such as charts, named saved views, alerts/notification center, persistent offline cache and richer saved filters remain unimplemented. Profile-scoped favorites and basic status filters are already implemented.
 
 No ticket/MFA, console, snapshots/backups, migration/provisioning, PBS/PDM, host/HA/Ceph/SDN mutation, subscriptions or payments are included.
 
-Use a dedicated least-privilege PVE API token and trusted HTTPS over LAN/VPN. API-token access does not provide console authentication. There is no certificate bypass.
+Use a dedicated least-privilege PVE API token and trusted HTTPS over LAN/VPN. API-token access does not provide console authentication. Disabling certificate verification permits server impersonation and token theft even on a LAN; it is not recommended for production. Remove and re-add a connection with the switch off to restore verification. See [TLS option](../docs/40-profile-tls-option.md). Native TLS regression tests generate disposable certificates using OpenSSL; install it before running `flutter test`.

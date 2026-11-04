@@ -40,6 +40,18 @@ class ProfileRepository {
   static const _profilesKey = 'profile_metadata_v1';
   static const _activeKey = 'active_profile_v1';
   static const _favoritesKey = 'guest_favorites_v1';
+  Future<void> _writes = Future<void>.value();
+
+  // A vault operation can yield before metadata is written. Serialize local
+  // mutations so overlapping saves/deletes cannot overwrite a stale snapshot.
+  Future<T> _mutate<T>(Future<T> Function() operation) {
+    final result = _writes.then((_) => operation());
+    _writes = result.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stack) {},
+    );
+    return result;
+  }
 
   List<ConnectionProfile> readProfiles() {
     final raw = _prefs.getString(_profilesKey);
@@ -70,7 +82,10 @@ class ProfileRepository {
     String profileId,
     String guestKey,
     bool favorite,
-  ) async {
+  ) => _mutate(() async {
+    if (!readProfiles().any((profile) => profile.id == profileId)) {
+      throw StateError('Connection no longer exists.');
+    }
     final raw = _prefs.getString(_favoritesKey);
     final decoded = <String, dynamic>{};
     if (raw != null) {
@@ -95,9 +110,12 @@ class ProfileRepository {
         ? await _prefs.remove(_favoritesKey)
         : await _prefs.setString(_favoritesKey, jsonEncode(decoded));
     if (!saved) throw StateError('Could not update guest favorites.');
-  }
+  });
 
-  Future<void> clearGuestFavorites(String profileId) async {
+  Future<void> clearGuestFavorites(String profileId) =>
+      _mutate(() => _clearGuestFavorites(profileId));
+
+  Future<void> _clearGuestFavorites(String profileId) async {
     final raw = _prefs.getString(_favoritesKey);
     if (raw == null) return;
     try {
@@ -124,43 +142,43 @@ class ProfileRepository {
     if (!saved) throw StateError('Could not store profile metadata.');
   }
 
-  Future<void> save(
-    ConnectionProfile profile,
-    ApiCredentials credentials,
-  ) async {
-    final profiles = readProfiles();
-    if (profiles.any((item) => item.id == profile.id)) {
-      throw StateError('Profile already exists');
-    }
-    final previousActive = activeId;
-    await vault.store(profile.id, credentials);
-    try {
-      await _writeProfiles([...profiles, profile]);
-      await setActive(profile.id);
-    } catch (error, stackTrace) {
-      // Best-effort rollback keeps ordinary metadata and encrypted secrets
-      // from becoming intentionally divergent after a partial local write.
-      try {
-        await _writeProfiles(profiles);
-      } catch (_) {}
-      try {
-        await setActive(previousActive);
-      } catch (_) {}
-      try {
-        await vault.remove(profile.id);
-      } catch (_) {}
-      Error.throwWithStackTrace(error, stackTrace);
-    }
-  }
+  Future<void> save(ConnectionProfile profile, ApiCredentials credentials) =>
+      _mutate(() async {
+        final profiles = readProfiles();
+        if (profiles.any((item) => item.id == profile.id)) {
+          throw StateError('Profile already exists');
+        }
+        final previousActive = activeId;
+        try {
+          await vault.store(profile.id, credentials);
+          await _writeProfiles([...profiles, profile]);
+          await _setActive(profile.id);
+        } catch (error, stackTrace) {
+          // Best-effort rollback keeps ordinary metadata and encrypted secrets
+          // from becoming intentionally divergent after a partial local write.
+          try {
+            await _writeProfiles(profiles);
+          } catch (_) {}
+          try {
+            await _setActive(previousActive);
+          } catch (_) {}
+          try {
+            await vault.remove(profile.id);
+          } catch (_) {}
+          Error.throwWithStackTrace(error, stackTrace);
+        }
+      });
 
-  Future<void> setActive(String? id) async {
+  Future<void> setActive(String? id) => _mutate(() => _setActive(id));
+
+  Future<void> _setActive(String? id) async {
     final saved = id == null
         ? await _prefs.remove(_activeKey)
         : await _prefs.setString(_activeKey, id);
     if (!saved) throw StateError('Could not update the active profile.');
   }
 
-  Future<void> delete(String id) async {
+  Future<void> delete(String id) => _mutate(() async {
     final remaining = readProfiles()
         .where((profile) => profile.id != id)
         .toList();
@@ -171,10 +189,10 @@ class ProfileRepository {
     // token and profile metadata are gone, stale favorite cleanup must not
     // turn a successful security-sensitive deletion into a reported failure.
     try {
-      await clearGuestFavorites(id);
+      await _clearGuestFavorites(id);
     } catch (_) {}
     if (activeId == id) {
-      await setActive(remaining.isEmpty ? null : remaining.first.id);
+      await _setActive(remaining.isEmpty ? null : remaining.first.id);
     }
-  }
+  });
 }

@@ -14,6 +14,162 @@ const credentials = ApiCredentials(
 );
 
 void main() {
+  const guest = Guest(
+    node: 'pve1',
+    vmid: 101,
+    kind: 'qemu',
+    name: 'Web',
+    status: 'running',
+  );
+
+  test(
+    'malformed successful POST responses preserve unknown-outcome lockout',
+    () async {
+      for (final body in [
+        null,
+        'not JSON',
+        <String, dynamic>{},
+        {'data': null},
+      ]) {
+        final dio = Dio();
+        dio.interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (options, handler) {
+              handler.resolve(
+                Response<dynamic>(
+                  requestOptions: options,
+                  statusCode: 200,
+                  data: body,
+                ),
+              );
+            },
+          ),
+        );
+        final gateway = DioPveGateway(profile, credentials, http: dio);
+        addTearDown(gateway.close);
+        await expectLater(
+          gateway.submit(guest, GuestAction.shutdown),
+          throwsA(
+            isA<PveFailure>().having(
+              (failure) => failure.mayHaveExecuted,
+              'mayHaveExecuted',
+              isTrue,
+            ),
+          ),
+        );
+      }
+    },
+  );
+
+  test(
+    'ambiguous Dio failures and redirects are unsafe to retry after POST',
+    () async {
+      for (final spec in [
+        (DioExceptionType.unknown, null),
+        (DioExceptionType.unknown, 200),
+        (DioExceptionType.cancel, null),
+        (DioExceptionType.badResponse, 408),
+        (DioExceptionType.badResponse, 302),
+        (DioExceptionType.badResponse, 503),
+      ]) {
+        final dio = Dio();
+        dio.interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (options, handler) {
+              handler.reject(
+                DioException(
+                  requestOptions: options,
+                  type: spec.$1,
+                  response: spec.$2 == null
+                      ? null
+                      : Response<dynamic>(
+                          requestOptions: options,
+                          statusCode: spec.$2,
+                        ),
+                ),
+              );
+            },
+          ),
+        );
+        final gateway = DioPveGateway(profile, credentials, http: dio);
+        addTearDown(gateway.close);
+        await expectLater(
+          gateway.submit(guest, GuestAction.shutdown),
+          throwsA(
+            isA<PveFailure>().having(
+              (failure) => failure.mayHaveExecuted,
+              'mayHaveExecuted',
+              isTrue,
+            ),
+          ),
+        );
+      }
+    },
+  );
+
+  test(
+    'explicit auth rejection is not reported as an executed mutation',
+    () async {
+      for (final status in [401, 403]) {
+        final dio = Dio();
+        dio.interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (options, handler) {
+              handler.reject(
+                DioException(
+                  requestOptions: options,
+                  type: DioExceptionType.badResponse,
+                  response: Response<dynamic>(
+                    requestOptions: options,
+                    statusCode: status,
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+        final gateway = DioPveGateway(profile, credentials, http: dio);
+        addTearDown(gateway.close);
+        await expectLater(
+          gateway.submit(guest, GuestAction.shutdown),
+          throwsA(
+            isA<PveFailure>().having(
+              (failure) => failure.mayHaveExecuted,
+              'mayHaveExecuted',
+              isFalse,
+            ),
+          ),
+        );
+      }
+    },
+  );
+
+  test(
+    'invalid supplemental records are reported rather than silently dropped',
+    () async {
+      final dio = Dio();
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            handler.resolve(
+              Response<dynamic>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'data': [null, 'invalid', <String, dynamic>{}],
+                },
+              ),
+            );
+          },
+        ),
+      );
+      final gateway = DioPveGateway(profile, credentials, http: dio);
+      addTearDown(gateway.close);
+      expect((await gateway.storageOverview(['pve1'])).malformedRecords, 3);
+      expect((await gateway.recentTasks(['pve1'])).malformedRecords, 3);
+    },
+  );
+
   test(
     'gateway applies origin, authorization and redirect security to injected Dio',
     () async {

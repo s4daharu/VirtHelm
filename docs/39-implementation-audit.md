@@ -17,6 +17,7 @@ This audit cross-checked the implemented Flutter source, tests, generated Androi
 - Committed `pubspec.lock`, pinned the Flutter/Dart floor, and changed CI from in-place formatting to an immutable format gate plus coverage tests.
 - Removed stale “documentation-only/preimplementation” claims.
 - Added profile-isolated local guest favorites and basic favorites/running/stopped workload filtering without adding server-side mutation or unverified API contracts.
+- Subsequent user-requested TLS change: added default-off, explicitly confirmed per-profile certificate bypass for any HTTPS host, native exact-host/port scoping, persistent UI warnings and regression coverage. This is a deliberate security tradeoff, not trusted-certificate enrollment; physical-device/security review remains open. See [TLS option](40-profile-tls-option.md).
 
 ## Implemented scope that remains intentionally incomplete
 The current code is an M1 foundation/safe-operator implementation plus an M2 read-cockpit slice. The full M2 roadmap still includes charts/RRD, named saved views, notification center/alerts, advanced filtering/sorting, persistent offline caching and formal accessibility/performance work. Later milestones cover ticket/MFA, console, snapshots/backups, PBS/PDM, provisioning/migration and infrastructure changes.

@@ -12,7 +12,7 @@ Not every PVE response is a conventional HTTP code; map safely from HTTP status,
 | GET task status | Yes, bounded until TTL | poll at e.g. 2s then 5s; stop on terminal, cancel, session expiry |
 | POST guest lifecycle | **No** | unknown outcome on timeout, verify state/history before offering resend |
 | Ticket renewal/login | No blind loop | explicit session state with user interaction for MFA |
-| TLS/cert mismatch | **Never** | refuse connection; guided trust remediation |
+| TLS/cert mismatch | **Never automatically** | strict profiles refuse connection; guided trust remediation; only explicit per-profile insecure onboarding may bypass per [TLS option](40-profile-tls-option.md) |
 
 ## State machines
 Connection: `unconfigured -> checkingTLS -> validatingAuth -> ready | partialAccess | offline | failed`. Switching profile cancels requests and clears scope-specific screen data.

@@ -15,7 +15,7 @@ This slice adds no new mutation endpoint:
 For the node task-list endpoint, active rows are normalized from raw `status=RUNNING`; archived rows use the raw terminal task result (for example `OK`) as the exit status. That differs from `/nodes/{node}/tasks/{upid}/status`, where tracked mutations use the detail endpoint's running/stopped state plus `exitstatus`. VirtHelm does not treat an HTTP acceptance or a merely terminal task as success.
 
 ## Safety and privacy
-Reads remain origin-bound to the active profile with TLS validation and redirects disabled. Profile activation clears read-cockpit state. A supplemental 401 invalidates cached write authorization. Malformed guest inventory may still be displayed selectively, but guest writes are disabled until a clean inventory refresh. Task history never authorizes a mutation.
+Reads remain origin-bound to the active profile with TLS validation enabled by default and redirects disabled. The [explicit per-profile insecure exception](40-profile-tls-option.md) applies to all requests for an opted-in connection. Profile activation clears read-cockpit state. A supplemental 401 invalidates cached write authorization. Malformed guest inventory may still be displayed selectively, but guest writes are disabled until a clean inventory refresh. Task history never authorizes a mutation.
 
 UPIDs may contain a PVE user identifier and are displayed only as local operator references. No task log body is fetched or exported by this slice.
 

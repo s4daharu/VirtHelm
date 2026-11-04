@@ -13,7 +13,10 @@ required=['README.md','SECURITY.md','CONTRIBUTING.md',
            (13,'compatibility-risks'),(14,'research-sources'),
            (15,'verification-matrix'),(16,'decisions'),(17,'privacy-legal'),
            (18,'setup-handbook'),(19,'definition-of-done'),(20,'publication-status')]],
-          'docs/api-endpoint-index.csv','examples/README.md']
+          'docs/api-endpoint-index.csv','examples/README.md',
+          'docs/37-implementation-m1.md','docs/38-implementation-m2-read-cockpit.md',
+          'docs/39-implementation-audit.md','docs/40-profile-tls-option.md',
+          'docs/41-cross-check-audit.md']
 missing=[p for p in required if not (root/p).is_file()]
 assert not missing, f'Missing required docs: {missing}'
 with (root/'docs/api-endpoint-index.csv').open(newline='',encoding='utf-8') as f:

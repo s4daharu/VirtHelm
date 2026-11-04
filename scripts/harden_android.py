@@ -35,11 +35,12 @@ manifest.write_text(text, encoding='utf-8')
 
 gradle_text = gradle.read_text(encoding='utf-8')
 min_sdk = 'minSdk = flutter.minSdkVersion'
-if min_sdk not in gradle_text:
+if min_sdk not in gradle_text and 'minSdk = 26' not in gradle_text:
     raise SystemExit('Generated minSdk pattern changed; review Flutter template.')
 gradle_text = gradle_text.replace(min_sdk, 'minSdk = 26', 1)
 debug_signing = 'signingConfig = signingConfigs.getByName("debug")'
-if debug_signing not in gradle_text:
+if (debug_signing not in gradle_text and
+        '// Release signing intentionally not configured in source control.' not in gradle_text):
     raise SystemExit('Generated release signing pattern changed; review Flutter template.')
 gradle_text = gradle_text.replace(
     debug_signing,
@@ -52,7 +53,21 @@ gradle_text = gradle_text.replace(
     '// Release signing must be supplied outside Git before distribution.\n',
 )
 gradle.write_text(gradle_text, encoding='utf-8')
+
+# Flutter's template requests an 8G heap, which can thrash an 8 GB host.
+# Preserve unrelated settings while enforcing the project's build resource caps.
+properties = root / 'app/android/gradle.properties'
+caps = {
+    'org.gradle.jvmargs': '-Xmx2048m -XX:MaxMetaspaceSize=512m',
+    'org.gradle.workers.max': '2',
+    'org.gradle.parallel': 'false',
+    'kotlin.daemon.jvmargs': '-Xmx512m',
+}
+lines = properties.read_text(encoding='utf-8').splitlines() if properties.exists() else []
+lines = [line for line in lines if line.split('=', 1)[0].strip() not in caps]
+lines.extend(f'{key}={value}' for key, value in caps.items())
+properties.write_text('\n'.join(lines) + '\n', encoding='utf-8')
 print(
     'Hardened Android runner: INTERNET enabled, backups/cleartext disabled, '
-    'minSdk 26, no debug release signing'
+    'minSdk 26, no debug release signing, capped Gradle/Kotlin resources'
 )

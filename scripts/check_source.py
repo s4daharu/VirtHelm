@@ -9,11 +9,11 @@ required = [
   'app/lib/ui/connect_page.dart','app/lib/ui/shell.dart',
   'app/lib/ui/guest_page.dart','app/test/models_test.dart',
   'app/test/controller_test.dart','app/test/pve_api_test.dart',
-  'app/test/widget_test.dart',
+  'app/test/widget_test.dart','app/test/pve_tls_test.dart','app/lib/ui/tls_warning.dart',
   'scripts/bootstrap_android.sh','scripts/harden_android.py',
   'scripts/check_android_generated.py',
   'docs/37-implementation-m1.md','docs/38-implementation-m2-read-cockpit.md',
-  'docs/39-implementation-audit.md']
+  'docs/39-implementation-audit.md','docs/40-profile-tls-option.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
@@ -31,6 +31,15 @@ assert 'recentTasks' in files['app/lib/core/pve_api.dart']
 assert 'GuestAction.stop' in files['app/lib/core/app_controller.dart'] or 'GuestAction' in files['app/lib/core/app_controller.dart']
 for p in (root/'app/lib').rglob('*.dart'):
     data = p.read_text(encoding='utf-8')
-    assert 'badCertificateCallback' not in data
+    # The sole exception is the profile-local, exact-origin native gateway.
+    if 'badCertificateCallback' in data:
+        assert p == root/'app/lib/core/pve_api.dart'
+        assert 'if (profile.allowInvalidCertificates)' in data
+        assert 'host == origin.host && port == origin.port' in data
+    assert 'HttpOverrides.' not in data
     assert 'SecurityContext(withTrustedRoots: false)' not in data
+assert 'this.allowInvalidCertificates = false' in files['app/lib/core/models.dart']
+assert 'Disable certificate verification?' in files['app/lib/ui/connect_page.dart']
+assert 'TlsWarning' in files['app/lib/ui/shell.dart']
+assert 'TlsWarning' in files['app/lib/ui/guest_page.dart']
 print('App source smoke checks passed (not a Dart compile or device test).')

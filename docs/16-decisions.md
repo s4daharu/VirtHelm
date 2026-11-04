@@ -12,8 +12,8 @@
 ## ADR-004: API-token MVP, ticket auth later
 **Status:** Accepted with official restriction. **Decision:** least-privilege token first; no console; ticket+2FA separate track. **Rationale:** token lifecycle, stateless access and scope. **Risk:** lack of console until supported session auth built.
 
-## ADR-005: Strict TLS always
-**Status:** Accepted. **Decision:** fail-closed certificate chain/hostname validation, trusted CA onboarding. **Rejected alternative:** “ignore TLS errors” option even in user settings. **Risk:** many self-signed home installs need onboarding assistance.
+## ADR-005: Strict TLS by default; explicit profile-local exception
+**Status:** Revised by user request. **Decision:** default to fail-closed certificate chain/hostname validation. Permit a saved per-connection insecure opt-in for any HTTPS host, confirmed before onboarding requests with exact origin and risk disclosure. Keep HTTPS, redirect rejection, client/profile isolation and persistent warnings. **Rejected alternatives:** global bypass and silent fallback. **Risk:** opting in allows MITM, credential theft and command tampering, even on LAN/VPN. Trusted certificates remain recommended. See [TLS option](40-profile-tls-option.md); this revision supersedes earlier blanket no-bypass statements in planning documents.
 
 ## ADR-006: No automatic write retries
 **Status:** Accepted. **Decision:** retry only idempotent reads; timeouts after POST produce unknown result and user reconciliation. **Rationale:** eliminate duplicate guest lifecycle requests.

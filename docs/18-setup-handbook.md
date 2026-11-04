@@ -21,9 +21,9 @@ flutter build apk --debug
 Do not rerun `flutter pub add` for the checked-in dependencies during ordinary setup. `app/pubspec.lock` is committed for reproducibility. The bootstrap script preserves that repository lockfile across `flutter create --no-pub` and resolves it with `--enforce-lockfile`.
 
 ## Generated Android runner
-The runner is Android-only and uses application ID `com.s4daharu.virthelm`. The hardening script adds release Internet permission, sets `android:allowBackup="false"`, sets `android:usesCleartextTraffic="false"`, pins minSdk 26, and removes Flutter template debug-key signing from the release build. `scripts/check_android_generated.py` verifies these conditions after generation.
+The runner is Android-only and uses application ID `com.s4daharu.virthelm`. The hardening script adds release Internet permission, sets `android:allowBackup="false"`, sets `android:usesCleartextTraffic="false"`, pins minSdk 26, and removes Flutter template debug-key signing from the release build. It also replaces the template's oversized heap with a 2G Gradle heap/512M metaspace, two workers with parallel execution off, and a 512M Kotlin daemon. `scripts/check_android_generated.py` verifies these conditions after generation. Builds on resource-constrained developer machines should additionally be throttled; for example, `ionice -c3 nice -n 19 taskset -c 0-2 flutter build apk --debug`, followed by `android/gradlew --stop`.
 
-Release signing is intentionally absent from source control. Configure signing externally only for a reviewed release workflow. Do not weaken TLS or add a broad network-security trust exception to make a lab server connect.
+Release signing is intentionally absent from source control. Configure signing externally only for a reviewed release workflow. Never add a global network-security trust exception to make a lab server connect. The explicit per-profile insecure option is documented in [TLS option](40-profile-tls-option.md). OpenSSL is needed for disposable-certificate native TLS regression tests.
 
 
 ## Signed split-ABI Android prerelease
@@ -36,11 +36,13 @@ The workflow deliberately does not publish an x86/x86_64 APK. It requires the Gi
 
 A successful split-APK workflow proves packaging/signing mechanics only. It does not close the real-PVE, physical-device, accessibility/performance, dependency/security-review, or production release-certification gates in `docs/33-test-acceptance-release-gates.md`.
 
+The workflow is restricted to `main`, derives the Android versionCode from the pubspec base plus `GITHUB_RUN_NUMBER` to distinguish successive prereleases, verifies each APK's certificate digest against the configured keystore, and removes temporary runner signing files even on failure. Rerunning the same workflow run intentionally retains its versionCode. Protect the four repository Actions secrets and keep an encrypted off-machine recovery backup. Their presence is not proof that a signed APK has been built or tested.
+
 ## PVE staging prerequisites
 Use disposable PVE 9.2 and 8.4 environments behind LAN/VPN, trusted HTTPS names/certificates, separated least-privilege test tokens, and disposable QEMU/LXC guests. Capture sanitized endpoint/ACL/version evidence without secrets. Mutating lab tests require explicit rollback/pre-state preparation.
 
 ## Troubleshooting
-- TLS error: repair hostname/CA/expiry; never disable certificate verification.
+- TLS error: prefer repairing hostname/CA/expiry. For lab use, adding a connection offers a saved, explicitly confirmed insecure option for any host; it permits impersonation and token theft even on LAN. Remove and re-add with the switch off to restore verification.
 - `401`: token malformed, expired, or revoked.
 - `403`: user/token ACL is insufficient for that endpoint/resource.
 - Timeout/offline: verify DNS, VPN/routing, firewall, port 8006, and node health.

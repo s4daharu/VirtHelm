@@ -22,7 +22,7 @@ Route params must be URL-encoded, and displayed identifiers validated before API
 | Guests | tabs All/VMs/Containers, search/sort and status chips | access denied, zero resources, offline states distinct |
 | Guest detail | identity, state, resources, actions, task context | missing metrics gracefully, dangerous actions confirmed |
 | Tasks | async task progress, failed result reason, recent history | no tasks / no task permission, filtered views |
-| Connections | named URLs and last health; add and remove | TLS error includes safe steps, never “continue insecurely” |
+| Connections | named URLs and last health; add and remove | TLS error includes trust remediation; explicit per-profile insecure opt-in requires origin/risk confirmation and persistent warnings per [TLS option](40-profile-tls-option.md) |
 | Settings | light/dark/system, refresh, telemetry OFF by default | privacy and security explanations |
 
 ## UI conventions

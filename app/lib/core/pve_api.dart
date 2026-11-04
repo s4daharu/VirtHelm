@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 
 import 'models.dart';
 
@@ -31,6 +34,19 @@ class DioPveGateway implements PveGateway {
     if (normalizePveEndpoint(profile.endpoint) != profile.endpoint) {
       throw const FormatException('Invalid stored endpoint.');
     }
+    if (profile.allowInvalidCertificates) {
+      final origin = Uri.parse(profile.endpoint);
+      // Never use HttpOverrides: the exception belongs to this profile's
+      // client and exact host/port, not other connections or redirects.
+      _http.httpClientAdapter = IOHttpClientAdapter(
+        createHttpClient: () {
+          final client = HttpClient();
+          client.badCertificateCallback = (certificate, host, port) =>
+              host == origin.host && port == origin.port;
+          return client;
+        },
+      );
+    }
     final options = _http.options;
     options.baseUrl = '${profile.endpoint}/api2/json';
     options.connectTimeout = const Duration(seconds: 10);
@@ -58,7 +74,12 @@ class DioPveGateway implements PveGateway {
           : await _http.get<dynamic>(path, queryParameters: queryParameters);
       final raw = response.data;
       if (raw is! Map || !raw.containsKey('data')) {
-        throw const PveFailure('Unexpected Proxmox API response.');
+        throw PveFailure(
+          mutation
+              ? 'Unexpected Proxmox API response. The action outcome is unknown; inspect server tasks before retrying.'
+              : 'Unexpected Proxmox API response.',
+          mayHaveExecuted: mutation,
+        );
       }
       return raw['data'];
     } on DioException catch (e) {
@@ -69,9 +90,14 @@ class DioPveGateway implements PveGateway {
               e.type == DioExceptionType.connectionTimeout ||
               e.type == DioExceptionType.receiveTimeout ||
               e.type == DioExceptionType.sendTimeout ||
-              (code != null && code >= 500));
-      final message = e.type == DioExceptionType.badCertificate
-          ? 'TLS certificate validation failed. Verify the server hostname, certificate validity, and trusted CA; certificate bypass is not supported.'
+              e.type == DioExceptionType.unknown ||
+              e.type == DioExceptionType.cancel ||
+              code == 408 ||
+              (code != null && (code >= 500 || (code >= 300 && code < 400))));
+      final message =
+          e.type == DioExceptionType.badCertificate ||
+              e.error is HandshakeException
+          ? 'TLS certificate validation failed. Verify the server hostname, certificate validity, and trusted CA. A trusted certificate is recommended.'
           : switch (code) {
               401 => 'Authentication failed. Check or rotate your API token.',
               403 => 'Permission denied by Proxmox. Check token ACLs.',
@@ -82,7 +108,7 @@ class DioPveGateway implements PveGateway {
                     : 'Could not reach this Proxmox server. Check network, VPN, and certificate trust.',
               _ =>
                 code >= 300 && code < 400
-                    ? 'The server tried to redirect the request. Redirects are blocked for security.'
+                    ? 'The server tried to redirect the request. Redirects are blocked for security.${unknown ? ' The action outcome is unknown; inspect server tasks before retrying.' : ''}'
                     : unknown
                     ? 'Server error; the action outcome is unknown. Inspect server tasks before retrying.'
                     : 'Proxmox request failed (HTTP $code).',
@@ -125,7 +151,10 @@ class DioPveGateway implements PveGateway {
           continue;
         }
         for (final entry in raw) {
-          if (entry is! Map) continue;
+          if (entry is! Map) {
+            malformed++;
+            continue;
+          }
           try {
             values.add(
               StoragePool.fromApi(Map<String, dynamic>.from(entry), node: node),
@@ -174,7 +203,10 @@ class DioPveGateway implements PveGateway {
           continue;
         }
         for (final entry in raw) {
-          if (entry is! Map) continue;
+          if (entry is! Map) {
+            malformed++;
+            continue;
+          }
           try {
             values.add(
               RecentServerTask.fromApi(

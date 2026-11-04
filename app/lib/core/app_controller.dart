@@ -37,7 +37,7 @@ class AppController extends ChangeNotifier {
   PveGateway? _gateway;
   int _generation = 0;
   Timer? _pollTimer;
-  bool _polling = false;
+  int? _pollingGeneration;
   bool _foreground = true;
   bool _disposed = false;
   Future<void>? _refreshFuture;
@@ -47,6 +47,7 @@ class AppController extends ChangeNotifier {
   final Set<String> _pendingGuestOperations = {};
   final Set<String> _uncertainGuestOperations = {};
   final Map<String, String> _taskTargets = {};
+  final Set<String> _deletingProfiles = {};
 
   String _guestKey(Guest guest) => '${guest.kind}:${guest.node}:${guest.vmid}';
 
@@ -101,9 +102,18 @@ class AppController extends ChangeNotifier {
     required String address,
     required String tokenId,
     required String secret,
+    bool allowInvalidCertificates = false,
   }) async {
-    if (connecting) return;
-    final profile = ConnectionProfile.create(name: name, address: address);
+    if (_disposed) throw const PveFailure('Connection setup canceled.');
+    if (connecting) {
+      throw const PveFailure('A connection is already being checked.');
+    }
+    final generation = _generation;
+    final profile = ConnectionProfile.create(
+      name: name,
+      address: address,
+      allowInvalidCertificates: allowInvalidCertificates,
+    );
     final credential = ApiCredentials(tokenId: tokenId.trim(), secret: secret);
     if (!credential.isValid) {
       throw const FormatException('Token ID must be user@realm!token-name.');
@@ -114,10 +124,22 @@ class AppController extends ChangeNotifier {
     try {
       candidate = _factory(profile, credential);
       await candidate.version();
+      _checkConnectionSetup(generation);
       await candidate.inventory(); // A valid token must also access inventory.
+      _checkConnectionSetup(generation);
       await repository.save(profile, credential);
+      if (_disposed) return;
       profiles = repository.readProfiles();
-      await activate(profile);
+      if (generation == _generation) {
+        await activate(profile);
+      } else {
+        // Saving may finish after the operator has switched connections. Keep
+        // their selection, but retain the newly saved profile for later use.
+        await repository.setActive(active?.id);
+        throw const PveFailure(
+          'Connection saved, but the active connection changed.',
+        );
+      }
     } finally {
       candidate?.close();
       connecting = false;
@@ -125,7 +147,14 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  void _checkConnectionSetup(int generation) {
+    if (_disposed || generation != _generation) {
+      throw const PveFailure('Connection changed; setup canceled.');
+    }
+  }
+
   Future<void> activate(ConnectionProfile profile) async {
+    if (_disposed || _deletingProfiles.contains(profile.id)) return;
     final generation = ++_generation;
     _pollTimer?.cancel();
     _refreshFuture = null;
@@ -156,6 +185,7 @@ class AppController extends ChangeNotifier {
       }
       _gateway = _factory(profile, credentials);
       await repository.setActive(profile.id);
+      if (generation != _generation || _disposed) return;
       await refresh();
       if (generation == _generation && _foreground) _startPolling();
     } catch (e) {
@@ -182,7 +212,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> _refreshOnce() async {
     final gateway = _gateway;
-    if (gateway == null) return;
+    if (_disposed || gateway == null) return;
     final generation = _generation;
     refreshing = true;
     _notify();
@@ -274,11 +304,11 @@ class AppController extends ChangeNotifier {
         : 'Some $label is unavailable ($detail).';
   }
 
-  bool get isInventoryFresh =>
-      inventory != null &&
-      message == null &&
-      DateTime.now().difference(inventory!.fetchedAt) <
-          const Duration(minutes: 2);
+  bool get isInventoryFresh {
+    if (_disposed || inventory == null || message != null) return false;
+    final age = DateTime.now().difference(inventory!.fetchedAt);
+    return age >= Duration.zero && age < const Duration(minutes: 2);
+  }
 
   bool get isInventoryWriteSafe =>
       isInventoryFresh && inventory!.malformedGuestRecords == 0;
@@ -295,7 +325,10 @@ class AppController extends ChangeNotifier {
         'Connection changed; return to the guest list before acting.',
       );
     }
-    if (gateway == null || !isInventoryWriteSafe || refreshing) {
+    if (!_foreground ||
+        gateway == null ||
+        !isInventoryWriteSafe ||
+        refreshing) {
       throw const PveFailure(
         'Refresh a clean live inventory before making changes.',
       );
@@ -341,7 +374,10 @@ class AppController extends ChangeNotifier {
     var postAttempted = false;
     try {
       final actual = await gateway.guestStatus(guest);
-      if (generation != _generation || active?.id != profileId || _disposed) {
+      if (generation != _generation ||
+          active?.id != profileId ||
+          _disposed ||
+          !_foreground) {
         throw const PveFailure('Connection changed; action canceled.');
       }
       if (!identical(snapshot, inventory) ||
@@ -401,8 +437,11 @@ class AppController extends ChangeNotifier {
   }
 
   void setForeground(bool visible) {
+    if (_disposed) return;
+    final resumed = visible && !_foreground;
     _foreground = visible;
     if (visible) {
+      if (resumed) unawaited(refresh());
       _startPolling();
     } else {
       _pollTimer?.cancel();
@@ -411,7 +450,8 @@ class AppController extends ChangeNotifier {
 
   void _startPolling() {
     _pollTimer?.cancel();
-    if (!_foreground ||
+    if (_disposed ||
+        !_foreground ||
         !tasks.any((task) => task.outcome == OperationOutcome.running)) {
       return;
     }
@@ -422,18 +462,24 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _pollTasks() async {
-    if (_polling || !_foreground || _gateway == null) return;
+    if (_disposed ||
+        _pollingGeneration == _generation ||
+        !_foreground ||
+        _gateway == null) {
+      return;
+    }
     final pending = tasks
         .where((t) => t.outcome == OperationOutcome.running)
         .toList();
     if (pending.isEmpty) return;
-    _polling = true;
     final generation = _generation;
+    _pollingGeneration = generation;
     final gateway = _gateway!;
     var finished = false;
     final completedTargets = <String>[];
     try {
       for (final pendingTask in pending) {
+        if (generation != _generation || _disposed || !_foreground) return;
         if (DateTime.now().difference(pendingTask.startedAt) >=
             taskVerificationTtl) {
           final index = tasks.indexWhere(
@@ -512,11 +558,12 @@ class AppController extends ChangeNotifier {
           }
           // Other network/server failures remain unproven and retry until TTL.
         } catch (_) {
+          if (generation != _generation || _disposed || !_foreground) return;
           // Unknown client/network failures are not evidence of task outcome.
         }
       }
     } finally {
-      _polling = false;
+      if (_pollingGeneration == generation) _pollingGeneration = null;
     }
     if (finished && generation == _generation) {
       await refresh();
@@ -540,6 +587,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> deleteProfile(String id) async {
+    if (_disposed || !_deletingProfiles.add(id)) return;
     final deletingActiveProfile = active?.id == id;
     if (deletingActiveProfile) {
       // Revoke the in-memory session immediately, before an asynchronous
@@ -552,6 +600,11 @@ class AppController extends ChangeNotifier {
       active = null;
       favoriteGuests = <String>{};
       inventory = null;
+      storages = [];
+      serverTasks = [];
+      storageMessage = null;
+      serverTaskMessage = null;
+      inventoryWarning = null;
       tasks.clear();
       _pendingGuestOperations.clear();
       _uncertainGuestOperations.clear();
@@ -563,12 +616,28 @@ class AppController extends ChangeNotifier {
 
     // On deletion failure remain disconnected: failing closed is safer than
     // silently restoring a session whose credential state is uncertain.
-    await repository.delete(id);
-    profiles = repository.readProfiles();
-    if (deletingActiveProfile && profiles.isNotEmpty) {
-      await activate(profiles.first);
+    final generation = _generation;
+    try {
+      await repository.delete(id);
+      if (_disposed) return;
+      profiles = repository.readProfiles();
+      if (deletingActiveProfile &&
+          generation == _generation &&
+          active == null &&
+          profiles.isNotEmpty) {
+        await activate(profiles.first);
+      }
+      _notify();
+    } catch (_) {
+      if (generation == _generation) {
+        message =
+            'Could not remove stored connection. Check local secure storage.';
+        _notify();
+      }
+      rethrow;
+    } finally {
+      _deletingProfiles.remove(id);
     }
-    _notify();
   }
 
   @override

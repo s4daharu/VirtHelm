@@ -13,7 +13,7 @@ Operators running PVE need a predictable, secure and compact Android phone UI fo
 | ID | Goal | Measurement / acceptance |
 |---|---|---|
 | G01 | Android-only mobile product | Only `app/android` platform runner generated and tested; responsive phone widths 320–480dp |
-| G02 | Secure local-first connection | All PVE traffic HTTPS with proper server identity verification; no global TLS bypass |
+| G02 | Secure local-first connection | HTTPS with server identity verification by default; explicit warned per-profile exception per [TLS option](40-profile-tls-option.md); no global TLS bypass |
 | G03 | Reliable management | Mutations tracked to server task terminal state, failures visible |
 | G04 | Least privilege | No assumed root permission; 401/403 recognized and explained |
 | G05 | Proxmox compatibility | PVE 9.2 acceptance target; PVE 8.4 regression target with separate evidence |

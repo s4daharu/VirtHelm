@@ -7,16 +7,19 @@ class ConnectionProfile {
     required this.id,
     required this.name,
     required this.endpoint,
+    this.allowInvalidCertificates = false,
   });
 
   final String id;
   final String name;
   final String endpoint;
+  final bool allowInvalidCertificates;
 
   Map<String, Object> toJson() => {
     'id': id,
     'name': name,
     'endpoint': endpoint,
+    'allowInvalidCertificates': allowInvalidCertificates,
   };
 
   factory ConnectionProfile.fromJson(Map<String, dynamic> json) =>
@@ -24,11 +27,14 @@ class ConnectionProfile {
         id: json['id'] as String,
         name: json['name'] as String,
         endpoint: json['endpoint'] as String,
+        // Only an explicit boolean enables this security-sensitive exception.
+        allowInvalidCertificates: json['allowInvalidCertificates'] == true,
       );
 
   static ConnectionProfile create({
     required String name,
     required String address,
+    bool allowInvalidCertificates = false,
   }) {
     final id =
         '${DateTime.now().microsecondsSinceEpoch}_'
@@ -40,6 +46,7 @@ class ConnectionProfile {
       id: id,
       name: name.trim(),
       endpoint: normalizePveEndpoint(address),
+      allowInvalidCertificates: allowInvalidCertificates,
     );
   }
 }
@@ -47,7 +54,8 @@ class ConnectionProfile {
 /// First milestone only supports a direct PVE host:port (not reverse-proxy paths).
 /// No HTTP, URL-embedded credentials, redirects, query strings, or fragments.
 String normalizePveEndpoint(String input) {
-  final uri = Uri.tryParse(input.trim());
+  final trimmed = input.trim();
+  final uri = Uri.tryParse(trimmed);
   if (uri == null ||
       uri.scheme.toLowerCase() != 'https' ||
       uri.host.isEmpty ||
@@ -62,15 +70,22 @@ String normalizePveEndpoint(String input) {
       'Use an HTTPS address, for example https://pve.example:8006',
     );
   }
-  final port = uri.hasPort ? uri.port : 8006;
-  if (port <= 0 || port > 65535) {
+  // Uri removes explicit default HTTPS ports: hasPort alone would silently
+  // turn a user-selected :443 into Proxmox's :8006 on normalization/reload.
+  final authority = RegExp(r'^[^:]+://([^/?#]*)').firstMatch(trimmed)?.group(1);
+  final explicitPort = RegExp(
+    r':([0-9]+)$',
+  ).firstMatch(authority ?? '')?.group(1);
+  final port = explicitPort == null ? 8006 : int.tryParse(explicitPort);
+  if (authority == null ||
+      authority.endsWith(':') ||
+      port == null ||
+      port <= 0 ||
+      port > 65535) {
     throw const FormatException('Invalid server port.');
   }
-  return Uri(
-    scheme: 'https',
-    host: uri.host,
-    port: port,
-  ).toString().replaceFirst(RegExp(r'/$'), '');
+  // Retain an explicit port, including 443, for stable stored origin identity.
+  return '${Uri(scheme: 'https', host: uri.host).origin}:$port';
 }
 
 class ApiCredentials {
@@ -97,13 +112,21 @@ class ApiCredentials {
   }
 }
 
-int? asInteger(Object? value) => value is num ? value.toInt() : null;
-double? asDouble(Object? value) => value is num ? value.toDouble() : null;
+int? asInteger(Object? value) {
+  if (value is int) return value;
+  if (value is double && value.isFinite && value == value.truncateToDouble()) {
+    return value.toInt();
+  }
+  return null;
+}
+
+double? asDouble(Object? value) =>
+    value is num && value.isFinite ? value.toDouble() : null;
 String? asText(Object? value) => value is String ? value : null;
 
 bool? asFlag(Object? value) {
   if (value is bool) return value;
-  if (value is num) return value != 0;
+  if (value is num) return value.isFinite ? value != 0 : null;
   if (value is String) {
     final normalized = value.trim().toLowerCase();
     if (normalized == '1' || normalized == 'true' || normalized == 'yes') {
@@ -118,7 +141,8 @@ bool? asFlag(Object? value) {
 
 DateTime? asUnixSeconds(Object? value) {
   final seconds = asInteger(value);
-  if (seconds == null || seconds < 0) return null;
+  // DateTime's supported range is +/- 100 million days from the epoch.
+  if (seconds == null || seconds < 0 || seconds > 8640000000000) return null;
   return DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
 }
 
@@ -314,7 +338,7 @@ class Guest {
     }
     final vmid = asInteger(json['vmid']);
     final node = asText(json['node']);
-    if (vmid == null || node == null || node.isEmpty) {
+    if (vmid == null || vmid < 1 || node == null || node.trim().isEmpty) {
       throw const FormatException('Guest is missing node or VMID.');
     }
     final rawName = asText(json['name']);
@@ -379,7 +403,10 @@ class Inventory {
     final guests = <Guest>[];
     var malformedGuestRecords = 0;
     for (final entry in values) {
-      if (entry is! Map<String, dynamic>) continue;
+      if (entry is! Map<String, dynamic>) {
+        malformedGuestRecords++;
+        continue;
+      }
       final kind = entry['type'];
       if (kind == 'node') {
         nodes.add(Node.fromResource(entry));

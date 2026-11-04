@@ -9,6 +9,11 @@ if not manifest.is_file() or not gradle.is_file():
     raise SystemExit('Generated Android runner missing.')
 manifest_text = manifest.read_text(encoding='utf-8')
 gradle_text = gradle.read_text(encoding='utf-8')
+properties_text = (root / 'app/android/gradle.properties').read_text(encoding='utf-8')
+for cap in ('org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m',
+            'org.gradle.workers.max=2', 'org.gradle.parallel=false',
+            'kotlin.daemon.jvmargs=-Xmx512m'):
+    assert cap in properties_text
 assert 'android.permission.INTERNET' in manifest_text
 assert 'android:allowBackup="false"' in manifest_text
 assert 'android:usesCleartextTraffic="false"' in manifest_text

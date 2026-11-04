@@ -35,6 +35,7 @@
   "m1_validation": "Automated branch CI has passed source checks, analyzer, tests and Android debug APK build for the M1 safety implementation; live PVE/device release validation remains open.",
   "flutter_build_success": true,
   "ci_flutter_version": "3.44.4",
+  "android_build_evidence": "Historical CI debug builds verified; consult the latest Actions checks for the current commit. No local APK build was run during the cross-check audit.",
   "m1_safety_followup": "Implemented: per-guest single-flight, profile/snapshot revalidation, bounded task verification, ambiguous-outcome lockout, auth-revocation fail-closed handling and race regression tests.",
   "m2_read_cockpit": {
     "features": [
@@ -49,11 +50,25 @@
     "release_validation": "Real PVE 8.4/9.2 contracts/ACLs and Android device/release gates remain required."
   },
   "dependency_lockfile_committed": true,
+  "tls_policy": {
+    "default": "certificate and hostname verification enabled",
+    "exception": "user-confirmed, saved per-profile insecure opt-in for any HTTPS host; exact host/port scoped with persistent warnings",
+    "risk": "server impersonation, token theft and command tampering even on LAN; not recommended for production",
+    "release_validation": "physical Android TLS/security review remains open; see docs/40-profile-tls-option.md"
+  },
   "implementation_audit": {
     "reviewed_at": "2026-11-04",
     "source_review_completed": true,
     "automated_regressions_added": true,
     "android_generated_runner_audited": true,
+    "report": "docs/41-cross-check-audit.md",
+    "local_flutter_version": "3.44.4",
+    "local_dart_version": "3.12.2",
+    "local_flutter_tests_passed": 57,
+    "offline_delivery_tests_passed": 5,
+    "committed_lockfile_unchanged": true,
+    "release_signing_secrets_configured": true,
+    "release_apk_verified_by_this_audit": false,
     "unresolved_release_gates": [
       "live PVE 9.2 and 8.4 integration evidence",
       "physical Android TLS/secure-storage backup/accessibility/performance tests",

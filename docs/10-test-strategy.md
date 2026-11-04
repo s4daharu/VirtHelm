@@ -28,7 +28,7 @@ No implementation/spec is “100% correct” without the full relevant verificat
 ## Critical tests (each requires documented evidence)
 - T01 Correct header **including separator**: `PVEAPIToken=user@realm!id=secret`.
 - T02 API token can't establish console; no UI action promises token-only console.
-- T03 Accepted TLS CA + valid hostname connects; MITM, wrong hostname, expired cert fail closed.
+- T03 Accepted TLS CA + valid hostname connects; MITM, wrong hostname, expired cert fail closed by default. Test explicit insecure opt-in, cancellation, persistence, exact-origin scoping and profile isolation per [TLS option](40-profile-tls-option.md).
 - T04 GET returns `data: []`, `data: null` or malformed; parser supplies correct empty/error semantics.
 - T05 CPU 0.1 prints 10%, not 0.1% or 100%; `mem=0` and `maxmem=0` no division by zero.
 - T06 QEMU and LXC start/shutdown/stop/reboot separately return task IDs or documented synchronous patterns.

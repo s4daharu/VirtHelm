@@ -2,6 +2,42 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:virthelm/core/models.dart';
 
 void main() {
+  test(
+    'certificate bypass defaults off and round-trips only explicit opt-in',
+    () {
+      final profile = ConnectionProfile.create(
+        name: 'Lab',
+        address: 'https://pve.example',
+      );
+      expect(profile.allowInvalidCertificates, isFalse);
+      for (final value in [null, false, 'true', 1]) {
+        final json = profile.toJson()..remove('allowInvalidCertificates');
+        if (value != null) json['allowInvalidCertificates'] = value;
+        expect(
+          ConnectionProfile.fromJson(json).allowInvalidCertificates,
+          isFalse,
+        );
+      }
+      final insecure = ConnectionProfile.create(
+        name: 'Lab',
+        address: 'https://pve.example',
+        allowInvalidCertificates: true,
+      );
+      expect(
+        ConnectionProfile.fromJson(insecure.toJson()).allowInvalidCertificates,
+        isTrue,
+      );
+      expect(
+        () => ConnectionProfile.create(
+          name: 'Lab',
+          address: 'http://pve.example',
+          allowInvalidCertificates: true,
+        ),
+        throwsFormatException,
+      );
+    },
+  );
+
   group('Proxmox URL safety', () {
     test('canonicalizes direct HTTPS endpoint', () {
       expect(
@@ -12,6 +48,15 @@ void main() {
         normalizePveEndpoint('https://pve.local:8443/api2/json'),
         'https://pve.local:8443',
       );
+      for (final url in [
+        'https://pve.example:443',
+        'https://[::1]:443',
+        'https://[::1]:8006',
+      ]) {
+        expect(normalizePveEndpoint(url), url);
+        expect(normalizePveEndpoint(normalizePveEndpoint(url)), url);
+      }
+      expect(normalizePveEndpoint('https://[::1]'), 'https://[::1]:8006');
     });
     test('rejects unsafe and ambiguous URLs', () {
       for (final url in [
@@ -21,6 +66,9 @@ void main() {
         'https://pve.local:8006?token=secret',
         'https://pve.local:8006/#fragment',
         'https://',
+        'https://pve.local:',
+        'https://pve.local:0',
+        'https://pve.local:65536',
       ]) {
         expect(
           () => normalizePveEndpoint(url),
@@ -30,6 +78,28 @@ void main() {
       }
     });
   });
+
+  test(
+    'malformed identities and non-finite numbers never become valid guests',
+    () {
+      for (final vmid in [0, -1, 101.5, double.nan, double.infinity, '101']) {
+        final inventory = Inventory.fromResources([
+          {'type': 'qemu', 'node': 'pve1', 'vmid': vmid},
+        ]);
+        expect(inventory.guests, isEmpty);
+        expect(inventory.malformedGuestRecords, 1);
+      }
+      expect(
+        Inventory.fromResources([null, 'broken']).malformedGuestRecords,
+        2,
+      );
+      expect(asInteger(101.0), 101);
+      expect(asDouble(double.infinity), isNull);
+      expect(asFlag(double.nan), isNull);
+      expect(asUnixSeconds(8640000000001), isNull);
+      expect(asUnixSeconds(-1), isNull);
+    },
+  );
 
   test('parses sparse mixed node and guest inventory', () {
     final inv = Inventory.fromResources([

@@ -7,6 +7,7 @@ import '../core/models.dart';
 import 'connect_page.dart';
 import 'guest_page.dart';
 import 'theme.dart';
+import 'tls_warning.dart';
 
 class ShellPage extends StatefulWidget {
   const ShellPage({super.key, required this.controller});
@@ -25,6 +26,10 @@ class _ShellPageState extends State<ShellPage> {
     final profile = controller.active;
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight:
+            32 +
+            MediaQuery.textScalerOf(context).scale(20) +
+            MediaQuery.textScalerOf(context).scale(12),
         titleSpacing: 16,
         title: Row(
           children: [
@@ -39,7 +44,9 @@ class _ShellPageState extends State<ShellPage> {
                 children: [
                   const Text('VirtHelm'),
                   Text(
-                    profile?.name ?? 'No connection',
+                    '${profile?.name ?? 'No connection'}'
+                    '${profile?.allowInvalidCertificates == true ? ' • TLS UNVERIFIED' : ''}',
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,
@@ -99,7 +106,11 @@ class _ShellPageState extends State<ShellPage> {
                         size: 18,
                       ),
                       const SizedBox(width: 10),
-                      Expanded(child: Text(p.name)),
+                      Expanded(
+                        child: Text(
+                          '${p.name}${p.allowInvalidCertificates ? ' • TLS UNVERIFIED' : ''}',
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -118,16 +129,23 @@ class _ShellPageState extends State<ShellPage> {
           ),
         ],
       ),
-      body: IndexedStack(
-        index: selectedIndex,
+      body: Column(
         children: [
-          _OverviewTab(
-            controller: controller,
-            onOpenGuests: () => setState(() => selectedIndex = 1),
+          if (profile?.allowInvalidCertificates == true) const TlsWarning(),
+          Expanded(
+            child: IndexedStack(
+              index: selectedIndex,
+              children: [
+                _OverviewTab(
+                  controller: controller,
+                  onOpenGuests: () => setState(() => selectedIndex = 1),
+                ),
+                _GuestsTab(controller: controller),
+                _TasksTab(controller: controller),
+                _SettingsTab(controller: controller),
+              ],
+            ),
           ),
-          _GuestsTab(controller: controller),
-          _TasksTab(controller: controller),
-          _SettingsTab(controller: controller),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -201,13 +219,15 @@ class _OverviewTab extends StatelessWidget {
                       color: scheme.onPrimaryContainer,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      'CLUSTER OVERVIEW',
-                      style: TextStyle(
-                        color: scheme.onPrimaryContainer,
-                        fontSize: 11,
-                        letterSpacing: 1.2,
-                        fontWeight: FontWeight.w700,
+                    Expanded(
+                      child: Text(
+                        'CLUSTER OVERVIEW',
+                        style: TextStyle(
+                          color: scheme.onPrimaryContainer,
+                          fontSize: 11,
+                          letterSpacing: 1.2,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
@@ -275,11 +295,16 @@ class _OverviewTab extends StatelessWidget {
             trailing: 'CURRENT SNAPSHOT',
           ),
           const SizedBox(height: 12),
-          GridView.count(
-            crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 1.55,
+          GridView(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              mainAxisExtent:
+                  112 +
+                  MediaQuery.textScalerOf(context).scale(26) +
+                  MediaQuery.textScalerOf(context).scale(11) * 2,
+            ),
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             children: [
@@ -458,9 +483,12 @@ class _MetricCard extends StatelessWidget {
               ),
             ],
           ),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
+            ),
           ),
         ],
       ),
@@ -510,51 +538,70 @@ class _GuestTile extends StatelessWidget {
   const _GuestTile({required this.guest, required this.controller});
   final Guest guest;
   final AppController controller;
+
+  Future<void> _toggleFavorite(BuildContext context) async {
+    try {
+      await controller.toggleGuestFavorite(guest);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not update guest favorites.')),
+        );
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => Card(
-    child: ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-      leading: CircleAvatar(
-        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-        foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
-        child: Icon(
-          guest.kind == 'qemu'
-              ? Icons.computer_rounded
-              : Icons.view_in_ar_rounded,
+  Widget build(BuildContext context) {
+    // Capture scope when this tile is rendered, not later when a route builds.
+    final profileId = controller.active?.id;
+    return Card(
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        leading: CircleAvatar(
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+          child: Icon(
+            guest.kind == 'qemu'
+                ? Icons.computer_rounded
+                : Icons.view_in_ar_rounded,
+          ),
         ),
-      ),
-      title: Text(guest.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(
-        '${guest.kind.toUpperCase()} • ${guest.vmid} • ${guest.node}',
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            tooltip: controller.isGuestFavorite(guest)
-                ? 'Remove from favorites'
-                : 'Add to favorites',
-            onPressed: () => unawaited(controller.toggleGuestFavorite(guest)),
-            icon: Icon(
-              controller.isGuestFavorite(guest)
-                  ? Icons.star_rounded
-                  : Icons.star_border_rounded,
+        title: Text(guest.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Text(
+          '${guest.kind.toUpperCase()} • ${guest.vmid} • ${guest.node}',
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: controller.isGuestFavorite(guest)
+                  ? 'Remove from favorites'
+                  : 'Add to favorites',
+              onPressed: () => _toggleFavorite(context),
+              icon: Icon(
+                controller.isGuestFavorite(guest)
+                    ? Icons.star_rounded
+                    : Icons.star_border_rounded,
+              ),
             ),
-          ),
-          StatusChip(status: guest.status),
-        ],
-      ),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => GuestPage(
-            controller: controller,
-            guest: guest,
-            profileId: controller.active!.id,
-          ),
+            StatusChip(status: guest.status),
+          ],
         ),
+        onTap: profileId == null
+            ? null
+            : () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => GuestPage(
+                    controller: controller,
+                    guest: guest,
+                    profileId: profileId,
+                  ),
+                ),
+              ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _GuestsTab extends StatefulWidget {
@@ -603,93 +650,113 @@ class _GuestsTabState extends State<_GuestsTab> {
             if (favoriteOrder != 0) return favoriteOrder;
             return a.name.toLowerCase().compareTo(b.name.toLowerCase());
           });
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-          child: TextField(
-            controller: search,
-            onChanged: (value) => setState(() => query = value),
-            decoration: const InputDecoration(
-              hintText: 'Search guests, VMID, or node',
-              prefixIcon: Icon(Icons.search_rounded),
+    return RefreshIndicator(
+      onRefresh: widget.controller.refresh,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+                  child: TextField(
+                    controller: search,
+                    onChanged: (value) => setState(() => query = value),
+                    decoration: const InputDecoration(
+                      hintText: 'Search guests, VMID, or node',
+                      prefixIcon: Icon(Icons.search_rounded),
+                    ),
+                  ),
+                ),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Row(
+                    children: [
+                      for (final option in const [
+                        ('all', 'All'),
+                        ('favorites', 'Favorites'),
+                        ('running', 'Running'),
+                        ('stopped', 'Stopped'),
+                      ]) ...[
+                        FilterChip(
+                          label: Text(option.$2),
+                          selected: filter == option.$1,
+                          onSelected: (_) => setState(() => filter = option.$1),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 16,
+                    runSpacing: 8,
+                    children: [
+                      Text(
+                        '${guests.length} workloads',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        inv == null
+                            ? 'No live data'
+                            : widget.controller.isInventoryFresh
+                            ? 'Live'
+                            : 'STALE',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
             ),
           ),
-        ),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          child: Row(
-            children: [
-              for (final option in const [
-                ('all', 'All'),
-                ('favorites', 'Favorites'),
-                ('running', 'Running'),
-                ('stopped', 'Stopped'),
-              ]) ...[
-                FilterChip(
-                  label: Text(option.$2),
-                  selected: filter == option.$1,
-                  onSelected: (_) => setState(() => filter = option.$1),
-                ),
-                const SizedBox(width: 8),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            children: [
-              Text(
-                '${guests.length} workloads',
-                style: const TextStyle(fontWeight: FontWeight.w700),
+          if (inv == null)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: EmptyState(
+                icon: Icons.cloud_off_outlined,
+                title: 'Not connected',
+                body: 'Refresh or verify the connection to browse workloads.',
               ),
-              const Spacer(),
-              Text(
-                inv == null
-                    ? 'No live data'
-                    : widget.controller.isInventoryFresh
-                    ? 'Live'
-                    : 'STALE',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+            )
+          else if (guests.isEmpty)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: EmptyState(
+                icon: Icons.search_off_rounded,
+                title: 'No workloads found',
+                body:
+                    'Try a different search or filter, or check token permissions.',
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: inv == null
-              ? const EmptyState(
-                  icon: Icons.cloud_off_outlined,
-                  title: 'Not connected',
-                  body: 'Refresh or verify the connection to browse workloads.',
-                )
-              : guests.isEmpty
-              ? const EmptyState(
-                  icon: Icons.search_off_rounded,
-                  title: 'No workloads found',
-                  body:
-                      'Try a different search or filter, or check token permissions.',
-                )
-              : RefreshIndicator(
-                  onRefresh: widget.controller.refresh,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
-                    itemCount: guests.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) => _GuestTile(
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _GuestTile(
                       guest: guests[index],
                       controller: widget.controller,
                     ),
                   ),
+                  childCount: guests.length,
                 ),
-        ),
-      ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -926,8 +993,9 @@ class _SettingsTab extends StatelessWidget {
             ),
             title: Text(profile.name),
             subtitle: Text(
-              profile.endpoint,
-              maxLines: 1,
+              '${profile.endpoint}\n'
+              '${profile.allowInvalidCertificates ? 'INSECURE: certificate verification disabled' : 'Certificate verification enabled'}',
+              maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
             onTap: () => unawaited(controller.activate(profile)),
@@ -965,7 +1033,7 @@ class _SettingsTab extends StatelessWidget {
               ),
               SizedBox(height: 8),
               Text(
-                'HTTPS certificate verification • encrypted token storage • no automatic write retries • no analytics backend',
+                'HTTPS certificate verification by default (per-connection insecure opt-in available) • encrypted token storage • no automatic write retries • no analytics backend',
               ),
               SizedBox(height: 12),
               Text(
