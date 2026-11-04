@@ -742,6 +742,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(home: ShellPage(controller: controller)),
     );
+    await tester.scrollUntilVisible(
+      find.text('pve1'),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.textContaining('CPU 10.0%'), findsOneWidget);
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
