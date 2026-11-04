@@ -22,7 +22,8 @@ required = [
   'docs/45-full-implementation-cross-check.md',
   'docs/46-implementation-p0-profile-editing.md',
   'docs/47-implementation-p0-server-version.md',
-  'docs/48-implementation-p0-read-retries.md']
+  'docs/48-implementation-p0-read-retries.md',
+  'docs/49-whole-repository-audit-2026-11-04.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
