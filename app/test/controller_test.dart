@@ -765,39 +765,36 @@ void main() {
     },
   );
 
-  test(
-    'controller favorites do not leak across connection profiles',
-    () async {
-      final prefs = await SharedPreferences.getInstance();
-      final ctl = AppController(
-        repository: ProfileRepository(prefs, _Vault()),
-        gatewayFactory: (p, c) => _Gateway(),
-      );
-      addTearDown(ctl.dispose);
-      await ctl.initialize();
-      await ctl.connect(
-        name: 'Cluster A',
-        address: 'https://a.example',
-        tokenId: 'me@pve!app',
-        secret: 'a-secret',
-      );
-      final profileA = ctl.active!;
-      final guestA = ctl.inventory!.guests.single;
-      await ctl.setGuestFavorite(guestA, true);
-      expect(ctl.isGuestFavorite(guestA), isTrue);
+  test('controller favorites do not leak across connection profiles', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final ctl = AppController(
+      repository: ProfileRepository(prefs, _Vault()),
+      gatewayFactory: (p, c) => _Gateway(),
+    );
+    addTearDown(ctl.dispose);
+    await ctl.initialize();
+    await ctl.connect(
+      name: 'Cluster A',
+      address: 'https://a.example',
+      tokenId: 'me@pve!app',
+      secret: 'a-secret',
+    );
+    final profileA = ctl.active!;
+    final guestA = ctl.inventory!.guests.single;
+    await ctl.setGuestFavorite(guestA, true);
+    expect(ctl.isGuestFavorite(guestA), isTrue);
 
-      await ctl.connect(
-        name: 'Cluster B',
-        address: 'https://b.example',
-        tokenId: 'me@pve!app',
-        secret: 'b-secret',
-      );
-      final guestB = ctl.inventory!.guests.single;
-      expect(ctl.isGuestFavorite(guestB), isFalse);
+    await ctl.connect(
+      name: 'Cluster B',
+      address: 'https://b.example',
+      tokenId: 'me@pve!app',
+      secret: 'b-secret',
+    );
+    final guestB = ctl.inventory!.guests.single;
+    expect(ctl.isGuestFavorite(guestB), isFalse);
 
-      await ctl.activate(profileA);
-      expect(ctl.isGuestFavorite(ctl.inventory!.guests.single), isTrue);
-    },
-  );
+    await ctl.activate(profileA);
+    expect(ctl.isGuestFavorite(ctl.inventory!.guests.single), isTrue);
+  });
 
 }
