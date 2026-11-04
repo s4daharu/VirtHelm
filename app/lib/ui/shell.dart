@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
+import '../core/app_preferences.dart';
 import '../core/guest_list_filter.dart';
 import '../core/guest_saved_view.dart';
 import '../core/models.dart';
@@ -361,11 +362,13 @@ class _OverviewTab extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  subtitle: Text(
-                    'CPU ${formatPercent(node.cpu)} • '
-                    'RAM ${formatBytes(node.mem)} • '
-                    'Uptime ${formatUptime(node.uptime)}',
-                  ),
+                  subtitle: controller.showNodeMetrics
+                      ? Text(
+                          'CPU ${formatPercent(node.cpu)} • '
+                          'RAM ${formatBytes(node.mem)} • '
+                          'Uptime ${formatUptime(node.uptime)}',
+                        )
+                      : null,
                   trailing: StatusChip(status: node.status),
                 ),
               ),
@@ -1193,6 +1196,44 @@ class _SettingsTab extends StatelessWidget {
   const _SettingsTab({required this.controller});
   final AppController controller;
 
+  Future<void> _updateTheme(
+    BuildContext context,
+    AppThemePreference value,
+  ) async {
+    try {
+      await controller.setThemePreference(value);
+    } catch (_) {
+      _showPreferenceError(context);
+    }
+  }
+
+  Future<void> _updateRefresh(
+    BuildContext context,
+    AutoRefreshPreference value,
+  ) async {
+    try {
+      await controller.setAutoRefreshPreference(value);
+    } catch (_) {
+      _showPreferenceError(context);
+    }
+  }
+
+  Future<void> _updateNodeMetrics(BuildContext context, bool value) async {
+    try {
+      await controller.setShowNodeMetrics(value);
+    } catch (_) {
+      _showPreferenceError(context);
+    }
+  }
+
+  void _showPreferenceError(BuildContext context) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not save local setting.')),
+      );
+    }
+  }
+
   Future<void> _remove(BuildContext context, ConnectionProfile profile) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1281,6 +1322,89 @@ class _SettingsTab extends StatelessWidget {
         ),
         icon: const Icon(Icons.add_rounded),
         label: const Text('Add connection'),
+      ),
+      const SizedBox(height: 28),
+      Text('Display & refresh', style: Theme.of(context).textTheme.titleLarge),
+      const SizedBox(height: 10),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Appearance'),
+              DropdownButton<AppThemePreference>(
+                key: const Key('theme-preference'),
+                value: controller.themePreference,
+                isExpanded: true,
+                items: const [
+                  DropdownMenuItem(
+                    value: AppThemePreference.system,
+                    child: Text('Device theme'),
+                  ),
+                  DropdownMenuItem(
+                    value: AppThemePreference.light,
+                    child: Text('Light'),
+                  ),
+                  DropdownMenuItem(
+                    value: AppThemePreference.dark,
+                    child: Text('Dark'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    unawaited(_updateTheme(context, value));
+                  }
+                },
+              ),
+              const Divider(),
+              const Text('Automatic read refresh'),
+              DropdownButton<AutoRefreshPreference>(
+                key: const Key('refresh-preference'),
+                value: controller.autoRefreshPreference,
+                isExpanded: true,
+                items: const [
+                  DropdownMenuItem(
+                    value: AutoRefreshPreference.off,
+                    child: Text('Manual only'),
+                  ),
+                  DropdownMenuItem(
+                    value: AutoRefreshPreference.every30Seconds,
+                    child: Text('Every 30 seconds'),
+                  ),
+                  DropdownMenuItem(
+                    value: AutoRefreshPreference.every60Seconds,
+                    child: Text('Every minute'),
+                  ),
+                  DropdownMenuItem(
+                    value: AutoRefreshPreference.every120Seconds,
+                    child: Text('Every 2 minutes'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    unawaited(_updateRefresh(context, value));
+                  }
+                },
+              ),
+              const Text(
+                'Refreshes reads only while the app is foregrounded. '
+                'Stops automatic requests after read errors; no background '
+                'monitoring or automatic guest actions.',
+              ),
+              const Divider(),
+              SwitchListTile(
+                key: const Key('node-metrics-preference'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Show node metrics'),
+                subtitle: const Text('CPU, memory and uptime on Home.'),
+                value: controller.showNodeMetrics,
+                onChanged: (value) =>
+                    unawaited(_updateNodeMetrics(context, value)),
+              ),
+            ],
+          ),
+        ),
       ),
       const SizedBox(height: 28),
       Text('Security', style: Theme.of(context).textTheme.titleLarge),
