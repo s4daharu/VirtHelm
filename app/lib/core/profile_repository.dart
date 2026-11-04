@@ -344,16 +344,15 @@ class ProfileRepository {
         }
       });
 
-  Future<void> updateMetadata(ConnectionProfile profile) =>
-      _mutate(() async {
-        final profiles = readProfiles();
-        final index = profiles.indexWhere((item) => item.id == profile.id);
-        if (index < 0) {
-          throw StateError('Connection no longer exists.');
-        }
-        final nextProfiles = [...profiles]..[index] = profile;
-        await _writeProfiles(nextProfiles);
-      });
+  Future<void> updateMetadata(ConnectionProfile profile) => _mutate(() async {
+    final profiles = readProfiles();
+    final index = profiles.indexWhere((item) => item.id == profile.id);
+    if (index < 0) {
+      throw StateError('Connection no longer exists.');
+    }
+    final nextProfiles = [...profiles]..[index] = profile;
+    await _writeProfiles(nextProfiles);
+  });
 
   Future<void> setActive(String? id) => _mutate(() => _setActive(id));
 
