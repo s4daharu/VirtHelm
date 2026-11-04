@@ -190,13 +190,22 @@ void main() {
       );
 
       final fields = find.byType(TextFormField);
-      expect(tester.widget<TextFormField>(fields.at(0)).controller?.text, 'Home Lab');
+      expect(
+        tester.widget<TextFormField>(fields.at(0)).controller?.text,
+        'Home Lab',
+      );
       expect(
         tester.widget<TextFormField>(fields.at(1)).controller?.text,
         'https://pve.local:8006',
       );
-      expect(tester.widget<TextFormField>(fields.at(2)).controller?.text, isEmpty);
-      expect(tester.widget<TextFormField>(fields.at(3)).controller?.text, isEmpty);
+      expect(
+        tester.widget<TextFormField>(fields.at(2)).controller?.text,
+        isEmpty,
+      );
+      expect(
+        tester.widget<TextFormField>(fields.at(3)).controller?.text,
+        isEmpty,
+      );
 
       await tester.ensureVisible(find.text('Save connection'));
       await tester.tap(find.text('Save connection'));
@@ -210,7 +219,9 @@ void main() {
     },
   );
 
-  testWidgets('profile edit rejects a partial replacement token', (tester) async {
+  testWidgets('profile edit rejects a partial replacement token', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final controller = _RecordingController(
