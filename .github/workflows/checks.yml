@@ -3,6 +3,10 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   docs:
     runs-on: ubuntu-latest
