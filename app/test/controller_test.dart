@@ -796,5 +796,4 @@ void main() {
     await ctl.activate(profileA);
     expect(ctl.isGuestFavorite(ctl.inventory!.guests.single), isTrue);
   });
-
 }
