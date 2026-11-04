@@ -74,7 +74,13 @@ class _GuestPageState extends State<GuestPage> {
     builder: (context, _) {
       final guest = currentGuest();
       final scheme = Theme.of(context).colorScheme;
-      final allowed = guest != null && widget.controller.isInventoryFresh && !submitting;
+      final operationBlocked =
+          guest != null && widget.controller.isGuestActionBlocked(guest);
+      final allowed = guest != null &&
+          widget.controller.isInventoryFresh &&
+          !widget.controller.refreshing &&
+          !submitting &&
+          !operationBlocked;
       return Scaffold(
         appBar: AppBar(title: Text(guest?.name ?? widget.guest.name), actions: [
           IconButton(icon: const Icon(Icons.refresh_rounded), tooltip: 'Refresh',
@@ -109,6 +115,17 @@ class _GuestPageState extends State<GuestPage> {
                   const SizedBox(height: 10),
                   Text('STALE / OFFLINE — operations disabled until a fresh refresh.',
                     style: TextStyle(color: scheme.error, fontWeight: FontWeight.w700)),
+                ],
+                if (operationBlocked) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    'An operation is pending or its outcome is uncertain. '
+                    'Check server Tasks before attempting another action.',
+                    style: TextStyle(
+                      color: scheme.error,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ],
                 if (guest == null) ...[
                   const SizedBox(height: 8),

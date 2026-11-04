@@ -1,6 +1,6 @@
 # VirtHelm implementation milestone M1 — Android app source
 
-Status: First functional Flutter source committed as code, pending GitHub Actions compilation and real-device/PVE lab verification.
+Status: First Flutter Android debug APK now builds in GitHub Actions. Real-device/PVE lab and release/security verification remain open.
 
 ## Scope
 Flutter 3.47 stable-compatible Dart source, Android phone-only generator, Material 3 views, profile onboarding and secure API token storage, direct PVE HTTP reader, VM/LXC discovery, guarded guest actions and UPID tracker. Read `app/README.md` for setup and limitations.
@@ -22,3 +22,13 @@ From root `bash scripts/bootstrap_android.sh`, then `cd app && flutter analyze &
 
 ## Initial Android CI diagnosis (2026-11-04)
 First Flutter build run used 3.47.9. Dart analysis and unit/widget tests passed, but Android debug compilation failed resolving Kotlin 2.3.0/AGP 9 Gradle artifacts and the old Android DSL. Pin Flutter 3.44.4 while investigating current Kotlin/AGP compatibility. Capture the next CI run before declaring an APK deliverable. References: https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin and https://github.com/flutter/flutter/blob/master/CHANGELOG.md.
+
+## Verified debug CI build (2026-11-04)
+The pinned Flutter 3.44.4 run [41712997783](https://github.com/s4daharu/VirtHelm/actions/runs/41712997783) passed source checks, `flutter analyze --fatal-infos`, Flutter tests and `flutter build apk --debug`. It uploaded the **debug** APK artifact. This resolves the initial compilation blocker only, not signing, real-device, PVE compatibility, or distribution readiness.
+
+## M1 safe-operation follow-up (feature branch)
+- A per-guest, per-active-profile single-flight lock spans live status preflight, exactly one POST, and UPID task completion. A second action is rejected while a task runs.
+- Before each POST, ensure the guest is the exact current inventory snapshot object, unambiguously located, and its node, VMID, type and state still match. Inventory replacement or profile activation during preflight blocks the old action.
+- Ambiguous write outcomes remain locked for the current connection session. The operator must inspect server task history and actual guest state before intentionally reconnecting to re-enable actions. There is **no** automatic retry or claim of success based on HTTP submission alone.
+- The guest UI disables power actions for locked targets. Deleting the active profile invalidates its in-memory session **before** awaiting vault I/O, so deletion cannot race a preflight into a new POST. Controller regression tests cover concurrent actions, unknown outcomes, stale records, profile switching, deletion, and terminal UPID release.
+- The feature branch needs its own GitHub Actions check and lab tests before merge/release. These guards reduce risk but do not eliminate a server-side race between status GET and POST.

@@ -32,7 +32,8 @@
     "UPID task tracking",
     "search and settings"
   ],
-  "m1_validation": "Dart analysis and widget/unit tests passed on CI; APK build failed on latest Flutter/AGP9 dependency resolution. CI now pins Flutter 3.44.4 pending new build.",
-  "flutter_build_success": false,
-  "ci_flutter_version": "3.44.4"
+  "m1_validation": "Main CI run 41712997783 passed source checks, Dart analysis, tests, Android debug APK build and artifact upload with Flutter 3.44.4. Feature branch safety follow-up requires separate CI and PVE/device lab validation.",
+  "flutter_build_success": true,
+  "ci_flutter_version": "3.44.4",
+  "m1_safety_followup": "Per-guest single-flight mutation guard, snapshot/profile revalidation, ambiguous-outcome lockout and regression tests proposed on a feature branch."
 }
