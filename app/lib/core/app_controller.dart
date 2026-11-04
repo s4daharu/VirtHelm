@@ -566,7 +566,7 @@ class AppController extends ChangeNotifier {
       if (_pollingGeneration == generation) _pollingGeneration = null;
     }
     if (finished && generation == _generation) {
-      await refresh();
+      await _refreshAfterTask(generation);
       if (generation != _generation || _disposed) return;
       for (final target in completedTargets) {
         if (isInventoryFresh) {
@@ -584,6 +584,14 @@ class AppController extends ChangeNotifier {
       _pollTimer?.cancel();
       _pollTimer = null;
     }
+  }
+
+  /// Do not reconcile a terminal UPID against a read started before it ended.
+  Future<void> _refreshAfterTask(int generation) async {
+    final previousRefresh = _refreshFuture;
+    if (previousRefresh != null) await previousRefresh;
+    if (generation != _generation || _disposed) return;
+    await refresh();
   }
 
   Future<void> deleteProfile(String id) async {
