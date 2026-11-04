@@ -210,6 +210,39 @@ void main() {
     },
   );
 
+  test('version endpoint rejects missing or blank versions', () async {
+    for (final value in [null, '', '   ']) {
+      final dio = Dio();
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            handler.resolve(
+              Response<dynamic>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'data': {'version': value},
+                },
+              ),
+            );
+          },
+        ),
+      );
+      final gateway = DioPveGateway(profile, credentials, http: dio);
+      addTearDown(gateway.close);
+      await expectLater(
+        gateway.version(),
+        throwsA(
+          isA<PveFailure>().having(
+            (failure) => failure.message,
+            'message',
+            contains('version'),
+          ),
+        ),
+      );
+    }
+  });
+
   test(
     'node task history asks for active plus archived tasks and normalizes status',
     () async {
