@@ -30,7 +30,8 @@
     "node and guest dashboard",
     "QEMU/LXC guest controls",
     "UPID task tracking",
-    "guest search and connection/security settings"
+    "guest search and connection/security settings",
+    "local theme, foreground auto-refresh and node-metric display preferences (F11; source-level only)"
   ],
   "m1_validation": "Automated branch CI has passed source checks, analyzer, tests and Android debug APK build for the M1 safety implementation; live PVE/device release validation remains open.",
   "flutter_build_success": true,
@@ -105,13 +106,12 @@
       "F12 retry source formatter drift corrected using pinned CI formatter output; final branch CI still required"
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 93,
+    "current_flutter_tests_defined": 99,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
     "p0_gaps": [
       "rich task detail/log explorer is not implemented",
-      "user-configurable theme/refresh/display preferences are not implemented",
       "persistent offline read cache is not implemented",
       "full timeout/offline/DNS classification, connectivity awareness and automatic offline-state transitions are not implemented"
     ],
@@ -145,6 +145,15 @@
       "limits": "no persistent offline cache, connectivity observer or full DNS/timeout/offline classification",
       "release_validation": "live PVE 9.2/8.4 and Android device/network fault-injection gates remain open"
     },
-    "previous_review": "docs/45-full-implementation-cross-check.md"
+    "previous_review": "docs/45-full-implementation-cross-check.md",
+    "f11_local_preferences": {
+      "status": "implemented_source_level_pending_final_ci",
+      "theme": "system (default), light and dark; persisted locally before shell display",
+      "refresh": "manual (default), 30/60/120-second foreground-only coalesced GET refresh; pauses on inventory/auth failure; never performs background reads or write retries",
+      "display": "optional node CPU/memory/uptime subtitle on Home; node identity and state retained",
+      "storage": "nonsecret app-wide SharedPreferences; safe fallback for malformed values; no encrypted credential-vault writes",
+      "verification": "unit/controller/widget and foreground timer regressions added; final exact-head CI and physical Android/network tests still required",
+      "report": "docs/50-implementation-p0-local-preferences.md"
+    }
   }
 }
