@@ -76,7 +76,7 @@ class DioPveGateway implements PveGateway {
   // failures. Never retry certificate, auth, permission or redirect failures.
   static bool _shouldRetryRead(DioException error) {
     if (error.type == DioExceptionType.badCertificate ||
-        error.error is HandshakeException) {
+        error.error is TlsException) {
       return false;
     }
     final status = error.response?.statusCode;
