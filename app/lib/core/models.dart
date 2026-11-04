@@ -322,7 +322,11 @@ class RecentServerTask {
     // `OK`), while other task shapes use `status: stopped` plus a distinct
     // `exitstatus`. A bare `stopped` is NOT proof of success or failure.
     final stopped = rawStatus?.toLowerCase() == 'stopped';
-    final terminal = rawStatus != null && rawStatus.isNotEmpty && !running;
+    final terminal =
+        rawStatus != null &&
+        rawStatus.isNotEmpty &&
+        !running &&
+        rawStatus.toLowerCase() != 'unknown';
     final exitStatus = !terminal
         ? null
         : explicitExitStatus != null && explicitExitStatus.isNotEmpty
