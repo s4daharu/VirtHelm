@@ -363,4 +363,94 @@ void main() {
     expect(find.text('All nodes'), findsOneWidget);
     expect(find.text('Sort: Favorites first'), findsOneWidget);
   });
+
+  testWidgets('guest filters can be saved and restored as a named view', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final repo = ProfileRepository(prefs, _EmptyVault());
+    const profile = ConnectionProfile(
+      id: 'lab',
+      name: 'Lab',
+      endpoint: 'https://pve.local:8006',
+    );
+    await repo.save(
+      profile,
+      const ApiCredentials(tokenId: 'me@pve!test', secret: 'test'),
+    );
+    final controller = AppController(repository: repo);
+    addTearDown(controller.dispose);
+    controller.active = profile;
+    controller.inventory = Inventory.fromResources([
+      {
+        'type': 'qemu',
+        'vmid': 101,
+        'node': 'pve1',
+        'name': 'Alpha',
+        'status': 'running',
+      },
+      {
+        'type': 'lxc',
+        'vmid': 102,
+        'node': 'pve2',
+        'name': 'Beta',
+        'status': 'stopped',
+      },
+      {
+        'type': 'lxc',
+        'vmid': 103,
+        'node': 'pve2',
+        'name': 'Gamma',
+        'status': 'running',
+      },
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(home: ShellPage(controller: controller)),
+    );
+    await tester.tap(find.text('Guests'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, 'Beta');
+    await tester.tap(find.text('Stopped'));
+    await tester.tap(find.text('Containers'));
+    await tester.tap(find.text('All nodes'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('pve2').last);
+    await tester.tap(find.text('Sort: Favorites first'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('VMID'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 workloads'), findsOneWidget);
+
+    await tester.tap(find.text('Save view'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'View name'), 'PVE2 stopped');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('PVE2 stopped'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).first, '');
+    await tester.tap(find.text('All'));
+    await tester.tap(find.text('Any type'));
+    await tester.tap(find.text('Node: pve2'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('All nodes').last);
+    await tester.tap(find.text('Sort: VMID'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Favorites first'));
+    await tester.pumpAndSettle();
+    expect(find.text('3 workloads'), findsOneWidget);
+
+    await tester.tap(find.text('PVE2 stopped'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 workloads'), findsOneWidget);
+    expect(find.text('Beta'), findsOneWidget);
+    expect(find.text('Sort: VMID'), findsOneWidget);
+    expect(find.text('Node: pve2'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).first).controller?.text,
+      'Beta',
+    );
+  });
 }

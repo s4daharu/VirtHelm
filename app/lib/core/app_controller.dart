@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'guest_saved_view.dart';
 import 'models.dart';
 import 'profile_repository.dart';
 import 'pve_api.dart';
@@ -26,6 +27,7 @@ class AppController extends ChangeNotifier {
   List<StoragePool> storages = [];
   List<RecentServerTask> serverTasks = [];
   Set<String> favoriteGuests = <String>{};
+  List<SavedGuestView> guestSavedViews = [];
   String? storageMessage;
   String? serverTaskMessage;
   String? inventoryWarning;
@@ -82,6 +84,43 @@ class AppController extends ChangeNotifier {
         !isGuestFavorite(guest),
         expectedProfileId: expectedProfileId,
       );
+
+  Future<SavedGuestView?> saveGuestView(
+    SavedGuestView view, {
+    required String expectedProfileId,
+  }) async {
+    final profile = active;
+    if (profile == null ||
+        _disposed ||
+        profile.id != expectedProfileId) {
+      return null;
+    }
+    await repository.saveGuestView(profile.id, view);
+    if (_disposed || active?.id != profile.id) return null;
+    guestSavedViews = repository.readGuestViews(profile.id);
+    final normalizedName = view.name.toLowerCase();
+    final saved = guestSavedViews.where(
+      (item) => item.name.toLowerCase() == normalizedName,
+    );
+    _notify();
+    return saved.isEmpty ? null : saved.first;
+  }
+
+  Future<void> deleteGuestView(
+    String viewId, {
+    required String expectedProfileId,
+  }) async {
+    final profile = active;
+    if (profile == null ||
+        _disposed ||
+        profile.id != expectedProfileId) {
+      return;
+    }
+    await repository.deleteGuestView(profile.id, viewId);
+    if (_disposed || active?.id != profile.id) return;
+    guestSavedViews = repository.readGuestViews(profile.id);
+    _notify();
+  }
 
   bool isGuestActionBlocked(Guest guest) {
     final key = _guestKey(guest);
@@ -174,6 +213,7 @@ class AppController extends ChangeNotifier {
     _gateway = null;
     active = profile;
     favoriteGuests = repository.readGuestFavorites(profile.id);
+    guestSavedViews = repository.readGuestViews(profile.id);
     inventory = null;
     tasks.clear();
     storages = [];
@@ -619,6 +659,7 @@ class AppController extends ChangeNotifier {
       _gateway = null;
       active = null;
       favoriteGuests = <String>{};
+      guestSavedViews = [];
       inventory = null;
       storages = [];
       serverTasks = [];

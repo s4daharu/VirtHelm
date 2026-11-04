@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'guest_saved_view.dart';
 import 'models.dart';
 
 abstract class CredentialVault {
@@ -40,6 +41,7 @@ class ProfileRepository {
   static const _profilesKey = 'profile_metadata_v1';
   static const _activeKey = 'active_profile_v1';
   static const _favoritesKey = 'guest_favorites_v1';
+  static const _guestViewsKey = 'guest_saved_views_v1';
   Future<void> _writes = Future<void>.value();
 
   // A vault operation can yield before metadata is written. Serialize local
@@ -111,6 +113,110 @@ class ProfileRepository {
         : await _prefs.setString(_favoritesKey, jsonEncode(decoded));
     if (!saved) throw StateError('Could not update guest favorites.');
   });
+
+  List<SavedGuestView> readGuestViews(String profileId) {
+    final raw = _prefs.getString(_guestViewsKey);
+    if (raw == null) return [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) return [];
+      final items = decoded[profileId];
+      if (items is! List) return [];
+      final views = <SavedGuestView>[];
+      final ids = <String>{};
+      final names = <String>{};
+      for (final item in items) {
+        if (item is! Map<String, dynamic>) continue;
+        try {
+          final view = SavedGuestView.fromJson(item);
+          final normalizedName = view.name.toLowerCase();
+          if (!ids.add(view.id) || !names.add(normalizedName)) continue;
+          views.add(view);
+          if (views.length == maxSavedGuestViews) break;
+        } on FormatException {
+          continue;
+        }
+      }
+      return List.unmodifiable(views);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> saveGuestView(String profileId, SavedGuestView view) =>
+      _mutate(() async {
+        if (!readProfiles().any((profile) => profile.id == profileId)) {
+          throw StateError('Connection no longer exists.');
+        }
+        final validated = SavedGuestView.fromJson(view.toJson());
+        final root = _readGuestViewsRoot();
+        final views = readGuestViews(profileId).toList();
+        final idIndex = views.indexWhere((item) => item.id == validated.id);
+        final nameIndex = views.indexWhere(
+          (item) => item.name.toLowerCase() == validated.name.toLowerCase(),
+        );
+        if (idIndex >= 0 && nameIndex >= 0 && idIndex != nameIndex) {
+          throw StateError('A saved view already uses this name.');
+        }
+        final index = idIndex >= 0 ? idIndex : nameIndex;
+        final replacement = index >= 0 && idIndex < 0
+            ? validated.withId(views[index].id)
+            : validated;
+        if (index >= 0) {
+          views[index] = replacement;
+        } else {
+          if (views.length >= maxSavedGuestViews) {
+            throw StateError('Saved view limit reached.');
+          }
+          views.add(replacement);
+        }
+        root[profileId] = views.map((item) => item.toJson()).toList();
+        final saved = await _prefs.setString(_guestViewsKey, jsonEncode(root));
+        if (!saved) throw StateError('Could not save guest view.');
+      });
+
+  Future<void> deleteGuestView(String profileId, String viewId) =>
+      _mutate(() async {
+        if (!readProfiles().any((profile) => profile.id == profileId)) {
+          throw StateError('Connection no longer exists.');
+        }
+        final root = _readGuestViewsRoot();
+        final views = readGuestViews(
+          profileId,
+        ).where((item) => item.id != viewId).toList();
+        if (views.isEmpty) {
+          root.remove(profileId);
+        } else {
+          root[profileId] = views.map((item) => item.toJson()).toList();
+        }
+        final saved = root.isEmpty
+            ? await _prefs.remove(_guestViewsKey)
+            : await _prefs.setString(_guestViewsKey, jsonEncode(root));
+        if (!saved) throw StateError('Could not delete guest view.');
+      });
+
+  Map<String, dynamic> _readGuestViewsRoot() {
+    final raw = _prefs.getString(_guestViewsKey);
+    if (raw == null) return <String, dynamic>{};
+    try {
+      final decoded = jsonDecode(raw);
+      return decoded is Map<String, dynamic>
+          ? Map<String, dynamic>.from(decoded)
+          : <String, dynamic>{};
+    } catch (_) {
+      return <String, dynamic>{};
+    }
+  }
+
+  Future<void> _clearGuestViews(String profileId) async {
+    final root = _readGuestViewsRoot();
+    if (!root.containsKey(profileId)) return;
+    root.remove(profileId);
+    final saved = root.isEmpty
+        ? await _prefs.remove(_guestViewsKey)
+        : await _prefs.setString(_guestViewsKey, jsonEncode(root));
+    if (!saved) throw StateError('Could not clear guest views.');
+  }
 
   Future<void> clearGuestFavorites(String profileId) =>
       _mutate(() => _clearGuestFavorites(profileId));
@@ -190,6 +296,9 @@ class ProfileRepository {
     // turn a successful security-sensitive deletion into a reported failure.
     try {
       await _clearGuestFavorites(id);
+    } catch (_) {}
+    try {
+      await _clearGuestViews(id);
     } catch (_) {}
     if (activeId == id) {
       await _setActive(remaining.isEmpty ? null : remaining.first.id);

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:virthelm/core/app_controller.dart';
+import 'package:virthelm/core/guest_saved_view.dart';
 import 'package:virthelm/core/models.dart';
 import 'package:virthelm/core/profile_repository.dart';
 import 'package:virthelm/core/pve_api.dart';
@@ -1214,4 +1215,38 @@ void main() {
       expect(repo.readGuestFavorites(oldProfile), isEmpty);
     },
   );
+
+  test('saved guest views reject stale profile writes', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repo = ProfileRepository(prefs, _Vault());
+    final a = ConnectionProfile.create(name: 'A', address: 'https://a.example');
+    final b = ConnectionProfile.create(name: 'B', address: 'https://b.example');
+    const credentials = ApiCredentials(
+      tokenId: 'me@pve!test',
+      secret: 'test',
+    );
+    await repo.save(a, credentials);
+    await repo.save(b, credentials);
+    final ctl = AppController(
+      repository: repo,
+      gatewayFactory: (profile, credentials) => _Gateway(),
+    );
+    addTearDown(ctl.dispose);
+    await ctl.initialize();
+    await ctl.activate(a);
+    final view = SavedGuestView.create(name: 'Stopped', status: 'stopped');
+    await ctl.activate(b);
+
+    expect(
+      await ctl.saveGuestView(view, expectedProfileId: a.id),
+      isNull,
+    );
+    expect(repo.readGuestViews(a.id), isEmpty);
+    expect(repo.readGuestViews(b.id), isEmpty);
+
+    final saved = await ctl.saveGuestView(view, expectedProfileId: b.id);
+    expect(saved?.name, 'Stopped');
+    expect(ctl.guestSavedViews.single.name, 'Stopped');
+    expect(repo.readGuestViews(a.id), isEmpty);
+  });
 }
