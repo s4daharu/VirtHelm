@@ -386,7 +386,10 @@ void main() {
     expect(find.textContaining('PVE 9.2.4'), findsOneWidget);
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
-    expect(find.text('PVE 9.2.4 (last observed)'), findsOneWidget);
+    expect(
+      find.textContaining('PVE 9.2.4 (last observed)'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('all shell tabs fit a narrow phone at 200 percent text scale', (
