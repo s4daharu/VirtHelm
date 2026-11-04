@@ -50,6 +50,14 @@
     "release_validation": "Real PVE 8.4/9.2 contracts/ACLs and Android device/release gates remain required."
   },
   "dependency_lockfile_committed": true,
+  "apk_delivery": {
+    "storage": "GitHub Release assets uploaded directly from the signed build runner, following NovelBridge",
+    "actions_artifact_uploads": false,
+    "publication_trigger": "manual workflow_dispatch on main; CI debug APKs are compile-only",
+    "download_links": "release page plus ARM64, ARMv7 and checksums URLs in the workflow summary",
+    "existing_artifacts": "not deleted; expire or are removed manually",
+    "cache_policy": "separate Actions build caches are unchanged"
+  },
   "tls_policy": {
     "default": "certificate and hostname verification enabled",
     "exception": "user-confirmed, saved per-profile insecure opt-in for any HTTPS host; exact host/port scoped with persistent warnings",

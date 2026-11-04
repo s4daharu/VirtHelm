@@ -30,6 +30,12 @@ flutter build apk --debug
 
 `scripts/bootstrap_android.sh` generates only the Android runner, applies manifest/Gradle hardening, restores the committed dependency lockfile, and resolves with `--enforce-lockfile`. Release signing is intentionally not stored in Git.
 
+## APK downloads without Actions artifact storage
+
+Run **Actions → Android split APK prerelease → Run workflow** on `main`. The signed ARM64/ARMv7 APKs and `SHA256SUMS.txt` are uploaded directly from the build runner to [GitHub Releases](https://github.com/s4daharu/VirtHelm/releases), following NovelBridge's release-asset approach. The run summary includes release and direct download links; private-repository downloads require GitHub access.
+
+Neither workflow uploads Actions artifacts. Normal push/PR checks still compile a debug APK but do not retain it. Previously uploaded artifacts are not deleted by this change and remain until expiration or manual removal; build caches are separate and unchanged. Release publication remains manual and does not imply production certification.
+
 ## Current scope vs roadmap
 
 The implemented M1/M2 slices do **not** equal the whole premium roadmap. Charts/RRD, saved views, notification center/alerts, persistent offline cache, advanced filtering/sorting, biometric app lock, ticket/MFA, console, snapshots/backups, PBS/PDM, migrations/provisioning, infrastructure mutation, and signed distribution remain future/gated work.

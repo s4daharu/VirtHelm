@@ -14,9 +14,14 @@ For every push and pull request:
 5. `flutter analyze --fatal-infos`;
 6. `flutter test --coverage`;
 7. `flutter build apk --debug`;
-8. upload of the debug APK as a compile/test artifact.
+8. no APK upload or retention in Actions artifact storage; the debug build is a compile-only gate.
 
 A debug APK is not a release artifact. Live PVE tests are deliberately not run automatically against production infrastructure.
+
+## Direct APK release assets
+The manual `release-android.yml` workflow uploads signed ARM64/ARMv7 APKs and checksums directly from the same runner using `gh release create`/`gh release upload`, as in NovelBridge. There is no `upload-artifact`/`download-artifact` handoff in either workflow and no future APK consumption of Actions artifact storage. API operations have bounded retries; all three uploaded assets must be present with matching sizes before download URLs are emitted into the summary. Reruns use an attempt-specific tag rather than force-moving an existing tag.
+
+Downloads live on the repository's Releases page, subject to its private access controls. Existing Actions artifacts are left untouched until expiration or manual deletion. SDK/build caches have separate storage accounting and remain enabled where already configured. Checks still run on push/PR; publishing a signed prerelease remains an explicit manual action on `main`.
 
 ## Android release requirements
 Release APK/AAB signing keys and passwords must remain outside Git and Actions logs. Release signing must be configured through a reviewed external secret/signing workflow before distribution. Verify the merged release manifest, network security, target/compile SDK policy, dependency advisories, SBOM/license inventory, and binary hashes before any release tag.

@@ -235,38 +235,75 @@ jobs:
         shell: bash
         run: rm -f android/key.properties android/keystore/release.jks
 
-      - name: Upload workflow artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: VirtHelm-signed-split-APKs
-          path: |
-            ${{ steps.verify.outputs.arm64 }}
-            ${{ steps.verify.outputs.armv7 }}
-            ${{ steps.verify.outputs.checksums }}
-          retention-days: 30
-          if-no-files-found: error
-
       - name: Create GitHub prerelease
+        id: release
         working-directory: .
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.metadata.outputs.version }}
+          ARM64_APK: ${{ steps.verify.outputs.arm64 }}
+          ARMV7_APK: ${{ steps.verify.outputs.armv7 }}
+          CHECKSUMS: ${{ steps.verify.outputs.checksums }}
         shell: bash
         run: |
-          TAG="v${{ steps.metadata.outputs.version }}-build-${GITHUB_RUN_NUMBER}"
-          TITLE="VirtHelm v${{ steps.metadata.outputs.version }} build ${GITHUB_RUN_NUMBER}"
+          # NovelBridge pattern: upload from this runner straight to Releases.
+          # No upload/download-artifact intermediate or cross-job APK transfer.
+          retry() {
+            local attempt
+            for attempt in 1 2 3; do
+              if "$@"; then return 0; fi
+              if (( attempt == 3 )); then return 1; fi
+              echo "GitHub release API request failed; retrying..." >&2
+              sleep "$((attempt * 5))"
+            done
+          }
+
+          for file in "$ARM64_APK" "$ARMV7_APK" "$CHECKSUMS"; do
+            test -s "$file"
+          done
+
+          TAG="v${RELEASE_VERSION}-build-${GITHUB_RUN_NUMBER}"
+          if [ "${GITHUB_RUN_ATTEMPT:-1}" != "1" ]; then
+            TAG="${TAG}-attempt-${GITHUB_RUN_ATTEMPT}"
+          fi
+          TITLE="VirtHelm v${RELEASE_VERSION} build ${GITHUB_RUN_NUMBER} (attempt ${GITHUB_RUN_ATTEMPT:-1})"
           NOTES="Signed Android test build from ${GITHUB_SHA}. This is a prerelease and does not satisfy VirtHelm's documented production release-certification gates."
 
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --title "$TITLE" --notes "$NOTES" --prerelease
-            gh release upload "$TAG" \
-              "${{ steps.verify.outputs.arm64 }}" "${{ steps.verify.outputs.armv7 }}" \
-              "${{ steps.verify.outputs.checksums }}" --clobber
-          else
-            gh release create "$TAG" \
-              "${{ steps.verify.outputs.arm64 }}" "${{ steps.verify.outputs.armv7 }}" \
-              "${{ steps.verify.outputs.checksums }}" --target "$GITHUB_SHA" \
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            retry gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
               --title "$TITLE" --notes "$NOTES" --prerelease
+          else
+            retry gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" --title "$TITLE" --notes "$NOTES" --prerelease \
+              || retry gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
           fi
+
+          retry gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" \
+            "$ARM64_APK" "$ARMV7_APK" "$CHECKSUMS" --clobber
+
+          RELEASE_ASSETS_JSON="$(retry gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets)"
+          RELEASE_TAG="$TAG"
+          export RELEASE_ASSETS_JSON RELEASE_TAG
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from urllib.parse import quote
+
+          assets = json.loads(os.environ['RELEASE_ASSETS_JSON'])['assets']
+          base = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/releases"
+          tag = quote(os.environ['RELEASE_TAG'], safe='')
+          outputs = {'release_url': f'{base}/tag/{tag}'}
+          for output, variable in [('arm64_url', 'ARM64_APK'), ('armv7_url', 'ARMV7_APK'), ('checksums_url', 'CHECKSUMS')]:
+              file = Path(os.environ[variable])
+              matches = [asset for asset in assets if asset['name'] == file.name]
+              if len(matches) != 1 or matches[0]['size'] != file.stat().st_size:
+                  raise SystemExit(f'Release asset missing or wrong size: {file.name}')
+              outputs[output] = f'{base}/download/{tag}/{quote(file.name, safe="")}'
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as handle:
+              for name, value in outputs.items():
+                  handle.write(f'{name}={value}\n')
+          PY
 
       - name: Build summary
         working-directory: .
@@ -278,4 +315,9 @@ jobs:
           echo "- Build number: ${{ steps.metadata.outputs.build_number }}" >> "$GITHUB_STEP_SUMMARY"
           echo '- ARM64: `VirtHelm-v${{ steps.metadata.outputs.version }}-arm64-v8a.apk`' >> "$GITHUB_STEP_SUMMARY"
           echo '- ARMv7: `VirtHelm-v${{ steps.metadata.outputs.version }}-armeabi-v7a.apk`' >> "$GITHUB_STEP_SUMMARY"
+          echo '- [GitHub prerelease](${{ steps.release.outputs.release_url }})' >> "$GITHUB_STEP_SUMMARY"
+          echo '- [Download ARM64 APK](${{ steps.release.outputs.arm64_url }})' >> "$GITHUB_STEP_SUMMARY"
+          echo '- [Download ARMv7 APK](${{ steps.release.outputs.armv7_url }})' >> "$GITHUB_STEP_SUMMARY"
+          echo '- [Download SHA256SUMS.txt](${{ steps.release.outputs.checksums_url }})' >> "$GITHUB_STEP_SUMMARY"
+          echo '- APKs are stored only as Release assets, not Actions artifacts. Private-repository downloads require GitHub access.' >> "$GITHUB_STEP_SUMMARY"
           echo "- Release is deliberately marked prerelease pending the documented PVE/device/security/signing release gates." >> "$GITHUB_STEP_SUMMARY"
