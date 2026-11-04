@@ -119,7 +119,10 @@ android {
         self.assertIn('umask 077', release_script('Restore required release keystore'))
         self.assertRegex(text, r'name: Remove temporary signing material\n\s+if: always\(\)')
         self.assertIn('test "$signer_digest" = "$expected_digest"', text)
-        self.assertIn("if: github.ref == 'refs/heads/main'", text)
+        self.assertIn(
+            "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'",
+            text,
+        )
         for script in [release_script(name) for name in [
             'Restore required release keystore', 'Build split release APKs',
             'Verify APK set, signatures, and ABIs', 'Create GitHub prerelease',
