@@ -25,6 +25,17 @@ The runner is Android-only and uses application ID `com.s4daharu.virthelm`. The 
 
 Release signing is intentionally absent from source control. Configure signing externally only for a reviewed release workflow. Do not weaken TLS or add a broad network-security trust exception to make a lab server connect.
 
+
+## Signed split-ABI Android prerelease
+The manual `.github/workflows/release-android.yml` workflow builds signed release-mode APKs only for the two supported ARM packages requested for direct distribution:
+
+- `arm64-v8a` for 64-bit ARM Android devices.
+- `armeabi-v7a` for older 32-bit ARM Android devices.
+
+The workflow deliberately does not publish an x86/x86_64 APK. It requires the GitHub Actions secrets `RELEASE_KEYSTORE_BASE64`, `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD`; it fails closed if any are absent and never falls back to a generated or debug signing key. It verifies both APK signatures and ABI contents, emits `SHA256SUMS.txt`, uploads the files as a workflow artifact, and creates a GitHub **prerelease**.
+
+A successful split-APK workflow proves packaging/signing mechanics only. It does not close the real-PVE, physical-device, accessibility/performance, dependency/security-review, or production release-certification gates in `docs/33-test-acceptance-release-gates.md`.
+
 ## PVE staging prerequisites
 Use disposable PVE 9.2 and 8.4 environments behind LAN/VPN, trusted HTTPS names/certificates, separated least-privilege test tokens, and disposable QEMU/LXC guests. Capture sanitized endpoint/ACL/version evidence without secrets. Mutating lab tests require explicit rollback/pre-state preparation.
 
