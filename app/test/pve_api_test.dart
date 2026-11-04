@@ -452,63 +452,65 @@ void main() {
     expect(tasks.failedNodes, 0);
   });
 
-  test('transient GET failures retry at most twice with bounded jitter', () async {
-    final dio = Dio();
-    var requests = 0;
-    final delays = <Duration>[];
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          requests++;
-          if (requests == 1) {
-            handler.reject(
-              DioException(
-                requestOptions: options,
-                type: DioExceptionType.badResponse,
-                response: Response<dynamic>(
+  test(
+    'transient GET failures retry at most twice with bounded jitter',
+    () async {
+      final dio = Dio();
+      var requests = 0;
+      final delays = <Duration>[];
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            requests++;
+            if (requests == 1) {
+              handler.reject(
+                DioException(
                   requestOptions: options,
-                  statusCode: 503,
+                  type: DioExceptionType.badResponse,
+                  response: Response<dynamic>(
+                    requestOptions: options,
+                    statusCode: 503,
+                  ),
                 ),
-              ),
-            );
-          } else if (requests == 2) {
-            handler.reject(
-              DioException(
-                requestOptions: options,
-                type: DioExceptionType.receiveTimeout,
-              ),
-            );
-          } else {
-            handler.resolve(
-              Response<dynamic>(
-                requestOptions: options,
-                statusCode: 200,
-                data: {
-                  'data': {'version': '9.2.21'},
-                },
-              ),
-            );
-          }
+              );
+            } else if (requests == 2) {
+              handler.reject(
+                DioException(
+                  requestOptions: options,
+                  type: DioExceptionType.receiveTimeout,
+                ),
+              );
+            } else {
+              handler.resolve(
+                Response<dynamic>(
+                  requestOptions: options,
+                  statusCode: 200,
+                  data: {
+                    'data': {'version': '9.2.21'},
+                  },
+                ),
+              );
+            }
+          },
+        ),
+      );
+      final gateway = DioPveGateway(
+        profile,
+        credentials,
+        http: dio,
+        retryWait: (delay) async {
+          delays.add(delay);
         },
-      ),
-    );
-    final gateway = DioPveGateway(
-      profile,
-      credentials,
-      http: dio,
-      retryWait: (delay) async {
-        delays.add(delay);
-      },
-    );
-    addTearDown(gateway.close);
+      );
+      addTearDown(gateway.close);
 
-    expect(await gateway.version(), '9.2.21');
-    expect(requests, 3);
-    expect(delays, hasLength(2));
-    expect(delays[0].inMilliseconds, inInclusiveRange(200, 299));
-    expect(delays[1].inMilliseconds, inInclusiveRange(400, 499));
-  });
-
+      expect(await gateway.version(), '9.2.21');
+      expect(requests, 3);
+      expect(delays, hasLength(2));
+      expect(delays[0].inMilliseconds, inInclusiveRange(200, 299));
+      expect(delays[1].inMilliseconds, inInclusiveRange(400, 499));
+    },
+  );
   test('repeated transient GET failures stop after three attempts', () async {
     final dio = Dio();
     var requests = 0;
@@ -541,84 +543,88 @@ void main() {
     expect(waits, 2);
   });
 
-  test('auth, permission, missing resource and redirect GETs do not retry', () async {
-    for (final status in [301, 401, 403, 404]) {
-      final dio = Dio();
-      var requests = 0;
-      dio.interceptors.add(
-        InterceptorsWrapper(
-          onRequest: (options, handler) {
-            requests++;
-            handler.reject(
-              DioException(
-                requestOptions: options,
-                type: DioExceptionType.badResponse,
-                response: Response<dynamic>(
-                  requestOptions: options,
-                  statusCode: status,
-                ),
-              ),
-            );
-          },
-        ),
-      );
-      final gateway = DioPveGateway(
-        profile,
-        credentials,
-        http: dio,
-        retryWait: (_) async {
-          fail('Permanent GET failure should not be retried.');
-        },
-      );
-      addTearDown(gateway.close);
-
-      await expectLater(gateway.version(), throwsA(isA<PveFailure>()));
-      expect(requests, 1);
-    }
-  });
-
-  test('TLS and malformed successful GET responses are never retried', () async {
-    for (final certificateFailure in [true, false]) {
-      final dio = Dio();
-      var requests = 0;
-      dio.interceptors.add(
-        InterceptorsWrapper(
-          onRequest: (options, handler) {
-            requests++;
-            if (certificateFailure) {
+  test(
+    'auth, permission, missing resource and redirect GETs do not retry',
+    () async {
+      for (final status in [301, 401, 403, 404]) {
+        final dio = Dio();
+        var requests = 0;
+        dio.interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (options, handler) {
+              requests++;
               handler.reject(
                 DioException(
                   requestOptions: options,
-                  type: DioExceptionType.badCertificate,
+                  type: DioExceptionType.badResponse,
+                  response: Response<dynamic>(
+                    requestOptions: options,
+                    statusCode: status,
+                  ),
                 ),
               );
-            } else {
-              handler.resolve(
-                Response<dynamic>(
-                  requestOptions: options,
-                  statusCode: 200,
-                  data: {'unexpected': 'envelope'},
-                ),
-              );
-            }
+            },
+          ),
+        );
+        final gateway = DioPveGateway(
+          profile,
+          credentials,
+          http: dio,
+          retryWait: (_) async {
+            fail('Permanent GET failure should not be retried.');
           },
-        ),
-      );
-      final gateway = DioPveGateway(
-        profile,
-        credentials,
-        http: dio,
-        retryWait: (_) async {
-          fail('TLS and malformed payloads must not be retried.');
-        },
-      );
-      addTearDown(gateway.close);
+        );
+        addTearDown(gateway.close);
 
-      await expectLater(gateway.version(), throwsA(isA<PveFailure>()));
-      expect(requests, 1);
-    }
-  });
+        await expectLater(gateway.version(), throwsA(isA<PveFailure>()));
+        expect(requests, 1);
+      }
+    },
+  );
+  test(
+    'TLS and malformed successful GET responses are never retried',
+    () async {
+      for (final certificateFailure in [true, false]) {
+        final dio = Dio();
+        var requests = 0;
+        dio.interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (options, handler) {
+              requests++;
+              if (certificateFailure) {
+                handler.reject(
+                  DioException(
+                    requestOptions: options,
+                    type: DioExceptionType.badCertificate,
+                  ),
+                );
+              } else {
+                handler.resolve(
+                  Response<dynamic>(
+                    requestOptions: options,
+                    statusCode: 200,
+                    data: {'unexpected': 'envelope'},
+                  ),
+                );
+              }
+            },
+          ),
+        );
+        final gateway = DioPveGateway(
+          profile,
+          credentials,
+          http: dio,
+          retryWait: (_) async {
+            fail('TLS and malformed payloads must not be retried.');
+          },
+        );
+        addTearDown(gateway.close);
 
+        await expectLater(gateway.version(), throwsA(isA<PveFailure>()));
+        expect(requests, 1);
+      }
+    },
+  );
   test('transient POST failure is never automatically retried', () async {
     final dio = Dio();
     var requests = 0;
@@ -708,43 +714,45 @@ void main() {
     expect(requests, 1);
   });
 
-  test('TLS handshake errors wrapped as connection errors never retry', () async {
-    final dio = Dio();
-    var requests = 0;
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          requests++;
-          handler.reject(
-            DioException(
-              requestOptions: options,
-              type: DioExceptionType.connectionError,
-              error: TlsException('untrusted certificate'),
-            ),
-          );
-        },
-      ),
-    );
-    final gateway = DioPveGateway(
-      profile,
-      credentials,
-      http: dio,
-      retryWait: (_) async {
-        fail('TLS transport failure must not be retried.');
-      },
-    );
-    addTearDown(gateway.close);
-
-    await expectLater(
-      gateway.version(),
-      throwsA(
-        isA<PveFailure>().having(
-          (failure) => failure.message,
-          'message',
-          contains('TLS certificate validation failed'),
+  test(
+    'TLS handshake errors wrapped as connection errors never retry',
+    () async {
+      final dio = Dio();
+      var requests = 0;
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            requests++;
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                type: DioExceptionType.connectionError,
+                error: TlsException('untrusted certificate'),
+              ),
+            );
+          },
         ),
-      ),
-    );
-    expect(requests, 1);
-  });
-}
+      );
+      final gateway = DioPveGateway(
+        profile,
+        credentials,
+        http: dio,
+        retryWait: (_) async {
+          fail('TLS transport failure must not be retried.');
+        },
+      );
+      addTearDown(gateway.close);
+
+      await expectLater(
+        gateway.version(),
+        throwsA(
+          isA<PveFailure>().having(
+            (failure) => failure.message,
+            'message',
+            contains('TLS certificate validation failed'),
+          ),
+        ),
+      );
+      expect(requests, 1);
+    },
+  );}
