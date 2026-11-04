@@ -59,11 +59,11 @@ class ConnectionProfile {
     name: name,
     endpoint: endpoint,
     allowInvalidCertificates: allowInvalidCertificates,
-    lastServerVersion: _validatedServerVersion(version),
+    lastServerVersion: normalizeServerVersion(version),
   );
 }
 
-String _validatedServerVersion(String value) {
+String normalizeServerVersion(String value) {
   final normalized = value.trim();
   if (normalized.isEmpty || normalized.length > 80) {
     throw const FormatException('Server returned an invalid version.');
@@ -74,7 +74,7 @@ String _validatedServerVersion(String value) {
 String? _storedServerVersion(Object? value) {
   if (value is! String) return null;
   try {
-    return _validatedServerVersion(value);
+    return normalizeServerVersion(value);
   } on FormatException {
     return null;
   }
