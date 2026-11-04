@@ -25,7 +25,7 @@
   "flutter_app_path": "app/",
   "android_runner": "Generated and hardened by scripts/bootstrap_android.sh; generated runner is not committed",
   "m1_features": [
-    "secure API-token onboarding",
+    "secure API-token onboarding and validated profile editing",
     "cluster inventory",
     "node and guest dashboard",
     "QEMU/LXC guest controls",
@@ -102,12 +102,11 @@
       "feature-branch push and pull-request checks must not consume duplicate concurrent CI for the same branch; branch-keyed concurrency now cancels stale/duplicate runs"
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 75,
+    "current_flutter_tests_defined": 80,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
     "p0_gaps": [
-      "profile editing is not implemented; remove and re-add is required",
       "server version is checked during onboarding but not retained/presented as a user-facing capability",
       "rich task detail/log explorer is not implemented",
       "user-configurable theme/refresh/display preferences are not implemented",
@@ -117,6 +116,15 @@
     "unverified_repository_controls": [
       "branch protection could not be read through the connected GitHub integration",
       "repository rulesets were unavailable for this private repository under the current GitHub plan"
-    ]
+    ],
+    "profile_editing_followup": "docs/46-implementation-p0-profile-editing.md",
+    "f01_profile_editing": {
+      "status": "implemented_source_level",
+      "behavior": "edit alias, HTTPS endpoint, TLS verification policy and API token while preserving the profile ID and profile-scoped local metadata",
+      "validation": "candidate version plus inventory requests must succeed before persistence",
+      "credential_policy": "leave both token fields blank to retain the encrypted credential; provide both to replace it; partial replacements are rejected",
+      "persistence": "serialized metadata/secure-vault replacement with best-effort rollback on failure",
+      "release_validation": "live PVE/device release gates remain open"
+    }
   }
 }
