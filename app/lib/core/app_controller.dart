@@ -171,18 +171,22 @@ class AppController extends ChangeNotifier {
     PveGateway? candidate;
     try {
       candidate = _factory(profile, credential);
-      await candidate.version();
+      final serverVersion = await candidate.version();
       _checkConnectionSetup(generation);
       await candidate.inventory(); // A valid token must also access inventory.
       _checkConnectionSetup(generation);
-      await repository.save(profile, credential);
+      final validatedProfile = profile.withServerVersion(serverVersion);
+      await repository.save(validatedProfile, credential);
       if (_disposed) {
         await _rollbackCanceledConnection(profile.id, previousActiveId);
         throw const PveFailure('Connection setup canceled.');
       }
       profiles = repository.readProfiles();
       if (generation == _generation) {
-        await activate(profile);
+        await activate(
+          validatedProfile,
+          knownServerVersion: serverVersion,
+        );
       } else {
         // Saving may finish after the operator has switched connections. Keep
         // their selection, but retain the newly saved profile for later use.
@@ -226,6 +230,7 @@ class AppController extends ChangeNotifier {
       name: normalizedName,
       endpoint: normalizePveEndpoint(address),
       allowInvalidCertificates: allowInvalidCertificates,
+      lastServerVersion: existing.lastServerVersion,
     );
     final tokenChanged = tokenId.trim().isNotEmpty || secret.isNotEmpty;
     final storedCredentials = await repository.vault.retrieve(existing.id);
@@ -249,11 +254,12 @@ class AppController extends ChangeNotifier {
     PveGateway? candidate;
     try {
       candidate = _factory(profile, credential);
-      await candidate.version();
+      final serverVersion = await candidate.version();
       _checkConnectionSetup(generation);
       await candidate.inventory();
       _checkConnectionSetup(generation);
-      await repository.update(profile, credential);
+      final validatedProfile = profile.withServerVersion(serverVersion);
+      await repository.update(validatedProfile, credential);
       if (_disposed) {
         throw const PveFailure(
           'Connection update completed after app shutdown.',
@@ -261,7 +267,10 @@ class AppController extends ChangeNotifier {
       }
       profiles = repository.readProfiles();
       if (generation == _generation && active?.id == profile.id) {
-        await activate(profile);
+        await activate(
+          validatedProfile,
+          knownServerVersion: serverVersion,
+        );
       } else {
         _notify();
       }
@@ -300,7 +309,10 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  Future<void> activate(ConnectionProfile profile) async {
+  Future<void> activate(
+    ConnectionProfile profile, {
+    String? knownServerVersion,
+  }) async {
     if (_disposed || _deletingProfiles.contains(profile.id)) return;
     final generation = ++_generation;
     _pollTimer?.cancel();
@@ -332,8 +344,25 @@ class AppController extends ChangeNotifier {
         );
       }
       _gateway = _factory(profile, credentials);
+      final serverVersion =
+          knownServerVersion ?? await _gateway!.version();
+      if (generation != _generation || _disposed) return;
+      final observedProfile = profile.withServerVersion(serverVersion);
+      active = observedProfile;
+      if (profile.lastServerVersion != observedProfile.lastServerVersion) {
+        try {
+          await repository.updateMetadata(observedProfile);
+          if (generation != _generation || _disposed) return;
+          profiles = repository.readProfiles();
+        } catch (_) {
+          // Version metadata is useful but not credential-sensitive. Keep the
+          // live observed version in memory even if local metadata cannot be
+          // refreshed; the connection itself may still be used safely.
+        }
+      }
       await repository.setActive(profile.id);
       if (generation != _generation || _disposed) return;
+      _notify();
       await refresh();
       if (generation == _generation && _foreground) _startPolling();
     } catch (e) {
