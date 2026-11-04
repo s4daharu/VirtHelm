@@ -762,7 +762,9 @@ void main() {
       AutoRefreshPreference.every60Seconds,
     );
 
-    await tester.ensureVisible(find.byKey(const Key('node-metrics-preference')));
+    await tester.ensureVisible(
+      find.byKey(const Key('node-metrics-preference')),
+    );
     await tester.tap(find.byKey(const Key('node-metrics-preference')));
     await tester.pumpAndSettle();
     expect(repository.showNodeMetrics, isFalse);
