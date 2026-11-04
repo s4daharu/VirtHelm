@@ -5,6 +5,9 @@ This slice implements HOME-006 saved smart filters using only local application 
 
 Each connection may keep at most 12 named views. Names are trimmed, limited to 40 characters, and compared case-insensitively. Saving the same name updates the existing view while retaining its local identifier. Deleting a connection removes its saved views on a best-effort basis after credential/profile removal.
 
+## Local data and privacy
+Saved view definitions are ordinary app-sandbox preferences, not Keystore-encrypted secrets. They may contain the user-entered search string and selected node name, so they can include infrastructure metadata such as guest or host naming conventions. They never contain API token identifiers/secrets, task logs, or metric samples. Android application backup is disabled by the generated runner, and removing a profile attempts to remove this local metadata as well.
+
 ## Isolation and malformed-data behavior
 Saved views are keyed by profile ID and are loaded when that profile is activated. UI save/delete intents include the profile ID captured by the rendered guest screen; if the active connection changes before the local write, the controller ignores the stale intent. Switching profiles resets the currently applied transient view and ordinary filter state.
 

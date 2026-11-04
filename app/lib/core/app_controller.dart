@@ -90,9 +90,7 @@ class AppController extends ChangeNotifier {
     required String expectedProfileId,
   }) async {
     final profile = active;
-    if (profile == null ||
-        _disposed ||
-        profile.id != expectedProfileId) {
+    if (profile == null || _disposed || profile.id != expectedProfileId) {
       return null;
     }
     await repository.saveGuestView(profile.id, view);
@@ -111,9 +109,7 @@ class AppController extends ChangeNotifier {
     required String expectedProfileId,
   }) async {
     final profile = active;
-    if (profile == null ||
-        _disposed ||
-        profile.id != expectedProfileId) {
+    if (profile == null || _disposed || profile.id != expectedProfileId) {
       return;
     }
     await repository.deleteGuestView(profile.id, viewId);

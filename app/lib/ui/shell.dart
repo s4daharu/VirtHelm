@@ -721,7 +721,9 @@ class _GuestsTabState extends State<_GuestsTab> {
     } on FormatException {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Enter a view name up to 40 characters.')),
+          const SnackBar(
+            content: Text('Enter a view name up to 40 characters.'),
+          ),
         );
       }
     } on StateError {
@@ -737,10 +739,7 @@ class _GuestsTabState extends State<_GuestsTab> {
     }
   }
 
-  Future<void> _deleteView(
-    BuildContext context,
-    SavedGuestView view,
-  ) async {
+  Future<void> _deleteView(BuildContext context, SavedGuestView view) async {
     final scopedProfileId = profileId;
     if (scopedProfileId == null) return;
     try {
@@ -806,7 +805,10 @@ class _GuestsTabState extends State<_GuestsTab> {
                   child: Row(
                     children: [
                       ActionChip(
-                        avatar: const Icon(Icons.bookmark_add_outlined, size: 18),
+                        avatar: const Icon(
+                          Icons.bookmark_add_outlined,
+                          size: 18,
+                        ),
                         label: const Text('Save view'),
                         onPressed: profileId == null
                             ? null
@@ -841,7 +843,8 @@ class _GuestsTabState extends State<_GuestsTab> {
                         FilterChip(
                           label: Text(option.$2),
                           selected: filter == option.$1,
-                          onSelected: (_) => _manualChange(() => filter = option.$1),
+                          onSelected: (_) =>
+                              _manualChange(() => filter = option.$1),
                         ),
                         const SizedBox(width: 8),
                       ],
@@ -862,7 +865,8 @@ class _GuestsTabState extends State<_GuestsTab> {
                         FilterChip(
                           label: Text(option.$2),
                           selected: kind == option.$1,
-                          onSelected: (_) => _manualChange(() => kind = option.$1),
+                          onSelected: (_) =>
+                              _manualChange(() => kind = option.$1),
                         ),
                         const SizedBox(width: 8),
                       ],
@@ -909,7 +913,8 @@ class _GuestsTabState extends State<_GuestsTab> {
                       ),
                       PopupMenuButton<GuestSort>(
                         tooltip: 'Sort guests',
-                        onSelected: (value) => _manualChange(() => sort = value),
+                        onSelected: (value) =>
+                            _manualChange(() => sort = value),
                         itemBuilder: (_) => [
                           for (final option in GuestSort.values)
                             CheckedPopupMenuItem<GuestSort>(

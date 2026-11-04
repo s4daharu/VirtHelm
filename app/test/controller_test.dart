@@ -1221,10 +1221,7 @@ void main() {
     final repo = ProfileRepository(prefs, _Vault());
     final a = ConnectionProfile.create(name: 'A', address: 'https://a.example');
     final b = ConnectionProfile.create(name: 'B', address: 'https://b.example');
-    const credentials = ApiCredentials(
-      tokenId: 'me@pve!test',
-      secret: 'test',
-    );
+    const credentials = ApiCredentials(tokenId: 'me@pve!test', secret: 'test');
     await repo.save(a, credentials);
     await repo.save(b, credentials);
     final ctl = AppController(
@@ -1237,10 +1234,7 @@ void main() {
     final view = SavedGuestView.create(name: 'Stopped', status: 'stopped');
     await ctl.activate(b);
 
-    expect(
-      await ctl.saveGuestView(view, expectedProfileId: a.id),
-      isNull,
-    );
+    expect(await ctl.saveGuestView(view, expectedProfileId: a.id), isNull);
     expect(repo.readGuestViews(a.id), isEmpty);
     expect(repo.readGuestViews(b.id), isEmpty);
 

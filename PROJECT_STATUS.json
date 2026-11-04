@@ -53,7 +53,7 @@
     "saved_views": {
       "status": "implemented_local_only",
       "feature_id": "HOME-006",
-      "storage": "SharedPreferences metadata keyed by profile ID; no credentials or server data copied",
+      "storage": "SharedPreferences metadata keyed by profile ID; may contain user-entered search text and node names; never credentials/task logs/metric samples; Android app backup is disabled",
       "limits": "12 views per profile, 40-character names, same-name update",
       "verification": "automated model/repository/controller/widget coverage; Android branch CI required; device/accessibility/performance gates remain open"
     }
