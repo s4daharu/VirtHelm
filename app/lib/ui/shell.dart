@@ -1389,7 +1389,7 @@ class _SettingsTab extends StatelessWidget {
               ),
               const Text(
                 'Refreshes reads only while the app is foregrounded. '
-                'Stops automatic requests after read errors; no background '
+                'Pauses after inventory/authentication errors; no background '
                 'monitoring or automatic guest actions.',
               ),
               const Divider(),
