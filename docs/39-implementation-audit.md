@@ -16,9 +16,10 @@ This audit cross-checked the implemented Flutter source, tests, generated Androi
 - Audited the generated Flutter 3.44.4 Android runner and added release Internet permission, cleartext/backup disablement, minSdk 26, and removal of debug-key release signing.
 - Committed `pubspec.lock`, pinned the Flutter/Dart floor, and changed CI from in-place formatting to an immutable format gate plus coverage tests.
 - Removed stale “documentation-only/preimplementation” claims.
+- Added profile-isolated local guest favorites and basic favorites/running/stopped workload filtering without adding server-side mutation or unverified API contracts.
 
 ## Implemented scope that remains intentionally incomplete
-The current code is an M1 foundation/safe-operator implementation plus an M2 read-cockpit slice. The full M2 roadmap still includes charts/RRD, favorites/saved views, notification center/alerts, richer filtering/sorting, persistent offline caching and formal accessibility/performance work. Later milestones cover ticket/MFA, console, snapshots/backups, PBS/PDM, provisioning/migration and infrastructure changes.
+The current code is an M1 foundation/safe-operator implementation plus an M2 read-cockpit slice. The full M2 roadmap still includes charts/RRD, named saved views, notification center/alerts, advanced filtering/sorting, persistent offline caching and formal accessibility/performance work. Later milestones cover ticket/MFA, console, snapshots/backups, PBS/PDM, provisioning/migration and infrastructure changes.
 
 Those items are **not defects in the current slice unless advertised as implemented**; repository copy must continue to mark them deferred.
 
