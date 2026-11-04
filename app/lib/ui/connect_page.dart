@@ -80,13 +80,12 @@ class _ConnectPageState extends State<ConnectPage> {
       tokenSecret.clear();
       if (Navigator.of(context).canPop()) {
         // PopScope intentionally blocks user navigation while busy. Rebuild it
-        // as poppable before closing this route after a successful connection.
+        // as poppable, wait for that frame to commit, then close the route.
         setState(() => busy = false);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          }
-        });
+        await WidgetsBinding.instance.endOfFrame;
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
       }
     } catch (e) {
       if (mounted) {
