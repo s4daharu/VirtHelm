@@ -156,6 +156,7 @@ class AppController extends ChangeNotifier {
       throw const PveFailure('A connection is already being checked.');
     }
     final generation = _generation;
+    final previousActiveId = repository.activeId;
     final profile = ConnectionProfile.create(
       name: name,
       address: address,
@@ -175,7 +176,10 @@ class AppController extends ChangeNotifier {
       await candidate.inventory(); // A valid token must also access inventory.
       _checkConnectionSetup(generation);
       await repository.save(profile, credential);
-      if (_disposed) return;
+      if (_disposed) {
+        await _rollbackCanceledConnection(profile.id, previousActiveId);
+        throw const PveFailure('Connection setup canceled.');
+      }
       profiles = repository.readProfiles();
       if (generation == _generation) {
         await activate(profile);
@@ -197,6 +201,28 @@ class AppController extends ChangeNotifier {
   void _checkConnectionSetup(int generation) {
     if (_disposed || generation != _generation) {
       throw const PveFailure('Connection changed; setup canceled.');
+    }
+  }
+
+  Future<void> _rollbackCanceledConnection(
+    String profileId,
+    String? previousActiveId,
+  ) async {
+    try {
+      await repository.delete(profileId);
+    } catch (_) {
+      // Failing closed is preferable to reviving a disposed controller. A
+      // subsequent launch will surface any incomplete local credential state.
+      return;
+    }
+    try {
+      final remaining = repository.readProfiles();
+      if (previousActiveId == null ||
+          remaining.any((profile) => profile.id == previousActiveId)) {
+        await repository.setActive(previousActiveId);
+      }
+    } catch (_) {
+      // Rollback is best-effort after the newly-created credential is removed.
     }
   }
 

@@ -168,4 +168,31 @@ void main() {
       );
     },
   );
+
+  test('profile deletion removes malformed local guest metadata roots', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repo = ProfileRepository(prefs, _Vault());
+    final profile = ConnectionProfile.create(
+      name: 'Lab',
+      address: 'https://pve.local',
+    );
+    const credentials = ApiCredentials(
+      tokenId: 'me@pve!test',
+      secret: 'secret',
+    );
+    await repo.save(profile, credentials);
+    await prefs.setString(
+      'guest_saved_views_v1',
+      '{malformed private-search-metadata',
+    );
+    await prefs.setString(
+      'guest_favorites_v1',
+      jsonEncode(['wrong-root-shape']),
+    );
+
+    await repo.delete(profile.id);
+
+    expect(prefs.getString('guest_saved_views_v1'), isNull);
+    expect(prefs.getString('guest_favorites_v1'), isNull);
+  });
 }

@@ -209,7 +209,23 @@ class ProfileRepository {
   }
 
   Future<void> _clearGuestViews(String profileId) async {
-    final root = _readGuestViewsRoot();
+    final raw = _prefs.getString(_guestViewsKey);
+    if (raw == null) return;
+    Map<String, dynamic> root;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        final removed = await _prefs.remove(_guestViewsKey);
+        if (!removed) throw StateError('Could not clear guest views.');
+        return;
+      }
+      root = decoded;
+    } catch (error) {
+      if (error is StateError) rethrow;
+      final removed = await _prefs.remove(_guestViewsKey);
+      if (!removed) throw StateError('Could not clear guest views.');
+      return;
+    }
     if (!root.containsKey(profileId)) return;
     root.remove(profileId);
     final saved = root.isEmpty
@@ -226,9 +242,12 @@ class ProfileRepository {
     if (raw == null) return;
     try {
       final decoded = jsonDecode(raw);
-      if (decoded is! Map<String, dynamic> || !decoded.containsKey(profileId)) {
+      if (decoded is! Map<String, dynamic>) {
+        final removed = await _prefs.remove(_favoritesKey);
+        if (!removed) throw StateError('Could not clear guest favorites.');
         return;
       }
+      if (!decoded.containsKey(profileId)) return;
       decoded.remove(profileId);
       final saved = decoded.isEmpty
           ? await _prefs.remove(_favoritesKey)
@@ -236,7 +255,8 @@ class ProfileRepository {
       if (!saved) throw StateError('Could not clear guest favorites.');
     } catch (error) {
       if (error is StateError) rethrow;
-      await _prefs.remove(_favoritesKey);
+      final removed = await _prefs.remove(_favoritesKey);
+      if (!removed) throw StateError('Could not clear guest favorites.');
     }
   }
 

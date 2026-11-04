@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,6 +19,26 @@ class _EmptyVault implements CredentialVault {
   Future<ApiCredentials?> retrieve(String id) async => null;
   @override
   Future<void> remove(String id) async {}
+}
+
+class _BlockingController extends AppController {
+  _BlockingController(ProfileRepository repository)
+    : super(repository: repository);
+
+  final started = Completer<void>();
+  final gate = Completer<void>();
+
+  @override
+  Future<void> connect({
+    required String name,
+    required String address,
+    required String tokenId,
+    required String secret,
+    bool allowInvalidCertificates = false,
+  }) async {
+    if (!started.isCompleted) started.complete();
+    await gate.future;
+  }
 }
 
 class _RecordingController extends AppController {
@@ -124,6 +146,52 @@ void main() {
     expect(controller.connections, [false]);
     expect(find.byType(AlertDialog), findsNothing);
   });
+
+  testWidgets(
+    'add-connection route cannot pop while connection check is running',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = _BlockingController(
+        ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => ConnectPage(controller: controller),
+                  ),
+                ),
+                child: const Text('Open connection form'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open connection form'));
+      await tester.pumpAndSettle();
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(0), 'Lab');
+      await tester.enterText(fields.at(1), 'https://pve.local');
+      await tester.enterText(fields.at(2), 'me@pve!test');
+      await tester.enterText(fields.at(3), 'test-secret');
+      await tester.tap(find.text('Connect securely'));
+      await tester.pump();
+      await controller.started.future;
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(find.byType(ConnectPage), findsOneWidget);
+
+      controller.gate.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(ConnectPage), findsNothing);
+    },
+  );
 
   testWidgets('credential-plugin exceptions are never displayed verbatim', (
     tester,

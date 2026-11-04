@@ -101,8 +101,10 @@ class _ConnectPageState extends State<ConnectPage> {
     final scheme = Theme.of(context).colorScheme;
     final hasProfile = widget.controller.profiles.isNotEmpty;
     final displayedError = error ?? widget.controller.message;
-    return Scaffold(
-      appBar: hasProfile
+    return PopScope(
+      canPop: !busy,
+      child: Scaffold(
+        appBar: hasProfile
           ? AppBar(title: const Text('Add Proxmox connection'))
           : null,
       body: SafeArea(
@@ -283,6 +285,7 @@ class _ConnectPageState extends State<ConnectPage> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

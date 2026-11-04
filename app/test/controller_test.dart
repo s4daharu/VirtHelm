@@ -389,6 +389,33 @@ void main() {
     },
   );
 
+  test(
+    'disposal during secure persistence rolls back a late connection',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final vault = _PausedStoreVault();
+      final repo = ProfileRepository(prefs, vault);
+      final ctl = AppController(
+        repository: repo,
+        gatewayFactory: (profile, credentials) => _Gateway(),
+      );
+      final connecting = ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!test',
+        secret: 'test',
+      );
+      await vault.started.future;
+      ctl.dispose();
+      vault.gate.complete();
+
+      await expectLater(connecting, throwsA(isA<PveFailure>()));
+      expect(repo.readProfiles(), isEmpty);
+      expect(repo.activeId, isNull);
+      expect(vault.values, isEmpty);
+    },
+  );
+
   test('future-dated inventory cannot authorize writes', () async {
     final prefs = await SharedPreferences.getInstance();
     final ctl = AppController(repository: ProfileRepository(prefs, _Vault()));
