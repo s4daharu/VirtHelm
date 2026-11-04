@@ -167,7 +167,12 @@ class ProfileRepository {
     // Delete the encrypted token first; failure stops profile removal.
     await vault.remove(id);
     await _writeProfiles(remaining);
-    await clearGuestFavorites(id);
+    // Favorites contain no credentials and are secondary metadata. Once the
+    // token and profile metadata are gone, stale favorite cleanup must not
+    // turn a successful security-sensitive deletion into a reported failure.
+    try {
+      await clearGuestFavorites(id);
+    } catch (_) {}
     if (activeId == id) {
       await setActive(remaining.isEmpty ? null : remaining.first.id);
     }
