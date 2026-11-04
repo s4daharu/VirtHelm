@@ -527,7 +527,23 @@ class _GuestTile extends StatelessWidget {
       subtitle: Text(
         '${guest.kind.toUpperCase()} • ${guest.vmid} • ${guest.node}',
       ),
-      trailing: StatusChip(status: guest.status),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: controller.isGuestFavorite(guest)
+                ? 'Remove from favorites'
+                : 'Add to favorites',
+            onPressed: () => unawaited(controller.toggleGuestFavorite(guest)),
+            icon: Icon(
+              controller.isGuestFavorite(guest)
+                  ? Icons.star_rounded
+                  : Icons.star_border_rounded,
+            ),
+          ),
+          StatusChip(status: guest.status),
+        ],
+      ),
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => GuestPage(
@@ -551,6 +567,7 @@ class _GuestsTab extends StatefulWidget {
 class _GuestsTabState extends State<_GuestsTab> {
   final search = TextEditingController();
   String query = '';
+  String filter = 'all';
 
   @override
   void dispose() {
@@ -561,14 +578,31 @@ class _GuestsTabState extends State<_GuestsTab> {
   @override
   Widget build(BuildContext context) {
     final inv = widget.controller.inventory;
-    final guests = (inv?.guests ?? <Guest>[])
-        .where(
-          (g) =>
-              g.name.toLowerCase().contains(query.toLowerCase()) ||
-              g.vmid.toString().contains(query) ||
-              g.node.toLowerCase().contains(query.toLowerCase()),
-        )
-        .toList();
+    final controller = widget.controller;
+    final guests =
+        (inv?.guests ?? <Guest>[])
+            .where(
+              (g) =>
+                  g.name.toLowerCase().contains(query.toLowerCase()) ||
+                  g.vmid.toString().contains(query) ||
+                  g.node.toLowerCase().contains(query.toLowerCase()),
+            )
+            .where(
+              (g) => switch (filter) {
+                'favorites' => controller.isGuestFavorite(g),
+                'running' => g.isRunning,
+                'stopped' => g.isStopped,
+                _ => true,
+              },
+            )
+            .toList()
+          ..sort((a, b) {
+            final favoriteOrder =
+                (controller.isGuestFavorite(b) ? 1 : 0) -
+                (controller.isGuestFavorite(a) ? 1 : 0);
+            if (favoriteOrder != 0) return favoriteOrder;
+            return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          });
     return Column(
       children: [
         Padding(
@@ -582,6 +616,28 @@ class _GuestsTabState extends State<_GuestsTab> {
             ),
           ),
         ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          child: Row(
+            children: [
+              for (final option in const [
+                ('all', 'All'),
+                ('favorites', 'Favorites'),
+                ('running', 'Running'),
+                ('stopped', 'Stopped'),
+              ]) ...[
+                FilterChip(
+                  label: Text(option.$2),
+                  selected: filter == option.$1,
+                  onSelected: (_) => setState(() => filter = option.$1),
+                ),
+                const SizedBox(width: 8),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
@@ -617,7 +673,8 @@ class _GuestsTabState extends State<_GuestsTab> {
               ? const EmptyState(
                   icon: Icons.search_off_rounded,
                   title: 'No workloads found',
-                  body: 'Try a different search or check token permissions.',
+                  body:
+                      'Try a different search or filter, or check token permissions.',
                 )
               : RefreshIndicator(
                   onRefresh: widget.controller.refresh,

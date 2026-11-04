@@ -25,6 +25,7 @@ class AppController extends ChangeNotifier {
   final List<TrackedTask> tasks = [];
   List<StoragePool> storages = [];
   List<RecentServerTask> serverTasks = [];
+  Set<String> favoriteGuests = <String>{};
   String? storageMessage;
   String? serverTaskMessage;
   String? inventoryWarning;
@@ -48,6 +49,26 @@ class AppController extends ChangeNotifier {
   final Map<String, String> _taskTargets = {};
 
   String _guestKey(Guest guest) => '${guest.kind}:${guest.node}:${guest.vmid}';
+
+  bool isGuestFavorite(Guest guest) =>
+      favoriteGuests.contains(_guestKey(guest));
+
+  Future<void> setGuestFavorite(Guest guest, bool favorite) async {
+    final profile = active;
+    if (profile == null) return;
+    final key = _guestKey(guest);
+    await repository.setGuestFavorite(profile.id, key, favorite);
+    if (active?.id != profile.id || _disposed) return;
+    if (favorite) {
+      favoriteGuests.add(key);
+    } else {
+      favoriteGuests.remove(key);
+    }
+    _notify();
+  }
+
+  Future<void> toggleGuestFavorite(Guest guest) =>
+      setGuestFavorite(guest, !isGuestFavorite(guest));
 
   bool isGuestActionBlocked(Guest guest) {
     final key = _guestKey(guest);
@@ -111,6 +132,7 @@ class AppController extends ChangeNotifier {
     _gateway?.close();
     _gateway = null;
     active = profile;
+    favoriteGuests = repository.readGuestFavorites(profile.id);
     inventory = null;
     tasks.clear();
     storages = [];
@@ -528,6 +550,7 @@ class AppController extends ChangeNotifier {
       _gateway?.close();
       _gateway = null;
       active = null;
+      favoriteGuests = <String>{};
       inventory = null;
       tasks.clear();
       _pendingGuestOperations.clear();

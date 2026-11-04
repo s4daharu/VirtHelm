@@ -41,7 +41,9 @@
       "read-only per-node storage overview",
       "recent server task history using active+archive task-list normalization",
       "partial permission/failure/malformed-record reporting",
-      "guest/node uptime and explicit freshness display"
+      "guest/node uptime and explicit freshness display",
+      "profile-scoped guest favorites persisted in local app preferences",
+      "guest list filters for favorites, running and stopped workloads"
     ],
     "scope_note": "This is a partial M2 read-cockpit slice, not the full premium M2 roadmap.",
     "release_validation": "Real PVE 8.4/9.2 contracts/ACLs and Android device/release gates remain required."
