@@ -14,7 +14,7 @@ The gateway is bound to one validated connection profile and credentials. Closin
 
 ## Test coverage
 
-The gateway regression suite checks successful recovery after HTTP 503 then receive timeout, exhausted connection timeouts (three requests/two waits), bounded delay ranges, no retries for 3xx/401/403/404, TLS or malformed success payloads, a single POST on HTTP 503 and cancellation of the pending retry when its profile gateway closes.
+The gateway regression suite checks successful recovery after HTTP 503 then receive timeout, exhausted connection timeouts (three requests/two waits), bounded delay ranges, no retries for 3xx/401/403/404, certificate or wrapped TLS transport failures, or malformed success payloads; a single POST on HTTP 503 and cancellation of the pending retry when its profile gateway closes.
 
 Normal delivery gates remain required for the final branch commit: docs/source checks, immutable Dart format, fatal-info analysis, Flutter unit/widget tests and Android debug APK build.
 
