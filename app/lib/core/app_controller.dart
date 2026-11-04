@@ -198,6 +198,80 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<void> updateConnection({
+    required String profileId,
+    required String name,
+    required String address,
+    String tokenId = '',
+    String secret = '',
+    bool allowInvalidCertificates = false,
+  }) async {
+    if (_disposed) throw const PveFailure('Connection update canceled.');
+    if (connecting) {
+      throw const PveFailure('A connection is already being checked.');
+    }
+    final matches = repository.readProfiles().where(
+      (profile) => profile.id == profileId,
+    );
+    if (matches.isEmpty) {
+      throw const PveFailure('Connection no longer exists.');
+    }
+    final existing = matches.first;
+    final normalizedName = name.trim();
+    if (normalizedName.isEmpty) {
+      throw const FormatException('Enter a profile name.');
+    }
+    final profile = ConnectionProfile(
+      id: existing.id,
+      name: normalizedName,
+      endpoint: normalizePveEndpoint(address),
+      allowInvalidCertificates: allowInvalidCertificates,
+    );
+    final tokenChanged = tokenId.trim().isNotEmpty || secret.isNotEmpty;
+    final storedCredentials = await repository.vault.retrieve(existing.id);
+    final credential = tokenChanged
+        ? ApiCredentials(tokenId: tokenId.trim(), secret: secret)
+        : storedCredentials;
+    if (credential == null) {
+      throw const PveFailure(
+        'Saved token unavailable. Enter a replacement token to update this connection.',
+      );
+    }
+    if (!credential.isValid) {
+      throw const FormatException(
+        'Enter both a valid token ID (user@realm!token-name) and token secret, or leave both blank to keep the saved token.',
+      );
+    }
+
+    final generation = _generation;
+    connecting = true;
+    _notify();
+    PveGateway? candidate;
+    try {
+      candidate = _factory(profile, credential);
+      await candidate.version();
+      _checkConnectionSetup(generation);
+      await candidate.inventory();
+      _checkConnectionSetup(generation);
+      await repository.update(profile, credential);
+      if (_disposed) {
+        throw const PveFailure(
+          'Connection update completed after app shutdown.',
+        );
+      }
+      profiles = repository.readProfiles();
+      if (generation == _generation && active?.id == profile.id) {
+        await activate(profile);
+      } else {
+        _notify();
+      }
+    } finally {
+      candidate?.close();
+      connecting = false;
+      _notify();
+    }
+  }
+
   void _checkConnectionSetup(int generation) {
     if (_disposed || generation != _generation) {
       throw const PveFailure('Connection changed; setup canceled.');

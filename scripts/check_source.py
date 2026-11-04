@@ -19,7 +19,8 @@ required = [
   'docs/39-implementation-audit.md','docs/40-profile-tls-option.md',
   'docs/41-cross-check-audit.md','docs/42-merge-readiness-cross-check.md',
   'docs/44-implementation-m2-saved-guest-views.md',
-  'docs/45-full-implementation-cross-check.md']
+  'docs/45-full-implementation-cross-check.md',
+  'docs/46-implementation-p0-profile-editing.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
@@ -31,6 +32,8 @@ assert 'debug release signing' in files['scripts/harden_android.py']
 assert 'PVEAPIToken=' in files['app/lib/core/models.dart']
 assert 'options.followRedirects = false' in files['app/lib/core/pve_api.dart']
 assert 'SecureCredentialVault' in files['app/lib/core/profile_repository.dart']
+assert 'Future<void> update(ConnectionProfile profile' in files['app/lib/core/profile_repository.dart']
+assert 'Future<void> updateConnection' in files['app/lib/core/app_controller.dart']
 assert 'mayHaveExecuted' in files['app/lib/core/pve_api.dart']
 assert 'storageOverview' in files['app/lib/core/pve_api.dart']
 assert 'recentTasks' in files['app/lib/core/pve_api.dart']

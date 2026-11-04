@@ -1246,10 +1246,25 @@ class _SettingsTab extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             onTap: () => unawaited(controller.activate(profile)),
-            trailing: IconButton(
-              tooltip: 'Remove ${profile.name}',
-              onPressed: () => _remove(context, profile),
-              icon: const Icon(Icons.delete_outline_rounded),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Edit ${profile.name}',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          ConnectPage(controller: controller, profile: profile),
+                    ),
+                  ),
+                  icon: const Icon(Icons.edit_outlined),
+                ),
+                IconButton(
+                  tooltip: 'Remove ${profile.name}',
+                  onPressed: () => _remove(context, profile),
+                  icon: const Icon(Icons.delete_outline_rounded),
+                ),
+              ],
             ),
           ),
         ),
