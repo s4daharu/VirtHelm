@@ -50,7 +50,8 @@ class AppController extends ChangeNotifier {
 
   String _guestKey(Guest guest) => '${guest.kind}:${guest.node}:${guest.vmid}';
 
-  bool isGuestFavorite(Guest guest) => favoriteGuests.contains(_guestKey(guest));
+  bool isGuestFavorite(Guest guest) =>
+      favoriteGuests.contains(_guestKey(guest));
 
   Future<void> setGuestFavorite(Guest guest, bool favorite) async {
     final profile = active;
