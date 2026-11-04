@@ -1551,5 +1551,6 @@ void main() {
     await tester.pump();
     expect(gateway.inventoryCalls, onResume + 1);
     expect(gateway.submissions, 0);
+    controller.setForeground(false); // Cancel periodic timer before test teardown.
   });
 }
