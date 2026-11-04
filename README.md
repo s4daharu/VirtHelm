@@ -8,7 +8,7 @@ VirtHelm is an independent, unofficial mobile client for user-operated Proxmox V
 
 ## Implemented now
 
-The current source implements HTTPS-only API-token profiles, Android secure credential storage, profile isolation, cluster/node/QEMU/LXC inventory, searchable guests with profile-scoped favorites and status filters, read-only storage overview, recent server tasks, guest CPU/memory/disk/uptime, and guarded QEMU/LXC start/shutdown/reboot/force-stop actions with live preflight and UPID tracking.
+The current source implements HTTPS-only API-token profiles, Android secure credential storage, profile isolation, cluster/node/QEMU/LXC inventory, searchable guests with profile-scoped favorites, status/type/node filters and selectable sorting, read-only storage overview, recent server tasks, guest CPU/memory/disk/uptime, and guarded QEMU/LXC start/shutdown/reboot/force-stop actions with live preflight and UPID tracking.
 
 Write safety includes exact profile/node/type/VMID identity, fresh clean inventory, single-flight submission, no automatic mutation retry, ambiguous-outcome lockout, bounded task verification, and authoritative refresh after terminal tasks. Redirects and cleartext are blocked. Certificate validation is enabled by default; an explicitly confirmed, saved per-connection insecure option is available for any HTTPS host. It allows server impersonation and token theft, even on a LAN. See [TLS option](docs/40-profile-tls-option.md).
 
@@ -38,7 +38,7 @@ Neither workflow uploads Actions artifacts. Normal push/PR checks still compile 
 
 ## Current scope vs roadmap
 
-The implemented M1/M2 slices do **not** equal the whole premium roadmap. Charts/RRD, saved views, notification center/alerts, persistent offline cache, advanced filtering/sorting, biometric app lock, ticket/MFA, console, snapshots/backups, PBS/PDM, migrations/provisioning, infrastructure mutation, and signed distribution remain future/gated work.
+The implemented M1/M2 slices do **not** equal the whole premium roadmap. Charts/RRD, saved views, notification center/alerts, persistent offline cache, tag-based advanced filtering, biometric app lock, ticket/MFA, console, snapshots/backups, PBS/PDM, migrations/provisioning, infrastructure mutation, and signed distribution remain future/gated work.
 
 The premium planning catalogue remains available as [docs/premium-feature-catalog.csv](docs/premium-feature-catalog.csv). It is a proposal/verification backlog, not the current implementation tracker; use `PROJECT_STATUS.json` and the [cross-check audit](docs/41-cross-check-audit.md) for implemented scope and remaining gaps.
 

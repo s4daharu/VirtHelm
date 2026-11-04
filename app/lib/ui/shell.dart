@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
+import '../core/guest_list_filter.dart';
 import '../core/models.dart';
 import 'connect_page.dart';
 import 'guest_page.dart';
@@ -615,6 +616,32 @@ class _GuestsTabState extends State<_GuestsTab> {
   final search = TextEditingController();
   String query = '';
   String filter = 'all';
+  GuestKindFilter kind = GuestKindFilter.all;
+  GuestSort sort = GuestSort.favorites;
+  String? nodeFilter;
+  String? profileId;
+
+  @override
+  void initState() {
+    super.initState();
+    profileId = widget.controller.active?.id;
+  }
+
+  @override
+  void didUpdateWidget(covariant _GuestsTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextId = widget.controller.active?.id;
+    if (profileId != nextId) {
+      // A saved list selection must not hide another profile's inventory.
+      profileId = nextId;
+      search.clear();
+      query = '';
+      filter = 'all';
+      kind = GuestKindFilter.all;
+      nodeFilter = null;
+      sort = GuestSort.favorites;
+    }
+  }
 
   @override
   void dispose() {
@@ -626,30 +653,17 @@ class _GuestsTabState extends State<_GuestsTab> {
   Widget build(BuildContext context) {
     final inv = widget.controller.inventory;
     final controller = widget.controller;
-    final guests =
-        (inv?.guests ?? <Guest>[])
-            .where(
-              (g) =>
-                  g.name.toLowerCase().contains(query.toLowerCase()) ||
-                  g.vmid.toString().contains(query) ||
-                  g.node.toLowerCase().contains(query.toLowerCase()),
-            )
-            .where(
-              (g) => switch (filter) {
-                'favorites' => controller.isGuestFavorite(g),
-                'running' => g.isRunning,
-                'stopped' => g.isStopped,
-                _ => true,
-              },
-            )
-            .toList()
-          ..sort((a, b) {
-            final favoriteOrder =
-                (controller.isGuestFavorite(b) ? 1 : 0) -
-                (controller.isGuestFavorite(a) ? 1 : 0);
-            if (favoriteOrder != 0) return favoriteOrder;
-            return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-          });
+    final allGuests = inv?.guests ?? <Guest>[];
+    final nodes = allGuests.map((guest) => guest.node).toSet().toList()..sort();
+    final guests = visibleGuests(
+      allGuests,
+      isFavorite: controller.isGuestFavorite,
+      search: query,
+      status: filter,
+      kind: kind,
+      node: nodeFilter,
+      sort: sort,
+    );
     return RefreshIndicator(
       onRefresh: widget.controller.refresh,
       child: CustomScrollView(
@@ -687,6 +701,91 @@ class _GuestsTabState extends State<_GuestsTab> {
                         ),
                         const SizedBox(width: 8),
                       ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Row(
+                    children: [
+                      for (final option in const [
+                        (GuestKindFilter.all, 'Any type'),
+                        (GuestKindFilter.qemu, 'VMs'),
+                        (GuestKindFilter.lxc, 'Containers'),
+                      ]) ...[
+                        FilterChip(
+                          label: Text(option.$2),
+                          selected: kind == option.$1,
+                          onSelected: (_) => setState(() => kind = option.$1),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 8, 18, 4),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      PopupMenuButton<String>(
+                        tooltip: 'Filter by node',
+                        onSelected: (value) => setState(
+                          () => nodeFilter = value == '__all' ? null : value,
+                        ),
+                        itemBuilder: (_) => [
+                          CheckedPopupMenuItem<String>(
+                            value: '__all',
+                            checked: nodeFilter == null,
+                            child: const Text('All nodes'),
+                          ),
+                          for (final node in nodes)
+                            CheckedPopupMenuItem<String>(
+                              value: node,
+                              checked: nodeFilter == node,
+                              child: Text(node),
+                            ),
+                        ],
+                        child: Chip(
+                          avatar: const Icon(Icons.hub_outlined, size: 18),
+                          label: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 150),
+                            child: Text(
+                              nodeFilter == null
+                                  ? 'All nodes'
+                                  : 'Node: $nodeFilter',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ),
+                      PopupMenuButton<GuestSort>(
+                        tooltip: 'Sort guests',
+                        onSelected: (value) => setState(() => sort = value),
+                        itemBuilder: (_) => [
+                          for (final option in GuestSort.values)
+                            CheckedPopupMenuItem<GuestSort>(
+                              value: option,
+                              checked: sort == option,
+                              child: Text(option.label),
+                            ),
+                        ],
+                        child: Chip(
+                          avatar: const Icon(Icons.sort_rounded, size: 18),
+                          label: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 170),
+                            child: Text(
+                              'Sort: ${sort.label}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

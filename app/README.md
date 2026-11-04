@@ -21,6 +21,7 @@ The committed `pubspec.lock` is enforced. The bootstrap generates the Android ru
 - Certificate verification on by default, with an explicitly confirmed per-profile insecure opt-in for any host; saved profiles and active screens display warnings.
 - Multiple isolated profiles, explicit switch/delete, no redirect credential forwarding.
 - Cluster nodes and QEMU/LXC inventory with search, freshness, CPU/memory/disk/uptime.
+- Guest status/type/node filters and deterministic favorites/name/VMID/CPU/memory sorting, without extra API requests.
 - Read-only per-node storage and recent server task history with partial permission/error reporting.
 - Start/shutdown/reboot/force-stop confirmation with exact profile/node/type/VMID target.
 - Fresh clean-inventory guard, live status preflight, exactly one POST, per-guest single-flight lock, no write auto-retry.
