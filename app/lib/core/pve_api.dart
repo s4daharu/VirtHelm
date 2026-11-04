@@ -154,7 +154,7 @@ class DioPveGateway implements PveGateway {
               (code != null && (code >= 500 || (code >= 300 && code < 400))));
       final message =
           e.type == DioExceptionType.badCertificate ||
-              e.error is HandshakeException
+              e.error is TlsException
           ? 'TLS certificate validation failed. Verify the server hostname, certificate validity, and trusted CA. A trusted certificate is recommended.'
           : switch (code) {
               401 => 'Authentication failed. Check or rotate your API token.',
