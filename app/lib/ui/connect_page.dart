@@ -4,8 +4,13 @@ import '../core/app_controller.dart';
 import '../core/models.dart';
 
 class ConnectPage extends StatefulWidget {
-  const ConnectPage({super.key, required this.controller});
+  const ConnectPage({
+    super.key,
+    required this.controller,
+    this.profile,
+  });
   final AppController controller;
+  final ConnectionProfile? profile;
 
   @override
   State<ConnectPage> createState() => _ConnectPageState();
@@ -21,6 +26,33 @@ class _ConnectPageState extends State<ConnectPage> {
   bool busy = false;
   bool showSecret = false;
   bool allowInvalidCertificates = false;
+
+  bool get editing => widget.profile != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final profile = widget.profile;
+    if (profile != null) {
+      alias.text = profile.name;
+      endpoint.text = profile.endpoint;
+      allowInvalidCertificates = profile.allowInvalidCertificates;
+    }
+  }
+
+  String? _tokenIdError(String? value) {
+    final id = value?.trim() ?? '';
+    if (!editing) return id.isEmpty ? 'Enter the token ID' : null;
+    if (id.isEmpty && tokenSecret.text.isEmpty) return null;
+    return id.isEmpty ? 'Enter the token ID or clear the token secret' : null;
+  }
+
+  String? _tokenSecretError(String? value) {
+    final secret = value ?? '';
+    if (!editing) return secret.isEmpty ? 'Enter the secret' : null;
+    if (secret.isEmpty && tokenId.text.trim().isEmpty) return null;
+    return secret.isEmpty ? 'Enter the secret or clear the token ID' : null;
+  }
 
   @override
   void dispose() {
@@ -69,13 +101,24 @@ class _ConnectPageState extends State<ConnectPage> {
         );
         if (confirmed != true || !mounted) return;
       }
-      await widget.controller.connect(
-        name: alias.text,
-        address: address,
-        tokenId: tokenId.text,
-        secret: tokenSecret.text,
-        allowInvalidCertificates: allowInvalidCertificates,
-      );
+      if (editing) {
+        await widget.controller.updateConnection(
+          profileId: widget.profile!.id,
+          name: alias.text,
+          address: address,
+          tokenId: tokenId.text,
+          secret: tokenSecret.text,
+          allowInvalidCertificates: allowInvalidCertificates,
+        );
+      } else {
+        await widget.controller.connect(
+          name: alias.text,
+          address: address,
+          tokenId: tokenId.text,
+          secret: tokenSecret.text,
+          allowInvalidCertificates: allowInvalidCertificates,
+        );
+      }
       if (!mounted) return;
       tokenSecret.clear();
       if (Navigator.of(context).canPop()) {
@@ -112,7 +155,9 @@ class _ConnectPageState extends State<ConnectPage> {
     return PopScope(
       canPop: !busy,
       child: Scaffold(
-        appBar: hasProfile
+        appBar: editing
+            ? AppBar(title: const Text('Edit Proxmox connection'))
+            : hasProfile
             ? AppBar(title: const Text('Add Proxmox connection'))
             : null,
         body: SafeArea(
@@ -142,7 +187,9 @@ class _ConnectPageState extends State<ConnectPage> {
                       ),
                       const SizedBox(height: 28),
                       Text(
-                        'Your infrastructure.\nIn your hands.',
+                        editing
+                            ? 'Edit connection'
+                            : 'Your infrastructure.\nIn your hands.',
                         style: Theme.of(context).textTheme.headlineMedium
                             ?.copyWith(
                               fontWeight: FontWeight.w800,
@@ -151,7 +198,9 @@ class _ConnectPageState extends State<ConnectPage> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Connect securely to Proxmox VE using a least-privilege API token.',
+                        editing
+                            ? 'Changes are validated against Proxmox before this saved connection is replaced.'
+                            : 'Connect securely to Proxmox VE using a least-privilege API token.',
                         style: TextStyle(color: scheme.onSurfaceVariant),
                       ),
                       const SizedBox(height: 28),
@@ -189,9 +238,7 @@ class _ConnectPageState extends State<ConnectPage> {
                           hintText: 'operator@pve!virthelm',
                         ),
                         textInputAction: TextInputAction.next,
-                        validator: (v) => v == null || v.trim().isEmpty
-                            ? 'Enter the token ID'
-                            : null,
+                        validator: _tokenIdError,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -201,6 +248,9 @@ class _ConnectPageState extends State<ConnectPage> {
                         autocorrect: false,
                         decoration: InputDecoration(
                           labelText: 'API token secret',
+                          helperText: editing
+                              ? 'Leave both token fields blank to keep the saved token.'
+                              : null,
                           suffixIcon: IconButton(
                             tooltip: showSecret ? 'Hide token' : 'Show token',
                             onPressed: () =>
@@ -212,8 +262,7 @@ class _ConnectPageState extends State<ConnectPage> {
                             ),
                           ),
                         ),
-                        validator: (v) =>
-                            v == null || v.isEmpty ? 'Enter the secret' : null,
+                        validator: _tokenSecretError,
                       ),
                       const SizedBox(height: 16),
                       SwitchListTile(
@@ -263,6 +312,8 @@ class _ConnectPageState extends State<ConnectPage> {
                         label: Text(
                           busy
                               ? 'Checking connection…'
+                              : editing
+                              ? 'Save connection'
                               : allowInvalidCertificates
                               ? 'Connect (insecure)'
                               : 'Connect securely',
