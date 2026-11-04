@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:virthelm/core/app_controller.dart';
+import 'package:virthelm/core/app_preferences.dart';
 import 'package:virthelm/core/guest_saved_view.dart';
 import 'package:virthelm/core/models.dart';
 import 'package:virthelm/core/profile_repository.dart';
@@ -1513,5 +1514,42 @@ void main() {
     expect(saved?.name, 'Stopped');
     expect(ctl.guestSavedViews.single.name, 'Stopped');
     expect(repo.readGuestViews(a.id), isEmpty);
+  });
+
+  testWidgets('auto refresh stops in background and resumes in foreground', (
+    tester,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    late _Gateway gateway;
+    final controller = AppController(
+      repository: ProfileRepository(prefs, _Vault()),
+      gatewayFactory: (profile, credentials) => gateway = _Gateway(),
+    );
+    addTearDown(controller.dispose);
+    await controller.connect(
+      name: 'Lab',
+      address: 'https://pve.local',
+      tokenId: 'me@pve!app',
+      secret: 'secret',
+    );
+    await controller.setAutoRefreshPreference(
+      AutoRefreshPreference.every30Seconds,
+    );
+    final before = gateway.inventoryCalls;
+    await tester.pump(const Duration(seconds: 30));
+    await tester.pump();
+    expect(gateway.inventoryCalls, before + 1);
+
+    controller.setForeground(false);
+    await tester.pump(const Duration(minutes: 1));
+    expect(gateway.inventoryCalls, before + 1);
+
+    controller.setForeground(true);
+    await tester.pump();
+    final onResume = gateway.inventoryCalls;
+    await tester.pump(const Duration(seconds: 30));
+    await tester.pump();
+    expect(gateway.inventoryCalls, onResume + 1);
+    expect(gateway.submissions, 0);
   });
 }
