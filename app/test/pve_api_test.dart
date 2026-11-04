@@ -375,4 +375,44 @@ void main() {
     expect(posts, 1);
     expect(request.uri.path, '/api2/json/nodes/pve1/qemu/101/status/shutdown');
   });
+
+  test('invalid map keys do not discard valid supplemental rows', () async {
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          final storage = options.path.endsWith('/storage');
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'data': [
+                  <Object, Object>{1: 'malformed-key'},
+                  if (storage)
+                    {'storage': 'local', 'type': 'dir'}
+                  else
+                    {
+                      'upid': 'UPID:pve1:1:2:3:qmstart:101:user@pve:',
+                      'status': 'RUNNING',
+                    },
+                ],
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(profile, credentials, http: dio);
+    addTearDown(gateway.close);
+
+    final storage = await gateway.storageOverview(['pve1']);
+    expect(storage.values.single.id, 'local');
+    expect(storage.malformedRecords, 1);
+    expect(storage.failedNodes, 0);
+    final tasks = await gateway.recentTasks(['pve1']);
+    expect(tasks.values.single.stateLabel, 'running');
+    expect(tasks.malformedRecords, 1);
+    expect(tasks.failedNodes, 0);
+  });
 }
