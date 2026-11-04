@@ -11,8 +11,11 @@ import 'package:virthelm/core/pve_api.dart';
 
 class _Vault implements CredentialVault {
   final Map<String, ApiCredentials> values = {};
+  int storeCalls = 0;
+
   @override
   Future<void> store(String id, ApiCredentials creds) async {
+    storeCalls++;
     values[id] = creds;
   }
 
@@ -243,9 +246,10 @@ void main() {
     expect(ctl.active?.lastServerVersion, '9.2.4');
   });
 
-  test('activation refreshes and persists a changed server version', () async {
+  test('activation refreshes version without rewriting credentials', () async {
     final prefs = await SharedPreferences.getInstance();
-    final repo = ProfileRepository(prefs, _Vault());
+    final vault = _Vault();
+    final repo = ProfileRepository(prefs, vault);
     final profile = ConnectionProfile.create(
       name: 'Lab',
       address: 'https://pve.local',
@@ -254,6 +258,7 @@ void main() {
       profile,
       const ApiCredentials(tokenId: 'me@pve!test', secret: 'secret'),
     );
+    expect(vault.storeCalls, 1);
 
     final ctl = AppController(
       repository: repo,
@@ -265,6 +270,7 @@ void main() {
 
     expect(ctl.active?.lastServerVersion, '9.2.7');
     expect(repo.readProfiles().single.lastServerVersion, '9.2.7');
+    expect(vault.storeCalls, 1);
   });
 
   test('profile update preserves identity and local guest metadata', () async {
