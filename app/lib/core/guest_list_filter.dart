@@ -73,5 +73,5 @@ int _compareMetricDescending(num? a, num? b) {
   final bValid = b != null && b.isFinite && b >= 0;
   if (!aValid) return bValid ? 1 : 0;
   if (!bValid) return -1;
-  return b.compareTo(a);
+  return b!.compareTo(a!);
 }
