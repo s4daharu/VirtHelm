@@ -14,6 +14,7 @@ abstract class PveGateway {
   Future<String> guestStatus(Guest guest);
   Future<String> submit(Guest guest, GuestAction action);
   Future<ServerTaskStatus> taskStatus(TrackedTask task);
+  Future<TaskLogResult> taskLog(String node, String upid);
   void close();
 }
 
@@ -353,6 +354,40 @@ class DioPveGateway implements PveGateway {
     return ServerTaskStatus(
       status: asText(value['status']) ?? 'unknown',
       exitStatus: asText(value['exitstatus']),
+    );
+  }
+
+  @override
+  Future<TaskLogResult> taskLog(String node, String upid) async {
+    if (node.isEmpty || !upid.startsWith('UPID:')) {
+      throw const FormatException('Invalid task identity.');
+    }
+    final raw = await _request(
+      '/nodes/${_segment(node)}/tasks/${_segment(upid)}/log',
+      queryParameters: const {'start': 0, 'limit': 100},
+    );
+    if (raw is! List) {
+      throw const PveFailure('Unexpected task log response.');
+    }
+    final entries = <TaskLogEntry>[];
+    var malformed = 0;
+    for (final row in raw.take(100)) {
+      if (row is! Map) {
+        malformed++;
+        continue;
+      }
+      try {
+        entries.add(TaskLogEntry.fromApi(Map<String, dynamic>.from(row)));
+      } on FormatException {
+        malformed++;
+      } on TypeError {
+        malformed++;
+      }
+    }
+    entries.sort((a, b) => a.number.compareTo(b.number));
+    return TaskLogResult(
+      entries: List<TaskLogEntry>.unmodifiable(entries),
+      malformedRecords: malformed,
     );
   }
 

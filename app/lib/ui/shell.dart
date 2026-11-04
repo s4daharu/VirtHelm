@@ -10,6 +10,7 @@ import '../core/models.dart';
 import 'connect_page.dart';
 import 'guest_page.dart';
 import 'theme.dart';
+import 'task_details_page.dart';
 import 'tls_warning.dart';
 
 class ShellPage extends StatefulWidget {
@@ -1012,6 +1013,30 @@ class _GuestsTabState extends State<_GuestsTab> {
   }
 }
 
+void _openTaskDetails(
+  BuildContext context,
+  AppController controller, {
+  required String node,
+  required String upid,
+  required String title,
+}) {
+  final profileId = controller.active?.id;
+  if (profileId == null) return;
+  final generation = controller.connectionGeneration;
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => TaskDetailsPage(
+        controller: controller,
+        profileId: profileId,
+        generation: generation,
+        node: node,
+        upid: upid,
+        title: title,
+      ),
+    ),
+  );
+}
+
 class _TasksTab extends StatelessWidget {
   const _TasksTab({required this.controller});
   final AppController controller;
@@ -1044,7 +1069,7 @@ class _TasksTab extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             for (final task in sessionTasks) ...[
-              _SessionTaskCard(task: task),
+              _SessionTaskCard(task: task, controller: controller),
               const SizedBox(height: 10),
             ],
             const SizedBox(height: 14),
@@ -1069,7 +1094,7 @@ class _TasksTab extends StatelessWidget {
             )
           else
             for (final task in serverTasks) ...[
-              _ServerTaskCard(task: task),
+              _ServerTaskCard(task: task, controller: controller),
               const SizedBox(height: 10),
             ],
         ],
@@ -1079,8 +1104,9 @@ class _TasksTab extends StatelessWidget {
 }
 
 class _SessionTaskCard extends StatelessWidget {
-  const _SessionTaskCard({required this.task});
+  const _SessionTaskCard({required this.task, required this.controller});
   final TrackedTask task;
+  final AppController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -1125,6 +1151,18 @@ class _SessionTaskCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelSmall,
             ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => _openTaskDetails(
+                context,
+                controller,
+                node: task.node,
+                upid: task.upid,
+                title: task.title,
+              ),
+              icon: const Icon(Icons.list_alt_outlined),
+              label: const Text('View details'),
+            ),
           ],
         ),
       ),
@@ -1133,8 +1171,9 @@ class _SessionTaskCard extends StatelessWidget {
 }
 
 class _ServerTaskCard extends StatelessWidget {
-  const _ServerTaskCard({required this.task});
+  const _ServerTaskCard({required this.task, required this.controller});
   final RecentServerTask task;
+  final AppController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -1184,6 +1223,18 @@ class _ServerTaskCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelSmall,
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => _openTaskDetails(
+                context,
+                controller,
+                node: task.node,
+                upid: task.upid,
+                title: task.operationLabel,
+              ),
+              icon: const Icon(Icons.list_alt_outlined),
+              label: const Text('View details'),
             ),
           ],
         ),

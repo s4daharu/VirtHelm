@@ -56,6 +56,73 @@ class AppController extends ChangeNotifier {
   final Map<String, String> _taskTargets = {};
   final Set<String> _deletingProfiles = {};
 
+  /// Identifies the active connection session, even across reconnects.
+  int get connectionGeneration => _generation;
+
+  Future<TaskInspection?> inspectTask({
+    required String profileId,
+    required int generation,
+    required String node,
+    required String upid,
+  }) async {
+    final gateway = _gateway;
+    bool current() =>
+        !_disposed &&
+        generation == _generation &&
+        active?.id == profileId;
+    if (!current() ||
+        gateway == null ||
+        !tasks.any((task) => task.node == node && task.upid == upid) &&
+            !serverTasks.any(
+              (task) => task.node == node && task.upid == upid,
+            )) {
+      return null;
+    }
+
+    // Task reads are strictly on demand. Never retain task-log data in app
+    // state or issue any mutation as part of viewing task details.
+    ServerTaskStatus? status;
+    TaskLogResult? log;
+    String? statusError;
+    String? logError;
+    var authLost = false;
+    try {
+      status = await gateway.taskStatus(
+        TrackedTask(
+          node: node,
+          upid: upid,
+          title: 'Task inspection',
+          startedAt: DateTime.fromMillisecondsSinceEpoch(0),
+          outcome: OperationOutcome.unknown,
+        ),
+      );
+    } on PveFailure catch (error) {
+      statusError = error.message;
+      authLost = error.status == 401;
+    } catch (_) {
+      statusError = 'Could not read task status.';
+    }
+    if (!current()) return null;
+    if (!authLost) {
+      try {
+        log = await gateway.taskLog(node, upid);
+      } on PveFailure catch (error) {
+        logError = error.message;
+      } catch (_) {
+        logError = 'Could not read task log.';
+      }
+    } else {
+      logError = 'Authentication required before task logs can be read.';
+    }
+    if (!current()) return null;
+    return TaskInspection(
+      status: status,
+      log: log,
+      statusError: statusError,
+      logError: logError,
+    );
+  }
+
   String _guestKey(Guest guest) => '${guest.kind}:${guest.node}:${guest.vmid}';
 
   bool isGuestFavorite(Guest guest) =>
