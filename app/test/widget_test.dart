@@ -188,7 +188,8 @@ void main() {
       expect(find.byType(ConnectPage), findsOneWidget);
 
       controller.gate.complete();
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
       expect(find.byType(ConnectPage), findsNothing);
     },
   );
