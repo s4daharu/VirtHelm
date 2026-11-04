@@ -20,6 +20,7 @@ The committed `pubspec.lock` is enforced. The bootstrap generates the Android ru
 - HTTPS-only named PVE profiles with strict endpoint validation and encrypted API-token storage.
 - Certificate verification on by default, with an explicitly confirmed per-profile insecure opt-in for any host; saved profiles and active screens display warnings.
 - Multiple isolated profiles with validated edit/switch/delete flows; edits preserve profile-local favorites/saved views and never forward credentials across redirects.
+- Last successfully observed PVE server version is retained as non-secret profile metadata, refreshed on activation, and labelled as last-observed in the UI.
 - Cluster nodes and QEMU/LXC inventory with search, freshness, CPU/memory/disk/uptime.
 - Guest status/type/node filters, deterministic favorites/name/VMID/CPU/memory sorting, and up to 12 profile-scoped named saved views, without extra API requests.
 - Read-only per-node storage and recent server task history with partial permission/error reporting.
