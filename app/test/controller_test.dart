@@ -192,83 +192,89 @@ void main() {
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test('task inspection reads status and logs without posting, with partial 403', () async {
-    final prefs = await SharedPreferences.getInstance();
-    late _Gateway gateway;
-    final ctl = AppController(
-      repository: ProfileRepository(prefs, _Vault()),
-      gatewayFactory: (profile, credentials) => gateway = _Gateway(),
-    );
-    addTearDown(ctl.dispose);
-    await ctl.connect(
-      name: 'Lab',
-      address: 'https://pve.local',
-      tokenId: 'me@pve!test',
-      secret: 'test',
-    );
-    gateway.taskResult = const ServerTaskStatus(
-      status: 'stopped',
-      exitStatus: 'OK',
-    );
-    final task = ctl.serverTasks.single;
-    final detail = await ctl.inspectTask(
-      profileId: ctl.active!.id,
-      generation: ctl.connectionGeneration,
-      node: task.node,
-      upid: task.upid,
-    );
-    expect(detail?.status?.succeeded, isTrue);
-    expect(detail?.log?.entries.single.text, 'Task started');
-    expect(gateway.taskLogCalls, 1);
-    expect(gateway.submissions, 0);
+  test(
+    'task inspection reads status and logs without posting, with partial 403',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway(),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!test',
+        secret: 'test',
+      );
+      gateway.taskResult = const ServerTaskStatus(
+        status: 'stopped',
+        exitStatus: 'OK',
+      );
+      final task = ctl.serverTasks.single;
+      final detail = await ctl.inspectTask(
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+        node: task.node,
+        upid: task.upid,
+      );
+      expect(detail?.status?.succeeded, isTrue);
+      expect(detail?.log?.entries.single.text, 'Task started');
+      expect(gateway.taskLogCalls, 1);
+      expect(gateway.submissions, 0);
 
-    gateway.logFailure = const PveFailure('Permission denied.', status: 403);
-    final partial = await ctl.inspectTask(
-      profileId: ctl.active!.id,
-      generation: ctl.connectionGeneration,
-      node: task.node,
-      upid: task.upid,
-    );
-    expect(partial?.status?.succeeded, isTrue);
-    expect(partial?.log, isNull);
-    expect(partial?.logError, contains('Permission denied'));
-  });
+      gateway.logFailure = const PveFailure('Permission denied.', status: 403);
+      final partial = await ctl.inspectTask(
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+        node: task.node,
+        upid: task.upid,
+      );
+      expect(partial?.status?.succeeded, isTrue);
+      expect(partial?.log, isNull);
+      expect(partial?.logError, contains('Permission denied'));
+    },
+  );
 
-  test('late task inspection cannot return logs from another session', () async {
-    final prefs = await SharedPreferences.getInstance();
-    late _Gateway gateway;
-    final ctl = AppController(
-      repository: ProfileRepository(prefs, _Vault()),
-      gatewayFactory: (profile, credentials) => gateway = _Gateway(),
-    );
-    addTearDown(ctl.dispose);
-    await ctl.connect(
-      name: 'A',
-      address: 'https://a.example',
-      tokenId: 'me@pve!test',
-      secret: 'test',
-    );
-    final old = gateway;
-    old.logGate = Completer<TaskLogResult>();
-    final task = ctl.serverTasks.single;
-    final inspection = ctl.inspectTask(
-      profileId: ctl.active!.id,
-      generation: ctl.connectionGeneration,
-      node: task.node,
-      upid: task.upid,
-    );
-    await Future<void>.delayed(Duration.zero);
-    expect(old.taskLogCalls, 1);
-    await ctl.connect(
-      name: 'B',
-      address: 'https://b.example',
-      tokenId: 'me@pve!test',
-      secret: 'test',
-    );
-    old.logGate!.complete(old.logResult);
-    expect(await inspection, isNull);
-    expect(gateway.submissions, 0);
-  });
+  test(
+    'late task inspection cannot return logs from another session',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway(),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.connect(
+        name: 'A',
+        address: 'https://a.example',
+        tokenId: 'me@pve!test',
+        secret: 'test',
+      );
+      final old = gateway;
+      old.logGate = Completer<TaskLogResult>();
+      final task = ctl.serverTasks.single;
+      final inspection = ctl.inspectTask(
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+        node: task.node,
+        upid: task.upid,
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(old.taskLogCalls, 1);
+      await ctl.connect(
+        name: 'B',
+        address: 'https://b.example',
+        tokenId: 'me@pve!test',
+        secret: 'test',
+      );
+      old.logGate!.complete(old.logResult);
+      expect(await inspection, isNull);
+      expect(gateway.submissions, 0);
+    },
+  );
 
   test(
     'malformed profile metadata cannot brick valid profiles or new onboarding',

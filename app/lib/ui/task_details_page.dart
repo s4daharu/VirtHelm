@@ -51,7 +51,9 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         appBar: AppBar(title: const Text('Task details')),
         body: !current
             ? const Center(
-                child: Text('Connection changed. Task details are unavailable.'),
+                child: Text(
+                  'Connection changed. Task details are unavailable.',
+                ),
               )
             : FutureBuilder<TaskInspection?>(
                 future: _inspection,
@@ -79,31 +81,35 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                   return ListView(
                     padding: const EdgeInsets.all(18),
                     children: [
-                      Text(widget.title,
-                          style: Theme.of(context).textTheme.titleLarge),
+                      Text(
+                        widget.title,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
                       const SizedBox(height: 8),
                       Text('Node: ${widget.node}'),
                       const SizedBox(height: 6),
                       SelectableText('UPID: ${widget.upid}'),
                       const SizedBox(height: 18),
-                      Text('Current status',
-                          style: Theme.of(context).textTheme.titleMedium),
+                      Text(
+                        'Current status',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                       Text(label),
                       if (status?.exitStatus != null)
                         Text('Exit: ${status!.exitStatus}'),
-                      if (detail.statusError != null)
-                        Text(detail.statusError!),
+                      if (detail.statusError != null) Text(detail.statusError!),
                       const SizedBox(height: 18),
-                      Text('Task log (first 100 lines)',
-                          style: Theme.of(context).textTheme.titleMedium),
+                      Text(
+                        'Task log (first 100 lines)',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                       const SizedBox(height: 6),
                       Text(
                         'Server logs may contain sensitive information. '
                         'VirtHelm does not save or upload them.',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
-                      if (detail.logError != null)
-                        Text(detail.logError!),
+                      if (detail.logError != null) Text(detail.logError!),
                       if (detail.log != null && logs.isEmpty)
                         const Text('No task log lines available.'),
                       if (detail.log != null &&

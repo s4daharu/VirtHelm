@@ -67,9 +67,7 @@ class AppController extends ChangeNotifier {
   }) async {
     final gateway = _gateway;
     bool current() =>
-        !_disposed &&
-        generation == _generation &&
-        active?.id == profileId;
+        !_disposed && generation == _generation && active?.id == profileId;
     if (!current() ||
         gateway == null ||
         !tasks.any((task) => task.node == node && task.upid == upid) &&
