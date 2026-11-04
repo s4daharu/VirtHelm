@@ -47,6 +47,7 @@ class _ShellPageState extends State<ShellPage> {
                   const Text('VirtHelm'),
                   Text(
                     '${profile?.name ?? 'No connection'}'
+                    '${profile?.lastServerVersion == null ? '' : ' • PVE ${profile!.lastServerVersion}'}'
                     '${profile?.allowInvalidCertificates == true ? ' • TLS UNVERIFIED' : ''}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -1241,8 +1242,9 @@ class _SettingsTab extends StatelessWidget {
             title: Text(profile.name),
             subtitle: Text(
               '${profile.endpoint}\n'
+              '${profile.lastServerVersion == null ? 'Server version not observed' : 'PVE ${profile.lastServerVersion} (last observed)'}\n'
               '${profile.allowInvalidCertificates ? 'INSECURE: certificate verification disabled' : 'Certificate verification enabled'}',
-              maxLines: 3,
+              maxLines: 4,
               overflow: TextOverflow.ellipsis,
             ),
             onTap: () => unawaited(controller.activate(profile)),
