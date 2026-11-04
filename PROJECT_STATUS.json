@@ -103,7 +103,7 @@
       "feature-branch push and pull-request checks must not consume duplicate concurrent CI for the same branch; branch-keyed concurrency now cancels stale/duplicate runs"
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 91,
+    "current_flutter_tests_defined": 92,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
