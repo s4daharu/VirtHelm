@@ -76,14 +76,12 @@ class AppController extends ChangeNotifier {
     _notify();
   }
 
-  Future<void> toggleGuestFavorite(
-    Guest guest, {
-    String? expectedProfileId,
-  }) => setGuestFavorite(
-    guest,
-    !isGuestFavorite(guest),
-    expectedProfileId: expectedProfileId,
-  );
+  Future<void> toggleGuestFavorite(Guest guest, {String? expectedProfileId}) =>
+      setGuestFavorite(
+        guest,
+        !isGuestFavorite(guest),
+        expectedProfileId: expectedProfileId,
+      );
 
   bool isGuestActionBlocked(Guest guest) {
     final key = _guestKey(guest);
