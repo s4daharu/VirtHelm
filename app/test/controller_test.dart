@@ -221,53 +221,47 @@ void main() {
     },
   );
 
-  test(
-    'profile update preserves identity and local guest metadata',
-    () async {
-      final prefs = await SharedPreferences.getInstance();
-      final vault = _Vault();
-      final repo = ProfileRepository(prefs, vault);
-      final profile = ConnectionProfile.create(
-        name: 'Lab',
-        address: 'https://pve.local',
-      );
-      const originalCredentials = ApiCredentials(
-        tokenId: 'me@pve!old',
-        secret: 'old-secret',
-      );
-      await repo.save(profile, originalCredentials);
-      await repo.setGuestFavorite(profile.id, 'qemu:pve1:101', true);
-      await repo.saveGuestView(
-        profile.id,
-        SavedGuestView.create(name: 'Running', status: 'running'),
-      );
+  test('profile update preserves identity and local guest metadata', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final vault = _Vault();
+    final repo = ProfileRepository(prefs, vault);
+    final profile = ConnectionProfile.create(
+      name: 'Lab',
+      address: 'https://pve.local',
+    );
+    const originalCredentials = ApiCredentials(
+      tokenId: 'me@pve!old',
+      secret: 'old-secret',
+    );
+    await repo.save(profile, originalCredentials);
+    await repo.setGuestFavorite(profile.id, 'qemu:pve1:101', true);
+    await repo.saveGuestView(
+      profile.id,
+      SavedGuestView.create(name: 'Running', status: 'running'),
+    );
 
-      final updated = ConnectionProfile(
-        id: profile.id,
-        name: 'Primary Lab',
-        endpoint: 'https://new.example:8006',
-        allowInvalidCertificates: true,
-      );
-      const replacementCredentials = ApiCredentials(
-        tokenId: 'me@pve!new',
-        secret: 'new-secret',
-      );
-      await repo.update(updated, replacementCredentials);
+    final updated = ConnectionProfile(
+      id: profile.id,
+      name: 'Primary Lab',
+      endpoint: 'https://new.example:8006',
+      allowInvalidCertificates: true,
+    );
+    const replacementCredentials = ApiCredentials(
+      tokenId: 'me@pve!new',
+      secret: 'new-secret',
+    );
+    await repo.update(updated, replacementCredentials);
 
-      expect(repo.readProfiles(), hasLength(1));
-      expect(repo.readProfiles().single.id, profile.id);
-      expect(repo.readProfiles().single.name, 'Primary Lab');
-      expect(repo.activeId, profile.id);
-      expect(
-        repo.readGuestFavorites(profile.id),
-        contains('qemu:pve1:101'),
-      );
-      expect(repo.readGuestViews(profile.id).single.name, 'Running');
-      final stored = await vault.retrieve(profile.id);
-      expect(stored?.tokenId, replacementCredentials.tokenId);
-      expect(stored?.secret, replacementCredentials.secret);
-    },
-  );
+    expect(repo.readProfiles(), hasLength(1));
+    expect(repo.readProfiles().single.id, profile.id);
+    expect(repo.readProfiles().single.name, 'Primary Lab');
+    expect(repo.activeId, profile.id);
+    expect(repo.readGuestFavorites(profile.id), contains('qemu:pve1:101'));
+    expect(repo.readGuestViews(profile.id).single.name, 'Running');
+    final stored = await vault.retrieve(profile.id);
+    expect(stored?.tokenId, replacementCredentials.tokenId);
+    expect(stored?.secret, replacementCredentials.secret);
+  });
 
   test(
     'failed profile update restores metadata and encrypted credentials',
@@ -293,10 +287,7 @@ void main() {
             name: 'Changed',
             endpoint: 'https://changed.example:8006',
           ),
-          const ApiCredentials(
-            tokenId: 'me@pve!new',
-            secret: 'new-secret',
-          ),
+          const ApiCredentials(tokenId: 'me@pve!new', secret: 'new-secret'),
         ),
         throwsStateError,
       );
