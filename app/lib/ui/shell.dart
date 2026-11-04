@@ -719,7 +719,7 @@ class _GuestsTabState extends State<_GuestsTab> {
       if (!mounted || saved == null) return;
       setState(() => activeViewId = saved.id);
     } on FormatException {
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Enter a view name up to 40 characters.'),
@@ -727,7 +727,7 @@ class _GuestsTabState extends State<_GuestsTab> {
         );
       }
     } on StateError {
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
