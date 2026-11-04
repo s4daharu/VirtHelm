@@ -534,7 +534,8 @@ class _GuestTile extends StatelessWidget {
             tooltip: controller.isGuestFavorite(guest)
                 ? 'Remove from favorites'
                 : 'Add to favorites',
-            onPressed: () => unawaited(controller.toggleGuestFavorite(guest)),
+            onPressed: () =>
+                unawaited(controller.toggleGuestFavorite(guest)),
             icon: Icon(
               controller.isGuestFavorite(guest)
                   ? Icons.star_rounded
@@ -579,29 +580,30 @@ class _GuestsTabState extends State<_GuestsTab> {
   Widget build(BuildContext context) {
     final inv = widget.controller.inventory;
     final controller = widget.controller;
-    final guests = (inv?.guests ?? <Guest>[])
-        .where(
+    final guests =
+        (inv?.guests ?? <Guest>[])
+            .where(
           (g) =>
               g.name.toLowerCase().contains(query.toLowerCase()) ||
               g.vmid.toString().contains(query) ||
               g.node.toLowerCase().contains(query.toLowerCase()),
-        )
-        .where(
-          (g) => switch (filter) {
-            'favorites' => controller.isGuestFavorite(g),
-            'running' => g.isRunning,
-            'stopped' => g.isStopped,
-            _ => true,
-          },
-        )
-        .toList()
-      ..sort((a, b) {
-        final favoriteOrder =
-            (controller.isGuestFavorite(b) ? 1 : 0) -
-            (controller.isGuestFavorite(a) ? 1 : 0);
-        if (favoriteOrder != 0) return favoriteOrder;
-        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-      });
+            )
+            .where(
+              (g) => switch (filter) {
+                'favorites' => controller.isGuestFavorite(g),
+                'running' => g.isRunning,
+                'stopped' => g.isStopped,
+                _ => true,
+              },
+            )
+            .toList()
+          ..sort((a, b) {
+            final favoriteOrder =
+                (controller.isGuestFavorite(b) ? 1 : 0) -
+                (controller.isGuestFavorite(a) ? 1 : 0);
+            if (favoriteOrder != 0) return favoriteOrder;
+            return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          });
     return Column(
       children: [
         Padding(
