@@ -254,6 +254,7 @@ jobs:
           ARM64_APK: ${{ steps.verify.outputs.arm64 }}
           ARMV7_APK: ${{ steps.verify.outputs.armv7 }}
           CHECKSUMS: ${{ steps.verify.outputs.checksums }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         shell: bash
         run: |
           # NovelBridge pattern: upload from this runner straight to Releases.
@@ -277,7 +278,6 @@ jobs:
             TAG="${TAG}-attempt-${GITHUB_RUN_ATTEMPT}"
           fi
           TITLE="VirtHelm v${RELEASE_VERSION} build ${GITHUB_RUN_NUMBER} (attempt ${GITHUB_RUN_ATTEMPT:-1})"
-          RELEASE_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
           NOTES="Signed Android test build from ${RELEASE_SHA}. This is a prerelease and does not satisfy VirtHelm's documented production release-certification gates."
 
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
