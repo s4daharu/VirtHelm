@@ -1111,4 +1111,68 @@ void main() {
     await ctl.activate(profileA);
     expect(ctl.isGuestFavorite(ctl.inventory!.guests.single), isTrue);
   });
+
+  test(
+    'terminal task reconciliation waits for a post-terminal inventory read',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway(),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!test',
+        secret: 'test',
+      );
+      final guest = ctl.inventory!.guests.single;
+      gateway.taskGate = Completer<ServerTaskStatus>();
+      gateway.taskStarted = Completer<void>();
+      await ctl.runAction(
+        guest,
+        GuestAction.shutdown,
+        profileId: ctl.active!.id,
+      );
+      await gateway.taskStarted!.future;
+      final before = gateway.inventoryCalls;
+      gateway.inventoryGate = Completer<Inventory>();
+      final earlierRefresh = ctl.refresh();
+      await Future<void>.delayed(Duration.zero);
+      expect(gateway.inventoryCalls, before + 1);
+
+      gateway.taskGate!.complete(
+        const ServerTaskStatus(status: 'stopped', exitStatus: 'OK'),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(ctl.isGuestActionBlocked(guest), isTrue);
+
+      final reconciled = Completer<void>();
+      ctl.addListener(() {
+        if (!reconciled.isCompleted && !ctl.isGuestActionBlocked(guest)) {
+          reconciled.complete();
+        }
+      });
+      gateway.inventoryGate!.complete(
+        Inventory.fromResources([
+          {'type': 'node', 'node': 'pve1', 'status': 'online'},
+          {
+            'type': 'qemu',
+            'vmid': 101,
+            'node': 'pve1',
+            'name': 'Web',
+            'status': 'stopped',
+          },
+        ]),
+      );
+      await earlierRefresh;
+      await reconciled.future.timeout(const Duration(seconds: 3));
+      expect(gateway.inventoryCalls, before + 2);
+      expect(ctl.tasks.single.outcome, OperationOutcome.succeeded);
+      expect(ctl.isGuestActionBlocked(guest), isFalse);
+    },
+  );
 }
