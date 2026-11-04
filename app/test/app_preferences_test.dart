@@ -24,7 +24,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test('local defaults and malformed values fail to safe preferences', () async {
+  test('malformed values use safe defaults', () async {
     final prefs = await SharedPreferences.getInstance();
     final repository = ProfileRepository(prefs, _Vault());
     expect(repository.themePreference, AppThemePreference.system);
@@ -39,7 +39,7 @@ void main() {
     expect(repository.showNodeMetrics, isTrue);
   });
 
-  test('preferences persist across repositories without vault operations', () async {
+  test('settings persist without vault writes', () async {
     final prefs = await SharedPreferences.getInstance();
     final vault = _Vault();
     final repository = ProfileRepository(prefs, vault);
