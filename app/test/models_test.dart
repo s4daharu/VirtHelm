@@ -227,11 +227,10 @@ void main() {
 
   test('task history respects separate exit status and unknown results', () {
     const upid = 'UPID:pve1:0001:0002:0003:qmstart:101:user@pve:';
-    RecentServerTask from(Map<String, Object?> data) =>
-        RecentServerTask.fromApi({
-          'upid': upid,
-          ...data,
-        }, node: 'pve1');
+    RecentServerTask from(Map<String, Object?> data) {
+      final payload = <String, dynamic>{'upid': upid, ...data};
+      return RecentServerTask.fromApi(payload, node: 'pve1');
+    }
 
     final successful = from({'status': 'stopped', 'exitstatus': 'OK'});
     expect(successful.isDone, isTrue);
