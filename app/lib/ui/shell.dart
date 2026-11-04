@@ -534,8 +534,7 @@ class _GuestTile extends StatelessWidget {
             tooltip: controller.isGuestFavorite(guest)
                 ? 'Remove from favorites'
                 : 'Add to favorites',
-            onPressed: () =>
-                unawaited(controller.toggleGuestFavorite(guest)),
+            onPressed: () => unawaited(controller.toggleGuestFavorite(guest)),
             icon: Icon(
               controller.isGuestFavorite(guest)
                   ? Icons.star_rounded
@@ -583,10 +582,10 @@ class _GuestsTabState extends State<_GuestsTab> {
     final guests =
         (inv?.guests ?? <Guest>[])
             .where(
-          (g) =>
-              g.name.toLowerCase().contains(query.toLowerCase()) ||
-              g.vmid.toString().contains(query) ||
-              g.node.toLowerCase().contains(query.toLowerCase()),
+              (g) =>
+                  g.name.toLowerCase().contains(query.toLowerCase()) ||
+                  g.vmid.toString().contains(query) ||
+                  g.node.toLowerCase().contains(query.toLowerCase()),
             )
             .where(
               (g) => switch (filter) {
