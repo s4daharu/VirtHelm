@@ -254,6 +254,10 @@ void main() {
     final missing = from({});
     expect(missing.stateLabel, 'unknown');
     expect(missing.isDone, isFalse);
+
+    final explicitlyUnknown = from({'status': 'unknown'});
+    expect(explicitlyUnknown.stateLabel, 'unknown');
+    expect(explicitlyUnknown.isDone, isFalse);
   });
 
   test('token is properly formatted and can be encoded locally', () {
