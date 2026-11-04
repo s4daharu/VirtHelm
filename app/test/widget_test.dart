@@ -179,6 +179,7 @@ void main() {
       await tester.enterText(fields.at(1), 'https://pve.local');
       await tester.enterText(fields.at(2), 'me@pve!test');
       await tester.enterText(fields.at(3), 'test-secret');
+      await tester.ensureVisible(find.text('Connect securely'));
       await tester.tap(find.text('Connect securely'));
       await tester.pump();
       await controller.started.future;
