@@ -550,6 +550,7 @@ class AppController extends ChangeNotifier {
     _pollingGeneration = generation;
     final gateway = _gateway!;
     var finished = false;
+    String? authenticationFailure;
     final completedTargets = <String>[];
     try {
       for (final pendingTask in pending) {
@@ -608,6 +609,7 @@ class AppController extends ChangeNotifier {
           if (generation != _generation) return;
           if (error.status == 401) {
             message = error.message;
+            authenticationFailure = error.message;
             final index = tasks.indexWhere(
               (task) => task.upid == pendingTask.upid,
             );
@@ -656,8 +658,13 @@ class AppController extends ChangeNotifier {
       if (_pollingGeneration == generation) _pollingGeneration = null;
     }
     if (finished && generation == _generation) {
-      await _refreshAfterTask(generation);
-      if (generation != _generation || _disposed) return;
+      if (authenticationFailure == null || completedTargets.isNotEmpty) {
+        await _refreshAfterTask(generation);
+        if (generation != _generation || _disposed) return;
+      }
+      if (authenticationFailure != null) {
+        message = authenticationFailure;
+      }
       for (final target in completedTargets) {
         if (isInventoryFresh) {
           _pendingGuestOperations.remove(target);
