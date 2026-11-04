@@ -255,7 +255,9 @@ class AppController extends ChangeNotifier {
       _checkConnectionSetup(generation);
       await repository.update(profile, credential);
       if (_disposed) {
-        throw const PveFailure('Connection update completed after app shutdown.');
+        throw const PveFailure(
+          'Connection update completed after app shutdown.',
+        );
       }
       profiles = repository.readProfiles();
       if (generation == _generation && active?.id == profile.id) {
