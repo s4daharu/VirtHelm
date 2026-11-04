@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/app_controller.dart';
+import 'core/app_preferences.dart';
 import 'core/profile_repository.dart';
 import 'ui/connect_page.dart';
 import 'ui/shell.dart';
@@ -50,26 +51,32 @@ class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  Widget _home() {
+    if (!controller.initialized) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (controller.active == null) {
+      return ConnectPage(controller: controller);
+    }
+    return ShellPage(controller: controller);
+  }
+
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: 'VirtHelm',
-    debugShowCheckedModeBanner: false,
-    theme: virthelmTheme(Brightness.light),
-    darkTheme: virthelmTheme(Brightness.dark),
-    themeMode: ThemeMode.system,
-    home: AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        if (!controller.initialized) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-        if (controller.active == null) {
-          return ConnectPage(controller: controller);
-        }
-        return ShellPage(controller: controller);
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: controller,
+    builder: (context, _) => MaterialApp(
+      title: 'VirtHelm',
+      debugShowCheckedModeBanner: false,
+      theme: virthelmTheme(Brightness.light),
+      darkTheme: virthelmTheme(Brightness.dark),
+      themeMode: switch (controller.themePreference) {
+        AppThemePreference.system => ThemeMode.system,
+        AppThemePreference.light => ThemeMode.light,
+        AppThemePreference.dark => ThemeMode.dark,
       },
+      home: _home(),
     ),
   );
 }
