@@ -315,9 +315,25 @@ class RecentServerTask {
     if (upid == null || !upid.startsWith('UPID:')) {
       throw const FormatException('Task record is missing a valid UPID.');
     }
-    final rawStatus = asText(json['status']);
+    final rawStatus = asText(json['status'])?.trim();
     final running = rawStatus?.toUpperCase() == 'RUNNING';
-    final terminal = rawStatus != null && !running;
+    final explicitExitStatus = asText(json['exitstatus'])?.trim();
+    // PVE task lists can report their terminal result in `status` (e.g.
+    // `OK`), while other task shapes use `status: stopped` plus a distinct
+    // `exitstatus`. A bare `stopped` is NOT proof of success or failure.
+    final stopped = rawStatus?.toLowerCase() == 'stopped';
+    final terminal =
+        rawStatus != null &&
+        rawStatus.isNotEmpty &&
+        !running &&
+        rawStatus.toLowerCase() != 'unknown';
+    final exitStatus = !terminal
+        ? null
+        : explicitExitStatus != null && explicitExitStatus.isNotEmpty
+        ? explicitExitStatus
+        : stopped
+        ? null
+        : rawStatus;
     return RecentServerTask(
       upid: upid,
       node: asText(json['node']) ?? node,
@@ -328,7 +344,7 @@ class RecentServerTask {
           : terminal
           ? 'stopped'
           : 'unknown',
-      exitStatus: terminal ? rawStatus : null,
+      exitStatus: exitStatus,
       startedAt: asUnixSeconds(json['starttime']),
       endedAt: asUnixSeconds(json['endtime']),
     );

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
@@ -26,7 +27,11 @@ class DioPveGateway implements PveGateway {
     ConnectionProfile profile,
     ApiCredentials credentials, {
     Dio? http,
-  }) : _http = http ?? Dio() {
+    Future<void> Function(Duration)? retryWait,
+    Random? retryRandom,
+  }) : _http = http ?? Dio(),
+       _retryWait = retryWait ?? _defaultRetryWait,
+       _retryRandom = retryRandom ?? Random() {
     if (!credentials.isValid) {
       throw const FormatException('Invalid token identifier or secret.');
     }
@@ -60,6 +65,54 @@ class DioPveGateway implements PveGateway {
   }
 
   final Dio _http;
+  final Future<void> Function(Duration) _retryWait;
+  final Random _retryRandom;
+  bool _closed = false;
+
+  static Future<void> _defaultRetryWait(Duration delay) =>
+      Future<void>.delayed(delay);
+
+  // Only retry idempotent reads on transport timeouts or temporary HTTP
+  // failures. Never retry certificate, auth, permission or redirect failures.
+  static bool _shouldRetryRead(DioException error) {
+    if (error.type == DioExceptionType.badCertificate ||
+        error.error is TlsException) {
+      return false;
+    }
+    final status = error.response?.statusCode;
+    if (status != null) {
+      return status == 408 || status == 429 || (status >= 500 && status <= 599);
+    }
+    return error.type == DioExceptionType.connectionError ||
+        error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.sendTimeout ||
+        error.type == DioExceptionType.receiveTimeout;
+  }
+
+  Future<Response<dynamic>> _sendRequest(
+    String path, {
+    required bool mutation,
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    if (_closed) throw const PveFailure('Connection closed.');
+    if (mutation) return _http.post<dynamic>(path);
+
+    // At most three GET attempts, with a bounded exponential backoff + jitter.
+    // A closed profile gateway must not issue a delayed follow-up request.
+    for (var attempt = 0; ; attempt++) {
+      if (_closed) throw const PveFailure('Connection closed.');
+      try {
+        return await _http.get<dynamic>(path, queryParameters: queryParameters);
+      } on DioException catch (error) {
+        if (_closed || attempt >= 2 || !_shouldRetryRead(error)) rethrow;
+        await _retryWait(
+          Duration(
+            milliseconds: 200 * (1 << attempt) + _retryRandom.nextInt(100),
+          ),
+        );
+      }
+    }
+  }
 
   static String _segment(String value) => Uri.encodeComponent(value);
 
@@ -69,9 +122,11 @@ class DioPveGateway implements PveGateway {
     Map<String, dynamic>? queryParameters,
   }) async {
     try {
-      final response = mutation
-          ? await _http.post<dynamic>(path)
-          : await _http.get<dynamic>(path, queryParameters: queryParameters);
+      final response = await _sendRequest(
+        path,
+        mutation: mutation,
+        queryParameters: queryParameters,
+      );
       final raw = response.data;
       if (raw is! Map || !raw.containsKey('data')) {
         throw PveFailure(
@@ -95,8 +150,7 @@ class DioPveGateway implements PveGateway {
               code == 408 ||
               (code != null && (code >= 500 || (code >= 300 && code < 400))));
       final message =
-          e.type == DioExceptionType.badCertificate ||
-              e.error is HandshakeException
+          e.type == DioExceptionType.badCertificate || e.error is TlsException
           ? 'TLS certificate validation failed. Verify the server hostname, certificate validity, and trusted CA. A trusted certificate is recommended.'
           : switch (code) {
               401 => 'Authentication failed. Check or rotate your API token.',
@@ -303,5 +357,8 @@ class DioPveGateway implements PveGateway {
   }
 
   @override
-  void close() => _http.close(force: true);
+  void close() {
+    _closed = true;
+    _http.close(force: true);
+  }
 }
