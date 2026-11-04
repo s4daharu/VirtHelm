@@ -75,6 +75,7 @@ class _Gateway implements PveGateway {
   int submissions = 0;
   int inventoryCalls = 0;
   int taskStatusCalls = 0;
+  int taskLogCalls = 0;
   String status = 'running';
   String serverVersion = '9.2';
   Completer<Inventory>? inventoryGate;
@@ -85,6 +86,12 @@ class _Gateway implements PveGateway {
   PveFailure? taskFailure;
   Completer<ServerTaskStatus>? taskGate;
   Completer<void>? taskStarted;
+  Completer<TaskLogResult>? logGate;
+  PveFailure? logFailure;
+  TaskLogResult logResult = const TaskLogResult(
+    entries: [TaskLogEntry(number: 1, text: 'Task started')],
+    malformedRecords: 0,
+  );
   ReadCollection<StoragePool> storageResult = ReadCollection(
     values: const [
       StoragePool(
@@ -167,6 +174,14 @@ class _Gateway implements PveGateway {
   }
 
   @override
+  Future<TaskLogResult> taskLog(String node, String upid) async {
+    taskLogCalls++;
+    if (logGate != null) return logGate!.future;
+    if (logFailure != null) throw logFailure!;
+    return logResult;
+  }
+
+  @override
   void close() {
     connected = false;
   }
@@ -176,6 +191,90 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  test(
+    'task inspection reads status and logs without posting, with partial 403',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway(),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!test',
+        secret: 'test',
+      );
+      gateway.taskResult = const ServerTaskStatus(
+        status: 'stopped',
+        exitStatus: 'OK',
+      );
+      final task = ctl.serverTasks.single;
+      final detail = await ctl.inspectTask(
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+        node: task.node,
+        upid: task.upid,
+      );
+      expect(detail?.status?.succeeded, isTrue);
+      expect(detail?.log?.entries.single.text, 'Task started');
+      expect(gateway.taskLogCalls, 1);
+      expect(gateway.submissions, 0);
+
+      gateway.logFailure = const PveFailure('Permission denied.', status: 403);
+      final partial = await ctl.inspectTask(
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+        node: task.node,
+        upid: task.upid,
+      );
+      expect(partial?.status?.succeeded, isTrue);
+      expect(partial?.log, isNull);
+      expect(partial?.logError, contains('Permission denied'));
+    },
+  );
+
+  test(
+    'late task inspection cannot return logs from another session',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway(),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.connect(
+        name: 'A',
+        address: 'https://a.example',
+        tokenId: 'me@pve!test',
+        secret: 'test',
+      );
+      final old = gateway;
+      old.logGate = Completer<TaskLogResult>();
+      final task = ctl.serverTasks.single;
+      final inspection = ctl.inspectTask(
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+        node: task.node,
+        upid: task.upid,
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(old.taskLogCalls, 1);
+      await ctl.connect(
+        name: 'B',
+        address: 'https://b.example',
+        tokenId: 'me@pve!test',
+        secret: 'test',
+      );
+      old.logGate!.complete(old.logResult);
+      expect(await inspection, isNull);
+      expect(gateway.submissions, 0);
+    },
+  );
 
   test(
     'malformed profile metadata cannot brick valid profiles or new onboarding',

@@ -9,7 +9,8 @@ required = [
   'app/lib/core/guest_list_filter.dart',
   'app/lib/core/guest_saved_view.dart','app/lib/ui/theme.dart',
   'app/lib/ui/connect_page.dart','app/lib/ui/shell.dart',
-  'app/lib/ui/guest_page.dart','app/test/models_test.dart',
+  'app/lib/ui/guest_page.dart','app/lib/ui/task_details_page.dart',
+  'app/test/models_test.dart',
   'app/test/controller_test.dart','app/test/pve_api_test.dart',
   'app/test/widget_test.dart','app/test/pve_tls_test.dart',
   'app/test/guest_list_filter_test.dart','app/test/saved_guest_view_test.dart',
@@ -26,7 +27,8 @@ required = [
   'docs/47-implementation-p0-server-version.md',
   'docs/48-implementation-p0-read-retries.md',
   'docs/49-whole-repository-audit-2026-11-04.md',
-  'docs/50-implementation-p0-local-preferences.md']
+  'docs/50-implementation-p0-local-preferences.md',
+  'docs/51-implementation-p0-task-details.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
@@ -53,6 +55,10 @@ assert 'attempt >= 2' in files['app/lib/core/pve_api.dart']
 assert "test('transient POST failure is never automatically retried'" in files['app/test/pve_api_test.dart']
 assert 'storageOverview' in files['app/lib/core/pve_api.dart']
 assert 'recentTasks' in files['app/lib/core/pve_api.dart']
+assert 'Future<TaskLogResult> taskLog' in files['app/lib/core/pve_api.dart']
+assert "'limit': 100" in files['app/lib/core/pve_api.dart']
+assert 'generation == _generation' in files['app/lib/core/app_controller.dart']
+assert 'connectionGeneration == widget.generation' in files['app/lib/ui/task_details_page.dart']
 assert 'GuestAction.stop' in files['app/lib/core/app_controller.dart'] or 'GuestAction' in files['app/lib/core/app_controller.dart']
 for p in (root/'app/lib').rglob('*.dart'):
     data = p.read_text(encoding='utf-8')

@@ -351,6 +351,49 @@ class RecentServerTask {
   }
 }
 
+/// One bounded task-log line. Logs are displayed on demand, never persisted.
+class TaskLogEntry {
+  const TaskLogEntry({required this.number, required this.text});
+
+  final int number;
+  final String text;
+
+  factory TaskLogEntry.fromApi(Map<String, dynamic> json) {
+    final number = asInteger(json['n']);
+    final raw = json['t'];
+    if (number == null || number < 0 || raw is! String) {
+      throw const FormatException('Malformed task log entry.');
+    }
+    // Prevent a malicious or broken endpoint from allocating huge UI strings.
+    return TaskLogEntry(
+      number: number,
+      text: raw.length <= 500 ? raw : '${raw.substring(0, 500)}…',
+    );
+  }
+}
+
+class TaskLogResult {
+  const TaskLogResult({required this.entries, required this.malformedRecords});
+
+  final List<TaskLogEntry> entries;
+  final int malformedRecords;
+}
+
+/// Ephemeral, read-only inspection of an explicitly selected known task.
+class TaskInspection {
+  const TaskInspection({
+    this.status,
+    this.log,
+    this.statusError,
+    this.logError,
+  });
+
+  final ServerTaskStatus? status;
+  final TaskLogResult? log;
+  final String? statusError;
+  final String? logError;
+}
+
 class Guest {
   const Guest({
     required this.node,

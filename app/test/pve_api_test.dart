@@ -247,6 +247,77 @@ void main() {
   });
 
   test(
+    'task log uses bounded read-only URL and tolerates malformed rows',
+    () async {
+      final dio = Dio();
+      late RequestOptions request;
+      var calls = 0;
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            calls++;
+            request = options;
+            handler.resolve(
+              Response<dynamic>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'data': [
+                    {'n': 2, 't': 'second'},
+                    'bad',
+                    {'n': -1, 't': 'invalid'},
+                    {'n': 1, 't': 'first'},
+                  ],
+                },
+              ),
+            );
+          },
+        ),
+      );
+      final gateway = DioPveGateway(profile, credentials, http: dio);
+      addTearDown(gateway.close);
+      const upid = 'UPID:pve1:1:2:3:qmstart:101:user@pve:';
+      final log = await gateway.taskLog('pve1', upid);
+      expect(calls, 1);
+      expect(request.method, 'GET');
+      expect(request.path, contains(Uri.encodeComponent(upid)));
+      expect(request.queryParameters['start'], 0);
+      expect(request.queryParameters['limit'], 100);
+      expect(log.entries.map((line) => line.text), ['first', 'second']);
+      expect(log.malformedRecords, 2);
+    },
+  );
+
+  test('task log forbidden response never triggers retries', () async {
+    final dio = Dio();
+    var calls = 0;
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          calls++;
+          handler.reject(
+            DioException(
+              requestOptions: options,
+              type: DioExceptionType.badResponse,
+              response: Response<dynamic>(
+                requestOptions: options,
+                statusCode: 403,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(profile, credentials, http: dio);
+    addTearDown(gateway.close);
+    await expectLater(
+      gateway.taskLog('pve1', 'UPID:pve1:1:2:3:qmstart:101:user@pve:'),
+      throwsA(isA<PveFailure>().having((e) => e.status, 'status', 403)),
+    );
+    expect(calls, 1);
+  });
+
+  test(
     'node task history asks for active plus archived tasks and normalizes status',
     () async {
       final dio = Dio();

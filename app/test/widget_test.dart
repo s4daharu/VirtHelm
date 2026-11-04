@@ -12,6 +12,7 @@ import 'package:virthelm/core/profile_repository.dart';
 import 'package:virthelm/ui/connect_page.dart';
 import 'package:virthelm/ui/guest_page.dart';
 import 'package:virthelm/ui/shell.dart';
+import 'package:virthelm/ui/task_details_page.dart';
 import 'package:virthelm/ui/tls_warning.dart';
 
 class _EmptyVault implements CredentialVault {
@@ -21,6 +22,25 @@ class _EmptyVault implements CredentialVault {
   Future<ApiCredentials?> retrieve(String id) async => null;
   @override
   Future<void> remove(String id) async {}
+}
+
+class _TaskInspectionController extends AppController {
+  _TaskInspectionController(ProfileRepository repository)
+    : super(repository: repository);
+
+  @override
+  Future<TaskInspection?> inspectTask({
+    required String profileId,
+    required int generation,
+    required String node,
+    required String upid,
+  }) async => const TaskInspection(
+    status: ServerTaskStatus(status: 'stopped', exitStatus: 'OK'),
+    log: TaskLogResult(
+      entries: [TaskLogEntry(number: 1, text: 'Read-only log entry')],
+      malformedRecords: 0,
+    ),
+  );
 }
 
 class _BlockingController extends AppController {
@@ -86,6 +106,51 @@ class _RecordingController extends AppController {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('task details open on demand and redact on profile switch', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = _TaskInspectionController(
+      ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'a',
+      name: 'A',
+      endpoint: 'https://a.example',
+    );
+    controller.serverTasks = const [
+      RecentServerTask(
+        node: 'pve1',
+        upid: 'UPID:pve1:1:2:3:qmstart:101:user@pve:',
+        operation: 'qmstart',
+        resourceId: '101',
+        status: 'stopped',
+        exitStatus: 'OK',
+      ),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(home: ShellPage(controller: controller)),
+    );
+    await tester.tap(find.text('Tasks'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View details'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskDetailsPage), findsOneWidget);
+    expect(find.textContaining('Read-only log entry'), findsOneWidget);
+    expect(find.text('Succeeded'), findsOneWidget);
+    controller.active = const ConnectionProfile(
+      id: 'b',
+      name: 'B',
+      endpoint: 'https://b.example',
+    );
+    controller.notifyListeners();
+    await tester.pump();
+    expect(find.textContaining('Read-only log entry'), findsNothing);
+    expect(find.textContaining('Connection changed.'), findsOneWidget);
+  });
 
   testWidgets('onboarding shows HTTPS and token fields', (tester) async {
     SharedPreferences.setMockInitialValues({});
