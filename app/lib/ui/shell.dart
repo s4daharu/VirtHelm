@@ -1203,7 +1203,7 @@ class _SettingsTab extends StatelessWidget {
     try {
       await controller.setThemePreference(value);
     } catch (_) {
-      _showPreferenceError(context);
+      if (context.mounted) _showPreferenceError(context);
     }
   }
 
@@ -1214,7 +1214,7 @@ class _SettingsTab extends StatelessWidget {
     try {
       await controller.setAutoRefreshPreference(value);
     } catch (_) {
-      _showPreferenceError(context);
+      if (context.mounted) _showPreferenceError(context);
     }
   }
 
@@ -1222,7 +1222,7 @@ class _SettingsTab extends StatelessWidget {
     try {
       await controller.setShowNodeMetrics(value);
     } catch (_) {
-      _showPreferenceError(context);
+      if (context.mounted) _showPreferenceError(context);
     }
   }
 
