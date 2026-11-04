@@ -540,15 +540,9 @@ class _GuestTile extends StatelessWidget {
   final Guest guest;
   final AppController controller;
 
-  Future<void> _toggleFavorite(
-    BuildContext context,
-    String profileId,
-  ) async {
+  Future<void> _toggleFavorite(BuildContext context, String profileId) async {
     try {
-      await controller.toggleGuestFavorite(
-        guest,
-        expectedProfileId: profileId,
-      );
+      await controller.toggleGuestFavorite(guest, expectedProfileId: profileId);
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
