@@ -102,10 +102,7 @@ class DioPveGateway implements PveGateway {
     for (var attempt = 0; ; attempt++) {
       if (_closed) throw const PveFailure('Connection closed.');
       try {
-        return await _http.get<dynamic>(
-          path,
-          queryParameters: queryParameters,
-        );
+        return await _http.get<dynamic>(path, queryParameters: queryParameters);
       } on DioException catch (error) {
         if (_closed || attempt >= 2 || !_shouldRetryRead(error)) rethrow;
         await _retryWait(
@@ -153,8 +150,7 @@ class DioPveGateway implements PveGateway {
               code == 408 ||
               (code != null && (code >= 500 || (code >= 300 && code < 400))));
       final message =
-          e.type == DioExceptionType.badCertificate ||
-              e.error is TlsException
+          e.type == DioExceptionType.badCertificate || e.error is TlsException
           ? 'TLS certificate validation failed. Verify the server hostname, certificate validity, and trusted CA. A trusted certificate is recommended.'
           : switch (code) {
               401 => 'Authentication failed. Check or rotate your API token.',
