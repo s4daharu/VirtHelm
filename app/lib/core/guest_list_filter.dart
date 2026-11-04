@@ -45,8 +45,7 @@ List<Guest> visibleGuests(
 
   result.sort((a, b) {
     final primary = switch (sort) {
-      GuestSort.favorites =>
-        (isFavorite(b) ? 1 : 0) - (isFavorite(a) ? 1 : 0),
+      GuestSort.favorites => (isFavorite(b) ? 1 : 0) - (isFavorite(a) ? 1 : 0),
       GuestSort.name => _compareName(a, b),
       GuestSort.vmid => a.vmid.compareTo(b.vmid),
       GuestSort.cpu => _compareMetricDescending(a.cpu, b.cpu),
