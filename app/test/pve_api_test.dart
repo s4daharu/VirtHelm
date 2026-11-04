@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -701,6 +702,46 @@ void main() {
           (failure) => failure.message,
           'message',
           'Connection closed.',
+        ),
+      ),
+    );
+    expect(requests, 1);
+  });
+
+  test('TLS handshake errors wrapped as connection errors never retry', () async {
+    final dio = Dio();
+    var requests = 0;
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          requests++;
+          handler.reject(
+            DioException(
+              requestOptions: options,
+              type: DioExceptionType.connectionError,
+              error: TlsException('untrusted certificate'),
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(
+      profile,
+      credentials,
+      http: dio,
+      retryWait: (_) async {
+        fail('TLS transport failure must not be retried.');
+      },
+    );
+    addTearDown(gateway.close);
+
+    await expectLater(
+      gateway.version(),
+      throwsA(
+        isA<PveFailure>().having(
+          (failure) => failure.message,
+          'message',
+          contains('TLS certificate validation failed'),
         ),
       ),
     );
