@@ -17,13 +17,17 @@ class ConnectionProfile {
   final bool allowInvalidCertificates;
   final String? lastServerVersion;
 
-  Map<String, Object> toJson() => {
-    'id': id,
-    'name': name,
-    'endpoint': endpoint,
-    'allowInvalidCertificates': allowInvalidCertificates,
-    if (lastServerVersion != null) 'lastServerVersion': lastServerVersion!,
-  };
+  Map<String, Object> toJson() {
+    final json = <String, Object>{
+      'id': id,
+      'name': name,
+      'endpoint': endpoint,
+      'allowInvalidCertificates': allowInvalidCertificates,
+    };
+    final version = lastServerVersion;
+    if (version != null) json['lastServerVersion'] = version;
+    return json;
+  }
 
   factory ConnectionProfile.fromJson(Map<String, dynamic> json) =>
       ConnectionProfile(
