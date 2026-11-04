@@ -38,6 +38,30 @@ void main() {
     },
   );
 
+  test('server version metadata round-trips and rejects invalid values', () {
+    final profile = ConnectionProfile.create(
+      name: 'Lab',
+      address: 'https://pve.example',
+    ).withServerVersion(' 9.2.4 ');
+
+    expect(profile.lastServerVersion, '9.2.4');
+    expect(
+      ConnectionProfile.fromJson(profile.toJson()).lastServerVersion,
+      '9.2.4',
+    );
+
+    for (final value in [
+      42,
+      '',
+      List.filled(81, 'x').join(),
+    ]) {
+      final json = profile.toJson();
+      json['lastServerVersion'] = value;
+      expect(ConnectionProfile.fromJson(json).lastServerVersion, isNull);
+    }
+    expect(() => normalizeServerVersion('   '), throwsFormatException);
+  });
+
   group('Proxmox URL safety', () {
     test('canonicalizes direct HTTPS endpoint', () {
       expect(
