@@ -71,7 +71,6 @@ class ProfileRepository {
           );
           if (profile.id.trim().isEmpty ||
               profile.name.trim().isEmpty ||
-              normalizePveEndpoint(profile.endpoint) != profile.endpoint ||
               !ids.add(profile.id)) {
             continue;
           }

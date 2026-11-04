@@ -179,8 +179,19 @@ void main() {
         ]),
       );
 
-      expect(repo.readProfiles(), hasLength(1));
-      expect(repo.readProfiles().single.id, valid.id);
+      final recovered = repo.readProfiles();
+      expect(recovered, hasLength(2));
+      expect(recovered.first.id, valid.id);
+      expect(recovered.last.id, 'unsafe');
+      // Unsafe stored origins remain removable metadata; DioPveGateway
+      // independently refuses them before attaching credentials or sending I/O.
+      expect(
+        () => DioPveGateway(
+          recovered.last,
+          const ApiCredentials(tokenId: 'me@pve!test', secret: 'test'),
+        ),
+        throwsA(isA<FormatException>()),
+      );
 
       await prefs.setString('profile_metadata_v1', '{malformed-json');
       expect(repo.readProfiles(), isEmpty);
