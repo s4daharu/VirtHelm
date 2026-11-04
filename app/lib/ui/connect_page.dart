@@ -4,11 +4,7 @@ import '../core/app_controller.dart';
 import '../core/models.dart';
 
 class ConnectPage extends StatefulWidget {
-  const ConnectPage({
-    super.key,
-    required this.controller,
-    this.profile,
-  });
+  const ConnectPage({super.key, required this.controller, this.profile});
   final AppController controller;
   final ConnectionProfile? profile;
 
