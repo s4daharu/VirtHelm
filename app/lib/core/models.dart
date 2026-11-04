@@ -8,18 +8,21 @@ class ConnectionProfile {
     required this.name,
     required this.endpoint,
     this.allowInvalidCertificates = false,
+    this.lastServerVersion,
   });
 
   final String id;
   final String name;
   final String endpoint;
   final bool allowInvalidCertificates;
+  final String? lastServerVersion;
 
   Map<String, Object> toJson() => {
     'id': id,
     'name': name,
     'endpoint': endpoint,
     'allowInvalidCertificates': allowInvalidCertificates,
+    if (lastServerVersion != null) 'lastServerVersion': lastServerVersion!,
   };
 
   factory ConnectionProfile.fromJson(Map<String, dynamic> json) =>
@@ -29,6 +32,7 @@ class ConnectionProfile {
         endpoint: json['endpoint'] as String,
         // Only an explicit boolean enables this security-sensitive exception.
         allowInvalidCertificates: json['allowInvalidCertificates'] == true,
+        lastServerVersion: _storedServerVersion(json['lastServerVersion']),
       );
 
   static ConnectionProfile create({
@@ -48,6 +52,31 @@ class ConnectionProfile {
       endpoint: normalizePveEndpoint(address),
       allowInvalidCertificates: allowInvalidCertificates,
     );
+  }
+
+  ConnectionProfile withServerVersion(String version) => ConnectionProfile(
+    id: id,
+    name: name,
+    endpoint: endpoint,
+    allowInvalidCertificates: allowInvalidCertificates,
+    lastServerVersion: _validatedServerVersion(version),
+  );
+}
+
+String _validatedServerVersion(String value) {
+  final normalized = value.trim();
+  if (normalized.isEmpty || normalized.length > 80) {
+    throw const FormatException('Server returned an invalid version.');
+  }
+  return normalized;
+}
+
+String? _storedServerVersion(Object? value) {
+  if (value is! String) return null;
+  try {
+    return _validatedServerVersion(value);
+  } on FormatException {
+    return null;
   }
 }
 
