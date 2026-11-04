@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:virthelm/core/app_controller.dart';
+import 'package:virthelm/core/app_preferences.dart';
+import 'package:virthelm/main.dart';
 import 'package:virthelm/core/guest_list_filter.dart';
 import 'package:virthelm/core/models.dart';
 import 'package:virthelm/core/profile_repository.dart';
@@ -695,5 +697,85 @@ void main() {
       tester.widget<TextField>(find.byType(TextField).first).controller?.text,
       'Beta',
     );
+  });
+
+  testWidgets('app applies persisted theme before connection setup', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final repository = ProfileRepository(prefs, _EmptyVault());
+    await repository.setThemePreference(AppThemePreference.dark);
+    await tester.pumpWidget(VirtHelmApp(repository: repository));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+      ThemeMode.dark,
+    );
+  });
+
+  testWidgets('local settings persist and hide optional node metrics', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final repository = ProfileRepository(prefs, _EmptyVault());
+    final controller = AppController(repository: repository);
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'lab',
+      name: 'Lab',
+      endpoint: 'https://pve.local:8006',
+    );
+    controller.inventory = Inventory.fromResources([
+      {
+        'type': 'node',
+        'node': 'pve1',
+        'status': 'online',
+        'cpu': 0.1,
+        'mem': 1024,
+        'uptime': 3600,
+      },
+    ]);
+
+    await tester.pumpWidget(
+      MaterialApp(home: ShellPage(controller: controller)),
+    );
+    await tester.scrollUntilVisible(
+      find.text('pve1'),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.textContaining('CPU 10.0%'), findsOneWidget);
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('theme-preference')));
+    await tester.tap(find.byKey(const Key('theme-preference')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Dark').last);
+    await tester.pumpAndSettle();
+    expect(repository.themePreference, AppThemePreference.dark);
+
+    await tester.ensureVisible(find.byKey(const Key('refresh-preference')));
+    await tester.tap(find.byKey(const Key('refresh-preference')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Every minute').last);
+    await tester.pumpAndSettle();
+    expect(
+      repository.autoRefreshPreference,
+      AutoRefreshPreference.every60Seconds,
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const Key('node-metrics-preference')),
+    );
+    await tester.tap(find.byKey(const Key('node-metrics-preference')));
+    await tester.pumpAndSettle();
+    expect(repository.showNodeMetrics, isFalse);
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('CPU 10.0%'), findsNothing);
+    expect(find.text('pve1'), findsOneWidget);
   });
 }
