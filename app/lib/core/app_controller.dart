@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'app_preferences.dart';
 import 'guest_saved_view.dart';
 import 'models.dart';
 import 'profile_repository.dart';
@@ -35,10 +36,14 @@ class AppController extends ChangeNotifier {
   bool initialized = false;
   bool refreshing = false;
   bool connecting = false;
+  AppThemePreference themePreference = AppThemePreference.system;
+  AutoRefreshPreference autoRefreshPreference = AutoRefreshPreference.off;
+  bool showNodeMetrics = true;
 
   PveGateway? _gateway;
   int _generation = 0;
   Timer? _pollTimer;
+  Timer? _autoRefreshTimer;
   int? _pollingGeneration;
   bool _foreground = true;
   bool _disposed = false;
@@ -130,6 +135,9 @@ class AppController extends ChangeNotifier {
 
   Future<void> initialize() async {
     try {
+      themePreference = repository.themePreference;
+      autoRefreshPreference = repository.autoRefreshPreference;
+      showNodeMetrics = repository.showNodeMetrics;
       profiles = repository.readProfiles();
       final selected = repository.activeId;
       if (profiles.isNotEmpty) {
@@ -142,6 +150,31 @@ class AppController extends ChangeNotifier {
       initialized = true;
       _notify();
     }
+  }
+
+  Future<void> setThemePreference(AppThemePreference value) async {
+    if (_disposed) return;
+    await repository.setThemePreference(value);
+    if (_disposed) return;
+    themePreference = value;
+    _notify();
+  }
+
+  Future<void> setAutoRefreshPreference(AutoRefreshPreference value) async {
+    if (_disposed) return;
+    await repository.setAutoRefreshPreference(value);
+    if (_disposed) return;
+    autoRefreshPreference = value;
+    _scheduleAutoRefresh();
+    _notify();
+  }
+
+  Future<void> setShowNodeMetrics(bool value) async {
+    if (_disposed) return;
+    await repository.setShowNodeMetrics(value);
+    if (_disposed) return;
+    showNodeMetrics = value;
+    _notify();
   }
 
   Future<void> connect({
@@ -310,6 +343,7 @@ class AppController extends ChangeNotifier {
     if (_disposed || _deletingProfiles.contains(profile.id)) return;
     final generation = ++_generation;
     _pollTimer?.cancel();
+    _autoRefreshTimer?.cancel();
     _refreshFuture = null;
     _gateway?.close();
     _gateway = null;
@@ -357,7 +391,10 @@ class AppController extends ChangeNotifier {
       if (generation != _generation || _disposed) return;
       _notify();
       await refresh();
-      if (generation == _generation && _foreground) _startPolling();
+      if (generation == _generation && _foreground) {
+        _startPolling();
+        _scheduleAutoRefresh();
+      }
     } catch (e) {
       if (generation == _generation) {
         _gateway?.close();
@@ -613,9 +650,30 @@ class AppController extends ChangeNotifier {
     if (visible) {
       if (resumed) unawaited(refresh());
       _startPolling();
+      _scheduleAutoRefresh();
     } else {
       _pollTimer?.cancel();
+      _autoRefreshTimer?.cancel();
     }
+  }
+
+  void _scheduleAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = null;
+    final interval = autoRefreshPreference.interval;
+    if (_disposed ||
+        !_foreground ||
+        _gateway == null ||
+        active == null ||
+        interval == null) {
+      return;
+    }
+    _autoRefreshTimer = Timer.periodic(interval, (_) {
+      // Read errors require explicit recovery, not unbounded retries.
+      if (!_disposed && _foreground && message == null) {
+        unawaited(refresh());
+      }
+    });
   }
 
   void _startPolling() {
@@ -795,6 +853,7 @@ class AppController extends ChangeNotifier {
       // credential deletion could race an in-flight guest preflight.
       _generation++;
       _pollTimer?.cancel();
+      _autoRefreshTimer?.cancel();
       _refreshFuture = null;
       _gateway?.close();
       _gateway = null;
@@ -847,6 +906,7 @@ class AppController extends ChangeNotifier {
     _disposed = true;
     _generation++;
     _pollTimer?.cancel();
+    _autoRefreshTimer?.cancel();
     _refreshFuture = null;
     _gateway?.close();
     super.dispose();
