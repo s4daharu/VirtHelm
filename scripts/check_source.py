@@ -21,7 +21,8 @@ required = [
   'docs/44-implementation-m2-saved-guest-views.md',
   'docs/45-full-implementation-cross-check.md',
   'docs/46-implementation-p0-profile-editing.md',
-  'docs/47-implementation-p0-server-version.md']
+  'docs/47-implementation-p0-server-version.md',
+  'docs/48-implementation-p0-read-retries.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
@@ -39,6 +40,9 @@ assert 'lastServerVersion' in files['app/lib/core/models.dart']
 assert 'Future<void> updateMetadata' in files['app/lib/core/profile_repository.dart']
 assert "last observed" in files['app/lib/ui/shell.dart']
 assert 'mayHaveExecuted' in files['app/lib/core/pve_api.dart']
+assert '_shouldRetryRead' in files['app/lib/core/pve_api.dart']
+assert 'attempt >= 2' in files['app/lib/core/pve_api.dart']
+assert "test('transient POST failure is never automatically retried'" in files['app/test/pve_api_test.dart']
 assert 'storageOverview' in files['app/lib/core/pve_api.dart']
 assert 'recentTasks' in files['app/lib/core/pve_api.dart']
 assert 'GuestAction.stop' in files['app/lib/core/app_controller.dart'] or 'GuestAction' in files['app/lib/core/app_controller.dart']
