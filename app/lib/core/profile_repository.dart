@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'app_preferences.dart';
 import 'guest_saved_view.dart';
 import 'models.dart';
 
@@ -42,6 +43,9 @@ class ProfileRepository {
   static const _activeKey = 'active_profile_v1';
   static const _favoritesKey = 'guest_favorites_v1';
   static const _guestViewsKey = 'guest_saved_views_v1';
+  static const _themeKey = 'ui_theme_v1';
+  static const _refreshKey = 'ui_refresh_v1';
+  static const _nodeMetricsKey = 'ui_node_metrics_v1';
   Future<void> _writes = Future<void>.value();
 
   // A vault operation can yield before metadata is written. Serialize local
@@ -87,6 +91,47 @@ class ProfileRepository {
   }
 
   String? get activeId => _prefs.getString(_activeKey);
+
+  AppThemePreference get themePreference {
+    final raw = _prefs.get(_themeKey);
+    for (final value in AppThemePreference.values) {
+      if (raw == value.name) return value;
+    }
+    return AppThemePreference.system;
+  }
+
+  AutoRefreshPreference get autoRefreshPreference {
+    final raw = _prefs.get(_refreshKey);
+    for (final value in AutoRefreshPreference.values) {
+      if (raw == value.name) return value;
+    }
+    return AutoRefreshPreference.off;
+  }
+
+  bool get showNodeMetrics {
+    final raw = _prefs.get(_nodeMetricsKey);
+    return raw is bool ? raw : true;
+  }
+
+  Future<void> setThemePreference(AppThemePreference value) =>
+      _mutate(() async {
+        if (!await _prefs.setString(_themeKey, value.name)) {
+          throw StateError('Could not save appearance preference.');
+        }
+      });
+
+  Future<void> setAutoRefreshPreference(AutoRefreshPreference value) =>
+      _mutate(() async {
+        if (!await _prefs.setString(_refreshKey, value.name)) {
+          throw StateError('Could not save refresh preference.');
+        }
+      });
+
+  Future<void> setShowNodeMetrics(bool value) => _mutate(() async {
+    if (!await _prefs.setBool(_nodeMetricsKey, value)) {
+      throw StateError('Could not save display preference.');
+    }
+  });
 
   Set<String> readGuestFavorites(String profileId) {
     final raw = _prefs.getString(_favoritesKey);
