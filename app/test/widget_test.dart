@@ -276,4 +276,91 @@ void main() {
     );
     expect(find.byType(TlsWarning), findsNothing);
   });
+
+  testWidgets('guest browse filters and sorting reset on profile switch', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = AppController(
+      repository: ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'a',
+      name: 'A',
+      endpoint: 'https://a.example',
+    );
+    controller.inventory = Inventory.fromResources([
+      {
+        'type': 'qemu',
+        'vmid': 101,
+        'node': 'pve1',
+        'name': 'Alpha',
+        'status': 'running',
+      },
+      {
+        'type': 'lxc',
+        'vmid': 102,
+        'node': 'pve2',
+        'name': 'Beta',
+        'status': 'stopped',
+      },
+      {
+        'type': 'qemu',
+        'vmid': 103,
+        'node': 'pve2',
+        'name': 'Gamma',
+        'status': 'running',
+      },
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(home: ShellPage(controller: controller)),
+    );
+    await tester.tap(find.text('Guests'));
+    await tester.pumpAndSettle();
+    expect(find.text('3 workloads'), findsOneWidget);
+
+    await tester.tap(find.text('Containers'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 workloads'), findsOneWidget);
+    expect(find.text('Beta'), findsOneWidget);
+    await tester.tap(find.text('Any type'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('All nodes'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('pve2').last);
+    await tester.pumpAndSettle();
+    expect(find.text('2 workloads'), findsOneWidget);
+
+    await tester.tap(find.text('Sort: Favorites first'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('VMID'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sort: VMID'), findsOneWidget);
+
+    controller.active = const ConnectionProfile(
+      id: 'b',
+      name: 'B',
+      endpoint: 'https://b.example',
+    );
+    controller.inventory = Inventory.fromResources([
+      {
+        'type': 'lxc',
+        'vmid': 201,
+        'node': 'other-node',
+        'name': 'New profile workload',
+        'status': 'running',
+      },
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(home: ShellPage(controller: controller)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('1 workloads'), findsOneWidget);
+    expect(find.text('New profile workload'), findsOneWidget);
+    expect(find.text('All nodes'), findsOneWidget);
+    expect(find.text('Sort: Favorites first'), findsOneWidget);
+  });
 }

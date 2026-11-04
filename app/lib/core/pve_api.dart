@@ -161,6 +161,9 @@ class DioPveGateway implements PveGateway {
             );
           } on FormatException {
             malformed++;
+          } on TypeError {
+            // A malformed map key must not discard other valid rows.
+            malformed++;
           }
         }
       } on PveFailure catch (error) {
@@ -215,6 +218,9 @@ class DioPveGateway implements PveGateway {
               ),
             );
           } on FormatException {
+            malformed++;
+          } on TypeError {
+            // A malformed map key must not discard other valid rows.
             malformed++;
           }
         }

@@ -54,9 +54,17 @@ class AppController extends ChangeNotifier {
   bool isGuestFavorite(Guest guest) =>
       favoriteGuests.contains(_guestKey(guest));
 
-  Future<void> setGuestFavorite(Guest guest, bool favorite) async {
+  Future<void> setGuestFavorite(
+    Guest guest,
+    bool favorite, {
+    String? expectedProfileId,
+  }) async {
     final profile = active;
-    if (profile == null) return;
+    if (profile == null ||
+        _disposed ||
+        (expectedProfileId != null && profile.id != expectedProfileId)) {
+      return;
+    }
     final key = _guestKey(guest);
     await repository.setGuestFavorite(profile.id, key, favorite);
     if (active?.id != profile.id || _disposed) return;
@@ -68,8 +76,12 @@ class AppController extends ChangeNotifier {
     _notify();
   }
 
-  Future<void> toggleGuestFavorite(Guest guest) =>
-      setGuestFavorite(guest, !isGuestFavorite(guest));
+  Future<void> toggleGuestFavorite(Guest guest, {String? expectedProfileId}) =>
+      setGuestFavorite(
+        guest,
+        !isGuestFavorite(guest),
+        expectedProfileId: expectedProfileId,
+      );
 
   bool isGuestActionBlocked(Guest guest) {
     final key = _guestKey(guest);
@@ -566,7 +578,7 @@ class AppController extends ChangeNotifier {
       if (_pollingGeneration == generation) _pollingGeneration = null;
     }
     if (finished && generation == _generation) {
-      await refresh();
+      await _refreshAfterTask(generation);
       if (generation != _generation || _disposed) return;
       for (final target in completedTargets) {
         if (isInventoryFresh) {
@@ -584,6 +596,14 @@ class AppController extends ChangeNotifier {
       _pollTimer?.cancel();
       _pollTimer = null;
     }
+  }
+
+  /// Do not reconcile a terminal UPID against a read started before it ended.
+  Future<void> _refreshAfterTask(int generation) async {
+    final previousRefresh = _refreshFuture;
+    if (previousRefresh != null) await previousRefresh;
+    if (generation != _generation || _disposed) return;
+    await refresh();
   }
 
   Future<void> deleteProfile(String id) async {
