@@ -83,6 +83,12 @@
       "physical Android TLS/secure-storage backup/accessibility/performance tests",
       "production signing and dependency/security release review",
       "full premium M2 features explicitly deferred in docs/39-implementation-audit.md"
-    ]
+    ],
+    "followup_cross_check": "docs/42-merge-readiness-cross-check.md",
+    "followup_findings": [
+      "post-UPID inventory refresh must begin after terminal task status",
+      "invalid map keys in supplemental lists must not discard valid neighboring records"
+    ],
+    "full_premium_scope_complete": false
   }
 }

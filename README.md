@@ -12,7 +12,7 @@ The current source implements HTTPS-only API-token profiles, Android secure cred
 
 Write safety includes exact profile/node/type/VMID identity, fresh clean inventory, single-flight submission, no automatic mutation retry, ambiguous-outcome lockout, bounded task verification, and authoritative refresh after terminal tasks. Redirects and cleartext are blocked. Certificate validation is enabled by default; an explicitly confirmed, saved per-connection insecure option is available for any HTTPS host. It allows server impersonation and token theft, even on a LAN. See [TLS option](docs/40-profile-tls-option.md).
 
-This is still **not** a production release. Real PVE 8.4/9.2 fixtures, ACL matrices, physical-device TLS/backup/accessibility/performance tests, release signing, and independent security review remain open. See [implementation audit](docs/39-implementation-audit.md) and [Definition of Done](docs/19-definition-of-done.md).
+This is still **not** a production release. Real PVE 8.4/9.2 fixtures, ACL matrices, physical-device TLS/backup/accessibility/performance tests, release signing, and independent security review remain open. See [implementation audit](docs/39-implementation-audit.md), [latest merge-readiness cross-check](docs/42-merge-readiness-cross-check.md), and [Definition of Done](docs/19-definition-of-done.md).
 
 ## Build and test
 

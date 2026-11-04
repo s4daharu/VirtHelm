@@ -28,5 +28,8 @@ Recent tasks are capped at 20 per visible node and 60 combined rows. Storage is 
 ## Deliberately not implemented in this slice
 Full premium M2 remains broader: charts/RRD, named saved views, notification center/alerts, tag/group filters, persistent offline cache, accessibility/performance signoff, and 200-guest/device evidence are still pending. PBS/PDM, console, ticket/MFA, snapshot/backup execution and infrastructure mutation remain later gated milestones.
 
+## Reconciliation and malformed-read fixes
+An already-in-flight inventory refresh may have started before a UPID reached terminal state. To avoid treating that old read as post-task evidence, terminal-task processing waits for it, then performs another inventory request before removing the pending guest lock. Malformed storage/task rows with non-string map keys are counted without discarding valid neighboring records. Both are covered by regression tests.
+
 ## Remaining verification
 Release support still requires sanitized PVE 8.4/9.2 endpoint/ACL fixtures, single/multi-node testing, QEMU/LXC mutation fault injection, Android physical-device TLS/backup/accessibility/performance tests, dependency/security review and signed release engineering.
