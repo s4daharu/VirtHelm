@@ -54,9 +54,17 @@ class AppController extends ChangeNotifier {
   bool isGuestFavorite(Guest guest) =>
       favoriteGuests.contains(_guestKey(guest));
 
-  Future<void> setGuestFavorite(Guest guest, bool favorite) async {
+  Future<void> setGuestFavorite(
+    Guest guest,
+    bool favorite, {
+    String? expectedProfileId,
+  }) async {
     final profile = active;
-    if (profile == null) return;
+    if (profile == null ||
+        _disposed ||
+        (expectedProfileId != null && profile.id != expectedProfileId)) {
+      return;
+    }
     final key = _guestKey(guest);
     await repository.setGuestFavorite(profile.id, key, favorite);
     if (active?.id != profile.id || _disposed) return;
@@ -68,8 +76,14 @@ class AppController extends ChangeNotifier {
     _notify();
   }
 
-  Future<void> toggleGuestFavorite(Guest guest) =>
-      setGuestFavorite(guest, !isGuestFavorite(guest));
+  Future<void> toggleGuestFavorite(
+    Guest guest, {
+    String? expectedProfileId,
+  }) => setGuestFavorite(
+    guest,
+    !isGuestFavorite(guest),
+    expectedProfileId: expectedProfileId,
+  );
 
   bool isGuestActionBlocked(Guest guest) {
     final key = _guestKey(guest);
