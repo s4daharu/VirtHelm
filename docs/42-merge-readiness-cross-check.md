@@ -1,5 +1,7 @@
 # VirtHelm — merge-readiness cross-check (2026-11-04)
 
+> Historical merge-readiness record. The current whole-repository review is [docs/45-full-implementation-cross-check.md](45-full-implementation-cross-check.md).
+
 ## Boundary of this review
 Cross-checked the M1 foundation, partial M2 read cockpit, F05 guest-discovery patch, gateway, controller, local profile/vault persistence, Flutter UI, Android runner hardening, CI scripts, release prerelease workflow, and documentation. This is a source-level assessment with automated test and build evidence, **not** proof that nothing remains to be done or that no defects exist.
 
@@ -8,7 +10,7 @@ Cross-checked the M1 foundation, partial M2 read cockpit, F05 guest-discovery pa
 |---|---|---|
 | PVE profiles and TLS | HTTPS API-token onboarding, encrypted credential vault, profile switch/remove, per-origin warned insecure TLS option | Profile editing, certificate enrollment, device TLS/Keystore/restore matrix |
 | Inventory and read cockpit | Nodes, QEMU/LXC guests, storage, recent tasks, freshness, 403/partial warnings | Live PVE 9.2/8.4 endpoint and ACL fixtures, persistent offline cache, RRD graphs |
-| Guest discovery | Search, favorites, status/kind/node filtering, deterministic name/VMID/CPU/memory sorting | Saved views, tag/group filters, 200-guest/device accessibility and performance |
+| Guest discovery | Search, favorites, status/kind/node filtering, deterministic name/VMID/CPU/memory sorting, profile-scoped named saved views | Tag/group filters, 200-guest/device accessibility and performance |
 | Power operations | Target/profile validation, fresh inventory preflight, exactly one POST, UPID status, ambiguous-outcome lockout | Real PVE mutation/fault-injection matrix, persisted operation journal across process death |
 | Android delivery | Flutter/Dart toolchain pinned, dependency lockfile, hardened generated runner, debug APK CI, manual signed ARM prerelease recipe | Physical install/update/signed prerelease verification, SBOM, independent security/license/dependency review |
 | Premium roadmap | Product/UX/API/security plans | Console/ticket/MFA, snapshots/backups, PBS/PDM, alerts, biometrics, HA/Ceph/SDN changes and migration/provisioning are deferred |

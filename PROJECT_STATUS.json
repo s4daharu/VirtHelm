@@ -55,7 +55,7 @@
       "feature_id": "HOME-006",
       "storage": "SharedPreferences metadata keyed by profile ID; may contain user-entered search text and node names; never credentials/task logs/metric samples; Android app backup is disabled",
       "limits": "12 views per profile, 40-character names, same-name update",
-      "verification": "automated model/repository/controller/widget coverage; Android branch CI required; device/accessibility/performance gates remain open"
+      "verification": "automated model/repository/controller/widget coverage; pre-audit head passed full branch CI; final audit commit is merge-gated by the same workflow; device/accessibility/performance gates remain open"
     }
   },
   "dependency_lockfile_committed": true,
@@ -78,11 +78,9 @@
     "source_review_completed": true,
     "automated_regressions_added": true,
     "android_generated_runner_audited": true,
-    "report": "docs/41-cross-check-audit.md",
+    "report": "docs/45-full-implementation-cross-check.md",
     "local_flutter_version": "3.44.4",
     "local_dart_version": "3.12.2",
-    "local_flutter_tests_passed": 57,
-    "offline_delivery_tests_passed": 5,
     "committed_lockfile_unchanged": true,
     "release_signing_secrets_configured": true,
     "release_apk_verified_by_this_audit": false,
@@ -92,11 +90,29 @@
       "production signing and dependency/security release review",
       "full premium M2 features explicitly deferred in docs/39-implementation-audit.md"
     ],
-    "followup_cross_check": "docs/42-merge-readiness-cross-check.md",
+    "followup_cross_check": "docs/45-full-implementation-cross-check.md",
     "followup_findings": [
-      "post-UPID inventory refresh must begin after terminal task status",
-      "invalid map keys in supplemental lists must not discard valid neighboring records"
+      "post-UPID inventory refresh must begin after terminal task status (fixed and regression-tested)",
+      "invalid map keys in supplemental lists must not discard valid neighboring records (fixed and regression-tested)",
+      "controller disposal during secure profile persistence must roll back the newly-created local connection (fixed in full cross-check)",
+      "profile deletion must clear malformed saved-view/favorite metadata roots (fixed in full cross-check)",
+      "an add-connection route must not be dismissed while its connection check is pending (fixed in full cross-check)"
     ],
-    "full_premium_scope_complete": false
+    "full_premium_scope_complete": false,
+    "current_flutter_tests_defined": 74,
+    "current_delivery_tests_defined": 14,
+    "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
+    "p0_scope_complete": false,
+    "p0_gaps": [
+      "profile editing is not implemented; remove and re-add is required",
+      "server version is checked during onboarding but not retained/presented as a user-facing capability",
+      "rich task detail/log explorer is not implemented",
+      "user-configurable theme/refresh/display preferences are not implemented",
+      "persistent offline read cache is not implemented"
+    ],
+    "unverified_repository_controls": [
+      "branch protection could not be read through the connected GitHub integration",
+      "repository rulesets were unavailable for this private repository under the current GitHub plan"
+    ]
   }
 }
