@@ -540,9 +540,15 @@ class _GuestTile extends StatelessWidget {
   final Guest guest;
   final AppController controller;
 
-  Future<void> _toggleFavorite(BuildContext context) async {
+  Future<void> _toggleFavorite(
+    BuildContext context,
+    String profileId,
+  ) async {
     try {
-      await controller.toggleGuestFavorite(guest);
+      await controller.toggleGuestFavorite(
+        guest,
+        expectedProfileId: profileId,
+      );
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -579,7 +585,9 @@ class _GuestTile extends StatelessWidget {
               tooltip: controller.isGuestFavorite(guest)
                   ? 'Remove from favorites'
                   : 'Add to favorites',
-              onPressed: () => _toggleFavorite(context),
+              onPressed: profileId == null
+                  ? null
+                  : () => _toggleFavorite(context, profileId),
               icon: Icon(
                 controller.isGuestFavorite(guest)
                     ? Icons.star_rounded
