@@ -53,9 +53,7 @@ class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
 
   Widget _home() {
     if (!controller.initialized) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (controller.active == null) {
       return ConnectPage(controller: controller);
