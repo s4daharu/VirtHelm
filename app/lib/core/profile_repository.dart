@@ -317,6 +317,33 @@ class ProfileRepository {
         }
       });
 
+  Future<void> update(ConnectionProfile profile, ApiCredentials credentials) =>
+      _mutate(() async {
+        final profiles = readProfiles();
+        final index = profiles.indexWhere((item) => item.id == profile.id);
+        if (index < 0) {
+          throw StateError('Connection no longer exists.');
+        }
+        final previousCredentials = await vault.retrieve(profile.id);
+        final nextProfiles = [...profiles]..[index] = profile;
+        try {
+          await vault.store(profile.id, credentials);
+          await _writeProfiles(nextProfiles);
+        } catch (error, stackTrace) {
+          try {
+            if (previousCredentials == null) {
+              await vault.remove(profile.id);
+            } else {
+              await vault.store(profile.id, previousCredentials);
+            }
+          } catch (_) {}
+          try {
+            await _writeProfiles(profiles);
+          } catch (_) {}
+          Error.throwWithStackTrace(error, stackTrace);
+        }
+      });
+
   Future<void> setActive(String? id) => _mutate(() => _setActive(id));
 
   Future<void> _setActive(String? id) async {
