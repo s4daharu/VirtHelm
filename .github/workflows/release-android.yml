@@ -1,0 +1,245 @@
+name: Android split APK prerelease
+
+on:
+  workflow_dispatch:
+
+run-name: Android split APK prerelease
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-split-prerelease
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build signed ARM APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.44.4'
+          cache: true
+
+      - name: Run repository checks
+        working-directory: .
+        run: |
+          python3 scripts/check_docs.py
+          python3 scripts/check_premium.py
+          python3 scripts/check_source.py
+
+      - name: Bootstrap hardened Android runner
+        run: bash ../scripts/bootstrap_android.sh
+
+      - name: Verify generated runner and lockfile
+        run: |
+          git diff --exit-code -- pubspec.lock
+          python3 ../scripts/check_android_generated.py
+
+      - name: Verify Dart formatting
+        run: |
+          dart format lib test
+          git diff -- lib test
+          git diff --exit-code -- lib test
+
+      - name: Analyze
+        run: flutter analyze --fatal-infos
+
+      - name: Test
+        run: flutter test --coverage
+
+      - name: Read app version
+        id: metadata
+        shell: bash
+        run: |
+          VERSION_LINE="$(awk '/^version:/ {print $2; exit}' pubspec.yaml)"
+          VERSION="${VERSION_LINE%%+*}"
+          BUILD_NUMBER="${VERSION_LINE#*+}"
+          if [ -z "$VERSION" ] || [ "$BUILD_NUMBER" = "$VERSION_LINE" ] || ! [[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Invalid pubspec version: $VERSION_LINE"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Restore required release keystore
+        shell: bash
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          for name in RELEASE_KEYSTORE_BASE64 RELEASE_STORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "Required GitHub Actions secret is missing: $name"
+              exit 1
+            fi
+          done
+
+          mkdir -p android/keystore
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > android/keystore/release.jks
+          test -s android/keystore/release.jks
+
+          cat > android/key.properties <<EOF
+          storePassword=$RELEASE_STORE_PASSWORD
+          keyPassword=$RELEASE_KEY_PASSWORD
+          keyAlias=$RELEASE_KEY_ALIAS
+          storeFile=../keystore/release.jks
+          EOF
+          chmod 600 android/key.properties android/keystore/release.jks
+
+      - name: Configure generated runner for release signing
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("android/app/build.gradle.kts")
+          text = path.read_text(encoding="utf-8")
+
+          signing_prelude = """val releaseKeystoreProperties = java.util.Properties()
+          val releaseKeystorePropertiesFile = rootProject.file("key.properties")
+          if (!releaseKeystorePropertiesFile.isFile) {
+              error("Release signing properties are missing")
+          }
+          releaseKeystoreProperties.load(java.io.FileInputStream(releaseKeystorePropertiesFile))
+
+          """
+
+          if "plugins {" not in text:
+              raise SystemExit("Unexpected Gradle template: plugins block missing")
+          text = text.replace("plugins {", signing_prelude + "plugins {", 1)
+
+          build_types = "    buildTypes {\n"
+          if build_types not in text:
+              raise SystemExit("Unexpected Gradle template: buildTypes block missing")
+
+          signing_config = """    signingConfigs {
+                  create("release") {
+                      keyAlias = releaseKeystoreProperties["keyAlias"] as String
+                      keyPassword = releaseKeystoreProperties["keyPassword"] as String
+                      storeFile = file(releaseKeystoreProperties["storeFile"] as String)
+                      storePassword = releaseKeystoreProperties["storePassword"] as String
+                  }
+              }
+
+          """
+          text = text.replace(build_types, signing_config + build_types, 1)
+
+          marker = "            // Release signing intentionally not configured in source control."
+          if marker not in text:
+              raise SystemExit("Hardened unsigned release marker missing")
+          text = text.replace(
+              marker,
+              '            signingConfig = signingConfigs.getByName("release")',
+              1,
+          )
+
+          if 'signingConfig = signingConfigs.getByName("debug")' in text:
+              raise SystemExit("Debug signing must never be used for release")
+
+          path.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Build split release APKs
+        shell: bash
+        run: |
+          flutter build apk             --release             --split-per-abi             --target-platform android-arm,android-arm64             --build-name "${{ steps.metadata.outputs.version }}"             --build-number "${{ steps.metadata.outputs.build_number }}"
+
+      - name: Verify APK set, signatures, and ABIs
+        id: verify
+        shell: bash
+        run: |
+          ARM64="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
+          ARMV7="build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk"
+
+          test -s "$ARM64"
+          test -s "$ARMV7"
+
+          if [ -e build/app/outputs/flutter-apk/app-x86_64-release.apk ]; then
+            echo "Unexpected x86_64 release APK was produced"
+            exit 1
+          fi
+
+          BUILD_TOOLS_PATH="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          APKSIGNER="$BUILD_TOOLS_PATH/apksigner"
+          test -x "$APKSIGNER"
+
+          for apk in "$ARM64" "$ARMV7"; do
+            "$APKSIGNER" verify --verbose --print-certs "$apk"
+          done
+
+          arm64_libs="$(unzip -l "$ARM64" | grep -Eo 'lib/[^/]+/' | sort -u || true)"
+          armv7_libs="$(unzip -l "$ARMV7" | grep -Eo 'lib/[^/]+/' | sort -u || true)"
+
+          echo "$arm64_libs" | grep -q '^lib/arm64-v8a/$'
+          ! echo "$arm64_libs" | grep -qE '^lib/(armeabi-v7a|x86|x86_64)/$'
+
+          echo "$armv7_libs" | grep -q '^lib/armeabi-v7a/$'
+          ! echo "$armv7_libs" | grep -qE '^lib/(arm64-v8a|x86|x86_64)/$'
+
+          VERSION="${{ steps.metadata.outputs.version }}"
+          ARM64_NAME="VirtHelm-v${VERSION}-arm64-v8a.apk"
+          ARMV7_NAME="VirtHelm-v${VERSION}-armeabi-v7a.apk"
+          mv "$ARM64" "build/app/outputs/flutter-apk/$ARM64_NAME"
+          mv "$ARMV7" "build/app/outputs/flutter-apk/$ARMV7_NAME"
+
+          cd build/app/outputs/flutter-apk
+          sha256sum "$ARM64_NAME" "$ARMV7_NAME" > SHA256SUMS.txt
+
+          echo "arm64=app/build/app/outputs/flutter-apk/$ARM64_NAME" >> "$GITHUB_OUTPUT"
+          echo "armv7=app/build/app/outputs/flutter-apk/$ARMV7_NAME" >> "$GITHUB_OUTPUT"
+          echo "checksums=app/build/app/outputs/flutter-apk/SHA256SUMS.txt" >> "$GITHUB_OUTPUT"
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: VirtHelm-signed-split-APKs
+          path: |
+            ${{ steps.verify.outputs.arm64 }}
+            ${{ steps.verify.outputs.armv7 }}
+            ${{ steps.verify.outputs.checksums }}
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Create GitHub prerelease
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          TAG="v${{ steps.metadata.outputs.version }}-build-${GITHUB_RUN_NUMBER}"
+          TITLE="VirtHelm v${{ steps.metadata.outputs.version }} build ${GITHUB_RUN_NUMBER}"
+          NOTES="Signed Android test build from ${GITHUB_SHA}. This is a prerelease and does not satisfy VirtHelm's documented production release-certification gates."
+
+          gh release create "$TAG"             "${{ steps.verify.outputs.arm64 }}"             "${{ steps.verify.outputs.armv7 }}"             "${{ steps.verify.outputs.checksums }}"             --target "$GITHUB_SHA"             --title "$TITLE"             --notes "$NOTES"             --prerelease
+
+      - name: Build summary
+        working-directory: .
+        shell: bash
+        run: |
+          echo "## VirtHelm Android split APK prerelease" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version: ${{ steps.metadata.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Build number: ${{ steps.metadata.outputs.build_number }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ARM64: `VirtHelm-v${{ steps.metadata.outputs.version }}-arm64-v8a.apk`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ARMv7: `VirtHelm-v${{ steps.metadata.outputs.version }}-armeabi-v7a.apk`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Release is deliberately marked prerelease pending the documented PVE/device/security/signing release gates." >> "$GITHUB_STEP_SUMMARY"
