@@ -734,7 +734,9 @@ void main() {
     },
   );
 
-  test('guest favorites persist per profile and are removed with profile', () async {
+  test(
+    'guest favorites persist per profile and are removed with profile',
+    () async {
     final prefs = await SharedPreferences.getInstance();
     final vault = _Vault();
     final repo = ProfileRepository(prefs, vault);
@@ -759,10 +761,13 @@ void main() {
 
     await repo.delete(first.id);
     expect(repo.readGuestFavorites(first.id), isEmpty);
-    expect(repo.readGuestFavorites(second.id), {'lxc:pve2:202'});
-  });
+      expect(repo.readGuestFavorites(second.id), {'lxc:pve2:202'});
+    },
+  );
 
-  test('controller favorites do not leak across connection profiles', () async {
+  test(
+    'controller favorites do not leak across connection profiles',
+    () async {
     final prefs = await SharedPreferences.getInstance();
     final ctl = AppController(
       repository: ProfileRepository(prefs, _Vault()),
@@ -791,7 +796,7 @@ void main() {
     expect(ctl.isGuestFavorite(guestB), isFalse);
 
     await ctl.activate(profileA);
-    expect(ctl.isGuestFavorite(ctl.inventory!.guests.single), isTrue);
-  });
-
+      expect(ctl.isGuestFavorite(ctl.inventory!.guests.single), isTrue);
+    },
+  );
 }
