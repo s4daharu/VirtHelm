@@ -49,7 +49,12 @@ jobs:
       - run: bash ../scripts/bootstrap_android.sh
       - run: git diff --exit-code -- pubspec.lock
       - run: python3 ../scripts/check_android_generated.py
-      - run: dart format --output=none --set-exit-if-changed lib test
+      - name: Verify Dart formatting
+        shell: bash
+        run: |
+          dart format lib test
+          git diff -- lib test
+          git diff --exit-code -- lib test
       - run: flutter analyze --fatal-infos
       - run: flutter test --coverage
       - run: flutter build apk --debug
