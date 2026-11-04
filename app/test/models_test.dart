@@ -225,6 +225,37 @@ void main() {
     expect(running.stateLabel, 'running');
   });
 
+  test('task history respects separate exit status and unknown results', () {
+    const upid = 'UPID:pve1:0001:0002:0003:qmstart:101:user@pve:';
+    RecentServerTask from(Map<String, Object?> data) =>
+        RecentServerTask.fromApi({
+          'upid': upid,
+          ...data,
+        }, node: 'pve1');
+
+    final successful = from({'status': 'stopped', 'exitstatus': 'OK'});
+    expect(successful.isDone, isTrue);
+    expect(successful.exitStatus, 'OK');
+    expect(successful.stateLabel, 'succeeded');
+
+    final failed = from({'status': 'stopped', 'exitstatus': 'Error'});
+    expect(failed.stateLabel, 'failed');
+    expect(failed.exitStatus, 'Error');
+
+    final uncertain = from({'status': 'stopped'});
+    expect(uncertain.isDone, isTrue);
+    expect(uncertain.exitStatus, isNull);
+    expect(uncertain.stateLabel, 'unknown');
+
+    final active = from({'status': 'RUNNING', 'exitstatus': 'OK'});
+    expect(active.stateLabel, 'running');
+    expect(active.exitStatus, isNull);
+
+    final missing = from({});
+    expect(missing.stateLabel, 'unknown');
+    expect(missing.isDone, isFalse);
+  });
+
   test('token is properly formatted and can be encoded locally', () {
     const creds = ApiCredentials(tokenId: 'operator@pve!mobile', secret: 'xyz');
     expect(creds.isValid, isTrue);
