@@ -1253,10 +1253,8 @@ class _SettingsTab extends StatelessWidget {
                   tooltip: 'Edit ${profile.name}',
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) => ConnectPage(
-                        controller: controller,
-                        profile: profile,
-                      ),
+                      builder: (_) =>
+                          ConnectPage(controller: controller, profile: profile),
                     ),
                   ),
                   icon: const Icon(Icons.edit_outlined),
