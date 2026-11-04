@@ -30,7 +30,7 @@
     "node and guest dashboard",
     "QEMU/LXC guest controls",
     "UPID task tracking",
-    "search and settings"
+    "guest search and connection/security settings"
   ],
   "m1_validation": "Automated branch CI has passed source checks, analyzer, tests and Android debug APK build for the M1 safety implementation; live PVE/device release validation remains open.",
   "flutter_build_success": true,
@@ -110,7 +110,8 @@
       "server version is checked during onboarding but not retained/presented as a user-facing capability",
       "rich task detail/log explorer is not implemented",
       "user-configurable theme/refresh/display preferences are not implemented",
-      "persistent offline read cache is not implemented"
+      "persistent offline read cache is not implemented",
+      "general bounded automatic GET retry/backoff and full timeout/offline classification are not implemented"
     ],
     "unverified_repository_controls": [
       "branch protection could not be read through the connected GitHub integration",

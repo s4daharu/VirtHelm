@@ -40,7 +40,7 @@ The table below cross-checks the P0 feature plan in [functional scope](02-featur
 | P0 area | Current implementation | Remaining gap |
 |---|---|---|
 | F01 profiles | Create, switch and delete named API-token profiles; exact HTTPS origin and per-profile TLS option | **Profile editing is not implemented**; changing endpoint/TLS requires remove + re-add |
-| F02 auth/test/version | Token format validation; `/version` plus inventory permission check during onboarding | Server version is not retained/presented as a user-facing capability; PVE 8.4/9.2 live auth/ACL evidence is missing |
+| F02 auth/test/version | Token format validation; `/version` plus inventory permission check during onboarding | Server version is not retained/presented or used for compatibility gating; PVE 8.4/9.2 live auth/ACL evidence is missing |
 | F03 cluster overview | Node/guest counts, node state and read cockpit | Live single/multi-node compatibility/permission matrix missing |
 | F04 guests | QEMU/LXC inventory/details with node/type/VMID identity | Live version/ACL fixtures missing |
 | F05 discovery | Search, favorites, status/type/node filters, deterministic favorites/name/VMID/CPU/memory sorting and up to 12 profile-scoped named saved views | Tag/group filtering and 200-guest device evidence remain later scope |
@@ -49,7 +49,7 @@ The table below cross-checks the P0 feature plan in [functional scope](02-featur
 | F09 tasks | Session mutation tracker plus recent server task list and terminal result normalization | **Rich task detail/log explorer is not implemented**; live task fixtures missing |
 | F10 storage | Read-only per-node storage list with partial/malformed handling | Live local/shared/PBS-backed storage fixtures missing |
 | F11 local settings | System light/dark theme and connection/security settings exist | **User theme/refresh/display preferences are not implemented** |
-| F12 offline/error | Stale/fresh gating, 401/403/TLS/network errors, no stale mutation, no mutation replay | **No persistent offline read cache**; process-death resilience remains unverified |
+| F12 offline/error | Stale/fresh gating, 401/403/TLS/network errors, no stale mutation, no mutation replay | **No persistent offline read cache and no general bounded automatic GET retry/backoff**; timeout/offline classification is less granular than the design taxonomy; process-death resilience remains unverified |
 
 Because F01, F02 presentation, F09, F11 and the target-environment gates are incomplete, the repository must not claim that the whole P0 MVP or premium roadmap is complete.
 
@@ -63,6 +63,7 @@ Important limitations remain deliberate and visible:
 - disabling certificate verification explicitly sacrifices server authentication and can expose the API token to an impersonated server;
 - profile/search/node metadata is ordinary app-sandbox preference data, not credential-grade encrypted storage; Android app backup is disabled, but physical-device data-at-rest behavior remains a release test;
 - credential screens do not yet have a separately verified screenshot/privacy-screen policy on physical Android;
+- if the entire non-secret profile metadata document is externally corrupted beyond recovery, old secure-vault entries can become unreachable by profile ID because the vault is intentionally not enumerable through the repository abstraction; a verified app-data reset/recovery procedure remains a release concern;
 - there is no ticket/MFA/console path, no mutation queue, no hidden cloud relay and no automatic write replay.
 
 ## Delivery and repository conclusions
