@@ -8,7 +8,7 @@ VirtHelm is an independent, unofficial mobile client for user-operated Proxmox V
 
 ## Implemented now
 
-The current source implements HTTPS-only API-token profiles, Android secure credential storage, profile isolation, cluster/node/QEMU/LXC inventory, searchable guests, read-only storage overview, recent server tasks, guest CPU/memory/disk/uptime, and guarded QEMU/LXC start/shutdown/reboot/force-stop actions with live preflight and UPID tracking.
+The current source implements HTTPS-only API-token profiles, Android secure credential storage, profile isolation, cluster/node/QEMU/LXC inventory, searchable guests with profile-scoped favorites and status filters, read-only storage overview, recent server tasks, guest CPU/memory/disk/uptime, and guarded QEMU/LXC start/shutdown/reboot/force-stop actions with live preflight and UPID tracking.
 
 Write safety includes exact profile/node/type/VMID identity, fresh clean inventory, single-flight submission, no automatic mutation retry, ambiguous-outcome lockout, bounded task verification, and authoritative refresh after terminal tasks. Redirects and cleartext are blocked; certificate validation is not bypassed.
 
@@ -32,7 +32,7 @@ flutter build apk --debug
 
 ## Current scope vs roadmap
 
-The implemented M1/M2 slices do **not** equal the whole premium roadmap. Charts/RRD, favorites/saved views, notification center/alerts, persistent offline cache, richer filtering/sorting, biometric app lock, ticket/MFA, console, snapshots/backups, PBS/PDM, migrations/provisioning, infrastructure mutation, and signed distribution remain future/gated work.
+The implemented M1/M2 slices do **not** equal the whole premium roadmap. Charts/RRD, saved views, notification center/alerts, persistent offline cache, advanced filtering/sorting, biometric app lock, ticket/MFA, console, snapshots/backups, PBS/PDM, migrations/provisioning, infrastructure mutation, and signed distribution remain future/gated work.
 
 The premium planning catalogue remains available as [docs/premium-feature-catalog.csv](docs/premium-feature-catalog.csv).\n\nRead the product baseline in [docs/01-product-requirements.md](docs/01-product-requirements.md), API contract inventory in [docs/05-pve-api-contracts.md](docs/05-pve-api-contracts.md), security model in [docs/07-security-auth.md](docs/07-security-auth.md), test strategy in [docs/10-test-strategy.md](docs/10-test-strategy.md), premium roadmap in [docs/32-delivery-epics-sequencing.md](docs/32-delivery-epics-sequencing.md), and release gates in [docs/33-test-acceptance-release-gates.md](docs/33-test-acceptance-release-gates.md).
 
