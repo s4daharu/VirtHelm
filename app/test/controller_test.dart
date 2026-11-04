@@ -11,8 +11,11 @@ import 'package:virthelm/core/pve_api.dart';
 
 class _Vault implements CredentialVault {
   final Map<String, ApiCredentials> values = {};
+  int storeCalls = 0;
+
   @override
   Future<void> store(String id, ApiCredentials creds) async {
+    storeCalls++;
     values[id] = creds;
   }
 
@@ -72,6 +75,7 @@ class _Gateway implements PveGateway {
   int inventoryCalls = 0;
   int taskStatusCalls = 0;
   String status = 'running';
+  String serverVersion = '9.2';
   Completer<Inventory>? inventoryGate;
   bool connected = true;
   Completer<String>? preflight;
@@ -108,7 +112,7 @@ class _Gateway implements PveGateway {
     ],
   );
   @override
-  Future<String> version() async => '9.2';
+  Future<String> version() async => serverVersion;
   @override
   Future<Inventory> inventory() {
     inventoryCalls++;
@@ -220,6 +224,54 @@ void main() {
       expect(repo.readProfiles().single.id, replacement.id);
     },
   );
+
+  test('onboarding persists the observed server version', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repo = ProfileRepository(prefs, _Vault());
+    final ctl = AppController(
+      repository: repo,
+      gatewayFactory: (profile, credentials) =>
+          _Gateway()..serverVersion = '9.2.4',
+    );
+    addTearDown(ctl.dispose);
+
+    await ctl.connect(
+      name: 'Lab',
+      address: 'https://pve.local',
+      tokenId: 'me@pve!test',
+      secret: 'secret',
+    );
+
+    expect(repo.readProfiles().single.lastServerVersion, '9.2.4');
+    expect(ctl.active?.lastServerVersion, '9.2.4');
+  });
+
+  test('activation refreshes version without rewriting credentials', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final vault = _Vault();
+    final repo = ProfileRepository(prefs, vault);
+    final profile = ConnectionProfile.create(
+      name: 'Lab',
+      address: 'https://pve.local',
+    ).withServerVersion('8.4.0');
+    await repo.save(
+      profile,
+      const ApiCredentials(tokenId: 'me@pve!test', secret: 'secret'),
+    );
+    expect(vault.storeCalls, 1);
+
+    final ctl = AppController(
+      repository: repo,
+      gatewayFactory: (profile, credentials) =>
+          _Gateway()..serverVersion = '9.2.7',
+    );
+    addTearDown(ctl.dispose);
+    await ctl.initialize();
+
+    expect(ctl.active?.lastServerVersion, '9.2.7');
+    expect(repo.readProfiles().single.lastServerVersion, '9.2.7');
+    expect(vault.storeCalls, 1);
+  });
 
   test('profile update preserves identity and local guest metadata', () async {
     final prefs = await SharedPreferences.getInstance();

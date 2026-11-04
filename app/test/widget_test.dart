@@ -361,6 +361,34 @@ void main() {
     },
   );
 
+  testWidgets('shell and settings show last observed server version', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = AppController(
+      repository: ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    const profile = ConnectionProfile(
+      id: 'lab',
+      name: 'Lab',
+      endpoint: 'https://pve.local:8006',
+      lastServerVersion: '9.2.4',
+    );
+    controller.active = profile;
+    controller.profiles = const [profile];
+
+    await tester.pumpWidget(
+      MaterialApp(home: ShellPage(controller: controller)),
+    );
+
+    expect(find.textContaining('PVE 9.2.4'), findsOneWidget);
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('PVE 9.2.4 (last observed)'), findsOneWidget);
+  });
+
   testWidgets('all shell tabs fit a narrow phone at 200 percent text scale', (
     tester,
   ) async {

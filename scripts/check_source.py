@@ -20,7 +20,8 @@ required = [
   'docs/41-cross-check-audit.md','docs/42-merge-readiness-cross-check.md',
   'docs/44-implementation-m2-saved-guest-views.md',
   'docs/45-full-implementation-cross-check.md',
-  'docs/46-implementation-p0-profile-editing.md']
+  'docs/46-implementation-p0-profile-editing.md',
+  'docs/47-implementation-p0-server-version.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
@@ -34,6 +35,9 @@ assert 'options.followRedirects = false' in files['app/lib/core/pve_api.dart']
 assert 'SecureCredentialVault' in files['app/lib/core/profile_repository.dart']
 assert 'Future<void> update(ConnectionProfile profile' in files['app/lib/core/profile_repository.dart']
 assert 'Future<void> updateConnection' in files['app/lib/core/app_controller.dart']
+assert 'lastServerVersion' in files['app/lib/core/models.dart']
+assert 'Future<void> updateMetadata' in files['app/lib/core/profile_repository.dart']
+assert "last observed" in files['app/lib/ui/shell.dart']
 assert 'mayHaveExecuted' in files['app/lib/core/pve_api.dart']
 assert 'storageOverview' in files['app/lib/core/pve_api.dart']
 assert 'recentTasks' in files['app/lib/core/pve_api.dart']

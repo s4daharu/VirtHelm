@@ -123,7 +123,15 @@ class DioPveGateway implements PveGateway {
     if (value is! Map) {
       throw const PveFailure('Unexpected server version response.');
     }
-    return asText(value['version']) ?? 'Unknown';
+    final version = asText(value['version']);
+    if (version == null) {
+      throw const PveFailure('Server did not provide a version.');
+    }
+    try {
+      return normalizeServerVersion(version);
+    } on FormatException {
+      throw const PveFailure('Server returned an invalid version.');
+    }
   }
 
   @override

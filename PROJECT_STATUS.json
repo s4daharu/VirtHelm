@@ -25,7 +25,7 @@
   "flutter_app_path": "app/",
   "android_runner": "Generated and hardened by scripts/bootstrap_android.sh; generated runner is not committed",
   "m1_features": [
-    "secure API-token onboarding and validated profile editing",
+    "secure API-token onboarding, validated profile editing and last-observed server-version metadata",
     "cluster inventory",
     "node and guest dashboard",
     "QEMU/LXC guest controls",
@@ -102,12 +102,11 @@
       "feature-branch push and pull-request checks must not consume duplicate concurrent CI for the same branch; branch-keyed concurrency now cancels stale/duplicate runs"
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 80,
+    "current_flutter_tests_defined": 85,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
     "p0_gaps": [
-      "server version is checked during onboarding but not retained/presented as a user-facing capability",
       "rich task detail/log explorer is not implemented",
       "user-configurable theme/refresh/display preferences are not implemented",
       "persistent offline read cache is not implemented",
@@ -125,6 +124,15 @@
       "credential_policy": "leave both token fields blank to retain the encrypted credential; provide both to replace it; partial replacements are rejected",
       "persistence": "serialized metadata/secure-vault replacement with best-effort rollback on failure",
       "release_validation": "live PVE/device release gates remain open"
+    },
+    "server_version_followup": "docs/47-implementation-p0-server-version.md",
+    "f02_server_version": {
+      "status": "implemented_source_level",
+      "behavior": "retain and present the last successfully observed PVE version per connection; refresh it on activation",
+      "storage": "non-secret profile metadata only; encrypted credentials are not rewritten for version refreshes",
+      "validation": "missing, blank or malformed live version responses fail the version check",
+      "compatibility_boundary": "informational last-observed value only; no release compatibility claim or automatic feature gating",
+      "release_validation": "live PVE 9.2/8.4 compatibility and device/release gates remain open"
     }
   }
 }

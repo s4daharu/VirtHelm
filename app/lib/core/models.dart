@@ -8,19 +8,26 @@ class ConnectionProfile {
     required this.name,
     required this.endpoint,
     this.allowInvalidCertificates = false,
+    this.lastServerVersion,
   });
 
   final String id;
   final String name;
   final String endpoint;
   final bool allowInvalidCertificates;
+  final String? lastServerVersion;
 
-  Map<String, Object> toJson() => {
-    'id': id,
-    'name': name,
-    'endpoint': endpoint,
-    'allowInvalidCertificates': allowInvalidCertificates,
-  };
+  Map<String, Object> toJson() {
+    final json = <String, Object>{
+      'id': id,
+      'name': name,
+      'endpoint': endpoint,
+      'allowInvalidCertificates': allowInvalidCertificates,
+    };
+    final version = lastServerVersion;
+    if (version != null) json['lastServerVersion'] = version;
+    return json;
+  }
 
   factory ConnectionProfile.fromJson(Map<String, dynamic> json) =>
       ConnectionProfile(
@@ -29,6 +36,7 @@ class ConnectionProfile {
         endpoint: json['endpoint'] as String,
         // Only an explicit boolean enables this security-sensitive exception.
         allowInvalidCertificates: json['allowInvalidCertificates'] == true,
+        lastServerVersion: _storedServerVersion(json['lastServerVersion']),
       );
 
   static ConnectionProfile create({
@@ -48,6 +56,31 @@ class ConnectionProfile {
       endpoint: normalizePveEndpoint(address),
       allowInvalidCertificates: allowInvalidCertificates,
     );
+  }
+
+  ConnectionProfile withServerVersion(String version) => ConnectionProfile(
+    id: id,
+    name: name,
+    endpoint: endpoint,
+    allowInvalidCertificates: allowInvalidCertificates,
+    lastServerVersion: normalizeServerVersion(version),
+  );
+}
+
+String normalizeServerVersion(String value) {
+  final normalized = value.trim();
+  if (normalized.isEmpty || normalized.length > 80) {
+    throw const FormatException('Server returned an invalid version.');
+  }
+  return normalized;
+}
+
+String? _storedServerVersion(Object? value) {
+  if (value is! String) return null;
+  try {
+    return normalizeServerVersion(value);
+  } on FormatException {
+    return null;
   }
 }
 
