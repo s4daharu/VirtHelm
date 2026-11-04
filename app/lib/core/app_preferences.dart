@@ -1,7 +1,12 @@
 // Non-secret, device-local UI preferences. No server data or credentials.
 enum AppThemePreference { system, light, dark }
 
-enum AutoRefreshPreference { off, every30Seconds, every60Seconds, every120Seconds }
+enum AutoRefreshPreference {
+  off,
+  every30Seconds,
+  every60Seconds,
+  every120Seconds,
+}
 
 extension AutoRefreshInterval on AutoRefreshPreference {
   Duration? get interval => switch (this) {
