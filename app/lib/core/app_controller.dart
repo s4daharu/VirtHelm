@@ -183,10 +183,7 @@ class AppController extends ChangeNotifier {
       }
       profiles = repository.readProfiles();
       if (generation == _generation) {
-        await activate(
-          validatedProfile,
-          knownServerVersion: serverVersion,
-        );
+        await activate(validatedProfile, knownServerVersion: serverVersion);
       } else {
         // Saving may finish after the operator has switched connections. Keep
         // their selection, but retain the newly saved profile for later use.
@@ -267,10 +264,7 @@ class AppController extends ChangeNotifier {
       }
       profiles = repository.readProfiles();
       if (generation == _generation && active?.id == profile.id) {
-        await activate(
-          validatedProfile,
-          knownServerVersion: serverVersion,
-        );
+        await activate(validatedProfile, knownServerVersion: serverVersion);
       } else {
         _notify();
       }
@@ -344,8 +338,7 @@ class AppController extends ChangeNotifier {
         );
       }
       _gateway = _factory(profile, credentials);
-      final serverVersion =
-          knownServerVersion ?? await _gateway!.version();
+      final serverVersion = knownServerVersion ?? await _gateway!.version();
       if (generation != _generation || _disposed) return;
       final observedProfile = profile.withServerVersion(serverVersion);
       active = observedProfile;
