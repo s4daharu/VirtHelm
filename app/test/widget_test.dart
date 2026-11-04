@@ -46,7 +46,28 @@ class _RecordingController extends AppController {
     : super(repository: repository);
 
   final List<bool> connections = [];
+  final List<Map<String, Object?>> updates = [];
   Object? connectionError;
+
+  @override
+  Future<void> updateConnection({
+    required String profileId,
+    required String name,
+    required String address,
+    String tokenId = '',
+    String secret = '',
+    bool allowInvalidCertificates = false,
+  }) async {
+    updates.add({
+      'profileId': profileId,
+      'name': name,
+      'address': address,
+      'tokenId': tokenId,
+      'secret': secret,
+      'allowInvalidCertificates': allowInvalidCertificates,
+    });
+    if (connectionError != null) throw connectionError!;
+  }
 
   @override
   Future<void> connect({
@@ -145,6 +166,76 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.connections, [false]);
     expect(find.byType(AlertDialog), findsNothing);
+  });
+
+  testWidgets(
+    'profile edit prefills fields and keeps saved token when token fields are blank',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = _RecordingController(
+        ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      const profile = ConnectionProfile(
+        id: 'lab',
+        name: 'Home Lab',
+        endpoint: 'https://pve.local:8006',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ConnectPage(controller: controller, profile: profile),
+        ),
+      );
+
+      final fields = find.byType(TextFormField);
+      expect(tester.widget<TextFormField>(fields.at(0)).controller?.text, 'Home Lab');
+      expect(
+        tester.widget<TextFormField>(fields.at(1)).controller?.text,
+        'https://pve.local:8006',
+      );
+      expect(tester.widget<TextFormField>(fields.at(2)).controller?.text, isEmpty);
+      expect(tester.widget<TextFormField>(fields.at(3)).controller?.text, isEmpty);
+
+      await tester.ensureVisible(find.text('Save connection'));
+      await tester.tap(find.text('Save connection'));
+      await tester.pumpAndSettle();
+
+      expect(controller.updates, hasLength(1));
+      expect(controller.updates.single['profileId'], profile.id);
+      expect(controller.updates.single['name'], profile.name);
+      expect(controller.updates.single['tokenId'], '');
+      expect(controller.updates.single['secret'], '');
+    },
+  );
+
+  testWidgets('profile edit rejects a partial replacement token', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = _RecordingController(
+      ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    const profile = ConnectionProfile(
+      id: 'lab',
+      name: 'Home Lab',
+      endpoint: 'https://pve.local:8006',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ConnectPage(controller: controller, profile: profile),
+      ),
+    );
+    final fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(2), 'me@pve!new');
+    await tester.ensureVisible(find.text('Save connection'));
+    await tester.tap(find.text('Save connection'));
+    await tester.pump();
+
+    expect(controller.updates, isEmpty);
+    expect(find.text('Enter the secret or clear the token ID'), findsOneWidget);
   });
 
   testWidgets(
