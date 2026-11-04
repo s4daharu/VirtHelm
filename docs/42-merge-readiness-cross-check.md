@@ -16,8 +16,8 @@ Cross-checked the M1 foundation, partial M2 read cockpit, F05 guest-discovery pa
 ## Corrections in this cross-check
 1. **Terminal-task inventory race:** if an inventory GET was already in flight before the task completed, a plain single-flight `refresh()` could reuse that earlier read. The controller now completes any prior refresh before starting a new post-terminal inventory request, with a connection generation check.
 2. **Malformed supplemental records:** storage and recent-task list parsing now counts non-string map-key rows as malformed without discarding otherwise valid items.
-3. **F05 guest discovery:** filtering and sorting operate only on the already fetched active-profile snapshot, keeping write safety and cross-profile isolation intact.
-4. Regression tests cover the task/refresh race and malformed map keys, as well as filtering and sort behavior. Check GitHub Actions for the actual outcome on the final branch SHA.
+3. **F05 guest discovery and profile scope:** filtering and sorting operate on the active-profile snapshot. Favorite taps now pass the profile identity captured by the rendered tile; a stale tap cannot save a favorite into a different active profile.
+4. Regression tests cover the task/refresh race, malformed map keys, stale-profile favorite taps, and filtering and sorting. Check GitHub Actions for the actual outcome on the final branch SHA.
 
 ## Remaining release gates — explicit nonclaims
 - No PVE 9.2/8.4 disposable lab tests, least-privilege ACL matrix, or live QEMU/LXC mutation fault injection were performed in this review.
