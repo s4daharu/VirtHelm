@@ -136,7 +136,10 @@ class _ConnectPageState extends State<ConnectPage> {
                       Text(
                         'Your infrastructure.\nIn your hands.',
                         style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(fontWeight: FontWeight.w800, height: 1.1),
+                            ?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              height: 1.1,
+                            ),
                       ),
                       const SizedBox(height: 12),
                       Text(
@@ -151,8 +154,9 @@ class _ConnectPageState extends State<ConnectPage> {
                           hintText: 'Home Lab',
                         ),
                         textInputAction: TextInputAction.next,
-                        validator: (v) =>
-                            v == null || v.trim().isEmpty ? 'Enter a name' : null,
+                        validator: (v) => v == null || v.trim().isEmpty
+                            ? 'Enter a name'
+                            : null,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -239,7 +243,9 @@ class _ConnectPageState extends State<ConnectPage> {
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : Icon(
                                 allowInvalidCertificates
