@@ -208,6 +208,52 @@ void main() {
     },
   );
 
+  test(
+    'profile update preserves identity and local guest metadata',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final vault = _Vault();
+      final repo = ProfileRepository(prefs, vault);
+      final profile = ConnectionProfile.create(
+        name: 'Lab',
+        address: 'https://pve.local',
+      );
+      const originalCredentials = ApiCredentials(
+        tokenId: 'me@pve!old',
+        secret: 'old-secret',
+      );
+      await repo.save(profile, originalCredentials);
+      await repo.setGuestFavorite(profile.id, 'qemu:pve1:101', true);
+      await repo.saveGuestView(
+        profile.id,
+        SavedGuestView.create(name: 'Running', status: 'running'),
+      );
+
+      final updated = ConnectionProfile(
+        id: profile.id,
+        name: 'Primary Lab',
+        endpoint: 'https://new.example:8006',
+        allowInvalidCertificates: true,
+      );
+      const replacementCredentials = ApiCredentials(
+        tokenId: 'me@pve!new',
+        secret: 'new-secret',
+      );
+      await repo.update(updated, replacementCredentials);
+
+      expect(repo.readProfiles(), hasLength(1));
+      expect(repo.readProfiles().single.id, profile.id);
+      expect(repo.readProfiles().single.name, 'Primary Lab');
+      expect(repo.activeId, profile.id);
+      expect(
+        repo.readGuestFavorites(profile.id),
+        contains('qemu:pve1:101'),
+      );
+      expect(repo.readGuestViews(profile.id).single.name, 'Running');
+      expect(await vault.retrieve(profile.id), replacementCredentials);
+    },
+  );
+
   test('overlapping profile saves cannot lose another profile', () async {
     final prefs = await SharedPreferences.getInstance();
     final vault = _PausedStoreVault();
