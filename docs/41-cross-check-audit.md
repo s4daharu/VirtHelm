@@ -1,5 +1,7 @@
 # Cross-check audit — 2026-11-04
 
+> Historical evidence record. Test counts below describe this audit at the time it ran. The current whole-repository review and current scope are in [docs/45-full-implementation-cross-check.md](45-full-implementation-cross-check.md).
+
 ## Scope and assurance
 Reviewed the complete current Flutter implementation (models, gateway, encrypted credential/profile storage, controller, lifecycle, navigation and UI), all test suites, Android generation/hardening scripts, both CI workflows, signing configuration and implementation/status documentation. This is a source and automated regression audit, not a claim that every defect is excluded or that the full premium roadmap is implemented.
 
@@ -35,6 +37,6 @@ No manual release workflow is dispatched by this audit, and no signed release is
 - Physical Android min/current API TLS, private-CA/expired/wrong-host/IPv6, Keystore/backup/restore, process death, VPN switching, TalkBack and 200-guest performance/power tests remain open.
 - Task tracking and unknown-outcome locks remain in-memory/session-only. There is no persistent operation journal across process death; inspect server task history before manually retrying after restart/reconnect. No offline/automatic mutation replay is implemented.
 - Signed release APK execution, ABI/update/install verification, independent security/dependency/advisory/license/SBOM review and comprehensive repository-history secret scanning remain release gates. Configuring a key and testing workflow logic does not satisfy them.
-- The implemented app remains the M1 safe-operation foundation plus a partial M2 cockpit. Charts/RRD, named saved views, advanced filters, alerts/background notifications, persistent offline cache, biometrics, ticket/MFA/console, snapshots/backups, migration/provisioning, PBS/PDM and infrastructure mutation are intentionally deferred. The premium catalogue is a planning backlog, not proof those features exist.
+- The implemented app remains the M1 safe-operation foundation plus a partial M2 cockpit. Profile-scoped named saved views and expanded local type/node/sort discovery were added after this audit. Charts/RRD, tag/group filters, alerts/background notifications, persistent offline cache, biometrics, ticket/MFA/console, snapshots/backups, migration/provisioning, PBS/PDM and infrastructure mutation remain intentionally deferred. The premium catalogue is a planning backlog, not proof those features exist.
 
 See [Definition of Done](19-definition-of-done.md), [release gates](33-test-acceptance-release-gates.md) and [TLS policy](40-profile-tls-option.md). These open gates must not be described as "nothing missing" or production certification.

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:virthelm/core/app_controller.dart';
+import 'package:virthelm/core/guest_list_filter.dart';
 import 'package:virthelm/core/models.dart';
 import 'package:virthelm/core/profile_repository.dart';
 import 'package:virthelm/ui/connect_page.dart';
@@ -16,6 +19,26 @@ class _EmptyVault implements CredentialVault {
   Future<ApiCredentials?> retrieve(String id) async => null;
   @override
   Future<void> remove(String id) async {}
+}
+
+class _BlockingController extends AppController {
+  _BlockingController(ProfileRepository repository)
+    : super(repository: repository);
+
+  final started = Completer<void>();
+  final gate = Completer<void>();
+
+  @override
+  Future<void> connect({
+    required String name,
+    required String address,
+    required String tokenId,
+    required String secret,
+    bool allowInvalidCertificates = false,
+  }) async {
+    if (!started.isCompleted) started.complete();
+    await gate.future;
+  }
 }
 
 class _RecordingController extends AppController {
@@ -123,6 +146,53 @@ void main() {
     expect(controller.connections, [false]);
     expect(find.byType(AlertDialog), findsNothing);
   });
+
+  testWidgets(
+    'add-connection route cannot pop while connection check is running',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = _BlockingController(
+        ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => ConnectPage(controller: controller),
+                  ),
+                ),
+                child: const Text('Open connection form'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open connection form'));
+      await tester.pumpAndSettle();
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(0), 'Lab');
+      await tester.enterText(fields.at(1), 'https://pve.local');
+      await tester.enterText(fields.at(2), 'me@pve!test');
+      await tester.enterText(fields.at(3), 'test-secret');
+      await tester.ensureVisible(find.text('Connect securely'));
+      await tester.tap(find.text('Connect securely'));
+      await tester.pump();
+      await controller.started.future;
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(find.byType(ConnectPage), findsOneWidget);
+
+      controller.gate.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(ConnectPage), findsNothing);
+    },
+  );
 
   testWidgets('credential-plugin exceptions are never displayed verbatim', (
     tester,
@@ -328,15 +398,28 @@ void main() {
     await tester.tap(find.text('Any type'));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('All nodes'));
     await tester.tap(find.text('All nodes'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('pve2').last);
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CheckedPopupMenuItem<String> && widget.value == 'pve2',
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('2 workloads'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Sort: Favorites first'));
     await tester.tap(find.text('Sort: Favorites first'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('VMID'));
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CheckedPopupMenuItem<GuestSort> &&
+            widget.value == GuestSort.vmid,
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Sort: VMID'), findsOneWidget);
 
@@ -362,5 +445,125 @@ void main() {
     expect(find.text('New profile workload'), findsOneWidget);
     expect(find.text('All nodes'), findsOneWidget);
     expect(find.text('Sort: Favorites first'), findsOneWidget);
+  });
+
+  testWidgets('guest filters can be saved and restored as a named view', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final repo = ProfileRepository(prefs, _EmptyVault());
+    const profile = ConnectionProfile(
+      id: 'lab',
+      name: 'Lab',
+      endpoint: 'https://pve.local:8006',
+    );
+    await repo.save(
+      profile,
+      const ApiCredentials(tokenId: 'me@pve!test', secret: 'test'),
+    );
+    final controller = AppController(repository: repo);
+    addTearDown(controller.dispose);
+    controller.active = profile;
+    controller.inventory = Inventory.fromResources([
+      {
+        'type': 'qemu',
+        'vmid': 101,
+        'node': 'pve1',
+        'name': 'Alpha',
+        'status': 'running',
+      },
+      {
+        'type': 'lxc',
+        'vmid': 102,
+        'node': 'pve2',
+        'name': 'Beta',
+        'status': 'stopped',
+      },
+      {
+        'type': 'lxc',
+        'vmid': 103,
+        'node': 'pve2',
+        'name': 'Gamma',
+        'status': 'running',
+      },
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(home: ShellPage(controller: controller)),
+    );
+    await tester.tap(find.text('Guests'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, 'Beta');
+    await tester.tap(find.text('Stopped'));
+    await tester.tap(find.text('Containers'));
+    await tester.ensureVisible(find.text('All nodes'));
+    await tester.tap(find.text('All nodes'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CheckedPopupMenuItem<String> && widget.value == 'pve2',
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Sort: Favorites first'));
+    await tester.tap(find.text('Sort: Favorites first'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CheckedPopupMenuItem<GuestSort> &&
+            widget.value == GuestSort.vmid,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('1 workloads'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Save view'));
+    await tester.tap(find.text('Save view'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'PVE2 stopped');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('PVE2 stopped'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).first, '');
+    await tester.tap(find.text('All'));
+    await tester.tap(find.text('Any type'));
+    await tester.ensureVisible(find.text('Node: pve2'));
+    await tester.tap(find.text('Node: pve2'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CheckedPopupMenuItem<String> && widget.value == '__all',
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Sort: VMID'));
+    await tester.tap(find.text('Sort: VMID'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CheckedPopupMenuItem<GuestSort> &&
+            widget.value == GuestSort.favorites,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('3 workloads'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('PVE2 stopped'));
+    await tester.tap(find.text('PVE2 stopped'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 workloads'), findsOneWidget);
+    expect(find.widgetWithText(ListTile, 'Beta'), findsOneWidget);
+    expect(find.text('Sort: VMID'), findsOneWidget);
+    expect(find.text('Node: pve2'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).first).controller?.text,
+      'Beta',
+    );
   });
 }

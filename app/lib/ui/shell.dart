@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
 import '../core/guest_list_filter.dart';
+import '../core/guest_saved_view.dart';
 import '../core/models.dart';
 import 'connect_page.dart';
 import 'guest_page.dart';
@@ -622,6 +623,7 @@ class _GuestsTabState extends State<_GuestsTab> {
   GuestSort sort = GuestSort.favorites;
   String? nodeFilter;
   String? profileId;
+  String? activeViewId;
 
   @override
   void initState() {
@@ -642,6 +644,117 @@ class _GuestsTabState extends State<_GuestsTab> {
       kind = GuestKindFilter.all;
       nodeFilter = null;
       sort = GuestSort.favorites;
+      activeViewId = null;
+    }
+  }
+
+  void _manualChange(VoidCallback update) {
+    setState(() {
+      activeViewId = null;
+      update();
+    });
+  }
+
+  void _applyView(SavedGuestView view) {
+    setState(() {
+      search.value = TextEditingValue(
+        text: view.search,
+        selection: TextSelection.collapsed(offset: view.search.length),
+      );
+      query = view.search;
+      filter = view.status;
+      kind = view.kind;
+      nodeFilter = view.node;
+      sort = view.sort;
+      activeViewId = view.id;
+    });
+  }
+
+  Future<void> _saveCurrentView(BuildContext context) async {
+    final scopedProfileId = profileId;
+    if (scopedProfileId == null) return;
+    var viewName = '';
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Save guest view'),
+        content: TextField(
+          autofocus: true,
+          maxLength: maxSavedGuestViewNameLength,
+          decoration: const InputDecoration(
+            labelText: 'View name',
+            helperText: 'Saving the same name updates that view.',
+          ),
+          textInputAction: TextInputAction.done,
+          onChanged: (value) => viewName = value,
+          onSubmitted: (value) => Navigator.pop(dialogContext, value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, viewName),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || !mounted) return;
+    try {
+      final view = SavedGuestView.create(
+        name: name,
+        search: query,
+        status: filter,
+        kind: kind,
+        node: nodeFilter,
+        sort: sort,
+      );
+      final saved = await widget.controller.saveGuestView(
+        view,
+        expectedProfileId: scopedProfileId,
+      );
+      if (!mounted || saved == null) return;
+      setState(() => activeViewId = saved.id);
+    } on FormatException {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Enter a view name up to 40 characters.'),
+          ),
+        );
+      }
+    } on StateError {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not save view. Remove an old view or use another name.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteView(BuildContext context, SavedGuestView view) async {
+    final scopedProfileId = profileId;
+    if (scopedProfileId == null) return;
+    try {
+      await widget.controller.deleteGuestView(
+        view.id,
+        expectedProfileId: scopedProfileId,
+      );
+      if (mounted && activeViewId == view.id) {
+        setState(() => activeViewId = null);
+      }
+    } on StateError {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not remove saved view.')),
+        );
+      }
     }
   }
 
@@ -678,13 +791,43 @@ class _GuestsTabState extends State<_GuestsTab> {
                   padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
                   child: TextField(
                     controller: search,
-                    onChanged: (value) => setState(() => query = value),
+                    onChanged: (value) => _manualChange(() => query = value),
                     decoration: const InputDecoration(
                       hintText: 'Search guests, VMID, or node',
                       prefixIcon: Icon(Icons.search_rounded),
                     ),
                   ),
                 ),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Row(
+                    children: [
+                      ActionChip(
+                        avatar: const Icon(
+                          Icons.bookmark_add_outlined,
+                          size: 18,
+                        ),
+                        label: const Text('Save view'),
+                        onPressed: profileId == null
+                            ? null
+                            : () => _saveCurrentView(context),
+                      ),
+                      for (final view in controller.guestSavedViews) ...[
+                        const SizedBox(width: 8),
+                        InputChip(
+                          label: Text(view.name),
+                          selected: activeViewId == view.id,
+                          onPressed: () => _applyView(view),
+                          onDeleted: profileId == null
+                              ? null
+                              : () => _deleteView(context, view),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -699,7 +842,8 @@ class _GuestsTabState extends State<_GuestsTab> {
                         FilterChip(
                           label: Text(option.$2),
                           selected: filter == option.$1,
-                          onSelected: (_) => setState(() => filter = option.$1),
+                          onSelected: (_) =>
+                              _manualChange(() => filter = option.$1),
                         ),
                         const SizedBox(width: 8),
                       ],
@@ -720,7 +864,8 @@ class _GuestsTabState extends State<_GuestsTab> {
                         FilterChip(
                           label: Text(option.$2),
                           selected: kind == option.$1,
-                          onSelected: (_) => setState(() => kind = option.$1),
+                          onSelected: (_) =>
+                              _manualChange(() => kind = option.$1),
                         ),
                         const SizedBox(width: 8),
                       ],
@@ -735,7 +880,7 @@ class _GuestsTabState extends State<_GuestsTab> {
                     children: [
                       PopupMenuButton<String>(
                         tooltip: 'Filter by node',
-                        onSelected: (value) => setState(
+                        onSelected: (value) => _manualChange(
                           () => nodeFilter = value == '__all' ? null : value,
                         ),
                         itemBuilder: (_) => [
@@ -767,7 +912,8 @@ class _GuestsTabState extends State<_GuestsTab> {
                       ),
                       PopupMenuButton<GuestSort>(
                         tooltip: 'Sort guests',
-                        onSelected: (value) => setState(() => sort = value),
+                        onSelected: (value) =>
+                            _manualChange(() => sort = value),
                         itemBuilder: (_) => [
                           for (final option in GuestSort.values)
                             CheckedPopupMenuItem<GuestSort>(

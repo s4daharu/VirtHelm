@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'guest_saved_view.dart';
 import 'models.dart';
 import 'profile_repository.dart';
 import 'pve_api.dart';
@@ -26,6 +27,7 @@ class AppController extends ChangeNotifier {
   List<StoragePool> storages = [];
   List<RecentServerTask> serverTasks = [];
   Set<String> favoriteGuests = <String>{};
+  List<SavedGuestView> guestSavedViews = [];
   String? storageMessage;
   String? serverTaskMessage;
   String? inventoryWarning;
@@ -83,6 +85,39 @@ class AppController extends ChangeNotifier {
         expectedProfileId: expectedProfileId,
       );
 
+  Future<SavedGuestView?> saveGuestView(
+    SavedGuestView view, {
+    required String expectedProfileId,
+  }) async {
+    final profile = active;
+    if (profile == null || _disposed || profile.id != expectedProfileId) {
+      return null;
+    }
+    await repository.saveGuestView(profile.id, view);
+    if (_disposed || active?.id != profile.id) return null;
+    guestSavedViews = repository.readGuestViews(profile.id);
+    final normalizedName = view.name.toLowerCase();
+    final saved = guestSavedViews.where(
+      (item) => item.name.toLowerCase() == normalizedName,
+    );
+    _notify();
+    return saved.isEmpty ? null : saved.first;
+  }
+
+  Future<void> deleteGuestView(
+    String viewId, {
+    required String expectedProfileId,
+  }) async {
+    final profile = active;
+    if (profile == null || _disposed || profile.id != expectedProfileId) {
+      return;
+    }
+    await repository.deleteGuestView(profile.id, viewId);
+    if (_disposed || active?.id != profile.id) return;
+    guestSavedViews = repository.readGuestViews(profile.id);
+    _notify();
+  }
+
   bool isGuestActionBlocked(Guest guest) {
     final key = _guestKey(guest);
     return _pendingGuestOperations.contains(key) ||
@@ -121,6 +156,7 @@ class AppController extends ChangeNotifier {
       throw const PveFailure('A connection is already being checked.');
     }
     final generation = _generation;
+    final previousActiveId = repository.activeId;
     final profile = ConnectionProfile.create(
       name: name,
       address: address,
@@ -140,7 +176,10 @@ class AppController extends ChangeNotifier {
       await candidate.inventory(); // A valid token must also access inventory.
       _checkConnectionSetup(generation);
       await repository.save(profile, credential);
-      if (_disposed) return;
+      if (_disposed) {
+        await _rollbackCanceledConnection(profile.id, previousActiveId);
+        throw const PveFailure('Connection setup canceled.');
+      }
       profiles = repository.readProfiles();
       if (generation == _generation) {
         await activate(profile);
@@ -165,6 +204,28 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<void> _rollbackCanceledConnection(
+    String profileId,
+    String? previousActiveId,
+  ) async {
+    try {
+      await repository.delete(profileId);
+    } catch (_) {
+      // Failing closed is preferable to reviving a disposed controller. A
+      // subsequent launch will surface any incomplete local credential state.
+      return;
+    }
+    try {
+      final remaining = repository.readProfiles();
+      if (previousActiveId == null ||
+          remaining.any((profile) => profile.id == previousActiveId)) {
+        await repository.setActive(previousActiveId);
+      }
+    } catch (_) {
+      // Rollback is best-effort after the newly-created credential is removed.
+    }
+  }
+
   Future<void> activate(ConnectionProfile profile) async {
     if (_disposed || _deletingProfiles.contains(profile.id)) return;
     final generation = ++_generation;
@@ -174,6 +235,7 @@ class AppController extends ChangeNotifier {
     _gateway = null;
     active = profile;
     favoriteGuests = repository.readGuestFavorites(profile.id);
+    guestSavedViews = repository.readGuestViews(profile.id);
     inventory = null;
     tasks.clear();
     storages = [];
@@ -488,6 +550,7 @@ class AppController extends ChangeNotifier {
     _pollingGeneration = generation;
     final gateway = _gateway!;
     var finished = false;
+    String? authenticationFailure;
     final completedTargets = <String>[];
     try {
       for (final pendingTask in pending) {
@@ -546,6 +609,23 @@ class AppController extends ChangeNotifier {
           if (generation != _generation) return;
           if (error.status == 401) {
             message = error.message;
+            authenticationFailure = error.message;
+            final index = tasks.indexWhere(
+              (task) => task.upid == pendingTask.upid,
+            );
+            if (index >= 0) {
+              tasks[index] = pendingTask.withOutcome(
+                OperationOutcome.unknown,
+                detail:
+                    'Task verification lost authentication. Check server task history and guest state before another action.',
+              );
+            }
+            final target = _taskTargets.remove(pendingTask.upid);
+            if (target != null) {
+              _pendingGuestOperations.remove(target);
+              _uncertainGuestOperations.add(target);
+            }
+            finished = true;
             _notify();
             continue;
           }
@@ -578,8 +658,13 @@ class AppController extends ChangeNotifier {
       if (_pollingGeneration == generation) _pollingGeneration = null;
     }
     if (finished && generation == _generation) {
-      await _refreshAfterTask(generation);
-      if (generation != _generation || _disposed) return;
+      if (authenticationFailure == null || completedTargets.isNotEmpty) {
+        await _refreshAfterTask(generation);
+        if (generation != _generation || _disposed) return;
+      }
+      if (authenticationFailure != null) {
+        message = authenticationFailure;
+      }
       for (final target in completedTargets) {
         if (isInventoryFresh) {
           _pendingGuestOperations.remove(target);
@@ -619,6 +704,7 @@ class AppController extends ChangeNotifier {
       _gateway = null;
       active = null;
       favoriteGuests = <String>{};
+      guestSavedViews = [];
       inventory = null;
       storages = [];
       serverTasks = [];

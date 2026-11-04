@@ -7,4 +7,4 @@
 - The repository still has **no live PVE 8.4/9.2 compatibility certification, production signing, physical-device release evidence, or 100%-correctness guarantee**.
 - Historical implementation work is reviewed through pull requests; high-risk future infrastructure/restore changes retain the stronger independent-review gates in the premium roadmap.
 
-The initial documentation-only status is superseded by `docs/37-implementation-m1.md`, `docs/38-implementation-m2-read-cockpit.md`, and `docs/39-implementation-audit.md`.
+The initial documentation-only status is superseded by `docs/37-implementation-m1.md`, `docs/38-implementation-m2-read-cockpit.md`, and the current `docs/45-full-implementation-cross-check.md`.

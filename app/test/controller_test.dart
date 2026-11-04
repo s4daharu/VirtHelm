@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:virthelm/core/app_controller.dart';
+import 'package:virthelm/core/guest_saved_view.dart';
 import 'package:virthelm/core/models.dart';
 import 'package:virthelm/core/profile_repository.dart';
 import 'package:virthelm/core/pve_api.dart';
@@ -55,6 +57,7 @@ class _FailingStoreVault extends _Vault {
 class _Gateway implements PveGateway {
   int submissions = 0;
   int inventoryCalls = 0;
+  int taskStatusCalls = 0;
   String status = 'running';
   Completer<Inventory>? inventoryGate;
   bool connected = true;
@@ -138,6 +141,7 @@ class _Gateway implements PveGateway {
 
   @override
   Future<ServerTaskStatus> taskStatus(TrackedTask task) async {
+    taskStatusCalls++;
     if (taskStarted?.isCompleted == false) taskStarted!.complete();
     if (taskGate != null) return taskGate!.future;
     if (taskFailure != null) throw taskFailure!;
@@ -154,6 +158,55 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  test(
+    'malformed profile metadata cannot brick valid profiles or new onboarding',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final repo = ProfileRepository(prefs, _Vault());
+      const valid = ConnectionProfile(
+        id: 'valid-profile',
+        name: 'Valid',
+        endpoint: 'https://valid.example:8006',
+      );
+      await prefs.setString(
+        'profile_metadata_v1',
+        jsonEncode([
+          {'id': 'bad-type', 'name': 7, 'endpoint': 'https://bad.example:8006'},
+          valid.toJson(),
+          {'id': 'unsafe', 'name': 'Unsafe', 'endpoint': 'http://bad.example'},
+          valid.toJson(),
+        ]),
+      );
+
+      final recovered = repo.readProfiles();
+      expect(recovered, hasLength(2));
+      expect(recovered.first.id, valid.id);
+      expect(recovered.last.id, 'unsafe');
+      // Unsafe stored origins remain removable metadata; DioPveGateway
+      // independently refuses them before attaching credentials or sending I/O.
+      expect(
+        () => DioPveGateway(
+          recovered.last,
+          const ApiCredentials(tokenId: 'me@pve!test', secret: 'test'),
+        ),
+        throwsA(isA<FormatException>()),
+      );
+
+      await prefs.setString('profile_metadata_v1', '{malformed-json');
+      expect(repo.readProfiles(), isEmpty);
+
+      final replacement = ConnectionProfile.create(
+        name: 'Replacement',
+        address: 'https://replacement.example',
+      );
+      await repo.save(
+        replacement,
+        const ApiCredentials(tokenId: 'me@pve!test', secret: 'test'),
+      );
+      expect(repo.readProfiles().single.id, replacement.id);
+    },
+  );
 
   test('overlapping profile saves cannot lose another profile', () async {
     final prefs = await SharedPreferences.getInstance();
@@ -385,6 +438,33 @@ void main() {
       gateway.inventoryGate!.complete(Inventory.fromResources([]));
       await expectLater(connecting, throwsA(isA<PveFailure>()));
       expect(repo.readProfiles(), isEmpty);
+    },
+  );
+
+  test(
+    'disposal during secure persistence rolls back a late connection',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final vault = _PausedStoreVault();
+      final repo = ProfileRepository(prefs, vault);
+      final ctl = AppController(
+        repository: repo,
+        gatewayFactory: (profile, credentials) => _Gateway(),
+      );
+      final connecting = ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!test',
+        secret: 'test',
+      );
+      await vault.started.future;
+      ctl.dispose();
+      vault.gate.complete();
+
+      await expectLater(connecting, throwsA(isA<PveFailure>()));
+      expect(repo.readProfiles(), isEmpty);
+      expect(repo.activeId, isNull);
+      expect(vault.values, isEmpty);
     },
   );
 
@@ -1044,8 +1124,9 @@ void main() {
       );
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(ctl.message, contains('Authentication failed'));
-      expect(ctl.tasks.single.outcome, OperationOutcome.running);
-      expect(ctl.isInventoryFresh, isFalse);
+      expect(ctl.tasks.single.outcome, OperationOutcome.unknown);
+      expect(ctl.isGuestActionBlocked(guest), isTrue);
+      expect(gateway.taskStatusCalls, 1);
     },
   );
 
@@ -1214,4 +1295,32 @@ void main() {
       expect(repo.readGuestFavorites(oldProfile), isEmpty);
     },
   );
+
+  test('saved guest views reject stale profile writes', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repo = ProfileRepository(prefs, _Vault());
+    final a = ConnectionProfile.create(name: 'A', address: 'https://a.example');
+    final b = ConnectionProfile.create(name: 'B', address: 'https://b.example');
+    const credentials = ApiCredentials(tokenId: 'me@pve!test', secret: 'test');
+    await repo.save(a, credentials);
+    await repo.save(b, credentials);
+    final ctl = AppController(
+      repository: repo,
+      gatewayFactory: (profile, credentials) => _Gateway(),
+    );
+    addTearDown(ctl.dispose);
+    await ctl.initialize();
+    await ctl.activate(a);
+    final view = SavedGuestView.create(name: 'Stopped', status: 'stopped');
+    await ctl.activate(b);
+
+    expect(await ctl.saveGuestView(view, expectedProfileId: a.id), isNull);
+    expect(repo.readGuestViews(a.id), isEmpty);
+    expect(repo.readGuestViews(b.id), isEmpty);
+
+    final saved = await ctl.saveGuestView(view, expectedProfileId: b.id);
+    expect(saved?.name, 'Stopped');
+    expect(ctl.guestSavedViews.single.name, 'Stopped');
+    expect(repo.readGuestViews(a.id), isEmpty);
+  });
 }

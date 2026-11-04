@@ -1,5 +1,7 @@
 # Implementation audit — 2026-11-04
 
+> Historical audit record. The current whole-repository review is [docs/45-full-implementation-cross-check.md](45-full-implementation-cross-check.md); subsequent slices added expanded guest filtering/sorting and profile-scoped saved views.
+
 ## Purpose
 This audit cross-checked the implemented Flutter source, tests, generated Android runner, CI behavior and implementation/status documentation. It is a source-level and automated-build audit, **not** a substitute for the real PVE/device release matrix.
 
@@ -20,7 +22,7 @@ This audit cross-checked the implemented Flutter source, tests, generated Androi
 - Subsequent user-requested TLS change: added default-off, explicitly confirmed per-profile certificate bypass for any HTTPS host, native exact-host/port scoping, persistent UI warnings and regression coverage. This is a deliberate security tradeoff, not trusted-certificate enrollment; physical-device/security review remains open. See [TLS option](40-profile-tls-option.md).
 
 ## Implemented scope that remains intentionally incomplete
-The current code is an M1 foundation/safe-operator implementation plus an M2 read-cockpit slice. The full M2 roadmap still includes charts/RRD, named saved views, notification center/alerts, advanced filtering/sorting, persistent offline caching and formal accessibility/performance work. Later milestones cover ticket/MFA, console, snapshots/backups, PBS/PDM, provisioning/migration and infrastructure changes.
+The current code is an M1 foundation/safe-operator implementation plus an M2 read-cockpit slice. Subsequent work implemented local type/node filtering, deterministic guest sorting and profile-scoped named saved views. The remaining M2 roadmap still includes charts/RRD, notification center/alerts, tag/group filtering, persistent offline caching and formal accessibility/performance work. Later milestones cover ticket/MFA, console, snapshots/backups, PBS/PDM, provisioning/migration and infrastructure changes.
 
 Those items are **not defects in the current slice unless advertised as implemented**; repository copy must continue to mark them deferred.
 
