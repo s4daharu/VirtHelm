@@ -1202,10 +1202,7 @@ void main() {
         secret: 'test',
       );
       final newProfile = ctl.active!.id;
-      await ctl.toggleGuestFavorite(
-        oldGuest,
-        expectedProfileId: oldProfile,
-      );
+      await ctl.toggleGuestFavorite(oldGuest, expectedProfileId: oldProfile);
       expect(repo.readGuestFavorites(newProfile), isEmpty);
       expect(repo.readGuestFavorites(oldProfile), isEmpty);
       expect(ctl.favoriteGuests, isEmpty);
