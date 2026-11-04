@@ -159,6 +159,24 @@ void main() {
     expect(formatUptime(inv.guests.first.uptime), '1h 1m');
   });
 
+  test('task log parsing bounds long lines and rejects malformed rows', () {
+    final row = TaskLogEntry.fromApi({
+      'n': 8,
+      't': List.filled(600, 'x').join(),
+    });
+    expect(row.number, 8);
+    expect(row.text.length, 501);
+    expect(row.text.endsWith('…'), isTrue);
+    expect(
+      () => TaskLogEntry.fromApi({'n': -1, 't': 'bad'}),
+      throwsFormatException,
+    );
+    expect(
+      () => TaskLogEntry.fromApi({'n': 1, 't': 42}),
+      throwsFormatException,
+    );
+  });
+
   test('task success requires stopped state with OK exit code', () {
     expect(const ServerTaskStatus(status: 'running').succeeded, isFalse);
     expect(const ServerTaskStatus(status: 'stopped').succeeded, isFalse);
