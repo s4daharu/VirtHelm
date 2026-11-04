@@ -119,7 +119,10 @@ android {
         self.assertIn('umask 077', release_script('Restore required release keystore'))
         self.assertRegex(text, r'name: Remove temporary signing material\n\s+if: always\(\)')
         self.assertIn('test "$signer_digest" = "$expected_digest"', text)
-        self.assertIn("if: github.ref == 'refs/heads/main'", text)
+        self.assertIn(
+            "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'",
+            text,
+        )
         for script in [release_script(name) for name in [
             'Restore required release keystore', 'Build split release APKs',
             'Verify APK set, signatures, and ABIs', 'Create GitHub prerelease',
@@ -136,6 +139,12 @@ android {
             self.assertNotIn('actions/download-artifact@', text, path.name)
         release = (ROOT / '.github/workflows/release-android.yml').read_text()
         self.assertIn('  workflow_dispatch:', release)
+        self.assertIn('  workflow_run:', release)
+        self.assertIn('workflows: ["Docs and Android checks"]', release)
+        self.assertIn("github.event.workflow_run.event == 'push'", release)
+        self.assertIn("github.event.workflow_run.head_branch == 'main'", release)
+        self.assertIn("github.event.workflow_run.conclusion == 'success'", release)
+        self.assertIn('github.event.workflow_run.head_sha || github.sha', release)
         self.assertNotIn('\n  push:', release)
 
     def publish_fixture(self, *, existing=False, attempt='1', upload_failure=False,
@@ -194,7 +203,8 @@ else:
                    GH_TOKEN='offline-stub-only',
                    RELEASE_VERSION='0.1.0',
                    ARM64_APK=str(paths[0]), ARMV7_APK=str(paths[1]), CHECKSUMS=str(paths[2]),
-                   GITHUB_SHA='a' * 40, GITHUB_REPOSITORY='s4daharu/VirtHelm',
+                   GITHUB_SHA='a' * 40, RELEASE_SHA='a' * 40,
+                   GITHUB_REPOSITORY='s4daharu/VirtHelm',
                    GITHUB_SERVER_URL='https://github.com', GITHUB_RUN_NUMBER='42',
                    GITHUB_RUN_ATTEMPT=attempt, GITHUB_OUTPUT=str(output),
                    MOCK_GH_LOG=str(log), MOCK_GH_STATE=str(self.root / 'created'),

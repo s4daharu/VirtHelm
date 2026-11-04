@@ -62,10 +62,11 @@
   "apk_delivery": {
     "storage": "GitHub Release assets uploaded directly from the signed build runner, following NovelBridge",
     "actions_artifact_uploads": false,
-    "publication_trigger": "manual workflow_dispatch on main; CI debug APKs are compile-only",
+    "publication_trigger": "automatic workflow_run after successful Docs and Android checks for a push to main; manual workflow_dispatch on main remains available",
     "download_links": "release page plus ARM64, ARMv7 and checksums URLs in the workflow summary",
     "existing_artifacts": "not deleted; expire or are removed manually",
-    "cache_policy": "separate Actions build caches are unchanged"
+    "cache_policy": "separate Actions build caches are unchanged",
+    "release_source_sha": "workflow_run head_sha for automatic publication; github.sha for manual main dispatch"
   },
   "tls_policy": {
     "default": "certificate and hostname verification enabled",
