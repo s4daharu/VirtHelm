@@ -56,7 +56,7 @@ void main() {
     expect(
       () => SavedGuestView.create(
         name: 'A',
-        search: 'x' * (maxSavedGuestSearchLength + 1),
+        search: List.filled(maxSavedGuestSearchLength + 1, 'x').join(),
       ),
       throwsA(isA<FormatException>()),
     );
