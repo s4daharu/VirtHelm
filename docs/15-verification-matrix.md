@@ -1,40 +1,21 @@
 # Claim-to-Source and Release Verification Matrix
 
-Evidence status codes: **DOC** = official documentation/source substantiates concept; **PLAN** = chosen implementation design; **PENDING** = live integration or security validation required; **PASS** = testing evidence attached (none at initial authoring).
+Evidence status codes: **DOC** = official source substantiates the concept; **AUTO** = implemented behavior covered by automated source/unit/contract/build checks; **PLAN** = chosen design; **PENDING** = real integration/security/device evidence still required; **PASS** is reserved for attached target-environment evidence.
 
-| Claim / behavior | Source ID | Current evidence | Test required |
-|---|---|---|---|
-| Latest publicly listed release is PVE 9.2 (as of 2026-11-04) | S01/S02 | DOC | revisit release registry before shipment |
-| PVE HTTPS API listens on 8006 and forwards cluster requests | S04 | DOC | probe single + multi-node lab |
-| Correct header uses `PVEAPIToken=user@realm!id=secret` | S03 | DOC | T01 header unit, token integration |
-| Separated API token rights intersect user/token rights | S03 | DOC | permission matrix on lab |
-| API tokens do **not** access VM/system console endpoints | S03 | DOC | T02 negative console experiment |
-| `/version` returns server version | S06 | PENDING | 8.4/9.2 fixtures |
-| `/cluster/resources` and guest lists schema | S06/S07 | PENDING | 8.4/9.2 fixtures, partial ACL |
-| QEMU/LXC lifecycle POST exact method/params | S06/S08/S09 | PENDING | 8.4/9.2 guest mutation tests |
-| UPID task terminal state/exitstatus contract | S06/S07 | PENDING | normal and failure terminal tasks |
-| CPU/mem/disk/uptime units for each endpoint | S06 | PENDING | fixture unit tests and manual cross-check |
-| Ticket/CSRF flow for supported auth realms | S03/S06 | PENDING | login + TFA + expiry tests before P1 |
-| Android TLS should use trusted CA and hostname | S13/S14 | DOC | MITM, expired cert, wrong host |
-| Android secure storage package backup/migration concerns | S15/S16 | DOC | physical device restore tests |
-| Android minSdk 26 is product target | S12/S16 | PLAN | compile/test devices |
-| MVVM + repositories + services architecture | S10/S11 | PLAN | code review/lint |
-| Force-stop confirmation and no write auto-retry | security design | PLAN | widget and fault-injection tests |
-| 60fps at 200 guests and p95 launch target | PRD | PENDING | benchmark on agreed phone |
+| Claim / behavior | Current evidence | Remaining evidence |
+|---|---|---|
+| PVE HTTPS/API-token protocol and token-console limitation | DOC + AUTO header/transport tests | PVE 8.4/9.2 auth/ACL lab |
+| HTTPS-only origin, redirect rejection, explicit TLS failure | AUTO | physical-device valid/wrong-name/expired/private-CA tests |
+| Profile credential isolation and secure-storage metadata separation | AUTO | Android Keystore backup/restore/device-loss tests |
+| Cluster resource/guest parsing, units and uptime | AUTO | sanitized 8.4/9.2 fixtures and permission variants |
+| QEMU/LXC start/shutdown/reboot/stop paths and one-POST behavior | AUTO contract/fault guards | disposable 8.4/9.2 mutation tests |
+| Mutation single-flight, stale/profile race rejection, unknown timeout lockout | AUTO | network fault injection against real PVE |
+| Task-detail terminal success requires stopped + OK exit status | AUTO | live successful/failed task fixtures |
+| Node task-list RUNNING/archive-result normalization | source-inspected + AUTO | live 8.4/9.2 task-list fixtures |
+| Storage partial 403/malformed handling and no shared-total summation | AUTO | local/shared/PBS-backed PVE storage fixtures |
+| Android minSdk 26, release Internet, no cleartext/backup, no debug release signing | AUTO generated-runner CI | merged release-manifest/device backup and signing tests |
+| Reproducible Flutter dependency graph | AUTO committed lock + pinned Flutter 3.44.4 | deliberate dependency/security update review |
+| 200-guest responsiveness/accessibility targets | PENDING | representative phone benchmark/TalkBack/font-scale |
+| Ticket/MFA, console, PBS/PDM and high-risk operations | PLAN/deferred | separate milestone RFC/integration gates |
 
-## Evidence entry template
-```yaml
-claim_id: QEMU-STATUS-START
-pve_version: '9.2.x exact build'
-api_viewer_export_hash: '<sha256>'
-fixture_hash: '<sha256>'
-role_acl: '<sanitized path/role>'
-android_api: 35
-app_commit: '<sha>'
-test_ids: ['T06','T07','T08']
-result: PASS | FAIL | INCONCLUSIVE
-reviewed_by: '<engineer>'
-reviewed_at: 'YYYY-MM-DD'
-```
-
-**Rule:** source-only confidence is not execution proof. “100% correct data” cannot be guaranteed in absence of a real PVE cluster; this matrix makes uncertain claims and missing evidence visible.
+**Rule:** automated tests and a debug APK do not establish server/device/release correctness. Never enter target-environment `PASS` without the sanitized evidence required by `docs/10-test-strategy.md` and `docs/19-definition-of-done.md`.

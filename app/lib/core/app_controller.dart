@@ -7,17 +7,27 @@ import 'profile_repository.dart';
 import 'pve_api.dart';
 
 class AppController extends ChangeNotifier {
-  AppController({required this.repository, GatewayFactory? gatewayFactory})
-      : _factory = gatewayFactory ??
-            ((profile, credentials) => DioPveGateway(profile, credentials));
+  AppController({
+    required this.repository,
+    GatewayFactory? gatewayFactory,
+    this.taskVerificationTtl = const Duration(minutes: 15),
+  }) : _factory =
+           gatewayFactory ??
+           ((profile, credentials) => DioPveGateway(profile, credentials));
 
   final ProfileRepository repository;
   final GatewayFactory _factory;
+  final Duration taskVerificationTtl;
 
   List<ConnectionProfile> profiles = [];
   ConnectionProfile? active;
   Inventory? inventory;
   final List<TrackedTask> tasks = [];
+  List<StoragePool> storages = [];
+  List<RecentServerTask> serverTasks = [];
+  String? storageMessage;
+  String? serverTaskMessage;
+  String? inventoryWarning;
   String? message;
   bool initialized = false;
   bool refreshing = false;
@@ -29,6 +39,7 @@ class AppController extends ChangeNotifier {
   bool _polling = false;
   bool _foreground = true;
   bool _disposed = false;
+  Future<void>? _refreshFuture;
 
   // A guest is single-flight across preflight, submission and UPID completion.
   // Unknown outcomes remain blocked for this connection session.
@@ -36,15 +47,13 @@ class AppController extends ChangeNotifier {
   final Set<String> _uncertainGuestOperations = {};
   final Map<String, String> _taskTargets = {};
 
-  String _guestKey(Guest guest) =>
-      '${guest.kind}:${guest.node}:${guest.vmid}';
+  String _guestKey(Guest guest) => '${guest.kind}:${guest.node}:${guest.vmid}';
 
   bool isGuestActionBlocked(Guest guest) {
     final key = _guestKey(guest);
     return _pendingGuestOperations.contains(key) ||
         _uncertainGuestOperations.contains(key);
   }
-
 
   void _notify() {
     if (!_disposed) notifyListeners();
@@ -98,11 +107,17 @@ class AppController extends ChangeNotifier {
   Future<void> activate(ConnectionProfile profile) async {
     final generation = ++_generation;
     _pollTimer?.cancel();
+    _refreshFuture = null;
     _gateway?.close();
     _gateway = null;
     active = profile;
     inventory = null;
     tasks.clear();
+    storages = [];
+    serverTasks = [];
+    storageMessage = null;
+    serverTaskMessage = null;
+    inventoryWarning = null;
     _pendingGuestOperations.clear();
     _uncertainGuestOperations.clear();
     _taskTargets.clear();
@@ -113,7 +128,9 @@ class AppController extends ChangeNotifier {
       final credentials = await repository.vault.retrieve(profile.id);
       if (generation != _generation || _disposed) return;
       if (credentials == null || !credentials.isValid) {
-        throw const PveFailure('Saved token unavailable. Remove and add this connection again.');
+        throw const PveFailure(
+          'Saved token unavailable. Remove and add this connection again.',
+        );
       }
       _gateway = _factory(profile, credentials);
       await repository.setActive(profile.id);
@@ -121,13 +138,27 @@ class AppController extends ChangeNotifier {
       if (generation == _generation && _foreground) _startPolling();
     } catch (e) {
       if (generation == _generation) {
+        _gateway?.close();
+        _gateway = null;
+        inventory = null;
         message = e is PveFailure ? e.message : 'Could not open connection.';
         _notify();
       }
     }
   }
 
-  Future<void> refresh() async {
+  Future<void> refresh() {
+    final current = _refreshFuture;
+    if (current != null) return current;
+    late final Future<void> future;
+    future = _refreshOnce().whenComplete(() {
+      if (identical(_refreshFuture, future)) _refreshFuture = null;
+    });
+    _refreshFuture = future;
+    return future;
+  }
+
+  Future<void> _refreshOnce() async {
     final gateway = _gateway;
     if (gateway == null) return;
     final generation = _generation;
@@ -138,6 +169,15 @@ class AppController extends ChangeNotifier {
       if (generation != _generation) return;
       inventory = next;
       message = null;
+      inventoryWarning = next.malformedGuestRecords == 0
+          ? null
+          : 'Ignored ${next.malformedGuestRecords} malformed guest record(s). '
+                'Guest mutations are disabled until a clean inventory refresh.';
+      final nodes = next.nodes.map((node) => node.name).toList(growable: false);
+      await Future.wait<void>([
+        _loadStorage(gateway, nodes, generation),
+        _loadServerTasks(gateway, nodes, generation),
+      ]);
     } catch (e) {
       if (generation != _generation) return;
       message = e is PveFailure ? e.message : 'Unable to refresh inventory.';
@@ -150,10 +190,76 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<void> _loadStorage(
+    PveGateway gateway,
+    List<String> nodes,
+    int generation,
+  ) async {
+    try {
+      final result = await gateway.storageOverview(nodes);
+      if (generation != _generation || _disposed) return;
+      storages = result.values;
+      storageMessage = _sectionWarning(result, 'storage data');
+    } on PveFailure catch (error) {
+      if (generation != _generation || _disposed) return;
+      if (error.status == 401) message = error.message;
+      storageMessage =
+          'Storage overview could not be refreshed. Previously shown data may be stale.';
+    } catch (_) {
+      if (generation != _generation || _disposed) return;
+      storageMessage =
+          'Storage overview could not be refreshed. Previously shown data may be stale.';
+    }
+  }
+
+  Future<void> _loadServerTasks(
+    PveGateway gateway,
+    List<String> nodes,
+    int generation,
+  ) async {
+    try {
+      final result = await gateway.recentTasks(nodes);
+      if (generation != _generation || _disposed) return;
+      serverTasks = result.values;
+      serverTaskMessage = _sectionWarning(result, 'server task history');
+    } on PveFailure catch (error) {
+      if (generation != _generation || _disposed) return;
+      if (error.status == 401) message = error.message;
+      serverTaskMessage =
+          'Server task history could not be refreshed. Previously shown data may be stale.';
+    } catch (_) {
+      if (generation != _generation || _disposed) return;
+      serverTaskMessage =
+          'Server task history could not be refreshed. Previously shown data may be stale.';
+    }
+  }
+
+  String? _sectionWarning<T>(ReadCollection<T> result, String label) {
+    if (result.complete) return null;
+    final details = <String>[];
+    if (result.permissionDeniedNodes > 0) {
+      details.add('${result.permissionDeniedNodes} node(s) denied access');
+    }
+    if (result.failedNodes > 0) {
+      details.add('${result.failedNodes} node(s) unavailable');
+    }
+    if (result.malformedRecords > 0) {
+      details.add('${result.malformedRecords} malformed record(s) ignored');
+    }
+    final detail = details.join(', ');
+    return result.values.isEmpty
+        ? 'Could not load $label ($detail).'
+        : 'Some $label is unavailable ($detail).';
+  }
+
   bool get isInventoryFresh =>
       inventory != null &&
       message == null &&
-      DateTime.now().difference(inventory!.fetchedAt) < const Duration(minutes: 2);
+      DateTime.now().difference(inventory!.fetchedAt) <
+          const Duration(minutes: 2);
+
+  bool get isInventoryWriteSafe =>
+      isInventoryFresh && inventory!.malformedGuestRecords == 0;
 
   Future<void> runAction(
     Guest guest,
@@ -167,8 +273,10 @@ class AppController extends ChangeNotifier {
         'Connection changed; return to the guest list before acting.',
       );
     }
-    if (gateway == null || !isInventoryFresh || refreshing) {
-      throw const PveFailure('Refresh live inventory before making changes.');
+    if (gateway == null || !isInventoryWriteSafe || refreshing) {
+      throw const PveFailure(
+        'Refresh a clean live inventory before making changes.',
+      );
     }
 
     // A guest shown by an old screen must not authorize a command. A VMID
@@ -216,7 +324,7 @@ class AppController extends ChangeNotifier {
       }
       if (!identical(snapshot, inventory) ||
           refreshing ||
-          !isInventoryFresh) {
+          !isInventoryWriteSafe) {
         throw const PveFailure(
           'Inventory changed during verification. Refresh and review again.',
         );
@@ -250,6 +358,11 @@ class AppController extends ChangeNotifier {
       _notify();
       if (_foreground) _startPolling();
     } catch (error) {
+      if (generation == _generation &&
+          error is PveFailure &&
+          error.status == 401) {
+        message = error.message;
+      }
       // A failed POST can have executed on the server; do not allow another
       // local submission until the operator reviews the server-side result.
       if (generation == _generation &&
@@ -276,17 +389,21 @@ class AppController extends ChangeNotifier {
 
   void _startPolling() {
     _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      _pollTasks();
-    });
-    if (tasks.any((task) => task.outcome == OperationOutcome.running)) {
-      _pollTasks();
+    if (!_foreground ||
+        !tasks.any((task) => task.outcome == OperationOutcome.running)) {
+      return;
     }
+    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      unawaited(_pollTasks());
+    });
+    unawaited(_pollTasks());
   }
 
   Future<void> _pollTasks() async {
     if (_polling || !_foreground || _gateway == null) return;
-    final pending = tasks.where((t) => t.outcome == OperationOutcome.running).toList();
+    final pending = tasks
+        .where((t) => t.outcome == OperationOutcome.running)
+        .toList();
     if (pending.isEmpty) return;
     _polling = true;
     final generation = _generation;
@@ -295,6 +412,27 @@ class AppController extends ChangeNotifier {
     final completedTargets = <String>[];
     try {
       for (final pendingTask in pending) {
+        if (DateTime.now().difference(pendingTask.startedAt) >=
+            taskVerificationTtl) {
+          final index = tasks.indexWhere(
+            (task) => task.upid == pendingTask.upid,
+          );
+          if (index >= 0) {
+            tasks[index] = pendingTask.withOutcome(
+              OperationOutcome.unknown,
+              detail:
+                  'Task verification timed out. Verify server task history and guest state before another action.',
+            );
+          }
+          final target = _taskTargets.remove(pendingTask.upid);
+          if (target != null) {
+            _pendingGuestOperations.remove(target);
+            _uncertainGuestOperations.add(target);
+          }
+          finished = true;
+          _notify();
+          continue;
+        }
         try {
           final status = await gateway.taskStatus(pendingTask);
           if (generation != _generation || !_foreground) return;
@@ -304,11 +442,12 @@ class AppController extends ChangeNotifier {
           final result = status.succeeded
               ? OperationOutcome.succeeded
               : status.exitStatus == null
-                  ? OperationOutcome.unknown
-                  : OperationOutcome.failed;
+              ? OperationOutcome.unknown
+              : OperationOutcome.failed;
           tasks[index] = pendingTask.withOutcome(
             result,
-            detail: status.exitStatus ?? 'Task ended without a known exit status.',
+            detail:
+                status.exitStatus ?? 'Task ended without a known exit status.',
           );
           final target = _taskTargets.remove(pendingTask.upid);
           if (target != null) {
@@ -323,8 +462,35 @@ class AppController extends ChangeNotifier {
           }
           finished = true;
           _notify();
+        } on PveFailure catch (error) {
+          if (generation != _generation) return;
+          if (error.status == 401) {
+            message = error.message;
+            _notify();
+            continue;
+          }
+          if (error.status == 403 || error.status == 404) {
+            final index = tasks.indexWhere(
+              (task) => task.upid == pendingTask.upid,
+            );
+            if (index >= 0) {
+              tasks[index] = pendingTask.withOutcome(
+                OperationOutcome.unknown,
+                detail:
+                    'Task verification is unavailable. Check server task history and guest state before another action.',
+              );
+            }
+            final target = _taskTargets.remove(pendingTask.upid);
+            if (target != null) {
+              _pendingGuestOperations.remove(target);
+              _uncertainGuestOperations.add(target);
+            }
+            finished = true;
+            _notify();
+          }
+          // Other network/server failures remain unproven and retry until TTL.
         } catch (_) {
-          // Network outages are not evidence of task failure or success.
+          // Unknown client/network failures are not evidence of task outcome.
         }
       }
     } finally {
@@ -345,6 +511,10 @@ class AppController extends ChangeNotifier {
       }
       _notify();
     }
+    if (!tasks.any((task) => task.outcome == OperationOutcome.running)) {
+      _pollTimer?.cancel();
+      _pollTimer = null;
+    }
   }
 
   Future<void> deleteProfile(String id) async {
@@ -354,6 +524,7 @@ class AppController extends ChangeNotifier {
       // credential deletion could race an in-flight guest preflight.
       _generation++;
       _pollTimer?.cancel();
+      _refreshFuture = null;
       _gateway?.close();
       _gateway = null;
       active = null;
@@ -382,6 +553,7 @@ class AppController extends ChangeNotifier {
     _disposed = true;
     _generation++;
     _pollTimer?.cancel();
+    _refreshFuture = null;
     _gateway?.close();
     super.dispose();
   }

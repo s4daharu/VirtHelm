@@ -2,6 +2,7 @@ name: Docs and Android checks
 on:
   push:
   pull_request:
+
 jobs:
   docs:
     runs-on: ubuntu-latest
@@ -12,6 +13,7 @@ jobs:
       - run: python3 scripts/check_docs.py
       - run: python3 scripts/check_premium.py
       - run: python3 scripts/check_source.py
+
   detect-app:
     runs-on: ubuntu-latest
     permissions:
@@ -23,11 +25,12 @@ jobs:
       - id: detect
         shell: bash
         run: |
-          if [[ -f app/pubspec.yaml ]]; then
+          if [[ -f app/pubspec.yaml && -f app/pubspec.lock ]]; then
             echo 'has_app=true' >> "$GITHUB_OUTPUT"
           else
             echo 'has_app=false' >> "$GITHUB_OUTPUT"
           fi
+
   flutter:
     needs: detect-app
     if: needs.detect-app.outputs.has_app == 'true'
@@ -42,11 +45,13 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: '3.44.4'  # AGP 8-era template; avoid current AGP 9 plugin resolution regression
+          flutter-version: '3.44.4'
       - run: bash ../scripts/bootstrap_android.sh
-      - run: dart format lib test
+      - run: git diff --exit-code -- pubspec.lock
+      - run: python3 ../scripts/check_android_generated.py
+      - run: dart format --output=none --set-exit-if-changed lib test
       - run: flutter analyze --fatal-infos
-      - run: flutter test
+      - run: flutter test --coverage
       - run: flutter build apk --debug
       - uses: actions/upload-artifact@v4
         with:

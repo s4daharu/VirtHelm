@@ -12,9 +12,11 @@ import 'ui/theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final preferences = await SharedPreferences.getInstance();
-  runApp(VirtHelmApp(
-    repository: ProfileRepository(preferences, SecureCredentialVault()),
-  ));
+  runApp(
+    VirtHelmApp(
+      repository: ProfileRepository(preferences, SecureCredentialVault()),
+    ),
+  );
 }
 
 class VirtHelmApp extends StatefulWidget {
@@ -25,8 +27,7 @@ class VirtHelmApp extends StatefulWidget {
   State<VirtHelmApp> createState() => _VirtHelmAppState();
 }
 
-class _VirtHelmAppState extends State<VirtHelmApp>
-    with WidgetsBindingObserver {
+class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
   late final AppController controller;
 
   @override
@@ -51,24 +52,24 @@ class _VirtHelmAppState extends State<VirtHelmApp>
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'VirtHelm',
-        debugShowCheckedModeBanner: false,
-        theme: virthelmTheme(Brightness.light),
-        darkTheme: virthelmTheme(Brightness.dark),
-        themeMode: ThemeMode.system,
-        home: AnimatedBuilder(
-          animation: controller,
-          builder: (context, _) {
-            if (!controller.initialized) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
-            }
-            if (controller.active == null) {
-              return ConnectPage(controller: controller);
-            }
-            return ShellPage(controller: controller);
-          },
-        ),
-      );
+    title: 'VirtHelm',
+    debugShowCheckedModeBanner: false,
+    theme: virthelmTheme(Brightness.light),
+    darkTheme: virthelmTheme(Brightness.dark),
+    themeMode: ThemeMode.system,
+    home: AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        if (!controller.initialized) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (controller.active == null) {
+          return ConnectPage(controller: controller);
+        }
+        return ShellPage(controller: controller);
+      },
+    ),
+  );
 }

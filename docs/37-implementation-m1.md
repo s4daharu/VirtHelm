@@ -3,7 +3,7 @@
 Status: First Flutter Android debug APK now builds in GitHub Actions. Real-device/PVE lab and release/security verification remain open.
 
 ## Scope
-Flutter 3.47 stable-compatible Dart source, Android phone-only generator, Material 3 views, profile onboarding and secure API token storage, direct PVE HTTP reader, VM/LXC discovery, guarded guest actions and UPID tracker. Read `app/README.md` for setup and limitations.
+Flutter 3.44.4-pinned Dart source, Android phone-only generator, Material 3 views, profile onboarding and secure API token storage, direct PVE HTTP reader, VM/LXC discovery, guarded guest actions and UPID tracker. Read `app/README.md` for setup and limitations.
 
 ## Chosen deviations
 - Uses Flutter ChangeNotifier + native Navigator for this first vertical slice to limit dependency risk. Premium architecture documentation recommends evaluating Riverpod/go_router in a subsequent refactor; do not claim they have been implemented.
@@ -31,4 +31,4 @@ The pinned Flutter 3.44.4 run [41712997783](https://github.com/s4daharu/VirtHelm
 - Before each POST, ensure the guest is the exact current inventory snapshot object, unambiguously located, and its node, VMID, type and state still match. Inventory replacement or profile activation during preflight blocks the old action.
 - Ambiguous write outcomes remain locked for the current connection session. The operator must inspect server task history and actual guest state before intentionally reconnecting to re-enable actions. There is **no** automatic retry or claim of success based on HTTP submission alone.
 - The guest UI disables power actions for locked targets. Deleting the active profile invalidates its in-memory session **before** awaiting vault I/O, so deletion cannot race a preflight into a new POST. Controller regression tests cover concurrent actions, unknown outcomes, stale records, profile switching, deletion, and terminal UPID release.
-- The feature branch needs its own GitHub Actions check and lab tests before merge/release. These guards reduce risk but do not eliminate a server-side race between status GET and POST.
+- The M1 safety branch passed GitHub Actions source checks, analyzer, tests and debug APK build. Real PVE/device lab tests remain required before release. These guards reduce risk but cannot make the server-side status-GET/action-POST sequence atomic.
