@@ -8,11 +8,11 @@ VirtHelm is an independent, unofficial mobile client for user-operated Proxmox V
 
 ## Implemented now
 
-The current source implements HTTPS-only API-token profiles, Android secure credential storage, profile isolation, cluster/node/QEMU/LXC inventory, searchable guests with profile-scoped favorites, named saved views, status/type/node filters and selectable sorting, read-only storage overview, recent server tasks, guest CPU/memory/disk/uptime, and guarded QEMU/LXC start/shutdown/reboot/force-stop actions with live preflight and UPID tracking.
+The current source implements HTTPS-only editable API-token profiles, Android secure credential storage, profile isolation, cluster/node/QEMU/LXC inventory, searchable guests with profile-scoped favorites, named saved views, status/type/node filters and selectable sorting, read-only storage overview, recent server tasks, guest CPU/memory/disk/uptime, and guarded QEMU/LXC start/shutdown/reboot/force-stop actions with live preflight and UPID tracking.
 
 Write safety includes exact profile/node/type/VMID identity, fresh clean inventory, single-flight submission, no automatic mutation retry, ambiguous-outcome lockout, bounded task verification, and authoritative refresh after terminal tasks. Redirects and cleartext are blocked. Certificate validation is enabled by default; an explicitly confirmed, saved per-connection insecure option is available for any HTTPS host. It allows server impersonation and token theft, even on a LAN. See [TLS option](docs/40-profile-tls-option.md).
 
-This is still **not** a production release. Real PVE 8.4/9.2 fixtures, ACL matrices, physical-device TLS/backup/accessibility/performance tests, release signing, and independent security review remain open. See the [full implementation cross-check](docs/45-full-implementation-cross-check.md), earlier [implementation audit](docs/39-implementation-audit.md), and [Definition of Done](docs/19-definition-of-done.md).
+This is still **not** a production release. Real PVE 8.4/9.2 fixtures, ACL matrices, physical-device TLS/backup/accessibility/performance tests, release signing, and independent security review remain open. See the [profile-editing implementation note](docs/46-implementation-p0-profile-editing.md), [full implementation cross-check](docs/45-full-implementation-cross-check.md), and [Definition of Done](docs/19-definition-of-done.md).
 
 ## Build and test
 
