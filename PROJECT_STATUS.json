@@ -103,7 +103,7 @@
       "feature-branch push and pull-request checks must not consume duplicate concurrent CI for the same branch; branch-keyed concurrency now cancels stale/duplicate runs"
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 85,
+    "current_flutter_tests_defined": 91,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
@@ -111,7 +111,7 @@
       "rich task detail/log explorer is not implemented",
       "user-configurable theme/refresh/display preferences are not implemented",
       "persistent offline read cache is not implemented",
-      "general bounded automatic GET retry/backoff and full timeout/offline classification are not implemented"
+      "full timeout/offline/DNS classification, connectivity awareness and automatic offline-state transitions are not implemented"
     ],
     "unverified_repository_controls": [
       "branch protection could not be read through the connected GitHub integration",
@@ -134,6 +134,14 @@
       "validation": "missing, blank or malformed live version responses fail the version check",
       "compatibility_boundary": "informational last-observed value only; no release compatibility claim or automatic feature gating",
       "release_validation": "live PVE 9.2/8.4 compatibility and device/release gates remain open"
+    },
+    "read_retry_followup": "docs/48-implementation-p0-read-retries.md",
+    "f12_read_retries": {
+      "status": "implemented_source_level",
+      "behavior": "at most three attempts for transient idempotent GET failures with bounded jittered backoff; never retry POST, TLS, redirects or auth/permission rejections",
+      "lifecycle": "closed profile gateways do not issue delayed retries",
+      "limits": "no persistent offline cache, connectivity observer or full DNS/timeout/offline classification",
+      "release_validation": "live PVE 9.2/8.4 and Android device/network fault-injection gates remain open"
     }
   }
 }
