@@ -19,7 +19,7 @@ The committed `pubspec.lock` is enforced. The bootstrap generates the Android ru
 ## Implemented
 - HTTPS-only named PVE profiles with strict endpoint validation and encrypted API-token storage.
 - Certificate verification on by default, with an explicitly confirmed per-profile insecure opt-in for any host; saved profiles and active screens display warnings.
-- Multiple isolated profiles, explicit switch/delete, no redirect credential forwarding.
+- Multiple isolated profiles with validated edit/switch/delete flows; edits preserve profile-local favorites/saved views and never forward credentials across redirects.
 - Cluster nodes and QEMU/LXC inventory with search, freshness, CPU/memory/disk/uptime.
 - Guest status/type/node filters, deterministic favorites/name/VMID/CPU/memory sorting, and up to 12 profile-scoped named saved views, without extra API requests.
 - Read-only per-node storage and recent server task history with partial permission/error reporting.
@@ -34,4 +34,4 @@ No real PVE 8.4/9.2 lab matrix or production-signed APK is claimed. Physical-dev
 
 No ticket/MFA, console, snapshots/backups, migration/provisioning, PBS/PDM, host/HA/Ceph/SDN mutation, subscriptions or payments are included.
 
-Use a dedicated least-privilege PVE API token and trusted HTTPS over LAN/VPN. API-token access does not provide console authentication. Disabling certificate verification permits server impersonation and token theft even on a LAN; it is not recommended for production. Remove and re-add a connection with the switch off to restore verification. See [TLS option](../docs/40-profile-tls-option.md). Native TLS regression tests generate disposable certificates using OpenSSL; install it before running `flutter test`.
+Use a dedicated least-privilege PVE API token and trusted HTTPS over LAN/VPN. API-token access does not provide console authentication. Disabling certificate verification permits server impersonation and token theft even on a LAN; it is not recommended for production. Edit a connection and save it with the switch off to restore certificate verification. See [TLS option](../docs/40-profile-tls-option.md). Native TLS regression tests generate disposable certificates using OpenSSL; install it before running `flutter test`.
