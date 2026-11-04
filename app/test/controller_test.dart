@@ -1176,42 +1176,45 @@ void main() {
     },
   );
 
-  test('a favorite tap from an old profile cannot change a new profile', () async {
-    final prefs = await SharedPreferences.getInstance();
-    final repo = ProfileRepository(prefs, _Vault());
-    final ctl = AppController(
-      repository: repo,
-      gatewayFactory: (profile, credentials) => _Gateway(),
-    );
-    addTearDown(ctl.dispose);
-    await ctl.initialize();
-    await ctl.connect(
-      name: 'A',
-      address: 'https://a.example',
-      tokenId: 'me@pve!test',
-      secret: 'test',
-    );
-    final oldProfile = ctl.active!.id;
-    final oldGuest = ctl.inventory!.guests.single;
-    await ctl.connect(
-      name: 'B',
-      address: 'https://b.example',
-      tokenId: 'me@pve!test',
-      secret: 'test',
-    );
-    final newProfile = ctl.active!.id;
-    await ctl.toggleGuestFavorite(
-      oldGuest,
-      expectedProfileId: oldProfile,
-    );
-    expect(repo.readGuestFavorites(newProfile), isEmpty);
-    expect(repo.readGuestFavorites(oldProfile), isEmpty);
-    expect(ctl.favoriteGuests, isEmpty);
-    await ctl.toggleGuestFavorite(
-      ctl.inventory!.guests.single,
-      expectedProfileId: newProfile,
-    );
-    expect(repo.readGuestFavorites(newProfile), isNotEmpty);
-    expect(repo.readGuestFavorites(oldProfile), isEmpty);
-  });
+  test(
+    'a favorite tap from an old profile cannot change a new profile',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final repo = ProfileRepository(prefs, _Vault());
+      final ctl = AppController(
+        repository: repo,
+        gatewayFactory: (profile, credentials) => _Gateway(),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'A',
+        address: 'https://a.example',
+        tokenId: 'me@pve!test',
+        secret: 'test',
+      );
+      final oldProfile = ctl.active!.id;
+      final oldGuest = ctl.inventory!.guests.single;
+      await ctl.connect(
+        name: 'B',
+        address: 'https://b.example',
+        tokenId: 'me@pve!test',
+        secret: 'test',
+      );
+      final newProfile = ctl.active!.id;
+      await ctl.toggleGuestFavorite(
+        oldGuest,
+        expectedProfileId: oldProfile,
+      );
+      expect(repo.readGuestFavorites(newProfile), isEmpty);
+      expect(repo.readGuestFavorites(oldProfile), isEmpty);
+      expect(ctl.favoriteGuests, isEmpty);
+      await ctl.toggleGuestFavorite(
+        ctl.inventory!.guests.single,
+        expectedProfileId: newProfile,
+      );
+      expect(repo.readGuestFavorites(newProfile), isNotEmpty);
+      expect(repo.readGuestFavorites(oldProfile), isEmpty);
+    },
+  );
 }
