@@ -124,9 +124,10 @@ jobs:
 
           """
 
-          if "plugins {" not in text:
-              raise SystemExit("Unexpected Gradle template: plugins block missing")
-          text = text.replace("plugins {", signing_prelude + "plugins {", 1)
+          android_block = "\nandroid {\n"
+          if android_block not in text:
+              raise SystemExit("Unexpected Gradle template: android block missing")
+          text = text.replace(android_block, "\n" + signing_prelude + "android {\n", 1)
 
           build_types = "    buildTypes {\n"
           if build_types not in text:
@@ -230,7 +231,12 @@ jobs:
           TITLE="VirtHelm v${{ steps.metadata.outputs.version }} build ${GITHUB_RUN_NUMBER}"
           NOTES="Signed Android test build from ${GITHUB_SHA}. This is a prerelease and does not satisfy VirtHelm's documented production release-certification gates."
 
-          gh release create "$TAG"             "${{ steps.verify.outputs.arm64 }}"             "${{ steps.verify.outputs.armv7 }}"             "${{ steps.verify.outputs.checksums }}"             --target "$GITHUB_SHA"             --title "$TITLE"             --notes "$NOTES"             --prerelease
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TITLE" --notes "$NOTES" --prerelease
+            gh release upload "$TAG"               "${{ steps.verify.outputs.arm64 }}"               "${{ steps.verify.outputs.armv7 }}"               "${{ steps.verify.outputs.checksums }}"               --clobber
+          else
+            gh release create "$TAG"               "${{ steps.verify.outputs.arm64 }}"               "${{ steps.verify.outputs.armv7 }}"               "${{ steps.verify.outputs.checksums }}"               --target "$GITHUB_SHA"               --title "$TITLE"               --notes "$NOTES"               --prerelease
+          fi
 
       - name: Build summary
         working-directory: .
