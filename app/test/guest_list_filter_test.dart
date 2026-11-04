@@ -49,21 +49,17 @@ void main() {
   ];
 
   bool favorite(Guest guest) => guest.kind == 'qemu' && guest.vmid == 101;
-  String identity(Guest guest) =>
-      '${guest.kind}/${guest.node}/${guest.vmid}';
+  String identity(Guest guest) => '${guest.kind}/${guest.node}/${guest.vmid}';
 
   test('default highlights favorites and breaks duplicate-name ties', () {
     final result = visibleGuests(guests, isFavorite: favorite);
     expect(result.first, same(guests.first));
-    expect(
-      result.skip(1).map(identity).toList(),
-      [
-        'qemu/pve1/104',
-        'lxc/pve1/102',
-        'qemu/pve2/99',
-        'lxc/pve2/101',
-      ],
-    );
+    expect(result.skip(1).map(identity).toList(), [
+      'qemu/pve1/104',
+      'lxc/pve1/102',
+      'qemu/pve2/99',
+      'lxc/pve2/101',
+    ]);
     expect(guests.first, same(result.first));
   });
 
@@ -101,8 +97,11 @@ void main() {
       ['lxc/pve1/102'],
     );
     expect(
-      visibleGuests(guests, isFavorite: favorite, status: 'favorites')
-          .map(identity),
+      visibleGuests(
+        guests,
+        isFavorite: favorite,
+        status: 'favorites',
+      ).map(identity),
       ['qemu/pve1/101'],
     );
     expect(
@@ -117,8 +116,11 @@ void main() {
 
   test('numeric VMID and metric sorts are stable with absent telemetry', () {
     expect(
-      visibleGuests(guests, isFavorite: favorite, sort: GuestSort.vmid)
-          .map(identity),
+      visibleGuests(
+        guests,
+        isFavorite: favorite,
+        sort: GuestSort.vmid,
+      ).map(identity),
       [
         'qemu/pve2/99',
         'lxc/pve2/101',
@@ -128,8 +130,11 @@ void main() {
       ],
     );
     expect(
-      visibleGuests(guests, isFavorite: favorite, sort: GuestSort.cpu)
-          .map(identity),
+      visibleGuests(
+        guests,
+        isFavorite: favorite,
+        sort: GuestSort.cpu,
+      ).map(identity),
       [
         'qemu/pve2/99',
         'qemu/pve1/101',
@@ -139,8 +144,11 @@ void main() {
       ],
     );
     expect(
-      visibleGuests(guests, isFavorite: favorite, sort: GuestSort.memory)
-          .map(identity),
+      visibleGuests(
+        guests,
+        isFavorite: favorite,
+        sort: GuestSort.memory,
+      ).map(identity),
       [
         'lxc/pve2/101',
         'qemu/pve2/99',
@@ -150,9 +158,11 @@ void main() {
       ],
     );
     expect(
-      visibleGuests(guests, isFavorite: favorite, sort: GuestSort.name)
-          .map(identity)
-          .first,
+      visibleGuests(
+        guests,
+        isFavorite: favorite,
+        sort: GuestSort.name,
+      ).map(identity).first,
       'qemu/pve1/104',
     );
   });
