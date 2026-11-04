@@ -12,7 +12,9 @@ ThemeData virthelmTheme(Brightness brightness) {
     useMaterial3: true,
     brightness: brightness,
     colorScheme: scheme,
-    scaffoldBackgroundColor: dark ? const Color(0xFF101719) : const Color(0xFFF7FAFA),
+    scaffoldBackgroundColor: dark
+        ? const Color(0xFF101719)
+        : const Color(0xFFF7FAFA),
     appBarTheme: AppBarTheme(
       backgroundColor: dark ? const Color(0xFF101719) : const Color(0xFFF7FAFA),
       scrolledUnderElevation: 0,
@@ -56,46 +58,78 @@ class StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final normalized = status.toLowerCase();
-    final isRunning = normalized == 'running' || normalized == 'online';
-    final isStopped = normalized == 'stopped' || normalized == 'offline';
-    final color = isRunning
+    final isPositive =
+        normalized == 'running' ||
+        normalized == 'online' ||
+        normalized == 'active' ||
+        normalized == 'enabled' ||
+        normalized == 'succeeded';
+    final isWarning =
+        normalized == 'stopped' ||
+        normalized == 'offline' ||
+        normalized == 'inactive';
+    final isError =
+        normalized == 'failed' ||
+        normalized == 'error' ||
+        normalized == 'disabled';
+    final color = isPositive
         ? const Color(0xFF34C6A3)
-        : isStopped
-            ? const Color(0xFFF3AA68)
-            : Theme.of(context).colorScheme.onSurfaceVariant;
+        : isWarning
+        ? const Color(0xFFF3AA68)
+        : isError
+        ? Theme.of(context).colorScheme.error
+        : Theme.of(context).colorScheme.onSurfaceVariant;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(50),
         color: color.withValues(alpha: 0.12),
       ),
-      child: Text(status, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700)),
+      child: Text(
+        status,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }
 
 class EmptyState extends StatelessWidget {
-  const EmptyState({super.key, required this.icon, required this.title, required this.body});
+  const EmptyState({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
   final IconData icon;
   final String title;
   final String body;
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 54, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(height: 16),
-              Text(title, style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
-              const SizedBox(height: 8),
-              Text(body,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  textAlign: TextAlign.center),
-            ],
+    child: Padding(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 54, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleLarge,
+            textAlign: TextAlign.center,
           ),
-        ),
-      );
+          const SizedBox(height: 8),
+          Text(
+            body,
+            style: Theme.of(context).textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    ),
+  );
 }

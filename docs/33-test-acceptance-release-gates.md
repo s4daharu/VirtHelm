@@ -1,5 +1,5 @@
 # Premium Quality Engineering, Verification and Release Gates
-**Truthful baseline:** current repository is documentation/CI scaffolding. No Flutter app, APK, lab-tested endpoints, pen test or production support SLA exists as of 2026-11-04.
+**Truthful baseline:** executable Flutter Android source and CI debug APKs exist as of 2026-11-04. Real PVE 8.4/9.2 lab evidence, physical-device release validation, penetration/security review, signed release artifacts and production support SLA do not yet exist.
 
 ## Test layers
 | Layer | Scope | Release evidence |

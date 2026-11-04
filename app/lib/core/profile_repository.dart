@@ -13,7 +13,7 @@ abstract class CredentialVault {
 
 class SecureCredentialVault implements CredentialVault {
   SecureCredentialVault([FlutterSecureStorage? storage])
-      : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? const FlutterSecureStorage();
 
   final FlutterSecureStorage _storage;
   String _key(String id) => 'virthelm:token:$id';
@@ -51,41 +51,57 @@ class ProfileRepository {
 
   String? get activeId => _prefs.getString(_activeKey);
 
-  Future<void> save(ConnectionProfile profile, ApiCredentials credentials) async {
+  Future<void> _writeProfiles(List<ConnectionProfile> profiles) async {
+    final saved = await _prefs.setString(
+      _profilesKey,
+      jsonEncode(profiles.map((profile) => profile.toJson()).toList()),
+    );
+    if (!saved) throw StateError('Could not store profile metadata.');
+  }
+
+  Future<void> save(
+    ConnectionProfile profile,
+    ApiCredentials credentials,
+  ) async {
+    final profiles = readProfiles();
+    if (profiles.any((item) => item.id == profile.id)) {
+      throw StateError('Profile already exists');
+    }
+    final previousActive = activeId;
     await vault.store(profile.id, credentials);
     try {
-      final profiles = readProfiles();
-      if (profiles.any((p) => p.id == profile.id)) {
-        throw StateError('Profile already exists');
-      }
-      final saved = await _prefs.setString(
-        _profilesKey,
-        jsonEncode([...profiles, profile].map((e) => e.toJson()).toList()),
-      );
-      if (!saved) throw StateError('Could not store profile metadata.');
+      await _writeProfiles([...profiles, profile]);
       await setActive(profile.id);
-    } catch (_) {
-      await vault.remove(profile.id);
-      rethrow;
+    } catch (error, stackTrace) {
+      // Best-effort rollback keeps ordinary metadata and encrypted secrets
+      // from becoming intentionally divergent after a partial local write.
+      try {
+        await _writeProfiles(profiles);
+      } catch (_) {}
+      try {
+        await setActive(previousActive);
+      } catch (_) {}
+      try {
+        await vault.remove(profile.id);
+      } catch (_) {}
+      Error.throwWithStackTrace(error, stackTrace);
     }
   }
 
   Future<void> setActive(String? id) async {
-    if (id == null) {
-      await _prefs.remove(_activeKey);
-    } else {
-      await _prefs.setString(_activeKey, id);
-    }
+    final saved = id == null
+        ? await _prefs.remove(_activeKey)
+        : await _prefs.setString(_activeKey, id);
+    if (!saved) throw StateError('Could not update the active profile.');
   }
 
   Future<void> delete(String id) async {
-    final remaining = readProfiles().where((p) => p.id != id).toList();
+    final remaining = readProfiles()
+        .where((profile) => profile.id != id)
+        .toList();
     // Delete the encrypted token first; failure stops profile removal.
     await vault.remove(id);
-    await _prefs.setString(
-      _profilesKey,
-      jsonEncode(remaining.map((p) => p.toJson()).toList()),
-    );
+    await _writeProfiles(remaining);
     if (activeId == id) {
       await setActive(remaining.isEmpty ? null : remaining.first.id);
     }

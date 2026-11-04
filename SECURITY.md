@@ -1,5 +1,9 @@
 # Security Policy
 
-This repository is a **design-only** preimplementation package. No shipping app/security assurance is claimed. Report a vulnerability privately to the repository maintainers using a privately agreed secure channel (or a repository security advisory mechanism only if actually available), not a public issue. Do not post PVE credentials or real infrastructure URLs in issues. If a token is exposed, revoke it in the PVE administration interface and rotate immediately.
+VirtHelm now contains an executable Flutter Android implementation, but **no production security assurance or release certification is claimed**. Report vulnerabilities privately to the repository maintainers or through a repository security-advisory mechanism if enabled. Never post PVE credentials, private infrastructure URLs, CA private keys, signing material, or sensitive task logs in issues.
 
-We will not accept pull requests adding TLS verification bypass, default root passwords, embedded auth secrets, hidden uploads, silent insecure downgrade, automatic retries of potentially destructive operations, or unsupported claims of console auth. Security gates: see `docs/07-security-auth.md` and `docs/19-definition-of-done.md`.
+The project rejects TLS verification bypasses, cleartext fallback, embedded/default root credentials, hidden uploads, automatic retry of potentially executed mutations, cross-profile resource reuse, debug-key release signing, and unsupported console-auth claims. API-token console access remains out of scope.
+
+Current automated protections include HTTPS-only endpoint validation, redirect rejection, secure token storage, Android backup/cleartext hardening, release-runner assertions, mutation single-flight/unknown-outcome guards, profile-generation isolation, and negative unit/contract tests. These controls do **not** replace PVE 8.4/9.2 lab tests, physical-device TLS/backup testing, dependency/security review, or release signing.
+
+See `docs/07-security-auth.md`, `docs/19-definition-of-done.md`, and `docs/39-implementation-audit.md`.

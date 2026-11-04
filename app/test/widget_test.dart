@@ -21,9 +21,13 @@ void main() {
   testWidgets('onboarding shows HTTPS and token fields', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
-    final controller = AppController(repository: ProfileRepository(prefs, _EmptyVault()));
+    final controller = AppController(
+      repository: ProfileRepository(prefs, _EmptyVault()),
+    );
     addTearDown(controller.dispose);
-    await tester.pumpWidget(MaterialApp(home: ConnectPage(controller: controller)));
+    await tester.pumpWidget(
+      MaterialApp(home: ConnectPage(controller: controller)),
+    );
     expect(find.text('Your infrastructure.\nIn your hands.'), findsOneWidget);
     expect(find.text('Server URL'), findsOneWidget);
     expect(find.text('API token identifier'), findsOneWidget);

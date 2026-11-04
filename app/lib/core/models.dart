@@ -14,10 +14,10 @@ class ConnectionProfile {
   final String endpoint;
 
   Map<String, Object> toJson() => {
-        'id': id,
-        'name': name,
-        'endpoint': endpoint,
-      };
+    'id': id,
+    'name': name,
+    'endpoint': endpoint,
+  };
 
   factory ConnectionProfile.fromJson(Map<String, dynamic> json) =>
       ConnectionProfile(
@@ -26,8 +26,12 @@ class ConnectionProfile {
         endpoint: json['endpoint'] as String,
       );
 
-  static ConnectionProfile create({required String name, required String address}) {
-    final id = '${DateTime.now().microsecondsSinceEpoch}_'
+  static ConnectionProfile create({
+    required String name,
+    required String address,
+  }) {
+    final id =
+        '${DateTime.now().microsecondsSinceEpoch}_'
         '${Random.secure().nextInt(0x7fffffff)}';
     if (name.trim().isEmpty) {
       throw const FormatException('Enter a profile name.');
@@ -62,9 +66,11 @@ String normalizePveEndpoint(String input) {
   if (port <= 0 || port > 65535) {
     throw const FormatException('Invalid server port.');
   }
-  return Uri(scheme: 'https', host: uri.host, port: port)
-      .toString()
-      .replaceFirst(RegExp(r'/$'), '');
+  return Uri(
+    scheme: 'https',
+    host: uri.host,
+    port: port,
+  ).toString().replaceFirst(RegExp(r'/$'), '');
 }
 
 class ApiCredentials {
@@ -76,7 +82,9 @@ class ApiCredentials {
 
   bool get isValid =>
       RegExp(r'^[^\s!@]+@[^\s!@]+![^\s!=]+$').hasMatch(tokenId) &&
-      secret.trim().isNotEmpty;
+      secret.isNotEmpty &&
+      secret == secret.trim() &&
+      !RegExp(r'\s').hasMatch(secret);
 
   String encode() => jsonEncode({'id': tokenId, 'secret': secret});
 
@@ -93,6 +101,183 @@ int? asInteger(Object? value) => value is num ? value.toInt() : null;
 double? asDouble(Object? value) => value is num ? value.toDouble() : null;
 String? asText(Object? value) => value is String ? value : null;
 
+bool? asFlag(Object? value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  if (value is String) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized == '1' || normalized == 'true' || normalized == 'yes') {
+      return true;
+    }
+    if (normalized == '0' || normalized == 'false' || normalized == 'no') {
+      return false;
+    }
+  }
+  return null;
+}
+
+DateTime? asUnixSeconds(Object? value) {
+  final seconds = asInteger(value);
+  if (seconds == null || seconds < 0) return null;
+  return DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
+}
+
+class ReadCollection<T> {
+  ReadCollection({
+    required List<T> values,
+    this.permissionDeniedNodes = 0,
+    this.failedNodes = 0,
+    this.malformedRecords = 0,
+  }) : values = List.unmodifiable(values);
+
+  final List<T> values;
+  final int permissionDeniedNodes;
+  final int failedNodes;
+  final int malformedRecords;
+
+  bool get complete =>
+      permissionDeniedNodes == 0 && failedNodes == 0 && malformedRecords == 0;
+}
+
+class StoragePool {
+  const StoragePool({
+    required this.node,
+    required this.id,
+    required this.type,
+    this.enabled,
+    this.active,
+    this.shared,
+    this.contentTypes = const [],
+    this.used,
+    this.total,
+    this.available,
+  });
+
+  final String node;
+  final String id;
+  final String type;
+  final bool? enabled;
+  final bool? active;
+  final bool? shared;
+  final List<String> contentTypes;
+  final int? used;
+  final int? total;
+  final int? available;
+
+  double? get usageFraction {
+    if (used == null || used! < 0 || total == null || total! <= 0) return null;
+    return (used! / total!).clamp(0.0, 1.0).toDouble();
+  }
+
+  String get stateLabel {
+    if (enabled == false) return 'disabled';
+    if (active == true) return 'active';
+    if (active == false) return 'inactive';
+    if (enabled == true) return 'enabled';
+    return 'unknown';
+  }
+
+  factory StoragePool.fromApi(
+    Map<String, dynamic> json, {
+    required String node,
+  }) {
+    final id = asText(json['storage']);
+    if (id == null || id.trim().isEmpty) {
+      throw const FormatException('Storage record is missing its identifier.');
+    }
+    final content = asText(json['content']);
+    final contentTypes = content == null
+        ? const <String>[]
+        : content
+              .split(',')
+              .map((item) => item.trim())
+              .where((item) => item.isNotEmpty)
+              .toList(growable: false);
+    return StoragePool(
+      node: node,
+      id: id,
+      type: asText(json['type']) ?? 'unknown',
+      enabled: asFlag(json['enabled']),
+      active: asFlag(json['active']),
+      shared: asFlag(json['shared']),
+      contentTypes: contentTypes,
+      used: asInteger(json['used']),
+      total: asInteger(json['total']),
+      available: asInteger(json['avail']),
+    );
+  }
+}
+
+class RecentServerTask {
+  const RecentServerTask({
+    required this.upid,
+    required this.node,
+    required this.operation,
+    required this.status,
+    this.resourceId,
+    this.exitStatus,
+    this.startedAt,
+    this.endedAt,
+  });
+
+  final String upid;
+  final String node;
+  final String operation;
+  final String? resourceId;
+  final String status;
+  final String? exitStatus;
+  final DateTime? startedAt;
+  final DateTime? endedAt;
+
+  bool get isDone => status == 'stopped';
+
+  String get stateLabel {
+    if (!isDone) return status;
+    if (exitStatus == 'OK') return 'succeeded';
+    if (exitStatus == null) return 'unknown';
+    return 'failed';
+  }
+
+  String get operationLabel => switch (operation) {
+    'qmstart' => 'Start VM',
+    'qmshutdown' => 'Shut down VM',
+    'qmstop' => 'Force stop VM',
+    'qmreboot' => 'Reboot VM',
+    'vzstart' => 'Start container',
+    'vzshutdown' => 'Shut down container',
+    'vzstop' => 'Force stop container',
+    'vzreboot' => 'Reboot container',
+    _ => operation,
+  };
+
+  factory RecentServerTask.fromApi(
+    Map<String, dynamic> json, {
+    required String node,
+  }) {
+    final upid = asText(json['upid']);
+    if (upid == null || !upid.startsWith('UPID:')) {
+      throw const FormatException('Task record is missing a valid UPID.');
+    }
+    final rawStatus = asText(json['status']);
+    final running = rawStatus?.toUpperCase() == 'RUNNING';
+    final terminal = rawStatus != null && !running;
+    return RecentServerTask(
+      upid: upid,
+      node: asText(json['node']) ?? node,
+      operation: asText(json['type']) ?? 'task',
+      resourceId: asText(json['id']) ?? asInteger(json['id'])?.toString(),
+      status: running
+          ? 'running'
+          : terminal
+          ? 'stopped'
+          : 'unknown',
+      exitStatus: terminal ? rawStatus : null,
+      startedAt: asUnixSeconds(json['starttime']),
+      endedAt: asUnixSeconds(json['endtime']),
+    );
+  }
+}
+
 class Guest {
   const Guest({
     required this.node,
@@ -105,6 +290,7 @@ class Guest {
     this.maxMem,
     this.disk,
     this.maxDisk,
+    this.uptime,
   });
   final String node;
   final int vmid;
@@ -116,6 +302,7 @@ class Guest {
   final int? maxMem;
   final int? disk;
   final int? maxDisk;
+  final int? uptime;
 
   bool get isRunning => status == 'running';
   bool get isStopped => status == 'stopped';
@@ -135,43 +322,62 @@ class Guest {
       node: node,
       vmid: vmid,
       kind: kind!,
-      name: rawName != null && rawName.trim().isNotEmpty ? rawName : '$kind $vmid',
+      name: rawName != null && rawName.trim().isNotEmpty
+          ? rawName
+          : '$kind $vmid',
       status: asText(json['status']) ?? 'unknown',
       cpu: asDouble(json['cpu']),
       mem: asInteger(json['mem']),
       maxMem: asInteger(json['maxmem']),
       disk: asInteger(json['disk']),
       maxDisk: asInteger(json['maxdisk']),
+      uptime: asInteger(json['uptime']),
     );
   }
 }
 
 class Node {
-  const Node({required this.name, required this.status, this.cpu, this.mem, this.maxMem});
+  const Node({
+    required this.name,
+    required this.status,
+    this.cpu,
+    this.mem,
+    this.maxMem,
+    this.uptime,
+  });
   final String name;
   final String status;
   final double? cpu;
   final int? mem;
   final int? maxMem;
+  final int? uptime;
 
   factory Node.fromResource(Map<String, dynamic> json) => Node(
-        name: asText(json['node']) ?? asText(json['id']) ?? 'Unknown',
-        status: asText(json['status']) ?? 'unknown',
-        cpu: asDouble(json['cpu']),
-        mem: asInteger(json['mem']),
-        maxMem: asInteger(json['maxmem']),
-      );
+    name: asText(json['node']) ?? asText(json['id']) ?? 'Unknown',
+    status: asText(json['status']) ?? 'unknown',
+    cpu: asDouble(json['cpu']),
+    mem: asInteger(json['mem']),
+    maxMem: asInteger(json['maxmem']),
+    uptime: asInteger(json['uptime']),
+  );
 }
 
 class Inventory {
-  const Inventory({required this.nodes, required this.guests, required this.fetchedAt});
+  const Inventory({
+    required this.nodes,
+    required this.guests,
+    required this.fetchedAt,
+    this.malformedGuestRecords = 0,
+  });
   final List<Node> nodes;
   final List<Guest> guests;
   final DateTime fetchedAt;
+  final int malformedGuestRecords;
 
   factory Inventory.fromResources(List<dynamic> values, {DateTime? fetchedAt}) {
     final nodes = <Node>[];
     final guests = <Guest>[];
+    var malformedGuestRecords = 0;
     for (final entry in values) {
       if (entry is! Map<String, dynamic>) continue;
       final kind = entry['type'];
@@ -181,6 +387,7 @@ class Inventory {
         try {
           guests.add(Guest.fromResource(entry));
         } on FormatException {
+          malformedGuestRecords++;
           continue;
         }
       }
@@ -191,6 +398,7 @@ class Inventory {
       nodes: List.unmodifiable(nodes),
       guests: List.unmodifiable(guests),
       fetchedAt: fetchedAt ?? DateTime.now(),
+      malformedGuestRecords: malformedGuestRecords,
     );
   }
 }
@@ -199,11 +407,11 @@ enum GuestAction { start, shutdown, reboot, stop }
 
 extension GuestActionLabel on GuestAction {
   String get label => switch (this) {
-        GuestAction.start => 'Start',
-        GuestAction.shutdown => 'Shut down',
-        GuestAction.reboot => 'Reboot',
-        GuestAction.stop => 'Force stop',
-      };
+    GuestAction.start => 'Start',
+    GuestAction.shutdown => 'Shut down',
+    GuestAction.reboot => 'Reboot',
+    GuestAction.stop => 'Force stop',
+  };
 
   String get apiAction => name;
   bool allowedFor(Guest guest) =>
@@ -228,7 +436,8 @@ class TrackedTask {
   final OperationOutcome outcome;
   final String? detail;
 
-  TrackedTask withOutcome(OperationOutcome next, {String? detail}) => TrackedTask(
+  TrackedTask withOutcome(OperationOutcome next, {String? detail}) =>
+      TrackedTask(
         upid: upid,
         node: node,
         title: title,
@@ -268,6 +477,27 @@ String formatBytes(int? bytes) {
   return '${index == 0 ? value.toStringAsFixed(0) : value.toStringAsFixed(1)} ${units[index]}';
 }
 
-String formatPercent(double? fraction) => fraction == null || !fraction.isFinite
-    ? '—'
-    : '${(fraction * 100).toStringAsFixed(1)}%';
+String formatPercent(double? fraction) {
+  if (fraction == null || !fraction.isFinite || fraction < 0) return '—';
+  final display = fraction.clamp(0.0, 1.0).toDouble();
+  return '${(display * 100).toStringAsFixed(1)}%';
+}
+
+String formatUptime(int? seconds) {
+  if (seconds == null || seconds < 0) return '—';
+  final days = seconds ~/ 86400;
+  final hours = (seconds % 86400) ~/ 3600;
+  final minutes = (seconds % 3600) ~/ 60;
+  if (days > 0) return '${days}d ${hours}h';
+  if (hours > 0) return '${hours}h ${minutes}m';
+  if (minutes > 0) return '${minutes}m';
+  return '${seconds}s';
+}
+
+String formatAge(DateTime time, {DateTime? now}) {
+  final diff = (now ?? DateTime.now()).difference(time);
+  if (diff.isNegative || diff.inSeconds < 60) return 'just now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+  if (diff.inHours < 24) return '${diff.inHours} h ago';
+  return '${diff.inDays} days ago';
+}

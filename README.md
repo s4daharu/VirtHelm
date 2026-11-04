@@ -1,107 +1,43 @@
 # VirtHelm — Flutter/Dart Android client for Proxmox VE
 
-**Status:** implementation-ready documentation; **not yet a working app**.  
-**Reviewed:** 2026-11-04. **Platform:** Android **phones only** (no iOS, web or desktop target).  
-**Core backend:** user-operated Proxmox Virtual Environment (PVE); no proprietary cloud backend.
+**Status:** executable Android source with CI-verified debug builds; **not release-certified**.  
+**Reviewed:** 2026-11-04. **Platform:** Android phones only.  
+**Compatibility target:** PVE 9.2 primary / PVE 8.4 regression; live compatibility evidence remains required.
 
-## What we are building
-VirtHelm is an independent, unofficial Android mobile client to observe and administer Proxmox VE clusters via their officially exposed HTTPS REST API. Designed for operators who want a secure mobile-first cluster overview, node and guest details, permitted power operations, task progress, and later selected administrative functions.
+VirtHelm is an independent, unofficial mobile client for user-operated Proxmox VE. The repository contains a working Flutter implementation plus the product/security/release documentation. It has no mandatory vendor cloud backend.
 
-**IMPORTANT:** no claim of 100% correctness can be made without live tests of each API method, PVE edition/version, permission configuration, and Android device. Documentation carefully marks verified statements, implementation choices, and unverified spikes. Never conflate Proxmox VE with Proxmox Backup Server or Proxmox Datacenter Manager.
+## Implemented now
 
-## Reading order
-| Phase | Documents |
-|---|---|
-| Product | [Product requirements](docs/01-product-requirements.md), [feature scope](docs/02-feature-scope.md), [UX](docs/03-ux-navigation.md) |
-| Architecture | [Architecture](docs/04-architecture.md), [API contracts](docs/05-pve-api-contracts.md), [data models](docs/06-data-models.md) |
-| Security | [Threat model, auth, transport](docs/07-security-auth.md), [console research/RFC](docs/08-console-rfc.md) |
-| Delivery | [Error handling](docs/09-error-offline.md), [testing](docs/10-test-strategy.md), [backlog](docs/11-roadmap-backlog.md), [CI/release](docs/12-delivery-ci.md) |
-| Assurance | [Risks and compatibility](docs/13-compatibility-risks.md), [research citations](docs/14-research-sources.md), [verification matrix](docs/15-verification-matrix.md), [ADRs](docs/16-decisions.md), [privacy](docs/17-privacy-legal.md), [developer setup](docs/18-setup-handbook.md) |
+The current source implements HTTPS-only API-token profiles, Android secure credential storage, profile isolation, cluster/node/QEMU/LXC inventory, searchable guests, read-only storage overview, recent server tasks, guest CPU/memory/disk/uptime, and guarded QEMU/LXC start/shutdown/reboot/force-stop actions with live preflight and UPID tracking.
 
-Also see [CSV endpoint index](docs/api-endpoint-index.csv), [manual API smoke-test recipes](examples/README.md), [security policy](SECURITY.md), [contributing](CONTRIBUTING.md), [definition of done](docs/19-definition-of-done.md).
+Write safety includes exact profile/node/type/VMID identity, fresh clean inventory, single-flight submission, no automatic mutation retry, ambiguous-outcome lockout, bounded task verification, and authoritative refresh after terminal tasks. Redirects and cleartext are blocked; certificate validation is not bypassed.
 
-## Premium expansion plan (v2 — planning only)
+This is still **not** a production release. Real PVE 8.4/9.2 fixtures, ACL matrices, physical-device TLS/backup/accessibility/performance tests, release signing, and independent security review remain open. See [implementation audit](docs/39-implementation-audit.md) and [Definition of Done](docs/19-definition-of-done.md).
 
-VirtHelm's **premium product vision** is specified in the 2026-11-04 extension. These are scoped **design and delivery plans**, not functioning features, builds, or validated live API integrations. Start with the [premium product strategy](docs/21-premium-product-strategy.md), [feature specification](docs/22-premium-feature-specification.md), and **200-feature [machine-readable catalogue](docs/premium-feature-catalog.csv)**.
+## Build and test
 
-| Topic | Planning documents |
-|---|---|
-| UX and Android polish | [Premium information architecture](docs/23-premium-ux-information-architecture.md), [Android native experience](docs/31-android-native-premium-experience.md) |
-| QEMU/LXC operations | [Advanced guest workflows](docs/24-guest-lifecycle-advanced-workflows.md), [secure console and identity](docs/29-premium-security-identity-console.md) |
-| Monitoring | [Alerting, capacity and insights](docs/25-monitoring-alerting-intelligence.md) |
-| Disaster recovery | [Backup and PBS](docs/26-backup-disaster-recovery-pbs.md) |
-| Cluster admin | [HA, Ceph, SDN, storage and networking](docs/27-cluster-ha-storage-ceph-sdn.md), [multi-site and PDM](docs/28-multisite-pdm-integration.md) |
-| Engineering | [Flutter module contracts](docs/30-flutter-architecture-modules-and-contracts.md), [epic roadmap](docs/32-delivery-epics-sequencing.md), [release acceptance gates](docs/33-test-acceptance-release-gates.md) |
-| Product and assurance | [Brand/pricing/privacy](docs/34-business-model-privacy-and-licensing.md), [verified-vs-proposed research](docs/35-research-verified-vs-proposed.md), [premium ADRs and risks](docs/36-premium-risks-and-design-decisions.md) |
-
-**Compatibility scope:** PVE 9.2 primary / 8.4 regression; separately-gated PBS 4.2 and PDM 1.1. Background alerts from a sleeping Android phone are not guaranteed; an optional self-hosted relay is future research. All irreversible operations require explicit preflight and live integration evidence. For the extended documentation, run `python3 scripts/check_premium.py`.
-
-## Implemented Flutter Android source (M1 preview)
-
-**Source code now exists in [app/](app/README.md).** This first vertical slice includes HTTPS-only API-token profiles with Android secure storage, a Material 3 dashboard, node/QEMU/LXC inventory, search, guest power controls with fresh-state preflight and a session-local task monitor. It is not the complete 200-feature premium product and has not yet been validated against a real PVE installation.
-
-On a workstation with Flutter and Android SDKs installed, generate the **Android-only** runner with `bash scripts/bootstrap_android.sh`, then run `cd app && flutter analyze && flutter test && flutter build apk --debug`. The native Android runner is intentionally generated per SDK until a tested toolchain and Gradle files can be committed. See [implementation status and test gaps](docs/37-implementation-m1.md).
-
-## Architecture at a glance
-
-```text
-Android Flutter UI (phone-sized Material 3)
-    -> ViewModels / state providers
-       -> Domain use cases + repositories
-          -> PVE HTTP service (typed models, permission/error layer)
-          -> Keystore-backed secret storage
-          -> Non-sensitive settings/cache
-                 |
-           TLS with validated certificate
-                 |
-      https://<pve-host>:8006/api2/json
-                 |
-             Proxmox VE cluster
-```
-
-## MVP scope (first usable release)
-1. Multiple named cluster connection profiles, **API-token login first**, verified TLS, explicit connect/test, securely stored token, disconnect/delete.
-2. Read-only dashboard: cluster resources, node list/status, VMs/containers with filtering, guest status/detail, storage overview, tasks list.
-3. Allowed guest start/shutdown/stop/reboot with confirmation, role-aware errors, asynchronous task tracking, error recovery.
-4. Android phone-only layout, accessible controls, manual refresh and foreground polling, offline cache clearly labeled as stale.
-5. No embedded console in MVP: API token access is not sufficient for console endpoints. Investigate ticket/2FA and WebSocket security separately.
-
-No virtualization-host-side agent, server deployment, persistent plaintext password, analytics SDK, public-facing port forwarding, or destructive operations without explicit confirmation.
-
-## Bootstrap — after installing Flutter and Android Studio
-The version-specific setup and security details are in [docs/18-setup-handbook.md](docs/18-setup-handbook.md).
+Use the pinned Flutter **3.44.4** baseline (also recorded in `app/.flutter-version`) and an Android SDK:
 
 ```bash
 flutter doctor -v
-flutter create --platforms=android --project-name virthelm --org com.example app
+bash scripts/bootstrap_android.sh
 cd app
-flutter pub add dio flutter_riverpod go_router flutter_secure_storage shared_preferences
-flutter pub add --dev flutter_lints mocktail
-flutter analyze
-flutter test
-flutter run
+dart format --output=none --set-exit-if-changed lib test
+flutter analyze --fatal-infos
+flutter test --coverage
+flutter build apk --debug
 ```
 
-The command makes an Android-only Flutter project in `app/` and intentionally does not create web/iOS/desktop runners. Review and pin dependency/Flutter versions before making a release. This archive contains the plans and checks, **not** a complete Flutter source implementation or a built APK.
+`scripts/bootstrap_android.sh` generates only the Android runner, applies manifest/Gradle hardening, restores the committed dependency lockfile, and resolves with `--enforce-lockfile`. Release signing is intentionally not stored in Git.
 
-## Private GitHub repository
+## Current scope vs roadmap
 
-The private project repository is [s4daharu/VirtHelm](https://github.com/s4daharu/VirtHelm) (private access required). Clone it with:
+The implemented M1/M2 slices do **not** equal the whole premium roadmap. Charts/RRD, favorites/saved views, notification center/alerts, persistent offline cache, richer filtering/sorting, biometric app lock, ticket/MFA, console, snapshots/backups, PBS/PDM, migrations/provisioning, infrastructure mutation, and signed distribution remain future/gated work.
 
-```bash
-git clone https://github.com/s4daharu/VirtHelm.git
-cd VirtHelm
-python3 scripts/check_docs.py
-```
+The premium planning catalogue remains available as [docs/premium-feature-catalog.csv](docs/premium-feature-catalog.csv).\n\nRead the product baseline in [docs/01-product-requirements.md](docs/01-product-requirements.md), API contract inventory in [docs/05-pve-api-contracts.md](docs/05-pve-api-contracts.md), security model in [docs/07-security-auth.md](docs/07-security-auth.md), test strategy in [docs/10-test-strategy.md](docs/10-test-strategy.md), premium roadmap in [docs/32-delivery-epics-sequencing.md](docs/32-delivery-epics-sequencing.md), and release gates in [docs/33-test-acceptance-release-gates.md](docs/33-test-acceptance-release-gates.md).
 
-Use normal pull requests for reviewed changes. Do not commit credentials or sanitized/live cluster data.
+## Repository and security
+
+The private repository is `s4daharu/VirtHelm`. Never commit PVE credentials, private CA keys, signing keys, real inventories, or task logs. Use a least-privilege PVE API token and a trusted HTTPS certificate over LAN/VPN; do not expose PVE port 8006 publicly as a default access pattern.
+
 VirtHelm is independent software and is **not affiliated with, endorsed by, or officially distributed by Proxmox Server Solutions GmbH**.
-
-## Key external references
-- Official PVE docs source: https://github.com/proxmox/pve-docs
-- Official PVE API viewer (live source of truth): https://pve.proxmox.com/pve-docs/api-viewer/
-- Latest release listing checked 2026-11-04: https://proxmox.com/en/downloads/proxmox-virtual-environment
-- Flutter guidance: https://docs.flutter.dev/app-architecture/guide
-- Android network trust: https://developer.android.com/privacy-and-security/security-config
-
-This project is **unofficial** and is not affiliated with Proxmox Server Solutions GmbH.
