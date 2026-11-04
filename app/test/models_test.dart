@@ -50,11 +50,7 @@ void main() {
       '9.2.4',
     );
 
-    for (final value in [
-      42,
-      '',
-      List.filled(81, 'x').join(),
-    ]) {
+    for (final value in [42, '', List.filled(81, 'x').join()]) {
       final json = profile.toJson();
       json['lastServerVersion'] = value;
       expect(ConnectionProfile.fromJson(json).lastServerVersion, isNull);
