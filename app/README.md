@@ -24,6 +24,7 @@ The committed `pubspec.lock` is enforced. The bootstrap generates the Android ru
 - Cluster nodes and QEMU/LXC inventory with search, freshness, CPU/memory/disk/uptime.
 - Guest status/type/node filters, deterministic favorites/name/VMID/CPU/memory sorting, and up to 12 profile-scoped named saved views, without extra API requests.
 - Read-only per-node storage and recent server task history with partial permission/error reporting.
+- Transient GET failures use up to three total attempts with bounded jittered backoff; TLS/auth/redirect failures and all mutation POSTs are never automatically retried.
 - Start/shutdown/reboot/force-stop confirmation with exact profile/node/type/VMID target.
 - Fresh clean-inventory guard, live status preflight, exactly one POST, per-guest single-flight lock, no write auto-retry.
 - UPID polling with terminal exit-status verification, bounded TTL, unknown-outcome lockout, and post-task reconciliation.
