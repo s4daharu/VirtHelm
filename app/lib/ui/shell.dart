@@ -839,7 +839,13 @@ class _GuestsTabState extends State<_GuestsTab> {
     final controller = widget.controller;
     final allGuests = inv?.guests ?? <Guest>[];
     final nodes = allGuests.map((guest) => guest.node).toSet().toList()..sort();
-    final tags = allGuests.expand((guest) => guest.tags).toSet().toList()
+    final tagsByKey = <String, String>{};
+    for (final guest in allGuests) {
+      for (final tag in guest.tags) {
+        tagsByKey.putIfAbsent(tag.toLowerCase(), () => tag);
+      }
+    }
+    final tags = tagsByKey.values.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     final guests = visibleGuests(
       allGuests,
