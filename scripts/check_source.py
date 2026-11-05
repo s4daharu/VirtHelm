@@ -7,14 +7,15 @@ required = [
   'app/lib/core/profile_repository.dart','app/lib/core/pve_api.dart',
   'app/lib/core/app_controller.dart','app/lib/core/app_preferences.dart',
   'app/lib/core/offline_overview.dart','app/lib/core/device_connectivity.dart',
-  'app/lib/core/guest_list_filter.dart',
+  'app/lib/core/guest_list_filter.dart','app/lib/core/task_history_filter.dart',
   'app/lib/core/guest_saved_view.dart','app/lib/ui/theme.dart',
   'app/lib/ui/connect_page.dart','app/lib/ui/shell.dart',
   'app/lib/ui/guest_page.dart','app/lib/ui/task_details_page.dart',
   'app/test/models_test.dart',
   'app/test/controller_test.dart','app/test/pve_api_test.dart',
   'app/test/widget_test.dart','app/test/pve_tls_test.dart',
-  'app/test/guest_list_filter_test.dart','app/test/saved_guest_view_test.dart',
+  'app/test/guest_list_filter_test.dart','app/test/task_history_filter_test.dart',
+  'app/test/saved_guest_view_test.dart',
   'app/test/app_preferences_test.dart','app/test/offline_overview_test.dart',
   'scripts/bootstrap_android.sh','scripts/harden_android.py',
   'scripts/check_android_generated.py',
@@ -31,7 +32,9 @@ required = [
   'docs/51-implementation-p0-task-details.md',
   'docs/52-implementation-p0-transport-errors.md',
   'docs/53-implementation-p0-offline-overview.md',
-   'docs/54-implementation-p0-android-connectivity.md']
+   'docs/54-implementation-p0-android-connectivity.md',
+   'docs/55-implementation-f09-task-log-pages.md',
+   'docs/56-implementation-f09-task-history-filters.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
@@ -64,6 +67,8 @@ assert 'attempt >= 2' in files['app/lib/core/pve_api.dart']
 assert "test('transient POST failure is never automatically retried'" in files['app/test/pve_api_test.dart']
 assert 'storageOverview' in files['app/lib/core/pve_api.dart']
 assert 'recentTasks' in files['app/lib/core/pve_api.dart']
+assert 'visibleServerTasks' in files['app/lib/ui/shell.dart']
+assert 'ServerTaskStateFilter' in files['app/lib/core/task_history_filter.dart']
 assert 'Future<TaskLogResult> taskLog' in files['app/lib/core/pve_api.dart']
 assert "'limit': 100" in files['app/lib/core/pve_api.dart']
 assert 'generation == _generation' in files['app/lib/core/app_controller.dart']
