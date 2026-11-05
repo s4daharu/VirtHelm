@@ -200,6 +200,13 @@
       "isolation": "Filters and search text remain in transient widget state and are reset on profile switch/reconnect by profile and connection generation; no new network reads, API privileges, persistence or mutation behavior.",
       "verification": "Synthetic filter and widget regressions, source checks, final exact-head CI pending; live PVE 8.4/9.2 fixtures and physical Android review still required.",
       "report": "docs/56-implementation-f09-task-history-filters.md"
+    },
+    "guest_io_counters": {
+      "status": "implemented_source_level_pending_final_ci",
+      "behavior": "Decode optional non-negative cumulative netin/netout/diskread/diskwrite byte counters from existing /cluster/resources inventory for QEMU/LXC guest detail. Display formatted receive/send/read/write totals; unknown fields render unavailable and are never interpreted as live rates.",
+      "security": "Read-only current inventory display. No extra endpoints, permission requests, new persistence, export, auto-refresh, or change to power/mutation safety controls. Old profile data redacts on switch.",
+      "verification": "Synthetic parser and guest-page widget tests; exact-head CI still required. Live PVE 9.2/8.4 units/availability and physical Android validation remain open.",
+      "report": "docs/57-implementation-guest-io-counters.md"
     }
   }
 }
