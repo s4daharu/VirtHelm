@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'app_preferences.dart';
+import 'device_connectivity.dart';
 import 'guest_saved_view.dart';
 import 'models.dart';
 import 'offline_overview.dart';
@@ -43,6 +44,7 @@ class AppController extends ChangeNotifier {
   AppThemePreference themePreference = AppThemePreference.system;
   AutoRefreshPreference autoRefreshPreference = AutoRefreshPreference.off;
   bool showNodeMetrics = true;
+  DeviceNetworkState deviceNetworkState = DeviceNetworkState.unknown;
 
   PveGateway? _gateway;
   int _generation = 0;
@@ -473,6 +475,11 @@ class AppController extends ChangeNotifier {
     message = null;
     refreshing = false;
     _notify();
+    if (deviceNetworkState == DeviceNetworkState.unavailable) {
+      cachedOverview = repository.readOfflineOverview(profile.id);
+      _notify();
+      return;
+    }
     try {
       final credentials = await repository.vault.retrieve(profile.id);
       if (generation != _generation || _disposed) return;
@@ -510,7 +517,9 @@ class AppController extends ChangeNotifier {
         _gateway?.close();
         _gateway = null;
         inventory = null;
-        cachedOverview = e is PveFailure && e.transportFailure != null
+        cachedOverview =
+            deviceNetworkState == DeviceNetworkState.unavailable ||
+                (e is PveFailure && e.transportFailure != null)
             ? repository.readOfflineOverview(profile.id)
             : null;
         if (e is PveFailure && e.status == 401) {
@@ -524,6 +533,9 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> refresh() {
+    if (_disposed || deviceNetworkState == DeviceNetworkState.unavailable) {
+      return Future<void>.value();
+    }
     final current = _refreshFuture;
     if (current != null) return current;
     late final Future<void> future;
@@ -543,7 +555,11 @@ class AppController extends ChangeNotifier {
     _notify();
     try {
       final next = await gateway.inventory();
-      if (generation != _generation) return;
+      if (generation != _generation ||
+          _disposed ||
+          deviceNetworkState == DeviceNetworkState.unavailable) {
+        return;
+      }
       inventory = next;
       cachedOverview = null;
       message = null;
@@ -561,6 +577,7 @@ class AppController extends ChangeNotifier {
       // 401s must not refresh a cache belonging to a revoked credential.
       if (profileId != null &&
           offlineOverviewEnabled &&
+          deviceNetworkState != DeviceNetworkState.unavailable &&
           message == null &&
           next.malformedGuestRecords == 0) {
         try {
@@ -664,7 +681,12 @@ class AppController extends ChangeNotifier {
   }
 
   bool get isInventoryFresh {
-    if (_disposed || inventory == null || message != null) return false;
+    if (_disposed ||
+        deviceNetworkState == DeviceNetworkState.unavailable ||
+        inventory == null ||
+        message != null) {
+      return false;
+    }
     final age = DateTime.now().difference(inventory!.fetchedAt);
     return age >= Duration.zero && age < const Duration(minutes: 2);
   }
@@ -796,12 +818,64 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  /// Android's default-network signal is not a PVE server reachability test.
+  void setDeviceNetworkState(DeviceNetworkState next) {
+    if (_disposed || next == deviceNetworkState) return;
+    final wasUnavailable = deviceNetworkState == DeviceNetworkState.unavailable;
+    deviceNetworkState = next;
+    if (next == DeviceNetworkState.unavailable) {
+      _pollTimer?.cancel();
+      _autoRefreshTimer?.cancel();
+      if (inventory == null && active != null) {
+        cachedOverview = repository.readOfflineOverview(active!.id);
+      }
+    } else if (wasUnavailable && next == DeviceNetworkState.available) {
+      final profileId = active?.id;
+      if (_foreground && profileId != null) {
+        unawaited(_recoverNetwork(_generation, profileId));
+      }
+    }
+    _notify();
+  }
+
+  Future<void> _recoverNetwork(int generation, String profileId) async {
+    final previous = _refreshFuture;
+    if (previous != null) {
+      try {
+        await previous;
+      } catch (_) {
+        // Begin a new GET only after any prior request finishes.
+      }
+    }
+    if (_disposed ||
+        !_foreground ||
+        deviceNetworkState != DeviceNetworkState.available ||
+        generation != _generation ||
+        active?.id != profileId) {
+      return;
+    }
+    if (_gateway == null) {
+      await activate(active!); // Cold/offline profile: recheck server version.
+    } else {
+      await refresh();
+      if (_disposed ||
+          generation != _generation ||
+          deviceNetworkState != DeviceNetworkState.available) {
+        return;
+      }
+      _startPolling();
+      _scheduleAutoRefresh();
+    }
+  }
+
   void setForeground(bool visible) {
     if (_disposed) return;
     final resumed = visible && !_foreground;
     _foreground = visible;
     if (visible) {
-      if (resumed) unawaited(refresh());
+      if (resumed && deviceNetworkState != DeviceNetworkState.unavailable) {
+        unawaited(refresh());
+      }
       _startPolling();
       _scheduleAutoRefresh();
     } else {
@@ -818,6 +892,7 @@ class AppController extends ChangeNotifier {
         !_foreground ||
         _gateway == null ||
         active == null ||
+        deviceNetworkState == DeviceNetworkState.unavailable ||
         interval == null) {
       return;
     }
@@ -833,6 +908,7 @@ class AppController extends ChangeNotifier {
     _pollTimer?.cancel();
     if (_disposed ||
         !_foreground ||
+        deviceNetworkState == DeviceNetworkState.unavailable ||
         !tasks.any((task) => task.outcome == OperationOutcome.running)) {
       return;
     }
@@ -846,6 +922,7 @@ class AppController extends ChangeNotifier {
     if (_disposed ||
         _pollingGeneration == _generation ||
         !_foreground ||
+        deviceNetworkState == DeviceNetworkState.unavailable ||
         _gateway == null) {
       return;
     }
@@ -861,7 +938,12 @@ class AppController extends ChangeNotifier {
     final completedTargets = <String>[];
     try {
       for (final pendingTask in pending) {
-        if (generation != _generation || _disposed || !_foreground) return;
+        if (generation != _generation ||
+            _disposed ||
+            !_foreground ||
+            deviceNetworkState == DeviceNetworkState.unavailable) {
+          return;
+        }
         if (DateTime.now().difference(pendingTask.startedAt) >=
             taskVerificationTtl) {
           final index = tasks.indexWhere(
@@ -885,7 +967,11 @@ class AppController extends ChangeNotifier {
         }
         try {
           final status = await gateway.taskStatus(pendingTask);
-          if (generation != _generation || !_foreground) return;
+          if (generation != _generation ||
+              !_foreground ||
+              deviceNetworkState == DeviceNetworkState.unavailable) {
+            return;
+          }
           if (!status.isDone) continue;
           final index = tasks.indexWhere((t) => t.upid == pendingTask.upid);
           if (index < 0) continue;
@@ -958,7 +1044,12 @@ class AppController extends ChangeNotifier {
           }
           // Other network/server failures remain unproven and retry until TTL.
         } catch (_) {
-          if (generation != _generation || _disposed || !_foreground) return;
+          if (generation != _generation ||
+            _disposed ||
+            !_foreground ||
+            deviceNetworkState == DeviceNetworkState.unavailable) {
+          return;
+        }
           // Unknown client/network failures are not evidence of task outcome.
         }
       }
