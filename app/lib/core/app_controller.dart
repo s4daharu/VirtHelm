@@ -72,6 +72,7 @@ class AppController extends ChangeNotifier {
     required int generation,
     required String node,
     required String upid,
+    int logStart = 0,
   }) async {
     final gateway = _gateway;
     bool current() =>
@@ -114,7 +115,7 @@ class AppController extends ChangeNotifier {
     if (!current()) return null;
     if (!authLost) {
       try {
-        log = await gateway.taskLog(node, upid);
+        log = await gateway.taskLog(node, upid, start: logStart);
       } on PveFailure catch (error) {
         logError = error.message;
         if (error.status == 401 && current()) {
