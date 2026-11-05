@@ -140,6 +140,10 @@ void main() {
         'mem': 1073741824,
         'maxmem': 2147483648,
         'uptime': 3661,
+        'netin': 1048576,
+        'netout': 2048,
+        'diskread': 1073741824,
+        'diskwrite': 0,
       },
       {'type': 'lxc', 'node': 'pve1', 'vmid': 102, 'status': 'stopped'},
       {'type': 'storage', 'storage': 'local'},
@@ -157,6 +161,42 @@ void main() {
     expect(formatBytes(null), '—');
     expect(formatUptime(inv.nodes.single.uptime), '1d 1h');
     expect(formatUptime(inv.guests.first.uptime), '1h 1m');
+    expect(formatBytes(inv.guests.first.netIn), '1.0 MiB');
+    expect(formatBytes(inv.guests.first.netOut), '2.0 KiB');
+    expect(formatBytes(inv.guests.first.diskRead), '1.0 GiB');
+    expect(formatBytes(inv.guests.first.diskWrite), '0 B');
+    expect(inv.guests.last.netIn, isNull);
+    expect(inv.guests.last.diskRead, isNull);
+  });
+
+  test('missing or malformed guest I/O counters never become zero', () {
+    final guest = Guest.fromResource({
+      'type': 'lxc',
+      'node': 'pve1',
+      'vmid': 102,
+      'netin': -1,
+      'netout': '2048',
+      'diskread': 1.5,
+      'diskwrite': double.nan,
+    });
+    expect(guest.netIn, isNull);
+    expect(guest.netOut, isNull);
+    expect(guest.diskRead, isNull);
+    expect(guest.diskWrite, isNull);
+    expect(formatBytes(guest.netIn), '—');
+
+    final counters = Guest.fromResource({
+      'type': 'qemu',
+      'node': 'pve2',
+      'vmid': 201,
+      'netin': 0,
+      'netout': 1048576.0,
+      'diskread': double.infinity,
+    });
+    expect(counters.netIn, 0);
+    expect(counters.netOut, 1048576);
+    expect(counters.diskRead, isNull);
+    expect(counters.diskWrite, isNull);
   });
 
   test('task log parsing bounds long lines and rejects malformed rows', () {
