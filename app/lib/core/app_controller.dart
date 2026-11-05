@@ -1057,11 +1057,11 @@ class AppController extends ChangeNotifier {
           // Other network/server failures remain unproven and retry until TTL.
         } catch (_) {
           if (generation != _generation ||
-            _disposed ||
-            !_foreground ||
-            deviceNetworkState == DeviceNetworkState.unavailable) {
-          return;
-        }
+              _disposed ||
+              !_foreground ||
+              deviceNetworkState == DeviceNetworkState.unavailable) {
+            return;
+          }
           // Unknown client/network failures are not evidence of task outcome.
         }
       }

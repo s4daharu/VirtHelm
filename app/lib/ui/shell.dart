@@ -136,8 +136,7 @@ class _ShellPageState extends State<ShellPage> {
       ),
       body: Column(
         children: [
-          if (controller.deviceNetworkState ==
-              DeviceNetworkState.unavailable)
+          if (controller.deviceNetworkState == DeviceNetworkState.unavailable)
             const Padding(
               key: Key('device-network-unavailable'),
               padding: EdgeInsets.all(12),
