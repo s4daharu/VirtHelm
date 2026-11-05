@@ -77,10 +77,10 @@ class _GuestPageState extends State<GuestPage> {
             content: SingleChildScrollView(
               child: Text(
                 (isForce
-                        ? '$target\\n\\nForce stop immediately terminates this guest '
+                        ? '$target\n\nForce stop immediately terminates this guest '
                               'without a graceful shutdown and can cause data loss. '
                               'Check the connection, node, VMID, and running services.'
-                        : '$target\\n\\nProxmox will run this operation asynchronously.') +
+                        : '$target\n\nProxmox will run this operation asynchronously.') +
                     tlsWarning,
               ),
             ),
