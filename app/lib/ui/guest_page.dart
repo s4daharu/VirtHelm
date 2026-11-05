@@ -633,7 +633,8 @@ class _MetricSparklinePainter extends CustomPainter {
     final path = Path();
     for (var index = 0; index < values.length; index++) {
       final x = size.width * index / (values.length - 1);
-      final y = size.height * (1 - values[index].clamp(0.0, 1.0));
+      final y =
+          size.height * (1 - values[index].clamp(0.0, 1.0).toDouble());
       if (index == 0) {
         path.moveTo(x, y);
       } else {
