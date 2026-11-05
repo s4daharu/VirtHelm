@@ -55,6 +55,38 @@ class _TaskInspectionController extends AppController {
   }
 }
 
+class _GuestMetricController extends AppController {
+  _GuestMetricController(ProfileRepository repository)
+    : super(repository: repository);
+
+  final List<GuestMetricTimeframe> requestedTimeframes = [];
+
+  @override
+  Future<GuestMetricSeries?> inspectGuestMetrics({
+    required String profileId,
+    required int generation,
+    required Guest guest,
+    required GuestMetricTimeframe timeframe,
+  }) async {
+    requestedTimeframes.add(timeframe);
+    return GuestMetricSeries(
+      points: [
+        GuestMetricPoint(
+          timestamp: DateTime.utc(2026, 11, 5, 12),
+          cpuFraction: 0.1,
+          memoryFraction: 0.4,
+        ),
+        GuestMetricPoint(
+          timestamp: DateTime.utc(2026, 11, 5, 13),
+          cpuFraction: 0.3,
+          memoryFraction: 0.6,
+        ),
+      ],
+      malformedRecords: 1,
+    );
+  }
+}
+
 class _BlockingController extends AppController {
   _BlockingController(ProfileRepository repository)
     : super(repository: repository);
@@ -118,6 +150,78 @@ class _RecordingController extends AppController {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('guest performance history is explicit and session redacted', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = _GuestMetricController(
+      ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'a',
+      name: 'A',
+      endpoint: 'https://a.example',
+    );
+    controller.inventory = Inventory.fromResources([
+      {
+        'type': 'qemu',
+        'node': 'pve1',
+        'vmid': 101,
+        'name': 'Web',
+        'status': 'running',
+      },
+    ]);
+    final guest = controller.inventory!.guests.single;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GuestPage(
+          controller: controller,
+          guest: guest,
+          profileId: 'a',
+          generation: controller.connectionGeneration,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Performance history'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(controller.requestedTimeframes, isEmpty);
+
+    await tester.tap(find.text('Load history'));
+    await tester.pumpAndSettle();
+    expect(controller.requestedTimeframes, [GuestMetricTimeframe.hour]);
+    expect(find.textContaining('Latest 30.0%'), findsOneWidget);
+    expect(find.textContaining('Range 10.0%–30.0%'), findsOneWidget);
+    expect(find.textContaining('1 malformed ignored'), findsOneWidget);
+
+    await tester.tap(find.text('24 hours'));
+    await tester.pumpAndSettle();
+    expect(controller.requestedTimeframes, [GuestMetricTimeframe.hour]);
+    expect(find.textContaining('Latest 30.0%'), findsNothing);
+    await tester.tap(find.text('Load history'));
+    await tester.pumpAndSettle();
+    expect(
+      controller.requestedTimeframes,
+      [GuestMetricTimeframe.hour, GuestMetricTimeframe.day],
+    );
+
+    controller.active = const ConnectionProfile(
+      id: 'b',
+      name: 'B',
+      endpoint: 'https://b.example',
+    );
+    controller.notifyListeners();
+    await tester.pump();
+    expect(find.textContaining('Latest 30.0%'), findsNothing);
+    expect(find.text('Web'), findsNothing);
+    expect(find.text('Guest unavailable'), findsOneWidget);
+  });
 
   testWidgets('task details open on demand and redact on profile switch', (
     tester,
