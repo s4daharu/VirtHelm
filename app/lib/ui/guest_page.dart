@@ -432,10 +432,7 @@ class _GuestPageState extends State<GuestPage> {
             ),
             if (metricError != null) ...[
               const SizedBox(height: 10),
-              Text(
-                metricError!,
-                style: TextStyle(color: scheme.error),
-              ),
+              Text(metricError!, style: TextStyle(color: scheme.error)),
             ],
             if (metricSeries != null) ...[
               const SizedBox(height: 10),
@@ -604,10 +601,7 @@ class _MetricHistoryCard extends StatelessWidget {
 }
 
 class _MetricSparklinePainter extends CustomPainter {
-  const _MetricSparklinePainter({
-    required this.values,
-    required this.color,
-  });
+  const _MetricSparklinePainter({required this.values, required this.color});
 
   final List<double> values;
   final Color color;
@@ -633,8 +627,7 @@ class _MetricSparklinePainter extends CustomPainter {
     final path = Path();
     for (var index = 0; index < values.length; index++) {
       final x = size.width * index / (values.length - 1);
-      final y =
-          size.height * (1 - values[index].clamp(0.0, 1.0).toDouble());
+      final y = size.height * (1 - values[index].clamp(0.0, 1.0).toDouble());
       if (index == 0) {
         path.moveTo(x, y);
       } else {
