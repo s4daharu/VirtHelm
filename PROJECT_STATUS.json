@@ -107,7 +107,7 @@
       "F12 retry source formatter drift corrected using pinned CI formatter output; final branch CI still required"
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 123,
+    "current_flutter_tests_defined": 128,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
@@ -193,6 +193,13 @@
       "safety": "Only known UPID/node in the active profile and connection generation can be inspected; status and log errors stay separate; page navigation and refresh revalidate current session and do not replay POSTs.",
       "verification": "Synthetic controller, Dio and widget regressions extended; exact-head Flutter CI and physical PVE/Android verification remain open.",
       "report": "docs/55-implementation-f09-task-log-pages.md"
+    },
+    "f09_task_history_filters": {
+      "status": "implemented_source_level_pending_final_ci",
+      "behavior": "Local-only case-insensitive search across operation/node/resource/UPID, plus exact node and conservative task status filters (running/succeeded/failed/unknown) for the bounded already-loaded recent server-task list; session UPIDs stay visible and unchanged.",
+      "isolation": "Filters and search text remain in transient widget state and are reset on profile switch/reconnect by profile and connection generation; no new network reads, API privileges, persistence or mutation behavior.",
+      "verification": "Synthetic filter and widget regressions, source checks, final exact-head CI pending; live PVE 8.4/9.2 fixtures and physical Android review still required.",
+      "report": "docs/56-implementation-f09-task-history-filters.md"
     }
   }
 }
