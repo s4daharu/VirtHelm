@@ -91,11 +91,7 @@ void main() {
 
   test('exact tag filter composes with node, type and status filters', () {
     expect(
-      visibleGuests(
-        guests,
-        isFavorite: favorite,
-        tag: 'PROD',
-      ).map(identity),
+      visibleGuests(guests, isFavorite: favorite, tag: 'PROD').map(identity),
       ['qemu/pve1/101', 'lxc/pve1/102'],
     );
     expect(
