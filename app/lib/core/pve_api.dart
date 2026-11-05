@@ -15,6 +15,10 @@ abstract class PveGateway {
   Future<String> submit(Guest guest, GuestAction action);
   Future<ServerTaskStatus> taskStatus(TrackedTask task);
   Future<TaskLogResult> taskLog(String node, String upid, {int start = 0});
+  Future<GuestMetricSeries> guestMetrics(
+    Guest guest,
+    GuestMetricTimeframe timeframe,
+  );
   void close();
 }
 
@@ -457,6 +461,48 @@ class DioPveGateway implements PveGateway {
     return TaskLogResult(
       entries: List<TaskLogEntry>.unmodifiable(entries),
       malformedRecords: malformed,
+    );
+  }
+
+  @override
+  Future<GuestMetricSeries> guestMetrics(
+    Guest guest,
+    GuestMetricTimeframe timeframe,
+  ) async {
+    final raw = await _request(
+      '${_guestPath(guest)}/rrddata',
+      queryParameters: {
+        'timeframe': timeframe.apiValue,
+        'cf': 'AVERAGE',
+      },
+    );
+    if (raw is! List) {
+      throw const PveFailure('Unexpected guest performance response.');
+    }
+
+    const pointLimit = 1500;
+    final points = <GuestMetricPoint>[];
+    var malformed = 0;
+    for (final row in raw.take(pointLimit)) {
+      if (row is! Map) {
+        malformed++;
+        continue;
+      }
+      try {
+        points.add(
+          GuestMetricPoint.fromApi(Map<String, dynamic>.from(row)),
+        );
+      } on FormatException {
+        malformed++;
+      } on TypeError {
+        malformed++;
+      }
+    }
+    points.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    return GuestMetricSeries(
+      points: List<GuestMetricPoint>.unmodifiable(points),
+      malformedRecords: malformed,
+      truncated: raw.length > pointLimit,
     );
   }
 
