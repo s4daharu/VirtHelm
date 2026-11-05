@@ -1,7 +1,7 @@
 # VirtHelm — Flutter/Dart Android client for Proxmox VE
 
 **Status:** executable Android source with CI-verified debug builds; **not release-certified**.  
-**Reviewed:** 2026-11-04. **Platform:** Android phones only.  
+**Reviewed:** 2026-11-05. **Platform:** Android phones only.  
 **Compatibility target:** PVE 9.2 primary / PVE 8.4 regression; live compatibility evidence remains required.
 
 VirtHelm is an independent, unofficial mobile client for user-operated Proxmox VE. The repository contains a working Flutter implementation plus the product/security/release documentation. It has no mandatory vendor cloud backend.
@@ -32,7 +32,7 @@ flutter build apk --debug
 
 ## APK downloads without Actions artifact storage
 
-After **Docs and Android checks** succeeds for a push to `main`, **Android split APK prerelease** runs automatically for that exact checked commit. It can also be started manually from Actions on `main`. The signed ARM64/ARMv7 APKs and `SHA256SUMS.txt` are uploaded directly from the build runner to [GitHub Releases](https://github.com/s4daharu/VirtHelm/releases), following NovelBridge's release-asset approach. The run summary includes release and direct download links; private-repository downloads require GitHub access.
+After **Docs and Android checks** succeeds for a push to `main`, **Android split APK prerelease** runs automatically for that exact checked commit. It can also be started manually from Actions on `main`. The signed ARM64/ARMv7 APKs and `SHA256SUMS.txt` are uploaded directly from the build runner to [GitHub Releases](https://github.com/s4daharu/VirtHelm/releases), following NovelBridge's release-asset approach. The run summary includes release and direct download links; release assets are publicly downloadable from the GitHub Releases page.
 
 Neither workflow uploads Actions artifacts. Normal push/PR checks still compile a debug APK but do not retain it. Previously uploaded artifacts are not deleted by this change and remain until expiration or manual removal; build caches are separate and unchanged. Release publication is automatic only after successful main-branch CI (or manual dispatch on `main`) and does not imply production certification.
 
@@ -46,6 +46,8 @@ Read the product baseline in [docs/01-product-requirements.md](docs/01-product-r
 
 ## Repository and security
 
-The private repository is `s4daharu/VirtHelm`. Never commit PVE credentials, private CA keys, signing keys, real inventories, or task logs. Use a least-privilege PVE API token and a trusted HTTPS certificate over LAN/VPN; do not expose PVE port 8006 publicly as a default access pattern.
+The public repository is `s4daharu/VirtHelm`. Never commit PVE credentials, private CA keys, signing keys, real inventories, or task logs.
+
+No open-source license has been selected yet. Public source visibility does not itself grant permission to reuse, modify, or redistribute the code; add a top-level `LICENSE` when the licensing decision is made. Use a least-privilege PVE API token and a trusted HTTPS certificate over LAN/VPN; do not expose PVE port 8006 publicly as a default access pattern.
 
 VirtHelm is independent software and is **not affiliated with, endorsed by, or officially distributed by Proxmox Server Solutions GmbH**.
