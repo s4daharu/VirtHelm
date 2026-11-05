@@ -191,11 +191,15 @@ class _OverviewTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final inv = controller.inventory;
+    final cached = inv == null ? controller.cachedOverview : null;
+    final hasCounts = inv != null || cached != null;
     final scheme = Theme.of(context).colorScheme;
-    final countRunning = inv?.guests.where((g) => g.isRunning).length ?? 0;
-    final countStopped = inv?.guests.where((g) => g.isStopped).length ?? 0;
+    final countRunning =
+        inv?.guests.where((g) => g.isRunning).length ?? cached?.runningGuests ?? 0;
+    final countStopped =
+        inv?.guests.where((g) => g.isStopped).length ?? cached?.stoppedGuests ?? 0;
     final nodeOnline =
-        inv?.nodes.where((n) => n.status == 'online').length ?? 0;
+        inv?.nodes.where((n) => n.status == 'online').length ?? cached?.onlineNodes ?? 0;
     return RefreshIndicator(
       onRefresh: controller.refresh,
       child: ListView(
@@ -248,7 +252,9 @@ class _OverviewTab extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   inv == null
-                      ? 'Waiting for live inventory'
+                      ? cached == null
+                          ? 'Waiting for live inventory'
+                          : 'CACHED COUNTS • ${formatAge(cached.fetchedAt)} • not live'
                       : controller.isInventoryFresh
                       ? 'Live snapshot • ${formatAge(inv.fetchedAt)}'
                       : 'STALE snapshot • ${formatAge(inv.fetchedAt)}',
@@ -290,6 +296,13 @@ class _OverviewTab extends StatelessWidget {
               ),
             ),
           ],
+          if (cached != null) ...[
+            const SizedBox(height: 14),
+            const _MessageCard(
+              text: 'Last-known counts only. Guest details and power '
+                  'actions require a fresh live connection.',
+            ),
+          ],
           if (controller.inventoryWarning != null) ...[
             const SizedBox(height: 14),
             _MessageCard(text: controller.inventoryWarning!),
@@ -315,25 +328,29 @@ class _OverviewTab extends StatelessWidget {
             children: [
               _MetricCard(
                 title: 'Nodes online',
-                value: inv == null ? '—' : '$nodeOnline / ${inv.nodes.length}',
+                value: hasCounts
+                    ? '$nodeOnline / ${inv?.nodes.length ?? cached!.totalNodes}'
+                    : '—',
                 icon: Icons.hub_outlined,
                 color: const Color(0xFF20BFAF),
               ),
               _MetricCard(
                 title: 'Guests total',
-                value: inv == null ? '—' : '${inv.guests.length}',
+                value: hasCounts
+                    ? '${inv?.guests.length ?? cached!.totalGuests}'
+                    : '—',
                 icon: Icons.computer_outlined,
                 color: const Color(0xFF6498F8),
               ),
               _MetricCard(
                 title: 'Running',
-                value: inv == null ? '—' : '$countRunning',
+                value: hasCounts ? '$countRunning' : '—',
                 icon: Icons.play_circle_outline,
                 color: const Color(0xFF20BFAF),
               ),
               _MetricCard(
                 title: 'Stopped',
-                value: inv == null ? '—' : '$countStopped',
+                value: hasCounts ? '$countStopped' : '—',
                 icon: Icons.pause_circle_outline,
                 color: const Color(0xFFE9A95D),
               ),
@@ -1277,6 +1294,14 @@ class _SettingsTab extends StatelessWidget {
     }
   }
 
+  Future<void> _updateOfflineOverview(BuildContext context, bool value) async {
+    try {
+      await controller.setOfflineOverviewEnabled(value);
+    } catch (_) {
+      if (context.mounted) _showPreferenceError(context);
+    }
+  }
+
   void _showPreferenceError(BuildContext context) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1452,6 +1477,20 @@ class _SettingsTab extends StatelessWidget {
                 value: controller.showNodeMetrics,
                 onChanged: (value) =>
                     unawaited(_updateNodeMetrics(context, value)),
+              ),
+              const Divider(),
+              SwitchListTile(
+                key: const Key('offline-overview-preference'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Keep offline overview counts'),
+                subtitle: const Text(
+                  'Optional per-connection storage of timestamped node and '
+                  'guest counts only. No names, VMIDs or task logs. '
+                  'Turn off to erase this connection’s cached counts.',
+                ),
+                value: controller.offlineOverviewEnabled,
+                onChanged: (value) =>
+                    unawaited(_updateOfflineOverview(context, value)),
               ),
             ],
           ),
