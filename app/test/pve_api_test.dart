@@ -246,6 +246,58 @@ void main() {
     }
   });
 
+  test('guest RRD history uses bounded GET parameters and parsing', () async {
+    final dio = Dio();
+    late RequestOptions request;
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          request = options;
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'data': [
+                  {
+                    'time': 1700000060,
+                    'cpu': 0.3,
+                    'mem': 768,
+                    'maxmem': 1024,
+                  },
+                  'bad',
+                  {
+                    'time': 1700000000,
+                    'cpu': 0.1,
+                    'mem': 512,
+                    'maxmem': 1024,
+                  },
+                  {'time': -1, 'cpu': 0.4},
+                ],
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(profile, credentials, http: dio);
+    addTearDown(gateway.close);
+
+    final series = await gateway.guestMetrics(
+      guest,
+      GuestMetricTimeframe.week,
+    );
+    expect(request.method, 'GET');
+    expect(request.path, '/nodes/pve1/qemu/101/rrddata');
+    expect(request.queryParameters['timeframe'], 'week');
+    expect(request.queryParameters['cf'], 'AVERAGE');
+    expect(series.points.length, 2);
+    expect(series.points.first.cpuFraction, 0.1);
+    expect(series.points.last.memoryFraction, 0.75);
+    expect(series.malformedRecords, 2);
+    expect(series.truncated, isFalse);
+  });
+
   test(
     'task log uses bounded read-only URL and tolerates malformed rows',
     () async {
