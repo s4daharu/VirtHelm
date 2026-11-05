@@ -208,22 +208,21 @@ class GuestMetricPoint {
     }
 
     final rawCpu = asDouble(json['cpu']);
-    final cpuFraction =
-        rawCpu != null && rawCpu >= 0 && rawCpu <= 1 ? rawCpu : null;
+    final cpuFraction = rawCpu != null && rawCpu >= 0 && rawCpu <= 1
+        ? rawCpu
+        : null;
 
     final mem = asDouble(json['mem']);
     final maxMem = asDouble(json['maxmem']);
     final memoryFraction =
-        mem != null &&
-            maxMem != null &&
-            mem >= 0 &&
-            maxMem > 0 &&
-            mem <= maxMem
+        mem != null && maxMem != null && mem >= 0 && maxMem > 0 && mem <= maxMem
         ? mem / maxMem
         : null;
 
     if (cpuFraction == null && memoryFraction == null) {
-      throw const FormatException('RRD sample has no usable CPU or memory data.');
+      throw const FormatException(
+        'RRD sample has no usable CPU or memory data.',
+      );
     }
     return GuestMetricPoint(
       timestamp: timestamp,
