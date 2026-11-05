@@ -107,13 +107,13 @@
       "F12 retry source formatter drift corrected using pinned CI formatter output; final branch CI still required"
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 117,
+    "current_flutter_tests_defined": 120,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
     "p0_gaps": [
-      "Android OS connectivity observer and automatic offline-state transitions are not implemented",
-      "Full persistent offline guest/node detail cache is not implemented; only optional last-known aggregate counts are cached"
+      "Full persistent offline guest/node detail cache is not implemented; only optional last-known aggregate counts are cached",
+      "Android default-network observation remains unverified on physical Android devices, especially isolated LAN and VPN transitions"
     ],
     "unverified_repository_controls": [
       "GitHub currently reports main.protected=false; no verified enforced branch protection",
@@ -176,8 +176,16 @@
       "scope": "Opt-in profile-scoped local summary of last-known node and guest counts, with timestamp and seven-day read eligibility; no node names, guest identities, tokens, endpoints, logs or request bodies in the snapshot.",
       "behavior": "Show clearly labeled cached counts after a typed transport failure when a live inventory cannot be loaded. Cached data never creates an Inventory or enables mutations.",
       "security": "Cache clears on opt-out, profile deletion, profile edits, and observed authentication 401. Invalid, expired, future-dated or corrupt records are ignored.",
-      "limitations": "No Android network connectivity observer or automatic offline transitions. No persisted guest list, per-node detail or storage/task data; physical device/network and PVE version verification remain open.",
+      "limitations": "Android default-network observation is now implemented at source level (docs/54). No persisted guest list, per-node detail or storage/task data; live device and PVE verification remain open.",
       "report": "docs/53-implementation-p0-offline-overview.md"
+    },
+    "f12_android_connectivity": {
+      "status": "implemented_source_level_pending_final_ci",
+      "behavior": "Android default-network callback reports available/unavailable/unknown. Loss pauses timed GET and task polling, blocks mutations and keeps counts display-only. Recovery performs a clean authenticated read or full cold activation.",
+      "safety": "Network available does not establish PVE reachability. Unknown following loss does not unlock actions; no background recovery, mutation replay, or persistent network identifiers.",
+      "tls_presentation": "Persistent shell/guest insecure-cert banners removed; header, connection chooser, settings, opt-in and guest action confirmations retain contextual risk information. Strict default and scoped exception unchanged.",
+      "limitations": "Real PVE 9.2/8.4 fixtures and physical airplane mode, LAN-only, VPN, lifecycle, race and accessibility testing remain required.",
+      "report": "docs/54-implementation-p0-android-connectivity.md"
     }
   }
 }

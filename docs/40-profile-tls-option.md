@@ -3,7 +3,7 @@
 ## Policy and usage
 Certificate and hostname verification remain enabled by default. To use a self-signed lab server, **Add connection → Disable certificate verification → Connect (insecure)**. Confirmation shows the normalized HTTPS origin and warns about token theft, impersonation and command tampering even on a local network. Cancelling sends no connection request. The option is available for any host, not just private addresses, as explicitly requested by the user.
 
-The choice is saved with that profile and used for future sessions, including inventory, task reads and guest operations. No repeated confirmation is required when reopening an already saved profile. Active shell tabs and guest details show an insecure warning; connection menus and settings mark opted-in profiles. Guest action confirmations also mention the exception. To restore verification, remove and re-add the connection with the switch off; profile editing/trust enrollment is not implemented.
+The choice is saved with that profile and used for future sessions, including inventory, task reads and guest operations. No repeated confirmation is required when reopening an already saved profile. The persistent certificate banner has been retired. The shell header and connection switcher label opted-in profiles **TLS UNVERIFIED**, Settings identifies disabled verification, and guest action confirmations repeat the risk. To restore verification, edit the connection and enable verification, which requires successful server revalidation. See [the updated warning presentation](54-implementation-p0-android-connectivity.md).
 
 Prefer a trusted certificate and VPN. HTTPS without certificate verification encrypts traffic but does **not** establish server identity; a LAN is not proof of trust. This option is not recommended for production.
 
@@ -15,7 +15,7 @@ Prefer a trusted certificate and VPN. HTTPS without certificate verification enc
 - This does not remove the requirement for an HTTPS server/certificate, add HTTP support, or securely enroll/pin a certificate.
 
 ## Verification and release gates
-Regression coverage includes metadata defaults/migration, explicit opt-in persistence and profile isolation, onboarding cancellation/confirmation, active warnings, native self-signed/wrong-host rejection by default and acceptance only on opt-in, exact-host/port callback checks, and redirect blocking. Native tests use OpenSSL-generated ephemeral certificates/keys; no real credentials or keys are checked in.
+Regression coverage includes metadata defaults/migration, explicit opt-in persistence and profile isolation, onboarding cancellation/confirmation, contextual profile/action warnings, native self-signed/wrong-host rejection by default and acceptance only on opt-in, exact-host/port callback checks, and redirect blocking. Native tests use OpenSSL-generated ephemeral certificates/keys; no real credentials or keys are checked in.
 
 Physical Android tests, trusted/expired/wrong-host/private-CA matrices, VPN/network switching and independent security review remain required before release. Tests do not prove a network is trustworthy or restore server authentication when bypass is selected.
 

@@ -17,6 +17,8 @@ Evidence status codes: **DOC** = official source substantiates the concept; **AU
 | Connection cancellation/profile-deletion local persistence cleanup | AUTO race/malformed-metadata regression coverage | Android Keystore/process-death/device-loss validation |
 | Android minSdk 26, release Internet, no cleartext/backup, no debug release signing | AUTO generated-runner CI | merged release-manifest/device backup and signing tests |
 | Reproducible Flutter dependency graph | AUTO committed lock + pinned Flutter 3.44.4 | deliberate dependency/security update review |
+| Android default-network callback and post-loss action guard | AUTO synthetic controller/native bridge tests | physical airplane-mode, isolated-LAN, VPN and process-death tests |
+| Contextual TLS exception labels without permanent banner | AUTO source/widget tests | physical Android accessibility and TLS security review |
 | 200-guest responsiveness/accessibility targets | PENDING | representative phone benchmark/TalkBack/font-scale |
 | Ticket/MFA, console, PBS/PDM and high-risk operations | PLAN/deferred | separate milestone RFC/integration gates |
 

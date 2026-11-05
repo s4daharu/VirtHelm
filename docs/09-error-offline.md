@@ -20,6 +20,8 @@ Connection: `unconfigured -> checkingTLS -> validatingAuth -> ready | partialAcc
 Mutation: `confirming -> submitting -> taskPending(UPID) -> taskSucceeded | taskFailed | outcomeUnknown`. Do not use an optimistic “VM is running” update as the sole indicator; reconcile authoritative state after task completion.
 
 ## Offline policy
+The Android default-network observer is a **hint**, not a server reachability test. Loss of the default network blocks mutations, pauses foreground timers and requires a fresh authenticated read before actions re-enable. An unknown observer state never clears this guard after confirmed loss. See [Android connectivity](54-implementation-p0-android-connectivity.md).
+
 Cache non-sensitive summaries optionally, with timestamp and cluster ID. Surface stale chips and disable mutations. Cache deletes on profile deletion, auth revocation, or sign out. No background polling worker or notification service in MVP; Android battery/doze constraints are not circumvented. Manual refresh remains available.
 
 ## Instrumentation

@@ -30,7 +30,8 @@ required = [
   'docs/50-implementation-p0-local-preferences.md',
   'docs/51-implementation-p0-task-details.md',
   'docs/52-implementation-p0-transport-errors.md',
-  'docs/53-implementation-p0-offline-overview.md']
+  'docs/53-implementation-p0-offline-overview.md',
+   'docs/54-implementation-p0-android-connectivity.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
