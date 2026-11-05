@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'app_preferences.dart';
 import 'guest_saved_view.dart';
 import 'models.dart';
+import 'offline_overview.dart';
 import 'profile_repository.dart';
 import 'pve_api.dart';
 
@@ -24,6 +25,9 @@ class AppController extends ChangeNotifier {
   List<ConnectionProfile> profiles = [];
   ConnectionProfile? active;
   Inventory? inventory;
+  // Display-only, last-known aggregate counts. Never a mutation snapshot.
+  OfflineOverview? cachedOverview;
+  bool offlineOverviewEnabled = false;
   final List<TrackedTask> tasks = [];
   List<StoragePool> storages = [];
   List<RecentServerTask> serverTasks = [];
@@ -97,6 +101,9 @@ class AppController extends ChangeNotifier {
     } on PveFailure catch (error) {
       statusError = error.message;
       authLost = error.status == 401;
+      if (authLost && current()) {
+        await _clearOfflineAfterAuth(generation);
+      }
     } catch (_) {
       statusError = 'Could not read task status.';
     }
@@ -106,6 +113,9 @@ class AppController extends ChangeNotifier {
         log = await gateway.taskLog(node, upid);
       } on PveFailure catch (error) {
         logError = error.message;
+        if (error.status == 401 && current()) {
+          await _clearOfflineAfterAuth(generation);
+        }
       } catch (_) {
         logError = 'Could not read task log.';
       }
@@ -240,6 +250,39 @@ class AppController extends ChangeNotifier {
     if (_disposed) return;
     showNodeMetrics = value;
     _notify();
+  }
+
+  Future<void> setOfflineOverviewEnabled(bool enabled) async {
+    final profileId = active?.id;
+    if (_disposed || profileId == null) return;
+    await repository.setOfflineOverviewEnabled(profileId, enabled);
+    if (_disposed || active?.id != profileId) return;
+    offlineOverviewEnabled = enabled;
+    if (!enabled) {
+      cachedOverview = null;
+    } else if (isInventoryWriteSafe) {
+      try {
+        await repository.saveOfflineOverview(
+          profileId,
+          OfflineOverview.fromInventory(inventory!),
+        );
+      } catch (_) {
+        // Cache persistence is optional; never change live authorization.
+      }
+    }
+    _notify();
+  }
+
+  Future<void> _clearOfflineAfterAuth(int generation) async {
+    if (_disposed || generation != _generation) return;
+    final profileId = active?.id;
+    cachedOverview = null;
+    if (profileId == null) return;
+    try {
+      await repository.clearOfflineOverview(profileId);
+    } catch (_) {
+      // The cached data is hidden for this session even if deletion fails.
+    }
   }
 
   Future<void> connect({
@@ -413,6 +456,8 @@ class AppController extends ChangeNotifier {
     _gateway?.close();
     _gateway = null;
     active = profile;
+    offlineOverviewEnabled = repository.offlineOverviewEnabled(profile.id);
+    cachedOverview = null;
     favoriteGuests = repository.readGuestFavorites(profile.id);
     guestSavedViews = repository.readGuestViews(profile.id);
     inventory = null;
@@ -465,6 +510,13 @@ class AppController extends ChangeNotifier {
         _gateway?.close();
         _gateway = null;
         inventory = null;
+        cachedOverview = e is PveFailure && e.transportFailure != null
+            ? repository.readOfflineOverview(profile.id)
+            : null;
+        if (e is PveFailure && e.status == 401) {
+          await _clearOfflineAfterAuth(generation);
+        }
+        if (generation != _generation || _disposed) return;
         message = e is PveFailure ? e.message : 'Could not open connection.';
         _notify();
       }
@@ -486,12 +538,14 @@ class AppController extends ChangeNotifier {
     final gateway = _gateway;
     if (_disposed || gateway == null) return;
     final generation = _generation;
+    final profileId = active?.id;
     refreshing = true;
     _notify();
     try {
       final next = await gateway.inventory();
       if (generation != _generation) return;
       inventory = next;
+      cachedOverview = null;
       message = null;
       inventoryWarning = next.malformedGuestRecords == 0
           ? null
@@ -502,10 +556,35 @@ class AppController extends ChangeNotifier {
         _loadStorage(gateway, nodes, generation),
         _loadServerTasks(gateway, nodes, generation),
       ]);
+      if (generation != _generation || _disposed) return;
+      // Save only a clean, fully authenticated live inventory. Supplemental
+      // 401s must not refresh a cache belonging to a revoked credential.
+      if (profileId != null &&
+          offlineOverviewEnabled &&
+          message == null &&
+          next.malformedGuestRecords == 0) {
+        try {
+          await repository.saveOfflineOverview(
+            profileId,
+            OfflineOverview.fromInventory(next),
+          );
+        } catch (_) {
+          // Offline display is optional; cache failures cannot make live
+          // inventory appear unsafe or block normal read operations.
+        }
+      }
     } catch (e) {
-      if (generation != _generation) return;
+      if (generation != _generation || _disposed) return;
       message = e is PveFailure ? e.message : 'Unable to refresh inventory.';
-      // Last result is displayed as stale; no stale data may authorize a write.
+      if (e is PveFailure && e.status == 401) {
+        await _clearOfflineAfterAuth(generation);
+      } else if (inventory == null &&
+          e is PveFailure &&
+          e.transportFailure != null &&
+          profileId != null) {
+        cachedOverview = repository.readOfflineOverview(profileId);
+      }
+      // Last live result remains stale; cached counts never authorize writes.
     } finally {
       if (generation == _generation) {
         refreshing = false;
@@ -526,7 +605,11 @@ class AppController extends ChangeNotifier {
       storageMessage = _sectionWarning(result, 'storage data');
     } on PveFailure catch (error) {
       if (generation != _generation || _disposed) return;
-      if (error.status == 401) message = error.message;
+      if (error.status == 401) {
+        message = error.message;
+        await _clearOfflineAfterAuth(generation);
+      }
+      if (generation != _generation || _disposed) return;
       storageMessage =
           'Storage overview could not be refreshed. Previously shown data may be stale.';
     } catch (_) {
@@ -548,7 +631,11 @@ class AppController extends ChangeNotifier {
       serverTaskMessage = _sectionWarning(result, 'server task history');
     } on PveFailure catch (error) {
       if (generation != _generation || _disposed) return;
-      if (error.status == 401) message = error.message;
+      if (error.status == 401) {
+        message = error.message;
+        await _clearOfflineAfterAuth(generation);
+      }
+      if (generation != _generation || _disposed) return;
       serverTaskMessage =
           'Server task history could not be refreshed. Previously shown data may be stale.';
     } catch (_) {
@@ -692,6 +779,7 @@ class AppController extends ChangeNotifier {
           error is PveFailure &&
           error.status == 401) {
         message = error.message;
+        unawaited(_clearOfflineAfterAuth(generation));
       }
       // A failed POST can have executed on the server; do not allow another
       // local submission until the operator reviews the server-side result.
@@ -828,6 +916,7 @@ class AppController extends ChangeNotifier {
           if (generation != _generation) return;
           if (error.status == 401) {
             message = error.message;
+            unawaited(_clearOfflineAfterAuth(generation));
             authenticationFailure = error.message;
             final index = tasks.indexWhere(
               (task) => task.upid == pendingTask.upid,
@@ -926,6 +1015,8 @@ class AppController extends ChangeNotifier {
       favoriteGuests = <String>{};
       guestSavedViews = [];
       inventory = null;
+      cachedOverview = null;
+      offlineOverviewEnabled = false;
       storages = [];
       serverTasks = [];
       storageMessage = null;

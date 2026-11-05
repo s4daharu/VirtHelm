@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app_preferences.dart';
 import 'guest_saved_view.dart';
 import 'models.dart';
+import 'offline_overview.dart';
 
 abstract class CredentialVault {
   Future<void> store(String id, ApiCredentials credentials);
@@ -46,6 +47,8 @@ class ProfileRepository {
   static const _themeKey = 'ui_theme_v1';
   static const _refreshKey = 'ui_refresh_v1';
   static const _nodeMetricsKey = 'ui_node_metrics_v1';
+  static const _offlineEnabledPrefix = 'offline_counts_enabled_v1:';
+  static const _offlineCountsPrefix = 'offline_counts_v1:';
   Future<void> _writes = Future<void>.value();
 
   // A vault operation can yield before metadata is written. Serialize local
@@ -132,6 +135,70 @@ class ProfileRepository {
       throw StateError('Could not save display preference.');
     }
   });
+
+  // Counts-only opt-in cache. No server names, resource IDs, endpoints,
+  // credentials, task logs, raw responses, or live authorization flags.
+  String _offlineEnabledKey(String id) => '$_offlineEnabledPrefix$id';
+  String _offlineCountsKey(String id) => '$_offlineCountsPrefix$id';
+
+  bool offlineOverviewEnabled(String profileId) =>
+      _prefs.get(_offlineEnabledKey(profileId)) == true;
+
+  OfflineOverview? readOfflineOverview(String profileId, {DateTime? now}) {
+    if (!offlineOverviewEnabled(profileId) ||
+        !readProfiles().any((profile) => profile.id == profileId)) {
+      return null;
+    }
+    final raw = _prefs.get(_offlineCountsKey(profileId));
+    if (raw is! String || raw.length > 512) return null;
+    try {
+      return OfflineOverview.fromJson(jsonDecode(raw), now: now);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> setOfflineOverviewEnabled(String profileId, bool value) =>
+      _mutate(() async {
+        if (!readProfiles().any((profile) => profile.id == profileId)) {
+          throw StateError('Connection no longer exists.');
+        }
+        if (value) {
+          if (!await _prefs.setBool(_offlineEnabledKey(profileId), true)) {
+            throw StateError('Could not enable offline overview.');
+          }
+        } else {
+          // Purge data before removing consent; a failure cannot claim the
+          // cached data has been erased.
+          await _clearOfflineOverview(profileId);
+          if (!await _prefs.remove(_offlineEnabledKey(profileId))) {
+            throw StateError('Could not disable offline overview.');
+          }
+        }
+      });
+
+  Future<void> saveOfflineOverview(String profileId, OfflineOverview summary) =>
+      _mutate(() async {
+        if (!offlineOverviewEnabled(profileId) ||
+            !readProfiles().any((profile) => profile.id == profileId) ||
+            OfflineOverview.fromJson(summary.toJson()) == null) {
+          return;
+        }
+        final raw = jsonEncode(summary.toJson());
+        if (raw.length > 512) return;
+        if (!await _prefs.setString(_offlineCountsKey(profileId), raw)) {
+          throw StateError('Could not save offline overview.');
+        }
+      });
+
+  Future<void> clearOfflineOverview(String profileId) =>
+      _mutate(() => _clearOfflineOverview(profileId));
+
+  Future<void> _clearOfflineOverview(String profileId) async {
+    if (!await _prefs.remove(_offlineCountsKey(profileId))) {
+      throw StateError('Could not clear offline overview.');
+    }
+  }
 
   Set<String> readGuestFavorites(String profileId) {
     final raw = _prefs.getString(_favoritesKey);
@@ -371,6 +438,8 @@ class ProfileRepository {
         }
         final previousCredentials = await vault.retrieve(profile.id);
         final nextProfiles = [...profiles]..[index] = profile;
+        // Even a same-endpoint token/ACL change must invalidate old counts.
+        await _clearOfflineOverview(profile.id);
         try {
           await vault.store(profile.id, credentials);
           await _writeProfiles(nextProfiles);
@@ -423,6 +492,10 @@ class ProfileRepository {
     } catch (_) {}
     try {
       await _clearGuestViews(id);
+    } catch (_) {}
+    try {
+      await _clearOfflineOverview(id);
+      await _prefs.remove(_offlineEnabledKey(id));
     } catch (_) {}
     if (activeId == id) {
       await _setActive(remaining.isEmpty ? null : remaining.first.id);

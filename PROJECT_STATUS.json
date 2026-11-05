@@ -107,13 +107,13 @@
       "F12 retry source formatter drift corrected using pinned CI formatter output; final branch CI still required"
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 108,
+    "current_flutter_tests_defined": 117,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
     "p0_gaps": [
-      "persistent offline read cache is not implemented",
-      "OS connectivity observer, automatic offline-state transitions and full device-network fault classification are not implemented"
+      "Android OS connectivity observer and automatic offline-state transitions are not implemented",
+      "Full persistent offline guest/node detail cache is not implemented; only optional last-known aggregate counts are cached"
     ],
     "unverified_repository_controls": [
       "GitHub currently reports main.protected=false; no verified enforced branch protection",
@@ -170,6 +170,14 @@
       "safety": "No changes to GET attempt caps, TLS/redirect/auth rules or POST unknown-outcome/single-shot semantics. Unreachable route is not proof the device is offline.",
       "limitations": "No Android OS connectivity listener, automatic offline-state transition, persistent read cache or device/network verification.",
       "report": "docs/52-implementation-p0-transport-errors.md"
+    },
+    "f12_offline_overview": {
+      "status": "implemented_source_level_pending_final_ci",
+      "scope": "Opt-in profile-scoped local summary of last-known node and guest counts, with timestamp and seven-day read eligibility; no node names, guest identities, tokens, endpoints, logs or request bodies in the snapshot.",
+      "behavior": "Show clearly labeled cached counts after a typed transport failure when a live inventory cannot be loaded. Cached data never creates an Inventory or enables mutations.",
+      "security": "Cache clears on opt-out, profile deletion, profile edits, and observed authentication 401. Invalid, expired, future-dated or corrupt records are ignored.",
+      "limitations": "No Android network connectivity observer or automatic offline transitions. No persisted guest list, per-node detail or storage/task data; physical device/network and PVE version verification remain open.",
+      "report": "docs/53-implementation-p0-offline-overview.md"
     }
   }
 }

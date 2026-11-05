@@ -8,6 +8,7 @@ import 'package:virthelm/core/app_preferences.dart';
 import 'package:virthelm/main.dart';
 import 'package:virthelm/core/guest_list_filter.dart';
 import 'package:virthelm/core/models.dart';
+import 'package:virthelm/core/offline_overview.dart';
 import 'package:virthelm/core/profile_repository.dart';
 import 'package:virthelm/ui/connect_page.dart';
 import 'package:virthelm/ui/guest_page.dart';
@@ -842,5 +843,44 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('CPU 10.0%'), findsNothing);
     expect(find.text('pve1'), findsOneWidget);
+  });
+
+  testWidgets('Home labels cached counts without exposing a guest list', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = AppController(
+      repository: ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'cached-lab',
+      name: 'Lab',
+      endpoint: 'https://pve.local:8006',
+    );
+    controller.cachedOverview = OfflineOverview(
+      fetchedAt: DateTime.now().subtract(const Duration(hours: 1)),
+      totalNodes: 2,
+      onlineNodes: 1,
+      totalGuests: 12,
+      runningGuests: 8,
+      stoppedGuests: 4,
+    );
+    controller.message = 'Network unavailable to the server.';
+    await tester.pumpWidget(
+      MaterialApp(home: ShellPage(controller: controller)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('CACHED COUNTS'), findsOneWidget);
+    expect(find.text('1 / 2'), findsOneWidget);
+    expect(find.text('12'), findsOneWidget);
+    expect(find.text('8'), findsOneWidget);
+    expect(find.text('4'), findsOneWidget);
+    expect(find.textContaining('Last-known counts only'), findsOneWidget);
+    await tester.tap(find.text('Guests'));
+    await tester.pumpAndSettle();
+    expect(find.text('No live data'), findsOneWidget);
+    expect(find.text('Web'), findsNothing);
   });
 }
