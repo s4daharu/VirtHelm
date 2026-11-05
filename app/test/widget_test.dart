@@ -1030,6 +1030,67 @@ void main() {
     );
   });
 
+  testWidgets('guest tags filter locally and render on detail', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = AppController(
+      repository: ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'lab',
+      name: 'Lab',
+      endpoint: 'https://pve.local:8006',
+    );
+    controller.inventory = Inventory.fromResources([
+      {
+        'type': 'qemu',
+        'vmid': 101,
+        'node': 'pve1',
+        'name': 'Alpha',
+        'status': 'running',
+        'tags': 'prod;web',
+      },
+      {
+        'type': 'lxc',
+        'vmid': 102,
+        'node': 'pve1',
+        'name': 'Beta',
+        'status': 'stopped',
+        'tags': 'lab',
+      },
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(home: ShellPage(controller: controller)),
+    );
+    await tester.tap(find.text('Guests'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('#prod'), findsOneWidget);
+    expect(find.text('2 workloads'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('guest-tag-filter')));
+    await tester.tap(find.byKey(const Key('guest-tag-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CheckedPopupMenuItem<String> && widget.value == 'prod',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tag: prod'), findsOneWidget);
+    expect(find.text('1 workloads'), findsOneWidget);
+    expect(find.text('Alpha'), findsOneWidget);
+    expect(find.text('Beta'), findsNothing);
+
+    await tester.tap(find.text('Alpha'));
+    await tester.pumpAndSettle();
+    expect(find.byType(GuestPage), findsOneWidget);
+    expect(find.text('prod'), findsOneWidget);
+    expect(find.text('web'), findsOneWidget);
+  });
+
   testWidgets('app applies persisted theme before connection setup', (
     tester,
   ) async {
