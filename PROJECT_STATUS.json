@@ -107,7 +107,7 @@
       "F12 retry source formatter drift corrected using pinned CI formatter output; final branch CI still required"
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 121,
+    "current_flutter_tests_defined": 131,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
@@ -186,6 +186,34 @@
       "tls_presentation": "Persistent shell/guest insecure-cert banners removed; header, connection chooser, settings, opt-in and guest action confirmations retain contextual risk information. Strict default and scoped exception unchanged.",
       "limitations": "Real PVE 9.2/8.4 fixtures and physical airplane mode, LAN-only, VPN, lifecycle, race and accessibility testing remain required.",
       "report": "docs/54-implementation-p0-android-connectivity.md"
+    },
+    "f09_task_pages": {
+      "status": "implemented_source_level_pr_ci_passed_live_validation_pending",
+      "behavior": "Task detail inspection offers explicit status/log refresh and one read-only log page at a time, from offsets 0/100/200/300/400, with at most 100 lines per request and 500 viewable lines. No automatic polling, task mutation or persistent log cache.",
+      "safety": "Only known UPID/node in the active profile and connection generation can be inspected; status and log errors stay separate; page navigation and refresh revalidate current session and do not replay POSTs.",
+      "verification": "Synthetic controller, Dio and widget regressions extended; exact-head Flutter CI and physical PVE/Android verification remain open.",
+      "report": "docs/55-implementation-f09-task-log-pages.md"
+    },
+    "f09_task_history_filters": {
+      "status": "implemented_source_level_pr_ci_passed_live_validation_pending",
+      "behavior": "Local-only case-insensitive search across operation/node/resource/UPID, plus exact node and conservative task status filters (running/succeeded/failed/unknown) for the bounded already-loaded recent server-task list; session UPIDs stay visible and unchanged.",
+      "isolation": "Filters and search text remain in transient widget state and are reset on profile switch/reconnect by profile and connection generation; no new network reads, API privileges, persistence or mutation behavior.",
+      "verification": "Synthetic filter and widget regressions, source checks, final exact-head CI pending; live PVE 8.4/9.2 fixtures and physical Android review still required.",
+      "report": "docs/56-implementation-f09-task-history-filters.md"
+    },
+    "guest_io_counters": {
+      "status": "implemented_source_level_final_exact_head_ci_required",
+      "behavior": "Decode optional non-negative cumulative netin/netout/diskread/diskwrite byte counters from existing /cluster/resources inventory for QEMU/LXC guest detail. Display formatted receive/send/read/write totals; unknown fields render unavailable and are never interpreted as live rates.",
+      "security": "Read-only current inventory display with no extra API requests or persistence. Guest page and open power confirmation now redact on profile switch and reconnect, and reject stale confirmations.",
+      "verification": "Synthetic parser and guest-page widget tests; exact-head CI still required. Live PVE 9.2/8.4 units/availability and physical Android validation remain open.",
+      "report": "docs/57-implementation-guest-io-counters.md"
+    },
+    "guest_session_isolation_audit": {
+      "status": "code_fixed_pending_final_exact_head_ci",
+      "finding": "Guest-detail page previously displayed the old profile's guest identity after a connection switch and accepted the same profile after reconnect; open power confirmation contained the prior target details.",
+      "remediation": "Capture profile ID and connection generation on navigation, redact the entire guest route and in-flight power dialog on mismatch, and reject obsolete confirmations before requesting a mutation.",
+      "tests": "Profile-switch and same-profile reconnect widget regressions in app/test/widget_test.dart.",
+      "report": "docs/58-premerge-whole-repository-audit-2026-11-05.md"
     }
   }
 }

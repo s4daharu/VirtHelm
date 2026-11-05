@@ -34,6 +34,8 @@
 | GET | `/nodes/{node}/tasks/{upid}/log` | task log | lines/events | P1; validate |
 | GET | `/nodes/{node}/storage` | storage list | storages with usage | Candidate contract; validate |
 
+Guest resource entries may include optional `netin`, `netout`, `diskread`, and `diskwrite` cumulative byte counters. They are **not** current bytes/second; missing or malformed fields are unavailable rather than zero. Source-level parsing/display is covered by synthetic tests, while exact PVE 8.4/9.2 fixtures and lifecycle reset semantics still require validation.
+
 `Candidate contract` means endpoint family is known from the PVE API/source ecosystem but exact methods, optional params and return schemas were **not independently live-tested** for both 8.4 and 9.2 when this package was prepared. Treat this table as a work queue, not a frozen/generated OpenAPI schema. API viewer on installed target PVE is definitive for that server.
 
 ## 3. Response examples (illustrative only; **not** captures)

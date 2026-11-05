@@ -29,19 +29,30 @@ class _TaskInspectionController extends AppController {
   _TaskInspectionController(ProfileRepository repository)
     : super(repository: repository);
 
+  final List<int> requestedStarts = [];
+
   @override
   Future<TaskInspection?> inspectTask({
     required String profileId,
     required int generation,
     required String node,
     required String upid,
-  }) async => const TaskInspection(
-    status: ServerTaskStatus(status: 'stopped', exitStatus: 'OK'),
-    log: TaskLogResult(
-      entries: [TaskLogEntry(number: 1, text: 'Read-only log entry')],
-      malformedRecords: 0,
-    ),
-  );
+    int logStart = 0,
+  }) async {
+    requestedStarts.add(logStart);
+    return TaskInspection(
+      status: const ServerTaskStatus(status: 'stopped', exitStatus: 'OK'),
+      log: TaskLogResult(
+        entries: [
+          TaskLogEntry(
+            number: logStart + 1,
+            text: 'Read-only log entry $logStart',
+          ),
+        ],
+        malformedRecords: logStart == 0 ? 99 : 0,
+      ),
+    );
+  }
 }
 
 class _BlockingController extends AppController {
@@ -151,6 +162,126 @@ void main() {
     await tester.pump();
     expect(find.textContaining('Read-only log entry'), findsNothing);
     expect(find.textContaining('Connection changed.'), findsOneWidget);
+  });
+
+  testWidgets('task log pages and refresh remain explicit bounded reads', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = _TaskInspectionController(
+      ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'a',
+      name: 'A',
+      endpoint: 'https://a.example',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TaskDetailsPage(
+          controller: controller,
+          profileId: 'a',
+          generation: controller.connectionGeneration,
+          node: 'pve1',
+          upid: 'UPID:pve1:1:2:3:qmstart:101:user@pve:',
+          title: 'Task',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.requestedStarts, [0]);
+    expect(find.textContaining('Read-only log entry 0'), findsOneWidget);
+    await tester.tap(find.text('Next 100'));
+    await tester.pumpAndSettle();
+    expect(controller.requestedStarts, [0, 100]);
+    expect(find.textContaining('Read-only log entry 100'), findsOneWidget);
+    expect(find.text('Next 100'), findsNothing);
+    await tester.tap(find.text('Refresh status and log'));
+    await tester.pumpAndSettle();
+    expect(controller.requestedStarts, [0, 100, 100]);
+    await tester.tap(find.text('Previous 100'));
+    await tester.pumpAndSettle();
+    expect(controller.requestedStarts, [0, 100, 100, 0]);
+    controller.active = const ConnectionProfile(
+      id: 'b',
+      name: 'B',
+      endpoint: 'https://b.example',
+    );
+    controller.notifyListeners();
+    await tester.pump();
+    expect(find.textContaining('Read-only log entry'), findsNothing);
+    expect(find.textContaining('Connection changed.'), findsOneWidget);
+  });
+
+  testWidgets('task history filters stay local and reset on profile switch', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = _TaskInspectionController(
+      ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'a',
+      name: 'A',
+      endpoint: 'https://a.example',
+    );
+    controller.serverTasks = const [
+      RecentServerTask(
+        node: 'pve1',
+        upid: 'UPID:pve1:1:2:3:qmstart:101:user@pve:',
+        operation: 'qmstart',
+        resourceId: '101',
+        status: 'stopped',
+        exitStatus: 'OK',
+      ),
+      RecentServerTask(
+        node: 'pve2',
+        upid: 'UPID:pve2:1:2:3:vzshutdown:202:user@pve:',
+        operation: 'vzshutdown',
+        resourceId: '202',
+        status: 'stopped',
+        exitStatus: 'failed',
+      ),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(home: ShellPage(controller: controller)),
+    );
+    await tester.tap(find.text('Tasks'));
+    await tester.pumpAndSettle();
+    expect(find.text('Start VM • 101'), findsOneWidget);
+    expect(find.text('Shut down container • 202'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('task-history-search')),
+      'pve2',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Start VM • 101'), findsNothing);
+    expect(find.text('Shut down container • 202'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('task-state-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Succeeded').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Shut down container • 202'), findsNothing);
+    expect(find.textContaining('No recent tasks match'), findsOneWidget);
+
+    // A different profile must never inherit another profile's task query.
+    controller.active = const ConnectionProfile(
+      id: 'b',
+      name: 'B',
+      endpoint: 'https://b.example',
+    );
+    await tester.pumpWidget(
+      MaterialApp(home: ShellPage(controller: controller)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Start VM • 101'), findsOneWidget);
+    expect(find.text('Shut down container • 202'), findsOneWidget);
+    expect(find.textContaining('No recent tasks match'), findsNothing);
   });
 
   testWidgets('onboarding shows HTTPS and token fields', (tester) async {
@@ -537,6 +668,7 @@ void main() {
               status: 'running',
             ),
             profileId: 'lab',
+            generation: controller.connectionGeneration,
           ),
         ),
       );
@@ -555,6 +687,128 @@ void main() {
       expect(find.textContaining('TLS UNVERIFIED'), findsNothing);
     },
   );
+
+  testWidgets(
+    'guest I/O counters show totals and redact after a profile switch',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = AppController(
+        repository: ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      controller.active = const ConnectionProfile(
+        id: 'a',
+        name: 'A',
+        endpoint: 'https://a.example',
+      );
+      controller.inventory = Inventory.fromResources([
+        {
+          'type': 'qemu',
+          'node': 'pve1',
+          'vmid': 101,
+          'name': 'Web',
+          'status': 'running',
+          'netin': 1048576,
+          'netout': 0,
+          'diskread': 1073741824,
+        },
+      ]);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: GuestPage(
+            controller: controller,
+            guest: controller.inventory!.guests.single,
+            profileId: 'a',
+            generation: controller.connectionGeneration,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Guest I/O counters'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Guest I/O counters'), findsOneWidget);
+      expect(find.text('Network traffic'), findsOneWidget);
+      expect(find.textContaining('Received: 1.0 MiB'), findsOneWidget);
+      expect(find.textContaining('Sent: 0 B'), findsOneWidget);
+      expect(find.textContaining('Read: 1.0 GiB'), findsOneWidget);
+      expect(find.textContaining('Written: —'), findsOneWidget);
+      expect(find.textContaining('not live transfer rates'), findsOneWidget);
+
+      controller.active = const ConnectionProfile(
+        id: 'b',
+        name: 'B',
+        endpoint: 'https://b.example',
+      );
+      controller.notifyListeners();
+      await tester.pump();
+      expect(find.textContaining('Received: 1.0 MiB'), findsNothing);
+      expect(find.textContaining('Read: 1.0 GiB'), findsNothing);
+      expect(find.text('Web'), findsNothing);
+      expect(find.textContaining('VMID 101'), findsNothing);
+      expect(find.text('Guest unavailable'), findsOneWidget);
+    },
+  );
+
+  testWidgets('guest confirmation redacts when same profile reconnects', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = AppController(
+      repository: ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    const profile = ConnectionProfile(
+      id: 'a',
+      name: 'A',
+      endpoint: 'https://a.example',
+    );
+    controller.active = profile;
+    controller.inventory = Inventory.fromResources([
+      {
+        'type': 'qemu',
+        'node': 'pve1',
+        'vmid': 101,
+        'name': 'Confidential guest',
+        'status': 'running',
+      },
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GuestPage(
+          controller: controller,
+          guest: controller.inventory!.guests.single,
+          profileId: profile.id,
+          generation: controller.connectionGeneration,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Shut down'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Shut down'));
+    await tester.pumpAndSettle();
+    expect(find.text('Shut down Confidential guest?'), findsOneWidget);
+
+    await controller.activate(profile);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Confidential guest'), findsNothing);
+    expect(find.text('Connection changed'), findsOneWidget);
+    expect(find.text('Confirm'), findsNothing);
+    await tester.tap(find.text('Dismiss'));
+    await tester.pumpAndSettle();
+    expect(find.text('Guest unavailable'), findsOneWidget);
+    expect(find.textContaining('Confidential guest'), findsNothing);
+  });
 
   testWidgets('guest browse filters and sorting reset on profile switch', (
     tester,

@@ -77,6 +77,7 @@ class _Gateway implements PveGateway {
   int inventoryCalls = 0;
   int taskStatusCalls = 0;
   int taskLogCalls = 0;
+  final List<int> taskLogStarts = [];
   String status = 'running';
   String serverVersion = '9.2';
   PveFailure? versionFailure;
@@ -182,8 +183,13 @@ class _Gateway implements PveGateway {
   }
 
   @override
-  Future<TaskLogResult> taskLog(String node, String upid) async {
+  Future<TaskLogResult> taskLog(
+    String node,
+    String upid, {
+    int start = 0,
+  }) async {
     taskLogCalls++;
+    taskLogStarts.add(start);
     if (logGate != null) return logGate!.future;
     if (logFailure != null) throw logFailure!;
     return logResult;
@@ -230,6 +236,18 @@ void main() {
       expect(detail?.status?.succeeded, isTrue);
       expect(detail?.log?.entries.single.text, 'Task started');
       expect(gateway.taskLogCalls, 1);
+      expect(gateway.taskLogStarts, [0]);
+      expect(gateway.submissions, 0);
+
+      final nextPage = await ctl.inspectTask(
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+        node: task.node,
+        upid: task.upid,
+        logStart: 100,
+      );
+      expect(nextPage?.status?.succeeded, isTrue);
+      expect(gateway.taskLogStarts, [0, 100]);
       expect(gateway.submissions, 0);
 
       gateway.logFailure = const PveFailure('Permission denied.', status: 403);

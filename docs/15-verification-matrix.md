@@ -7,7 +7,9 @@ Evidence status codes: **DOC** = official source substantiates the concept; **AU
 | PVE HTTPS/API-token protocol and token-console limitation | DOC + AUTO header/transport tests | PVE 8.4/9.2 auth/ACL lab |
 | HTTPS-only origin, redirect rejection, explicit TLS failure | AUTO | physical-device valid/wrong-name/expired/private-CA tests |
 | Profile credential isolation and secure-storage metadata separation | AUTO | Android Keystore backup/restore/device-loss tests |
+| Guest detail/confirmation redaction on profile switch and same-profile reconnect | AUTO widget regression and generation guards | physical Android route/dialog race and screen privacy testing |
 | Cluster resource/guest parsing, units and uptime | AUTO | sanitized 8.4/9.2 fixtures and permission variants |
+| Optional cumulative guest network/disk byte counters from cluster resources | AUTO synthetic parser/widget tests | PVE 8.4/9.2 counter availability/units/restart-reset fixtures and physical-device accessibility |
 | QEMU/LXC start/shutdown/reboot/stop paths and one-POST behavior | AUTO contract/fault guards | disposable 8.4/9.2 mutation tests |
 | Mutation single-flight, stale/profile race rejection, unknown timeout lockout | AUTO | network fault injection against real PVE |
 | Task-detail terminal success requires stopped + OK exit status | AUTO | live successful/failed task fixtures |
