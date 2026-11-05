@@ -394,6 +394,27 @@ class TaskInspection {
   final String? logError;
 }
 
+const int _maxGuestTags = 32;
+const int _maxGuestTagLength = 64;
+
+// Keep untrusted inventory tag strings bounded before they reach search/UI state.
+List<String> _guestTags(Object? value) {
+  if (value is! String || value.isEmpty || value.length > 2048) {
+    return const <String>[];
+  }
+  final tags = <String>[];
+  final seen = <String>{};
+  for (final raw in value.split(';')) {
+    final tag = raw.trim();
+    if (tag.isEmpty || tag.length > _maxGuestTagLength) continue;
+    if (seen.add(tag.toLowerCase())) {
+      tags.add(tag);
+      if (tags.length >= _maxGuestTags) break;
+    }
+  }
+  return List.unmodifiable(tags);
+}
+
 // Absent, fractional and negative I/O counters are unavailable, not zero.
 int? _guestByteCounter(Object? value) {
   final number = asInteger(value);
@@ -407,6 +428,7 @@ class Guest {
     required this.kind,
     required this.name,
     required this.status,
+    this.tags = const <String>[],
     this.cpu,
     this.mem,
     this.maxMem,
@@ -423,6 +445,7 @@ class Guest {
   final String kind; // qemu or lxc
   final String name;
   final String status;
+  final List<String> tags;
   final double? cpu; // PVE fractional CPU usage, not percent
   final int? mem;
   final int? maxMem;
@@ -457,6 +480,7 @@ class Guest {
           ? rawName
           : '$kind $vmid',
       status: asText(json['status']) ?? 'unknown',
+      tags: _guestTags(json['tags']),
       cpu: asDouble(json['cpu']),
       mem: asInteger(json['mem']),
       maxMem: asInteger(json['maxmem']),
