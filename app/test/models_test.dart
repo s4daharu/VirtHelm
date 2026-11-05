@@ -173,19 +173,21 @@ void main() {
   });
 
   test('guest tags ignore malformed, duplicate and oversized values', () {
+    final longTag = List.filled(65, 'x').join();
     final guest = Guest.fromResource({
       'type': 'qemu',
       'node': 'pve1',
       'vmid': 101,
-      'tags': ' prod ;WEB;Prod;' + List.filled(65, 'x').join() + ';;',
+      'tags': ' prod ;WEB;Prod;$longTag;;',
     });
     expect(guest.tags, ['prod', 'WEB']);
 
+    final oversizedTagPayload = List.filled(2049, 'x').join();
     final oversized = Guest.fromResource({
       'type': 'lxc',
       'node': 'pve1',
       'vmid': 102,
-      'tags': List.filled(2049, 'x').join(),
+      'tags': oversizedTagPayload,
     });
     expect(oversized.tags, isEmpty);
   });
