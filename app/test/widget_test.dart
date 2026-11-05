@@ -668,6 +668,7 @@ void main() {
               status: 'running',
             ),
             profileId: 'lab',
+            generation: controller.connectionGeneration,
           ),
         ),
       );
@@ -719,6 +720,7 @@ void main() {
             controller: controller,
             guest: controller.inventory!.guests.single,
             profileId: 'a',
+            generation: controller.connectionGeneration,
           ),
         ),
       );
@@ -747,7 +749,9 @@ void main() {
       await tester.pump();
       expect(find.textContaining('Received: 1.0 MiB'), findsNothing);
       expect(find.textContaining('Read: 1.0 GiB'), findsNothing);
-      expect(find.textContaining('Received: —'), findsOneWidget);
+      expect(find.text('Web'), findsNothing);
+      expect(find.textContaining('VMID 101'), findsNothing);
+      expect(find.text('Guest unavailable'), findsOneWidget);
     },
   );
 
