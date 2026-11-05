@@ -10,10 +10,12 @@ class GuestPage extends StatefulWidget {
     required this.controller,
     required this.guest,
     required this.profileId,
+    required this.generation,
   });
   final AppController controller;
   final Guest guest;
   final String profileId;
+  final int generation;
 
   @override
   State<GuestPage> createState() => _GuestPageState();
@@ -22,8 +24,12 @@ class GuestPage extends StatefulWidget {
 class _GuestPageState extends State<GuestPage> {
   bool submitting = false;
 
+  bool get _currentSession =>
+      widget.controller.active?.id == widget.profileId &&
+      widget.controller.connectionGeneration == widget.generation;
+
   Guest? currentGuest() {
-    if (widget.controller.active?.id != widget.profileId) return null;
+    if (!_currentSession) return null;
     final inv = widget.controller.inventory;
     if (inv == null) return null;
     for (final guest in inv.guests) {
@@ -37,7 +43,7 @@ class _GuestPageState extends State<GuestPage> {
   }
 
   Future<void> execute(Guest guest, GuestAction action) async {
-    if (submitting) return;
+    if (submitting || !_currentSession) return;
     final isForce = action == GuestAction.stop;
     final tlsWarning =
         widget.controller.active?.allowInvalidCertificates == true
@@ -48,31 +54,51 @@ class _GuestPageState extends State<GuestPage> {
         '${guest.node} / ${guest.kind.toUpperCase()} ${guest.vmid}.';
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('${action.label} ${guest.name}?'),
-        content: SingleChildScrollView(
-          child: Text(
-            (isForce
-                    ? '$target\n\nForce stop immediately terminates this guest '
-                          'without a graceful shutdown and can cause data loss. '
-                          'Check the connection, node, VMID, and running services.'
-                    : '$target\n\nProxmox will run this operation asynchronously.') +
-                tlsWarning,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(isForce ? 'Force stop' : 'Confirm'),
-          ),
-        ],
+      builder: (dialogContext) => AnimatedBuilder(
+        animation: widget.controller,
+        builder: (context, _) {
+          if (!_currentSession) {
+            return AlertDialog(
+              title: const Text('Connection changed'),
+              content: const Text(
+                'Guest details are no longer current. Reopen this guest '
+                'from the active connection.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Dismiss'),
+                ),
+              ],
+            );
+          }
+          return AlertDialog(
+            title: Text('${action.label} ${guest.name}?'),
+            content: SingleChildScrollView(
+              child: Text(
+                (isForce
+                        ? '$target\\n\\nForce stop immediately terminates this guest '
+                              'without a graceful shutdown and can cause data loss. '
+                              'Check the connection, node, VMID, and running services.'
+                        : '$target\\n\\nProxmox will run this operation asynchronously.') +
+                    tlsWarning,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(isForce ? 'Force stop' : 'Confirm'),
+              ),
+            ],
+          );
+        },
       ),
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed != true || !mounted || !_currentSession) return;
     setState(() => submitting = true);
     try {
       await widget.controller.runAction(
@@ -103,6 +129,21 @@ class _GuestPageState extends State<GuestPage> {
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.controller,
     builder: (context, _) {
+      if (!_currentSession) {
+        return Scaffold(
+          appBar: AppBar(title: const Text('Guest unavailable')),
+          body: const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'Connection changed. Reopen guest details from the active '
+                'connection.',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        );
+      }
       final guest = currentGuest();
       final scheme = Theme.of(context).colorScheme;
       final operationBlocked =
