@@ -34,7 +34,8 @@ required = [
   'docs/53-implementation-p0-offline-overview.md',
    'docs/54-implementation-p0-android-connectivity.md',
    'docs/55-implementation-f09-task-log-pages.md',
-   'docs/56-implementation-f09-task-history-filters.md']
+   'docs/56-implementation-f09-task-history-filters.md',
+   'docs/57-implementation-guest-io-counters.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
@@ -68,6 +69,8 @@ assert "test('transient POST failure is never automatically retried'" in files['
 assert 'storageOverview' in files['app/lib/core/pve_api.dart']
 assert 'recentTasks' in files['app/lib/core/pve_api.dart']
 assert 'visibleServerTasks' in files['app/lib/ui/shell.dart']
+assert '_guestByteCounter' in files['app/lib/core/models.dart']
+assert 'Guest I/O counters' in files['app/lib/ui/guest_page.dart']
 assert 'ServerTaskStateFilter' in files['app/lib/core/task_history_filter.dart']
 assert 'Future<TaskLogResult> taskLog' in files['app/lib/core/pve_api.dart']
 assert "'limit': 100" in files['app/lib/core/pve_api.dart']
