@@ -206,10 +206,10 @@ void main() {
     expect(find.textContaining('Latest 30.0%'), findsNothing);
     await tester.tap(find.text('Load history'));
     await tester.pumpAndSettle();
-    expect(
-      controller.requestedTimeframes,
-      [GuestMetricTimeframe.hour, GuestMetricTimeframe.day],
-    );
+    expect(controller.requestedTimeframes, [
+      GuestMetricTimeframe.hour,
+      GuestMetricTimeframe.day,
+    ]);
 
     controller.active = const ConnectionProfile(
       id: 'b',
