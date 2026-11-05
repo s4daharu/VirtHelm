@@ -35,7 +35,7 @@ required = [
    'docs/54-implementation-p0-android-connectivity.md',
    'docs/55-implementation-f09-task-log-pages.md',
    'docs/56-implementation-f09-task-history-filters.md',
-   'docs/57-implementation-guest-io-counters.md']
+   'docs/57-implementation-guest-io-counters.md',\n   'docs/58-premerge-whole-repository-audit-2026-11-05.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
@@ -71,6 +71,8 @@ assert 'recentTasks' in files['app/lib/core/pve_api.dart']
 assert 'visibleServerTasks' in files['app/lib/ui/shell.dart']
 assert '_guestByteCounter' in files['app/lib/core/models.dart']
 assert 'Guest I/O counters' in files['app/lib/ui/guest_page.dart']
+assert '_currentSession' in files['app/lib/ui/guest_page.dart']
+assert 'generation: generation' in files['app/lib/ui/shell.dart']
 assert 'ServerTaskStateFilter' in files['app/lib/core/task_history_filter.dart']
 assert 'Future<TaskLogResult> taskLog' in files['app/lib/core/pve_api.dart']
 assert "'limit': 100" in files['app/lib/core/pve_api.dart']
