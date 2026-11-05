@@ -234,43 +234,46 @@ void main() {
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test('guest performance inspection is read-only and session isolated', () async {
-    final prefs = await SharedPreferences.getInstance();
-    late _Gateway gateway;
-    final ctl = AppController(
-      repository: ProfileRepository(prefs, _Vault()),
-      gatewayFactory: (profile, credentials) => gateway = _Gateway(),
-    );
-    addTearDown(ctl.dispose);
-    await ctl.connect(
-      name: 'Lab',
-      address: 'https://pve.local',
-      tokenId: 'me@pve!test',
-      secret: 'test',
-    );
+  test(
+    'guest performance inspection is read-only and session isolated',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway(),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!test',
+        secret: 'test',
+      );
 
-    final guest = ctl.inventory!.guests.single;
-    final generation = ctl.connectionGeneration;
-    final series = await ctl.inspectGuestMetrics(
-      profileId: ctl.active!.id,
-      generation: generation,
-      guest: guest,
-      timeframe: GuestMetricTimeframe.day,
-    );
-    expect(series?.points.single.cpuFraction, 0.2);
-    expect(gateway.guestMetricCalls, 1);
-    expect(gateway.guestMetricTimeframes, [GuestMetricTimeframe.day]);
-    expect(gateway.submissions, 0);
+      final guest = ctl.inventory!.guests.single;
+      final generation = ctl.connectionGeneration;
+      final series = await ctl.inspectGuestMetrics(
+        profileId: ctl.active!.id,
+        generation: generation,
+        guest: guest,
+        timeframe: GuestMetricTimeframe.day,
+      );
+      expect(series?.points.single.cpuFraction, 0.2);
+      expect(gateway.guestMetricCalls, 1);
+      expect(gateway.guestMetricTimeframes, [GuestMetricTimeframe.day]);
+      expect(gateway.submissions, 0);
 
-    final stale = await ctl.inspectGuestMetrics(
-      profileId: ctl.active!.id,
-      generation: generation - 1,
-      guest: guest,
-      timeframe: GuestMetricTimeframe.hour,
-    );
-    expect(stale, isNull);
-    expect(gateway.guestMetricCalls, 1);
-  });
+      final stale = await ctl.inspectGuestMetrics(
+        profileId: ctl.active!.id,
+        generation: generation - 1,
+        guest: guest,
+        timeframe: GuestMetricTimeframe.hour,
+      );
+      expect(stale, isNull);
+      expect(gateway.guestMetricCalls, 1);
+    },
+  );
 
   test(
     'task inspection reads status and logs without posting, with partial 403',
