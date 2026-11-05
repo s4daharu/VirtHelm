@@ -15,6 +15,8 @@
 |---|---|---|---|---|
 | GET | `/version` | connect test | `version`, `release` fields | Officially documented, live fixture pending |
 | GET | `/cluster/resources` | global overview | list of nodes/guests/storage; optional `type` filter | Candidate contract; validate details |
+
+Guest resource entries may include optional `netin`, `netout`, `diskread`, and `diskwrite` cumulative byte counters. They are **not** current bytes/second; missing or malformed fields are unavailable rather than zero. Source-level parsing/display is covered by synthetic tests, while exact PVE 8.4/9.2 fixtures and lifecycle reset semantics still require validation.
 | GET | `/nodes` | node list | node state/identifier | Candidate contract; validate details |
 | GET | `/nodes/{node}/status` | node detail | CPU, memory, uptime, etc. | Candidate contract; validate details |
 | GET | `/nodes/{node}/qemu` | VM inventory | QEMU list | Candidate contract; validate details |
