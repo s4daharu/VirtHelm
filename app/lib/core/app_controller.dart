@@ -48,6 +48,7 @@ class AppController extends ChangeNotifier {
 
   PveGateway? _gateway;
   int _generation = 0;
+  int _networkEpoch = 0;
   Timer? _pollTimer;
   Timer? _autoRefreshTimer;
   int? _pollingGeneration;
@@ -551,12 +552,14 @@ class AppController extends ChangeNotifier {
     final gateway = _gateway;
     if (_disposed || gateway == null) return;
     final generation = _generation;
+    final networkEpoch = _networkEpoch;
     final profileId = active?.id;
     refreshing = true;
     _notify();
     try {
       final next = await gateway.inventory();
       if (generation != _generation ||
+          networkEpoch != _networkEpoch ||
           _disposed ||
           deviceNetworkState == DeviceNetworkState.unavailable) {
         return;
@@ -573,7 +576,11 @@ class AppController extends ChangeNotifier {
         _loadStorage(gateway, nodes, generation),
         _loadServerTasks(gateway, nodes, generation),
       ]);
-      if (generation != _generation || _disposed) return;
+      if (generation != _generation ||
+          networkEpoch != _networkEpoch ||
+          _disposed) {
+        return;
+      }
       // Do not turn a network-presence hint into authorization. A completed
       // clean authenticated read is the only way to restore live writes.
       if (message == null &&
@@ -831,6 +838,7 @@ class AppController extends ChangeNotifier {
     if (_disposed || next == deviceNetworkState) return;
     deviceNetworkState = next;
     if (next == DeviceNetworkState.unavailable) {
+      _networkEpoch++;
       _requiresRecovery = true;
       _pollTimer?.cancel();
       _autoRefreshTimer?.cancel();
@@ -943,6 +951,7 @@ class AppController extends ChangeNotifier {
         .toList();
     if (pending.isEmpty) return;
     final generation = _generation;
+    final networkEpoch = _networkEpoch;
     _pollingGeneration = generation;
     final gateway = _gateway!;
     var finished = false;
@@ -951,6 +960,7 @@ class AppController extends ChangeNotifier {
     try {
       for (final pendingTask in pending) {
         if (generation != _generation ||
+            networkEpoch != _networkEpoch ||
             _disposed ||
             !_foreground ||
             deviceNetworkState == DeviceNetworkState.unavailable) {
@@ -980,6 +990,7 @@ class AppController extends ChangeNotifier {
         try {
           final status = await gateway.taskStatus(pendingTask);
           if (generation != _generation ||
+              networkEpoch != _networkEpoch ||
               !_foreground ||
               deviceNetworkState == DeviceNetworkState.unavailable) {
             return;

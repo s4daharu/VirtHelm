@@ -1951,4 +1951,51 @@ void main() {
       expect(restored.isInventoryWriteSafe, isTrue);
     },
   );
+
+
+  test(
+    'network loss invalidates an in-flight GET even if it resolves after recovery',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway(),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 'secret',
+      );
+      final before = gateway.inventoryCalls;
+      final staleRead = Completer<Inventory>();
+      final newRead = Completer<Inventory>();
+      gateway.inventoryGate = staleRead;
+      final oldRefresh = ctl.refresh();
+      await Future<void>.delayed(Duration.zero);
+      expect(gateway.inventoryCalls, before + 1);
+
+      ctl.setDeviceNetworkState(DeviceNetworkState.unavailable);
+      ctl.setDeviceNetworkState(DeviceNetworkState.available);
+      gateway.inventoryGate = newRead;
+      staleRead.complete(ctl.inventory!);
+      await oldRefresh;
+      await Future<void>.delayed(Duration.zero);
+      expect(gateway.inventoryCalls, before + 2);
+      expect(ctl.isInventoryWriteSafe, isFalse);
+
+      newRead.complete(
+        Inventory.fromResources([
+          {'type': 'node', 'node': 'pve1', 'status': 'online'},
+          {'type': 'qemu', 'vmid': 101, 'node': 'pve1',
+           'name': 'Web', 'status': 'running'},
+        ]),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(ctl.isInventoryWriteSafe, isTrue);
+      expect(gateway.submissions, 0);
+    },
+  );
 }
