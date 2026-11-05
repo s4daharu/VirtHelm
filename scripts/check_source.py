@@ -35,7 +35,8 @@ required = [
    'docs/54-implementation-p0-android-connectivity.md',
    'docs/55-implementation-f09-task-log-pages.md',
    'docs/56-implementation-f09-task-history-filters.md',
-   'docs/57-implementation-guest-io-counters.md',\n   'docs/58-premerge-whole-repository-audit-2026-11-05.md']
+   'docs/57-implementation-guest-io-counters.md',
+   'docs/58-premerge-whole-repository-audit-2026-11-05.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
