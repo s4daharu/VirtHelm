@@ -48,7 +48,8 @@
       "profile-scoped guest favorites persisted in local app preferences",
       "guest list filters for favorites, running and stopped workloads",
       "local QEMU/LXC and node guest filters, combined search, and deterministic favorites/name/VMID/CPU/memory sorting",
-      "up to 12 profile-scoped named saved guest views for local search/filter/sort criteria"
+      "up to 12 profile-scoped named saved guest views for local search/filter/sort criteria",
+      "optional guest tags decoded from current inventory with local search, exact tag filtering and saved-view criteria"
     ],
     "scope_note": "This is a partial M2 read-cockpit slice, not the full premium M2 roadmap.",
     "release_validation": "Real PVE 8.4/9.2 contracts/ACLs and Android device/release gates remain required.",
@@ -107,7 +108,7 @@
       "F12 retry source formatter drift corrected using pinned CI formatter output; final branch CI still required"
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 131,
+    "current_flutter_tests_defined": 135,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
@@ -207,6 +208,13 @@
       "security": "Read-only current inventory display with no extra API requests or persistence. Guest page and open power confirmation now redact on profile switch and reconnect, and reject stale confirmations.",
       "verification": "Synthetic parser and guest-page widget tests; exact-head CI still required. Live PVE 9.2/8.4 units/availability and physical Android validation remain open.",
       "report": "docs/57-implementation-guest-io-counters.md"
+    },
+    "guest_tags": {
+      "status": "implemented_source_level_pending_final_ci",
+      "behavior": "Decode bounded optional semicolon-separated guest tags from the existing /cluster/resources inventory, include them in local search, offer exact case-insensitive tag filtering, render current tags on list/detail views, and preserve an optional tag in profile-scoped saved guest views.",
+      "safety": "No new endpoint, permission, write path, background request, telemetry or tag persistence outside existing saved-view metadata. Oversized or malformed tag values are ignored defensively; older saved-view JSON without a tag remains compatible.",
+      "limitations": "This is not full HOME-007 tag and pool browsing: resource pools, tag editing, cross-profile tagging and live PVE 8.4/9.2 tag fixtures remain unimplemented or unverified.",
+      "report": "docs/59-implementation-guest-tags.md"
     },
     "guest_session_isolation_audit": {
       "status": "code_fixed_pending_final_exact_head_ci",
