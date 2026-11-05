@@ -177,7 +177,7 @@ void main() {
       'type': 'qemu',
       'node': 'pve1',
       'vmid': 101,
-      'tags': ' prod ;WEB;Prod;NaN;;',
+      'tags': ' prod ;WEB;Prod;' + List.filled(65, 'x').join() + ';;',
     });
     expect(guest.tags, ['prod', 'WEB']);
 
@@ -185,7 +185,7 @@ void main() {
       'type': 'lxc',
       'node': 'pve1',
       'vmid': 102,
-      'tags': 'NaN',
+      'tags': List.filled(2049, 'x').join(),
     });
     expect(oversized.tags, isEmpty);
   });
