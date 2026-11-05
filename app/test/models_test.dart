@@ -140,6 +140,7 @@ void main() {
         'mem': 1073741824,
         'maxmem': 2147483648,
         'uptime': 3661,
+        'tags': 'prod;web;Prod;;',
         'netin': 1048576,
         'netout': 2048,
         'diskread': 1073741824,
@@ -161,12 +162,32 @@ void main() {
     expect(formatBytes(null), '—');
     expect(formatUptime(inv.nodes.single.uptime), '1d 1h');
     expect(formatUptime(inv.guests.first.uptime), '1h 1m');
+    expect(inv.guests.first.tags, ['prod', 'web']);
+    expect(inv.guests.last.tags, isEmpty);
     expect(formatBytes(inv.guests.first.netIn), '1.0 MiB');
     expect(formatBytes(inv.guests.first.netOut), '2.0 KiB');
     expect(formatBytes(inv.guests.first.diskRead), '1.0 GiB');
     expect(formatBytes(inv.guests.first.diskWrite), '0 B');
     expect(inv.guests.last.netIn, isNull);
     expect(inv.guests.last.diskRead, isNull);
+  });
+
+  test('guest tags ignore malformed, duplicate and oversized values', () {
+    final guest = Guest.fromResource({
+      'type': 'qemu',
+      'node': 'pve1',
+      'vmid': 101,
+      'tags': ' prod ;WEB;Prod;NaN;;',
+    });
+    expect(guest.tags, ['prod', 'WEB']);
+
+    final oversized = Guest.fromResource({
+      'type': 'lxc',
+      'node': 'pve1',
+      'vmid': 102,
+      'tags': 'NaN',
+    });
+    expect(oversized.tags, isEmpty);
   });
 
   test('missing or malformed guest I/O counters never become zero', () {
