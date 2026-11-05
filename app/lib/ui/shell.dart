@@ -8,6 +8,7 @@ import '../core/app_preferences.dart';
 import '../core/guest_list_filter.dart';
 import '../core/guest_saved_view.dart';
 import '../core/models.dart';
+import '../core/task_history_filter.dart';
 import 'connect_page.dart';
 import 'guest_page.dart';
 import 'theme.dart';
@@ -162,7 +163,12 @@ class _ShellPageState extends State<ShellPage> {
                   onOpenGuests: () => setState(() => selectedIndex = 1),
                 ),
                 _GuestsTab(controller: controller),
-                _TasksTab(controller: controller),
+                _TasksTab(
+                  key: ValueKey(
+                    'tasks:${profile?.id}:${controller.connectionGeneration}',
+                  ),
+                  controller: controller,
+                ),
                 _SettingsTab(controller: controller),
               ],
             ),
@@ -1084,14 +1090,32 @@ void _openTaskDetails(
   );
 }
 
-class _TasksTab extends StatelessWidget {
-  const _TasksTab({required this.controller});
+class _TasksTab extends StatefulWidget {
+  const _TasksTab({super.key, required this.controller});
   final AppController controller;
 
   @override
+  State<_TasksTab> createState() => _TasksTabState();
+}
+
+class _TasksTabState extends State<_TasksTab> {
+  String query = '';
+  String nodeFilter = '';
+  ServerTaskStateFilter stateFilter = ServerTaskStateFilter.all;
+
+  @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
     final sessionTasks = controller.tasks;
     final serverTasks = controller.serverTasks;
+    final nodes = serverTasks.map((task) => task.node).toSet().toList()..sort();
+    final activeNode = nodes.contains(nodeFilter) ? nodeFilter : '';
+    final visible = visibleServerTasks(
+      serverTasks,
+      search: query,
+      node: activeNode,
+      status: stateFilter,
+    );
     final empty =
         sessionTasks.isEmpty &&
         serverTasks.isEmpty &&
@@ -1126,21 +1150,92 @@ class _TasksTab extends StatelessWidget {
               title: 'Recent server tasks',
               trailing: serverTasks.isEmpty
                   ? ''
-                  : '${serverTasks.length} VISIBLE',
+                  : '${visible.length} OF ${serverTasks.length} VISIBLE',
             ),
           if (!empty) const SizedBox(height: 10),
           if (!empty && controller.serverTaskMessage != null) ...[
             _MessageCard(text: controller.serverTaskMessage!),
             const SizedBox(height: 10),
           ],
-          if (!empty &&
-              serverTasks.isEmpty &&
+          if (serverTasks.isNotEmpty) ...[
+            TextField(
+              key: const Key('task-history-search'),
+              onChanged: (value) => setState(() => query = value),
+              decoration: const InputDecoration(
+                hintText: 'Search recent tasks, node, or resource',
+                prefixIcon: Icon(Icons.search_rounded),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Semantics(
+                  label: 'Filter recent tasks by node',
+                  child: DropdownButton<String>(
+                    key: const Key('task-node-filter'),
+                    value: activeNode,
+                    items: [
+                      const DropdownMenuItem(
+                        value: '',
+                        child: Text('All nodes'),
+                      ),
+                      for (final node in nodes)
+                        DropdownMenuItem(value: node, child: Text(node)),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => nodeFilter = value ?? ''),
+                  ),
+                ),
+                Semantics(
+                  label: 'Filter recent tasks by state',
+                  child: DropdownButton<ServerTaskStateFilter>(
+                    key: const Key('task-state-filter'),
+                    value: stateFilter,
+                    items: const [
+                      DropdownMenuItem(
+                        value: ServerTaskStateFilter.all,
+                        child: Text('All states'),
+                      ),
+                      DropdownMenuItem(
+                        value: ServerTaskStateFilter.running,
+                        child: Text('Running'),
+                      ),
+                      DropdownMenuItem(
+                        value: ServerTaskStateFilter.succeeded,
+                        child: Text('Succeeded'),
+                      ),
+                      DropdownMenuItem(
+                        value: ServerTaskStateFilter.failed,
+                        child: Text('Failed'),
+                      ),
+                      DropdownMenuItem(
+                        value: ServerTaskStateFilter.unknown,
+                        child: Text('Unknown'),
+                      ),
+                    ],
+                    onChanged: (value) => setState(
+                      () => stateFilter = value ?? ServerTaskStateFilter.all,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (!empty && serverTasks.isEmpty &&
               controller.serverTaskMessage == null)
             const _MessageCard(
               text: 'No recent server tasks are visible to this token.',
             )
+          else if (serverTasks.isNotEmpty && visible.isEmpty)
+            const _MessageCard(
+              text: 'No recent tasks match these filters. Clear search or choose another state or node.',
+            )
           else
-            for (final task in serverTasks) ...[
+            for (final task in visible) ...[
               _ServerTaskCard(task: task, controller: controller),
               const SizedBox(height: 10),
             ],
