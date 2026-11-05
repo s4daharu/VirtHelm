@@ -23,18 +23,26 @@ List<Guest> visibleGuests(
   String status = 'all',
   GuestKindFilter kind = GuestKindFilter.all,
   String? node,
+  String? tag,
   GuestSort sort = GuestSort.favorites,
 }) {
   final needle = search.trim().toLowerCase();
+  final normalizedTag = tag?.trim().toLowerCase();
   final result = inventory.where((guest) {
     if (needle.isNotEmpty &&
         !guest.name.toLowerCase().contains(needle) &&
         !guest.vmid.toString().contains(needle) &&
-        !guest.node.toLowerCase().contains(needle)) {
+        !guest.node.toLowerCase().contains(needle) &&
+        !guest.tags.any((tag) => tag.toLowerCase().contains(needle))) {
       return false;
     }
     if (kind != GuestKindFilter.all && guest.kind != kind.name) return false;
     if (node != null && guest.node != node) return false;
+    if (normalizedTag != null &&
+        normalizedTag.isNotEmpty &&
+        !guest.tags.any((value) => value.toLowerCase() == normalizedTag)) {
+      return false;
+    }
     return switch (status) {
       'favorites' => isFavorite(guest),
       'running' => guest.isRunning,
