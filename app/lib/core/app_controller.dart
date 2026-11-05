@@ -53,6 +53,7 @@ class AppController extends ChangeNotifier {
   int? _pollingGeneration;
   bool _foreground = true;
   bool _disposed = false;
+  bool _requiresRecovery = false;
   Future<void>? _refreshFuture;
 
   // A guest is single-flight across preflight, submission and UPID completion.
@@ -573,6 +574,12 @@ class AppController extends ChangeNotifier {
         _loadServerTasks(gateway, nodes, generation),
       ]);
       if (generation != _generation || _disposed) return;
+      // Do not turn a network-presence hint into authorization. A completed
+      // clean authenticated read is the only way to restore live writes.
+      if (message == null &&
+          deviceNetworkState != DeviceNetworkState.unavailable) {
+        _requiresRecovery = false;
+      }
       // Save only a clean, fully authenticated live inventory. Supplemental
       // 401s must not refresh a cache belonging to a revoked credential.
       if (profileId != null &&
@@ -682,6 +689,7 @@ class AppController extends ChangeNotifier {
 
   bool get isInventoryFresh {
     if (_disposed ||
+        _requiresRecovery ||
         deviceNetworkState == DeviceNetworkState.unavailable ||
         inventory == null ||
         message != null) {
@@ -824,6 +832,7 @@ class AppController extends ChangeNotifier {
     final wasUnavailable = deviceNetworkState == DeviceNetworkState.unavailable;
     deviceNetworkState = next;
     if (next == DeviceNetworkState.unavailable) {
+      _requiresRecovery = true;
       _pollTimer?.cancel();
       _autoRefreshTimer?.cancel();
       if (inventory == null && active != null) {
@@ -874,7 +883,11 @@ class AppController extends ChangeNotifier {
     _foreground = visible;
     if (visible) {
       if (resumed && deviceNetworkState != DeviceNetworkState.unavailable) {
-        unawaited(refresh());
+        if (_requiresRecovery && _gateway == null && active != null) {
+          unawaited(activate(active!));
+        } else {
+          unawaited(refresh());
+        }
       }
       _startPolling();
       _scheduleAutoRefresh();
