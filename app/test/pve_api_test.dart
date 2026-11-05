@@ -288,6 +288,46 @@ void main() {
     },
   );
 
+  test('task log paging rejects invalid offsets before network I/O', () async {
+    final dio = Dio();
+    var requests = 0;
+    late RequestOptions pageRequest;
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          requests++;
+          pageRequest = options;
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'data': [
+                  {'n': 101, 't': 'later line'},
+                ],
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(profile, credentials, http: dio);
+    addTearDown(gateway.close);
+    const upid = 'UPID:pve1:1:2:3:qmstart:101:user@pve:';
+    final page = await gateway.taskLog('pve1', upid, start: 100);
+    expect(page.entries.single.text, 'later line');
+    expect(pageRequest.method, 'GET');
+    expect(pageRequest.queryParameters['start'], 100);
+    expect(pageRequest.queryParameters['limit'], 100);
+    for (final invalid in [-1, 1, 99, 401, 500]) {
+      await expectLater(
+        gateway.taskLog('pve1', upid, start: invalid),
+        throwsFormatException,
+      );
+    }
+    expect(requests, 1);
+  });
+
   test('task log forbidden response never triggers retries', () async {
     final dio = Dio();
     var calls = 0;
