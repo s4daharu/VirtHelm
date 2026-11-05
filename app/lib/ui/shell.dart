@@ -443,9 +443,13 @@ class _OverviewTab extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Workloads',
-                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+              const Expanded(
+                child: Text(
+                  'Workloads',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+                ),
               ),
               TextButton(
                 onPressed: onOpenGuests,
