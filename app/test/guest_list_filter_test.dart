@@ -80,8 +80,12 @@ void main() {
       2,
     );
     expect(
-      visibleGuests(guests, isFavorite: favorite, search: ' CACHE ').map(identity),
-      ['lxc/pve1/102'],
+      visibleGuests(
+        guests,
+        isFavorite: favorite,
+        search: ' LAB ',
+      ).map(identity),
+      ['qemu/pve2/99'],
     );
   });
 
