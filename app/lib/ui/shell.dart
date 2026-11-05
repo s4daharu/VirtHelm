@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
+import '../core/device_connectivity.dart';
 import '../core/app_preferences.dart';
 import '../core/guest_list_filter.dart';
 import '../core/guest_saved_view.dart';
@@ -11,7 +12,6 @@ import 'connect_page.dart';
 import 'guest_page.dart';
 import 'theme.dart';
 import 'task_details_page.dart';
-import 'tls_warning.dart';
 
 class ShellPage extends StatefulWidget {
   const ShellPage({super.key, required this.controller});
@@ -136,7 +136,24 @@ class _ShellPageState extends State<ShellPage> {
       ),
       body: Column(
         children: [
-          if (profile?.allowInvalidCertificates == true) const TlsWarning(),
+          if (controller.deviceNetworkState ==
+              DeviceNetworkState.unavailable)
+            const Padding(
+              key: Key('device-network-unavailable'),
+              padding: EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Icon(Icons.wifi_off_rounded),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'NO DEFAULT NETWORK • Android cannot see a default network. '
+                      'Live actions are disabled; check Wi-Fi/VPN and refresh.',
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: IndexedStack(
               index: selectedIndex,

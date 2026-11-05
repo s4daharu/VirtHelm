@@ -6,7 +6,7 @@ required = [
   'app/pubspec.yaml','app/pubspec.lock','app/lib/main.dart','app/lib/core/models.dart',
   'app/lib/core/profile_repository.dart','app/lib/core/pve_api.dart',
   'app/lib/core/app_controller.dart','app/lib/core/app_preferences.dart',
-  'app/lib/core/offline_overview.dart',
+  'app/lib/core/offline_overview.dart','app/lib/core/device_connectivity.dart',
   'app/lib/core/guest_list_filter.dart',
   'app/lib/core/guest_saved_view.dart','app/lib/ui/theme.dart',
   'app/lib/ui/connect_page.dart','app/lib/ui/shell.dart',
@@ -16,7 +16,6 @@ required = [
   'app/test/widget_test.dart','app/test/pve_tls_test.dart',
   'app/test/guest_list_filter_test.dart','app/test/saved_guest_view_test.dart',
   'app/test/app_preferences_test.dart','app/test/offline_overview_test.dart',
-  'app/lib/ui/tls_warning.dart',
   'scripts/bootstrap_android.sh','scripts/harden_android.py',
   'scripts/check_android_generated.py',
   'docs/37-implementation-m1.md','docs/38-implementation-m2-read-cockpit.md',
@@ -80,6 +79,9 @@ for p in (root/'app/lib').rglob('*.dart'):
     assert 'SecurityContext(withTrustedRoots: false)' not in data
 assert 'this.allowInvalidCertificates = false' in files['app/lib/core/models.dart']
 assert 'Disable certificate verification?' in files['app/lib/ui/connect_page.dart']
-assert 'TlsWarning' in files['app/lib/ui/shell.dart']
-assert 'TlsWarning' in files['app/lib/ui/guest_page.dart']
+assert 'DeviceNetworkState.unavailable' in files['app/lib/core/app_controller.dart']
+assert 'deviceNetworkChanges().listen' in files['app/lib/main.dart']
+assert 'registerDefaultNetworkCallback' in (root/'scripts/android/MainActivity.kt').read_text()
+assert 'TlsWarning' not in files['app/lib/ui/shell.dart']
+assert 'TlsWarning' not in files['app/lib/ui/guest_page.dart']
 print('App source smoke checks passed (not a Dart compile or device test).')

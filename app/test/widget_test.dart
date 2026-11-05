@@ -14,7 +14,6 @@ import 'package:virthelm/ui/connect_page.dart';
 import 'package:virthelm/ui/guest_page.dart';
 import 'package:virthelm/ui/shell.dart';
 import 'package:virthelm/ui/task_details_page.dart';
-import 'package:virthelm/ui/tls_warning.dart';
 
 class _EmptyVault implements CredentialVault {
   @override
@@ -496,7 +495,7 @@ void main() {
     }
   });
 
-  testWidgets('shell and guest screens warn for insecure profiles only', (
+  testWidgets('insecure profiles retain contextual labels without persistent banners', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -514,10 +513,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(home: ShellPage(controller: controller)),
     );
-    expect(find.byType(TlsWarning), findsOneWidget);
+    expect(find.textContaining('TLS UNVERIFIED'), findsWidgets);
+    expect(find.text('INSECURE: certificate verification disabled.'), findsNothing);
     await tester.tap(find.text('Guests'));
     await tester.pumpAndSettle();
-    expect(find.byType(TlsWarning), findsOneWidget);
+    expect(find.text('INSECURE: certificate verification disabled.'), findsNothing);
     await tester.pumpWidget(
       MaterialApp(
         home: GuestPage(
@@ -533,7 +533,7 @@ void main() {
         ),
       ),
     );
-    expect(find.byType(TlsWarning), findsOneWidget);
+    expect(find.text('INSECURE: certificate verification disabled.'), findsNothing);
     controller.active = const ConnectionProfile(
       id: 'strict',
       name: 'Strict',
@@ -542,7 +542,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(home: ShellPage(controller: controller)),
     );
-    expect(find.byType(TlsWarning), findsNothing);
+    expect(find.textContaining('TLS UNVERIFIED'), findsNothing);
   });
 
   testWidgets('guest browse filters and sorting reset on profile switch', (
