@@ -259,19 +259,9 @@ void main() {
               statusCode: 200,
               data: {
                 'data': [
-                  {
-                    'time': 1700000060,
-                    'cpu': 0.3,
-                    'mem': 768,
-                    'maxmem': 1024,
-                  },
+                  {'time': 1700000060, 'cpu': 0.3, 'mem': 768, 'maxmem': 1024},
                   'bad',
-                  {
-                    'time': 1700000000,
-                    'cpu': 0.1,
-                    'mem': 512,
-                    'maxmem': 1024,
-                  },
+                  {'time': 1700000000, 'cpu': 0.1, 'mem': 512, 'maxmem': 1024},
                   {'time': -1, 'cpu': 0.4},
                 ],
               },
@@ -283,10 +273,7 @@ void main() {
     final gateway = DioPveGateway(profile, credentials, http: dio);
     addTearDown(gateway.close);
 
-    final series = await gateway.guestMetrics(
-      guest,
-      GuestMetricTimeframe.week,
-    );
+    final series = await gateway.guestMetrics(guest, GuestMetricTimeframe.week);
     expect(request.method, 'GET');
     expect(request.path, '/nodes/pve1/qemu/101/rrddata');
     expect(request.queryParameters['timeframe'], 'week');
