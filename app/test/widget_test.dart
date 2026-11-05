@@ -894,12 +894,15 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    final shutdownTile = find.widgetWithText(ListTile, 'Shut down');
     await tester.scrollUntilVisible(
-      find.text('Shut down'),
+      shutdownTile,
       250,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(find.text('Shut down'));
+    await tester.ensureVisible(shutdownTile);
+    await tester.pumpAndSettle();
+    await tester.tap(shutdownTile);
     await tester.pumpAndSettle();
     expect(find.text('Shut down Confidential guest?'), findsOneWidget);
 
