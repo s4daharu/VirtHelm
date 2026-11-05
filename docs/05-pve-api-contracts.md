@@ -19,6 +19,7 @@
 | GET | `/nodes/{node}/status` | node detail | CPU, memory, uptime, etc. | Candidate contract; validate details |
 | GET | `/nodes/{node}/qemu` | VM inventory | QEMU list | Candidate contract; validate details |
 | GET | `/nodes/{node}/qemu/{vmid}/status/current` | VM detail | current status | Candidate contract; validate details |
+| GET | `/nodes/{node}/{qemu|lxc}/{vmid}/rrddata` | guest performance history | timestamped CPU/memory averages with `timeframe` + `cf` | Source-confirmed read family; live 8.4/9.2 fixtures pending |
 | POST | `/nodes/{node}/qemu/{vmid}/status/start` | start VM | task/UPID | Candidate contract; validate |
 | POST | `/nodes/{node}/qemu/{vmid}/status/shutdown` | graceful shutdown VM | task/UPID | Candidate contract; validate |
 | POST | `/nodes/{node}/qemu/{vmid}/status/stop` | force stop VM | task/UPID | Candidate contract; validate |
@@ -33,6 +34,8 @@
 | GET | `/nodes/{node}/tasks/{upid}/status` | task completion | running/stopped, exit status | Candidate contract; validate |
 | GET | `/nodes/{node}/tasks/{upid}/log` | task log | lines/events | P1; validate |
 | GET | `/nodes/{node}/storage` | storage list | storages with usage | Candidate contract; validate |
+
+Guest performance history uses only `hour`, `day`, and `week` timeframes with `cf=AVERAGE` in the source implementation. Samples are treated as provisional until sanitized PVE 9.2/8.4 QEMU/LXC fixtures confirm field availability, units, ACL behavior, timestamp resolution, and missing-point semantics.
 
 Guest resource entries may include optional `netin`, `netout`, `diskread`, and `diskwrite` cumulative byte counters. They are **not** current bytes/second; missing or malformed fields are unavailable rather than zero. Source-level parsing/display is covered by synthetic tests, while exact PVE 8.4/9.2 fixtures and lifecycle reset semantics still require validation.
 
