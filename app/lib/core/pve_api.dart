@@ -471,10 +471,7 @@ class DioPveGateway implements PveGateway {
   ) async {
     final raw = await _request(
       '${_guestPath(guest)}/rrddata',
-      queryParameters: {
-        'timeframe': timeframe.apiValue,
-        'cf': 'AVERAGE',
-      },
+      queryParameters: {'timeframe': timeframe.apiValue, 'cf': 'AVERAGE'},
     );
     if (raw is! List) {
       throw const PveFailure('Unexpected guest performance response.');
@@ -489,9 +486,7 @@ class DioPveGateway implements PveGateway {
         continue;
       }
       try {
-        points.add(
-          GuestMetricPoint.fromApi(Map<String, dynamic>.from(row)),
-        );
+        points.add(GuestMetricPoint.fromApi(Map<String, dynamic>.from(row)));
       } on FormatException {
         malformed++;
       } on TypeError {
