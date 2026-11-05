@@ -15,7 +15,7 @@ Evidence status codes: **DOC** = official source substantiates the concept; **AU
 | Task-detail terminal success requires stopped + OK exit status | AUTO | live successful/failed task fixtures |
 | Node task-list RUNNING/archive-result normalization | source-inspected + AUTO | live 8.4/9.2 task-list fixtures |
 | Storage partial 403/malformed handling and no shared-total summation | AUTO | local/shared/PBS-backed PVE storage fixtures |
-| Guest search/favorites/type/node filters/sorting and profile-scoped saved views | AUTO local model/repository/controller/widget coverage | 200-guest physical-device accessibility/performance evidence |
+| Guest search/favorites/type/node/tag filters/sorting and profile-scoped saved views | AUTO local parser/model/repository/controller/widget coverage | live PVE tag-field fixtures plus 200-guest physical-device accessibility/performance evidence |
 | Connection cancellation/profile-deletion local persistence cleanup | AUTO race/malformed-metadata regression coverage | Android Keystore/process-death/device-loss validation |
 | Android minSdk 26, release Internet, no cleartext/backup, no debug release signing | AUTO generated-runner CI | merged release-manifest/device backup and signing tests |
 | Reproducible Flutter dependency graph | AUTO committed lock + pinned Flutter 3.44.4 | deliberate dependency/security update review |
