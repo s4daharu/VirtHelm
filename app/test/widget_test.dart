@@ -29,19 +29,27 @@ class _TaskInspectionController extends AppController {
   _TaskInspectionController(ProfileRepository repository)
     : super(repository: repository);
 
+  final List<int> requestedStarts = [];
+
   @override
   Future<TaskInspection?> inspectTask({
     required String profileId,
     required int generation,
     required String node,
     required String upid,
-  }) async => const TaskInspection(
-    status: ServerTaskStatus(status: 'stopped', exitStatus: 'OK'),
-    log: TaskLogResult(
-      entries: [TaskLogEntry(number: 1, text: 'Read-only log entry')],
-      malformedRecords: 0,
-    ),
-  );
+    int logStart = 0,
+  }) async {
+    requestedStarts.add(logStart);
+    return TaskInspection(
+      status: const ServerTaskStatus(status: 'stopped', exitStatus: 'OK'),
+      log: TaskLogResult(
+        entries: [
+          TaskLogEntry(number: logStart + 1, text: 'Read-only log entry $logStart'),
+        ],
+        malformedRecords: logStart == 0 ? 99 : 0,
+      ),
+    );
+  }
 }
 
 class _BlockingController extends AppController {
@@ -142,6 +150,57 @@ void main() {
     expect(find.byType(TaskDetailsPage), findsOneWidget);
     expect(find.textContaining('Read-only log entry'), findsOneWidget);
     expect(find.text('Succeeded'), findsOneWidget);
+    controller.active = const ConnectionProfile(
+      id: 'b',
+      name: 'B',
+      endpoint: 'https://b.example',
+    );
+    controller.notifyListeners();
+    await tester.pump();
+    expect(find.textContaining('Read-only log entry'), findsNothing);
+    expect(find.textContaining('Connection changed.'), findsOneWidget);
+  });
+
+  testWidgets('task log pages and refresh remain explicit bounded reads', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = _TaskInspectionController(
+      ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'a',
+      name: 'A',
+      endpoint: 'https://a.example',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TaskDetailsPage(
+          controller: controller,
+          profileId: 'a',
+          generation: controller.connectionGeneration,
+          node: 'pve1',
+          upid: 'UPID:pve1:1:2:3:qmstart:101:user@pve:',
+          title: 'Task',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.requestedStarts, [0]);
+    expect(find.textContaining('Read-only log entry 0'), findsOneWidget);
+    await tester.tap(find.text('Next 100'));
+    await tester.pumpAndSettle();
+    expect(controller.requestedStarts, [0, 100]);
+    expect(find.textContaining('Read-only log entry 100'), findsOneWidget);
+    expect(find.text('Next 100'), findsNothing);
+    await tester.tap(find.text('Refresh status and log'));
+    await tester.pumpAndSettle();
+    expect(controller.requestedStarts, [0, 100, 100]);
+    await tester.tap(find.text('Previous 100'));
+    await tester.pumpAndSettle();
+    expect(controller.requestedStarts, [0, 100, 100, 0]);
     controller.active = const ConnectionProfile(
       id: 'b',
       name: 'B',
