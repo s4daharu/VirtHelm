@@ -652,15 +652,19 @@ class _GuestTile extends StatelessWidget {
         ),
         onTap: profileId == null
             ? null
-            : () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => GuestPage(
-                    controller: controller,
-                    guest: guest,
-                    profileId: profileId,
+            : () {
+                final generation = controller.connectionGeneration;
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => GuestPage(
+                      controller: controller,
+                      guest: guest,
+                      profileId: profileId,
+                      generation: generation,
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
       ),
     );
   }
