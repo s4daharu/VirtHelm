@@ -4,7 +4,7 @@
   "app_code_written": true,
   "flutter_build_executed": true,
   "live_pve_tested": false,
-  "github_private_repo_created": true,
+  "github_repository_visibility": "public",
   "github_owner_identified": "s4daharu",
   "requested_repo_name": "VirtHelm",
   "target": "Android phone only",
@@ -102,7 +102,7 @@
       "an add-connection route must not be dismissed while its connection check is pending (fixed in full cross-check)",
       "malformed profile metadata must not block valid neighboring profiles or future onboarding; unsafe stored origins remain removable while the gateway rejects them before credentialed I/O (fixed in full cross-check)",
       "task-status authentication loss must become unknown and stop repeated verification polling while preserving the uncertain write lock (fixed in full cross-check)",
-      "feature-branch push and pull-request checks must not consume duplicate concurrent CI for the same branch; branch-keyed concurrency now cancels stale/duplicate runs",
+      "feature branches run pull-request CI without duplicate push CI; main pushes remain checked before release publication, with PR-number/ref concurrency cancelling stale runs",
       "F09 recent-task list parser now prefers explicit exitstatus over state=stopped; absent terminal exit code remains unknown (synthetic regression only; live PVE fixtures still needed)",
       "F12 retry source formatter drift corrected using pinned CI formatter output; final branch CI still required"
     ],
@@ -117,7 +117,7 @@
     ],
     "unverified_repository_controls": [
       "GitHub currently reports main.protected=false; no verified enforced branch protection",
-      "repository rulesets were unavailable for this private repository under the current GitHub plan"
+      "repository rulesets are not configured; branch protection remains an administrative follow-up"
     ],
     "profile_editing_followup": "docs/46-implementation-p0-profile-editing.md",
     "f01_profile_editing": {
