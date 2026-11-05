@@ -755,6 +755,61 @@ void main() {
     },
   );
 
+  testWidgets('guest confirmation redacts when same profile reconnects', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = AppController(
+      repository: ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    const profile = ConnectionProfile(
+      id: 'a',
+      name: 'A',
+      endpoint: 'https://a.example',
+    );
+    controller.active = profile;
+    controller.inventory = Inventory.fromResources([
+      {
+        'type': 'qemu',
+        'node': 'pve1',
+        'vmid': 101,
+        'name': 'Confidential guest',
+        'status': 'running',
+      },
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GuestPage(
+          controller: controller,
+          guest: controller.inventory!.guests.single,
+          profileId: profile.id,
+          generation: controller.connectionGeneration,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Shut down'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Shut down'));
+    await tester.pumpAndSettle();
+    expect(find.text('Shut down Confidential guest?'), findsOneWidget);
+
+    await controller.activate(profile);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Confidential guest'), findsNothing);
+    expect(find.text('Connection changed'), findsOneWidget);
+    expect(find.text('Confirm'), findsNothing);
+    await tester.tap(find.text('Dismiss'));
+    await tester.pumpAndSettle();
+    expect(find.text('Guest unavailable'), findsOneWidget);
+    expect(find.textContaining('Confidential guest'), findsNothing);
+  });
+
   testWidgets('guest browse filters and sorting reset on profile switch', (
     tester,
   ) async {
