@@ -845,11 +845,7 @@ void main() {
           onRequest: (options, handler) {
             requests++;
             handler.reject(
-              DioException(
-                requestOptions: options,
-                type: type,
-                error: cause,
-              ),
+              DioException(requestOptions: options, type: type, error: cause),
             );
           },
         ),
@@ -956,49 +952,52 @@ void main() {
     }
   });
 
-  test('classified POST transport loss stays uncertain and single-shot', () async {
-    final dio = Dio();
-    var requests = 0;
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          requests++;
-          handler.reject(
-            DioException(
-              requestOptions: options,
-              type: DioExceptionType.connectionError,
-              error: const SocketException('Network is unreachable'),
-            ),
-          );
+  test(
+    'classified POST transport loss stays uncertain and single-shot',
+    () async {
+      final dio = Dio();
+      var requests = 0;
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            requests++;
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                type: DioExceptionType.connectionError,
+                error: const SocketException('Network is unreachable'),
+              ),
+            );
+          },
+        ),
+      );
+      final gateway = DioPveGateway(
+        profile,
+        credentials,
+        http: dio,
+        retryWait: (_) async {
+          fail('No retries are allowed for POST.');
         },
-      ),
-    );
-    final gateway = DioPveGateway(
-      profile,
-      credentials,
-      http: dio,
-      retryWait: (_) async {
-        fail('No retries are allowed for POST.');
-      },
-    );
-    addTearDown(gateway.close);
+      );
+      addTearDown(gateway.close);
 
-    await expectLater(
-      gateway.submit(guest, GuestAction.shutdown),
-      throwsA(
-        isA<PveFailure>()
-            .having(
-              (failure) => failure.transportFailure,
-              'transportFailure',
-              PveTransportFailure.networkUnreachable,
-            )
-            .having(
-              (failure) => failure.mayHaveExecuted,
-              'mayHaveExecuted',
-              isTrue,
-            ),
-      ),
-    );
-    expect(requests, 1);
-  });
+      await expectLater(
+        gateway.submit(guest, GuestAction.shutdown),
+        throwsA(
+          isA<PveFailure>()
+              .having(
+                (failure) => failure.transportFailure,
+                'transportFailure',
+                PveTransportFailure.networkUnreachable,
+              )
+              .having(
+                (failure) => failure.mayHaveExecuted,
+                'mayHaveExecuted',
+                isTrue,
+              ),
+        ),
+      );
+      expect(requests, 1);
+    },
+  );
 }
