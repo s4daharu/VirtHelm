@@ -23,6 +23,10 @@ class GuestPage extends StatefulWidget {
 
 class _GuestPageState extends State<GuestPage> {
   bool submitting = false;
+  bool loadingMetrics = false;
+  GuestMetricTimeframe metricTimeframe = GuestMetricTimeframe.hour;
+  GuestMetricSeries? metricSeries;
+  String? metricError;
 
   bool get _currentSession =>
       widget.controller.active?.id == widget.profileId &&
@@ -40,6 +44,56 @@ class _GuestPageState extends State<GuestPage> {
       }
     }
     return null;
+  }
+
+  Future<void> loadMetrics() async {
+    final guest = currentGuest();
+    if (loadingMetrics || !_currentSession || guest == null) return;
+    setState(() {
+      loadingMetrics = true;
+      metricError = null;
+    });
+    try {
+      final result = await widget.controller.inspectGuestMetrics(
+        profileId: widget.profileId,
+        generation: widget.generation,
+        guest: guest,
+        timeframe: metricTimeframe,
+      );
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        metricSeries = result;
+        if (result == null) {
+          metricError =
+              'Guest performance data is no longer current. Refresh and reopen this guest.';
+        }
+      });
+    } on PveFailure catch (error) {
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        metricSeries = null;
+        metricError = error.message;
+      });
+    } catch (_) {
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        metricSeries = null;
+        metricError = 'Could not load guest performance history.';
+      });
+    } finally {
+      if (mounted && _currentSession) {
+        setState(() => loadingMetrics = false);
+      }
+    }
+  }
+
+  void selectMetricTimeframe(GuestMetricTimeframe value) {
+    if (value == metricTimeframe) return;
+    setState(() {
+      metricTimeframe = value;
+      metricSeries = null;
+      metricError = null;
+    });
   }
 
   Future<void> execute(Guest guest, GuestAction action) async {
@@ -334,6 +388,78 @@ class _GuestPageState extends State<GuestPage> {
                 leading: const Icon(Icons.storage_rounded),
               ),
             ),
+            const SizedBox(height: 22),
+            Text(
+              'Performance history',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Read-only Proxmox RRD averages loaded only when requested. '
+              'History stays in this screen and is not cached.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final timeframe in GuestMetricTimeframe.values)
+                  ChoiceChip(
+                    label: Text(timeframe.label),
+                    selected: metricTimeframe == timeframe,
+                    onSelected: guest == null || loadingMetrics
+                        ? null
+                        : (_) => selectMetricTimeframe(timeframe),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.tonalIcon(
+                onPressed: guest == null || loadingMetrics ? null : loadMetrics,
+                icon: loadingMetrics
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.show_chart_rounded),
+                label: Text(
+                  metricSeries == null ? 'Load history' : 'Refresh history',
+                ),
+              ),
+            ),
+            if (metricError != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                metricError!,
+                style: TextStyle(color: scheme.error),
+              ),
+            ],
+            if (metricSeries != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                '${metricSeries!.points.length} usable samples'
+                '${metricSeries!.malformedRecords > 0 ? ' • ${metricSeries!.malformedRecords} malformed ignored' : ''}'
+                '${metricSeries!.truncated ? ' • response truncated locally' : ''}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              _MetricHistoryCard(
+                title: 'CPU average',
+                icon: Icons.memory_rounded,
+                points: metricSeries!.points,
+                valueOf: (point) => point.cpuFraction,
+              ),
+              const SizedBox(height: 8),
+              _MetricHistoryCard(
+                title: 'Memory average',
+                icon: Icons.storage_rounded,
+                points: metricSeries!.points,
+                valueOf: (point) => point.memoryFraction,
+              ),
+            ],
             const SizedBox(height: 26),
             Text(
               'Power controls',
@@ -395,6 +521,131 @@ class _GuestPageState extends State<GuestPage> {
       );
     },
   );
+}
+
+class _MetricHistoryCard extends StatelessWidget {
+  const _MetricHistoryCard({
+    required this.title,
+    required this.icon,
+    required this.points,
+    required this.valueOf,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<GuestMetricPoint> points;
+  final double? Function(GuestMetricPoint point) valueOf;
+
+  @override
+  Widget build(BuildContext context) {
+    final values = points
+        .map(valueOf)
+        .whereType<double>()
+        .where((value) => value.isFinite && value >= 0 && value <= 1)
+        .toList(growable: false);
+    if (values.isEmpty) {
+      return Card(
+        child: ListTile(
+          leading: Icon(icon),
+          title: Text(title),
+          subtitle: const Text('No usable samples in this response.'),
+        ),
+      );
+    }
+
+    final latest = values.last;
+    final minimum = values.reduce((left, right) => left < right ? left : right);
+    final maximum = values.reduce((left, right) => left > right ? left : right);
+    final summary =
+        'Latest ${formatPercent(latest)} • '
+        'Range ${formatPercent(minimum)}–${formatPercent(maximum)}';
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(summary),
+            const SizedBox(height: 10),
+            Semantics(
+              label: '$title. $summary. ${values.length} samples.',
+              child: ExcludeSemantics(
+                child: SizedBox(
+                  height: 108,
+                  width: double.infinity,
+                  child: CustomPaint(
+                    painter: _MetricSparklinePainter(
+                      values: values,
+                      color: scheme.primary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MetricSparklinePainter extends CustomPainter {
+  const _MetricSparklinePainter({
+    required this.values,
+    required this.color,
+  });
+
+  final List<double> values;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty || size.width <= 0 || size.height <= 0) return;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    if (values.length == 1) {
+      canvas.drawCircle(
+        Offset(size.width / 2, size.height * (1 - values.single)),
+        2,
+        paint..style = PaintingStyle.fill,
+      );
+      return;
+    }
+
+    final path = Path();
+    for (var index = 0; index < values.length; index++) {
+      final x = size.width * index / (values.length - 1);
+      final y = size.height * (1 - values[index].clamp(0.0, 1.0));
+      if (index == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_MetricSparklinePainter oldDelegate) =>
+      oldDelegate.values != values || oldDelegate.color != color;
 }
 
 class _ResourceMeter extends StatelessWidget {
