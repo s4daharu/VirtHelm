@@ -10,6 +10,7 @@ void main() {
       kind: 'qemu',
       name: 'Web',
       status: 'running',
+      tags: ['prod', 'web'],
       cpu: 0.35,
       mem: 1024,
     ),
@@ -19,6 +20,7 @@ void main() {
       kind: 'lxc',
       name: 'cache',
       status: 'stopped',
+      tags: ['prod', 'cache'],
     ),
     Guest(
       node: 'pve2',
@@ -26,6 +28,7 @@ void main() {
       kind: 'qemu',
       name: 'web',
       status: 'running',
+      tags: ['lab'],
       cpu: 0.8,
       mem: 2048,
     ),
@@ -75,6 +78,36 @@ void main() {
     expect(
       visibleGuests(guests, isFavorite: favorite, search: '101').length,
       2,
+    );
+    expect(
+      visibleGuests(guests, isFavorite: favorite, search: ' CACHE ').map(identity),
+      ['lxc/pve1/102'],
+    );
+  });
+
+  test('exact tag filter composes with node, type and status filters', () {
+    expect(
+      visibleGuests(
+        guests,
+        isFavorite: favorite,
+        tag: 'PROD',
+      ).map(identity),
+      ['qemu/pve1/101', 'lxc/pve1/102'],
+    );
+    expect(
+      visibleGuests(
+        guests,
+        isFavorite: favorite,
+        tag: 'prod',
+        kind: GuestKindFilter.lxc,
+        node: 'pve1',
+        status: 'stopped',
+      ).map(identity),
+      ['lxc/pve1/102'],
+    );
+    expect(
+      visibleGuests(guests, isFavorite: favorite, tag: 'missing'),
+      isEmpty,
     );
   });
 
