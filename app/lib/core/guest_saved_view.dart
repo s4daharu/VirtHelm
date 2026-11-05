@@ -154,7 +154,9 @@ String? _validatedNode(String? value) {
 String? _validatedTag(String? value) {
   if (value == null) return null;
   final normalized = value.trim();
-  if (normalized.isEmpty || normalized.length > maxSavedGuestTagLength) {
+  if (normalized.isEmpty ||
+      normalized.length > maxSavedGuestTagLength ||
+      normalized.contains(';')) {
     throw const FormatException('Saved view has an invalid tag.');
   }
   return normalized;
