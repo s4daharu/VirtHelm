@@ -136,6 +136,46 @@ class AppController extends ChangeNotifier {
     );
   }
 
+  Future<GuestMetricSeries?> inspectGuestMetrics({
+    required String profileId,
+    required int generation,
+    required Guest guest,
+    required GuestMetricTimeframe timeframe,
+  }) async {
+    final gateway = _gateway;
+    bool current() =>
+        !_disposed && generation == _generation && active?.id == profileId;
+    Guest? currentGuest() {
+      final matches = inventory?.guests.where(
+        (item) =>
+            item.node == guest.node &&
+            item.kind == guest.kind &&
+            item.vmid == guest.vmid,
+      );
+      if (matches == null || matches.length != 1) return null;
+      return matches.single;
+    }
+
+    if (!current() ||
+        gateway == null ||
+        deviceNetworkState == DeviceNetworkState.unavailable) {
+      return null;
+    }
+    final target = currentGuest();
+    if (target == null) return null;
+
+    try {
+      final result = await gateway.guestMetrics(target, timeframe);
+      if (!current() || currentGuest() == null) return null;
+      return result;
+    } on PveFailure catch (error) {
+      if (error.status == 401 && current()) {
+        await _clearOfflineAfterAuth(generation);
+      }
+      rethrow;
+    }
+  }
+
   String _guestKey(Guest guest) => '${guest.kind}:${guest.node}:${guest.vmid}';
 
   bool isGuestFavorite(Guest guest) =>
