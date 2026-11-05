@@ -90,6 +90,49 @@ class DioPveGateway implements PveGateway {
         error.type == DioExceptionType.receiveTimeout;
   }
 
+  // Only identify transport failures from typed Dio/Socket errors. Do not
+  // display raw OS error text: it can include the server's hostname or IP.
+  // An unreachable route is not proof that the Android device is offline.
+  static PveTransportFailure? _transportFailure(DioException error) {
+    if (error.response != null ||
+        error.type == DioExceptionType.badCertificate ||
+        error.error is TlsException) {
+      return null;
+    }
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+        return PveTransportFailure.connectTimeout;
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return PveTransportFailure.responseTimeout;
+      case DioExceptionType.connectionError:
+      case DioExceptionType.unknown:
+        final cause = error.error;
+        if (cause is SocketException) {
+          final code = cause.osError?.errorCode;
+          final detail = cause.message.toLowerCase();
+          if (code == -2 ||
+              code == -3 ||
+              detail.contains('failed host lookup')) {
+            return PveTransportFailure.dnsFailure;
+          }
+          if (code == 101 ||
+              code == 113 ||
+              detail.contains('network is unreachable') ||
+              detail.contains('no route to host')) {
+            return PveTransportFailure.networkUnreachable;
+          }
+          return PveTransportFailure.connectionLost;
+        }
+        if (error.type == DioExceptionType.connectionError) {
+          return PveTransportFailure.connectionLost;
+        }
+        return null;
+      default:
+        return null;
+    }
+  }
+
   Future<Response<dynamic>> _sendRequest(
     String path, {
     required bool mutation,
@@ -150,6 +193,7 @@ class DioPveGateway implements PveGateway {
               e.type == DioExceptionType.cancel ||
               code == 408 ||
               (code != null && (code >= 500 || (code >= 300 && code < 400))));
+      final transportFailure = _transportFailure(e);
       final message =
           e.type == DioExceptionType.badCertificate || e.error is TlsException
           ? 'TLS certificate validation failed. Verify the server hostname, certificate validity, and trusted CA. A trusted certificate is recommended.'
@@ -160,7 +204,20 @@ class DioPveGateway implements PveGateway {
               null =>
                 unknown
                     ? 'Connection lost. The action may have executed; inspect server tasks before retrying.'
-                    : 'Could not reach this Proxmox server. Check network, VPN, and certificate trust.',
+                    : switch (transportFailure) {
+                        PveTransportFailure.dnsFailure =>
+                          'DNS lookup failed. Check the server address and DNS or VPN settings.',
+                        PveTransportFailure.networkUnreachable =>
+                          'Network unavailable to the server. Check Wi-Fi, mobile data, and VPN.',
+                        PveTransportFailure.connectTimeout =>
+                          'Connection timed out. Check the server, network, or VPN.',
+                        PveTransportFailure.responseTimeout =>
+                          'Server response timed out. Check connectivity and refresh.',
+                        PveTransportFailure.connectionLost =>
+                          'Could not connect to Proxmox. Check the server, network, or VPN.',
+                        null =>
+                          'Could not reach this Proxmox server. Check network, VPN, and certificate trust.',
+                      },
               _ =>
                 code >= 300 && code < 400
                     ? 'The server tried to redirect the request. Redirects are blocked for security.${unknown ? ' The action outcome is unknown; inspect server tasks before retrying.' : ''}'
@@ -168,7 +225,12 @@ class DioPveGateway implements PveGateway {
                     ? 'Server error; the action outcome is unknown. Inspect server tasks before retrying.'
                     : 'Proxmox request failed (HTTP $code).',
             };
-      throw PveFailure(message, status: code, mayHaveExecuted: unknown);
+      throw PveFailure(
+        message,
+        status: code,
+        mayHaveExecuted: unknown,
+        transportFailure: transportFailure,
+      );
     }
   }
 

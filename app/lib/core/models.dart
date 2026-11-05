@@ -574,11 +574,26 @@ class ServerTaskStatus {
   bool get succeeded => isDone && exitStatus == 'OK';
 }
 
+// Transport diagnoses describe an observed request failure, not device state.
+enum PveTransportFailure {
+  dnsFailure,
+  networkUnreachable,
+  connectTimeout,
+  responseTimeout,
+  connectionLost,
+}
+
 class PveFailure implements Exception {
-  const PveFailure(this.message, {this.status, this.mayHaveExecuted = false});
+  const PveFailure(
+    this.message, {
+    this.status,
+    this.mayHaveExecuted = false,
+    this.transportFailure,
+  });
   final String message;
   final int? status;
   final bool mayHaveExecuted;
+  final PveTransportFailure? transportFailure;
 
   @override
   String toString() => message;
