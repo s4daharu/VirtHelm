@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:virthelm/core/app_controller.dart';
@@ -492,6 +493,7 @@ void main() {
     if (layoutError is FlutterError) {
       // Preserve actionable creator-chain detail in CI for layout regressions.
       debugPrint(layoutError.toStringDeep());
+      debugDumpRenderTree();
     }
     expect(layoutError, isNull);
     for (final tab in ['Guests', 'Tasks', 'Settings']) {
