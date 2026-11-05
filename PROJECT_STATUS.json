@@ -4,7 +4,7 @@
   "app_code_written": true,
   "flutter_build_executed": true,
   "live_pve_tested": false,
-  "github_private_repo_created": true,
+  "github_repository_visibility": "public",
   "github_owner_identified": "s4daharu",
   "requested_repo_name": "VirtHelm",
   "target": "Android phone only",
@@ -117,7 +117,7 @@
     ],
     "unverified_repository_controls": [
       "GitHub currently reports main.protected=false; no verified enforced branch protection",
-      "repository rulesets were unavailable for this private repository under the current GitHub plan"
+      "repository rulesets are not configured; branch protection remains an administrative follow-up"
     ],
     "profile_editing_followup": "docs/46-implementation-p0-profile-editing.md",
     "f01_profile_editing": {
