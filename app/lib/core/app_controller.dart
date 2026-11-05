@@ -504,10 +504,9 @@ class AppController extends ChangeNotifier {
         _gateway?.close();
         _gateway = null;
         inventory = null;
-        cachedOverview =
-            e is PveFailure && e.transportFailure != null
-                ? repository.readOfflineOverview(profile.id)
-                : null;
+        cachedOverview = e is PveFailure && e.transportFailure != null
+            ? repository.readOfflineOverview(profile.id)
+            : null;
         if (e is PveFailure && e.status == 401) {
           await _clearOfflineAfterAuth(generation);
         }

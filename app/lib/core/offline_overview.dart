@@ -22,7 +22,9 @@ class OfflineOverview {
   factory OfflineOverview.fromInventory(Inventory inventory) => OfflineOverview(
     fetchedAt: inventory.fetchedAt,
     totalNodes: inventory.nodes.length,
-    onlineNodes: inventory.nodes.where((node) => node.status == 'online').length,
+    onlineNodes: inventory.nodes
+        .where((node) => node.status == 'online')
+        .length,
     totalGuests: inventory.guests.length,
     runningGuests: inventory.guests.where((guest) => guest.isRunning).length,
     stoppedGuests: inventory.guests.where((guest) => guest.isStopped).length,

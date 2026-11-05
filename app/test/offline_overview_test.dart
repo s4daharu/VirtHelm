@@ -67,14 +67,18 @@ void main() {
     expect(
       OfflineOverview.fromJson({
         ...record,
-        'timestampMs': now.add(const Duration(seconds: 1)).millisecondsSinceEpoch,
+        'timestampMs': now
+            .add(const Duration(seconds: 1))
+            .millisecondsSinceEpoch,
       }, now: now),
       isNull,
     );
     expect(
       OfflineOverview.fromJson({
         ...record,
-        'timestampMs': now.subtract(const Duration(days: 8)).millisecondsSinceEpoch,
+        'timestampMs': now
+            .subtract(const Duration(days: 8))
+            .millisecondsSinceEpoch,
       }, now: now),
       isNull,
     );
@@ -82,10 +86,7 @@ void main() {
       OfflineOverview.fromJson({...record, 'runningGuests': 2}, now: now),
       isNull,
     );
-    expect(
-      OfflineOverview.fromJson({...record, 'v': 2}, now: now),
-      isNull,
-    );
+    expect(OfflineOverview.fromJson({...record, 'v': 2}, now: now), isNull);
     expect(
       OfflineOverview.fromJson({...record, 'hostname': 'private'}, now: now),
       isNull,
@@ -134,39 +135,42 @@ void main() {
     );
   });
 
-  test('opt-out and credential edit purge counts without vault rewrites', () async {
-    final prefs = await SharedPreferences.getInstance();
-    final vault = _Vault();
-    final repo = ProfileRepository(prefs, vault);
-    await repo.save(profileA, creds);
-    final example = OfflineOverview(
-      fetchedAt: DateTime.now(),
-      totalNodes: 1,
-      onlineNodes: 1,
-      totalGuests: 1,
-      runningGuests: 1,
-      stoppedGuests: 0,
-    );
-    await repo.setOfflineOverviewEnabled(profileA.id, true);
-    await repo.saveOfflineOverview(profileA.id, example);
-    expect(vault.writes, 1);
-    await repo.setOfflineOverviewEnabled(profileA.id, false);
-    expect(prefs.get('offline_counts_v1:lab-a'), isNull);
-    expect(repo.offlineOverviewEnabled(profileA.id), isFalse);
-    expect(vault.writes, 1);
+  test(
+    'opt-out and credential edit purge counts without vault rewrites',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final vault = _Vault();
+      final repo = ProfileRepository(prefs, vault);
+      await repo.save(profileA, creds);
+      final example = OfflineOverview(
+        fetchedAt: DateTime.now(),
+        totalNodes: 1,
+        onlineNodes: 1,
+        totalGuests: 1,
+        runningGuests: 1,
+        stoppedGuests: 0,
+      );
+      await repo.setOfflineOverviewEnabled(profileA.id, true);
+      await repo.saveOfflineOverview(profileA.id, example);
+      expect(vault.writes, 1);
+      await repo.setOfflineOverviewEnabled(profileA.id, false);
+      expect(prefs.get('offline_counts_v1:lab-a'), isNull);
+      expect(repo.offlineOverviewEnabled(profileA.id), isFalse);
+      expect(vault.writes, 1);
 
-    await repo.setOfflineOverviewEnabled(profileA.id, true);
-    await repo.saveOfflineOverview(profileA.id, example);
-    await repo.update(
-      const ConnectionProfile(
-        id: 'lab-a',
-        name: 'Updated',
-        endpoint: 'https://new.example:8006',
-      ),
-      creds,
-    );
-    expect(repo.readOfflineOverview(profileA.id), isNull);
-    expect(repo.offlineOverviewEnabled(profileA.id), isTrue);
-    expect(vault.writes, 2);
-  });
+      await repo.setOfflineOverviewEnabled(profileA.id, true);
+      await repo.saveOfflineOverview(profileA.id, example);
+      await repo.update(
+        const ConnectionProfile(
+          id: 'lab-a',
+          name: 'Updated',
+          endpoint: 'https://new.example:8006',
+        ),
+        creds,
+      );
+      expect(repo.readOfflineOverview(profileA.id), isNull);
+      expect(repo.offlineOverviewEnabled(profileA.id), isTrue);
+      expect(vault.writes, 2);
+    },
+  );
 }

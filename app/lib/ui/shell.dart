@@ -195,11 +195,17 @@ class _OverviewTab extends StatelessWidget {
     final hasCounts = inv != null || cached != null;
     final scheme = Theme.of(context).colorScheme;
     final countRunning =
-        inv?.guests.where((g) => g.isRunning).length ?? cached?.runningGuests ?? 0;
+        inv?.guests.where((g) => g.isRunning).length ??
+        cached?.runningGuests ??
+        0;
     final countStopped =
-        inv?.guests.where((g) => g.isStopped).length ?? cached?.stoppedGuests ?? 0;
+        inv?.guests.where((g) => g.isStopped).length ??
+        cached?.stoppedGuests ??
+        0;
     final nodeOnline =
-        inv?.nodes.where((n) => n.status == 'online').length ?? cached?.onlineNodes ?? 0;
+        inv?.nodes.where((n) => n.status == 'online').length ??
+        cached?.onlineNodes ??
+        0;
     return RefreshIndicator(
       onRefresh: controller.refresh,
       child: ListView(
@@ -253,8 +259,8 @@ class _OverviewTab extends StatelessWidget {
                 Text(
                   inv == null
                       ? cached == null
-                          ? 'Waiting for live inventory'
-                          : 'CACHED COUNTS • ${formatAge(cached.fetchedAt)} • not live'
+                            ? 'Waiting for live inventory'
+                            : 'CACHED COUNTS • ${formatAge(cached.fetchedAt)} • not live'
                       : controller.isInventoryFresh
                       ? 'Live snapshot • ${formatAge(inv.fetchedAt)}'
                       : 'STALE snapshot • ${formatAge(inv.fetchedAt)}',
@@ -299,7 +305,8 @@ class _OverviewTab extends StatelessWidget {
           if (cached != null) ...[
             const SizedBox(height: 14),
             const _MessageCard(
-              text: 'Last-known counts only. Guest details and power '
+              text:
+                  'Last-known counts only. Guest details and power '
                   'actions require a fresh live connection.',
             ),
           ],

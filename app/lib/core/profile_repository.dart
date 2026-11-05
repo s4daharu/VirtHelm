@@ -177,21 +177,19 @@ class ProfileRepository {
         }
       });
 
-  Future<void> saveOfflineOverview(
-    String profileId,
-    OfflineOverview summary,
-  ) => _mutate(() async {
-    if (!offlineOverviewEnabled(profileId) ||
-        !readProfiles().any((profile) => profile.id == profileId) ||
-        OfflineOverview.fromJson(summary.toJson()) == null) {
-      return;
-    }
-    final raw = jsonEncode(summary.toJson());
-    if (raw.length > 512) return;
-    if (!await _prefs.setString(_offlineCountsKey(profileId), raw)) {
-      throw StateError('Could not save offline overview.');
-    }
-  });
+  Future<void> saveOfflineOverview(String profileId, OfflineOverview summary) =>
+      _mutate(() async {
+        if (!offlineOverviewEnabled(profileId) ||
+            !readProfiles().any((profile) => profile.id == profileId) ||
+            OfflineOverview.fromJson(summary.toJson()) == null) {
+          return;
+        }
+        final raw = jsonEncode(summary.toJson());
+        if (raw.length > 512) return;
+        if (!await _prefs.setString(_offlineCountsKey(profileId), raw)) {
+          throw StateError('Could not save offline overview.');
+        }
+      });
 
   Future<void> clearOfflineOverview(String profileId) =>
       _mutate(() => _clearOfflineOverview(profileId));
