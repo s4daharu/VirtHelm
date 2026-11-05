@@ -1952,7 +1952,6 @@ void main() {
     },
   );
 
-
   test(
     'network loss invalidates an in-flight GET even if it resolves after recovery',
     () async {
@@ -1989,8 +1988,13 @@ void main() {
       newRead.complete(
         Inventory.fromResources([
           {'type': 'node', 'node': 'pve1', 'status': 'online'},
-          {'type': 'qemu', 'vmid': 101, 'node': 'pve1',
-           'name': 'Web', 'status': 'running'},
+          {
+            'type': 'qemu',
+            'vmid': 101,
+            'node': 'pve1',
+            'name': 'Web',
+            'status': 'running',
+          },
         ]),
       );
       await Future<void>.delayed(const Duration(milliseconds: 20));
