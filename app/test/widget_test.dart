@@ -44,7 +44,10 @@ class _TaskInspectionController extends AppController {
       status: const ServerTaskStatus(status: 'stopped', exitStatus: 'OK'),
       log: TaskLogResult(
         entries: [
-          TaskLogEntry(number: logStart + 1, text: 'Read-only log entry $logStart'),
+          TaskLogEntry(
+            number: logStart + 1,
+            text: 'Read-only log entry $logStart',
+          ),
         ],
         malformedRecords: logStart == 0 ? 99 : 0,
       ),
