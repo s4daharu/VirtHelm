@@ -199,6 +199,39 @@ void main() {
     expect(counters.diskWrite, isNull);
   });
 
+  test('guest RRD samples reject invalid values without inventing metrics', () {
+    final point = GuestMetricPoint.fromApi({
+      'time': 1700000000,
+      'cpu': 0.25,
+      'mem': 512,
+      'maxmem': 1024,
+    });
+    expect(point.cpuFraction, 0.25);
+    expect(point.memoryFraction, 0.5);
+    expect(point.timestamp.isUtc, isTrue);
+
+    final cpuOnly = GuestMetricPoint.fromApi({
+      'time': 1700000060,
+      'cpu': 0.5,
+      'mem': '512',
+      'maxmem': 1024,
+    });
+    expect(cpuOnly.cpuFraction, 0.5);
+    expect(cpuOnly.memoryFraction, isNull);
+
+    for (final json in [
+      {'time': -1, 'cpu': 0.2},
+      {'time': 1700000000, 'cpu': 1.5},
+      {'time': 1700000000, 'mem': 2048, 'maxmem': 1024},
+      {'time': 1700000000, 'cpu': double.nan},
+    ]) {
+      expect(
+        () => GuestMetricPoint.fromApi(Map<String, dynamic>.from(json)),
+        throwsFormatException,
+      );
+    }
+  });
+
   test('task log parsing bounds long lines and rejects malformed rows', () {
     final row = TaskLogEntry.fromApi({
       'n': 8,
