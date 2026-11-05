@@ -83,6 +83,10 @@ void main() {
       throwsA(isA<FormatException>()),
     );
     expect(
+      () => SavedGuestView.create(name: 'A', tag: 'prod;web'),
+      throwsA(isA<FormatException>()),
+    );
+    expect(
       () => SavedGuestView.fromJson({
         'id': 'bad',
         'name': 'Bad',
