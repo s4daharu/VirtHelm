@@ -687,62 +687,63 @@ void main() {
     },
   );
 
-  testWidgets('guest I/O counters show totals and redact after a profile switch', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
-    final controller = AppController(
-      repository: ProfileRepository(prefs, _EmptyVault()),
-    );
-    addTearDown(controller.dispose);
-    controller.active = const ConnectionProfile(
-      id: 'a',
-      name: 'A',
-      endpoint: 'https://a.example',
-    );
-    controller.inventory = Inventory.fromResources([
-      {
-        'type': 'qemu',
-        'node': 'pve1',
-        'vmid': 101,
-        'name': 'Web',
-        'status': 'running',
-        'netin': 1048576,
-        'netout': 0,
-        'diskread': 1073741824,
-      },
-    ]);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: GuestPage(
-          controller: controller,
-          guest: controller.inventory!.guests.single,
-          profileId: 'a',
+  testWidgets(
+    'guest I/O counters show totals and redact after a profile switch',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = AppController(
+        repository: ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      controller.active = const ConnectionProfile(
+        id: 'a',
+        name: 'A',
+        endpoint: 'https://a.example',
+      );
+      controller.inventory = Inventory.fromResources([
+        {
+          'type': 'qemu',
+          'node': 'pve1',
+          'vmid': 101,
+          'name': 'Web',
+          'status': 'running',
+          'netin': 1048576,
+          'netout': 0,
+          'diskread': 1073741824,
+        },
+      ]);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: GuestPage(
+            controller: controller,
+            guest: controller.inventory!.guests.single,
+            profileId: 'a',
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('Guest I/O counters'), findsOneWidget);
-    expect(find.text('Network traffic'), findsOneWidget);
-    expect(find.textContaining('Received: 1.0 MiB'), findsOneWidget);
-    expect(find.textContaining('Sent: 0 B'), findsOneWidget);
-    expect(find.textContaining('Read: 1.0 GiB'), findsOneWidget);
-    expect(find.textContaining('Written: —'), findsOneWidget);
-    expect(find.textContaining('not live transfer rates'), findsOneWidget);
+      expect(find.text('Guest I/O counters'), findsOneWidget);
+      expect(find.text('Network traffic'), findsOneWidget);
+      expect(find.textContaining('Received: 1.0 MiB'), findsOneWidget);
+      expect(find.textContaining('Sent: 0 B'), findsOneWidget);
+      expect(find.textContaining('Read: 1.0 GiB'), findsOneWidget);
+      expect(find.textContaining('Written: —'), findsOneWidget);
+      expect(find.textContaining('not live transfer rates'), findsOneWidget);
 
-    controller.active = const ConnectionProfile(
-      id: 'b',
-      name: 'B',
-      endpoint: 'https://b.example',
-    );
-    controller.notifyListeners();
-    await tester.pump();
-    expect(find.textContaining('Received: 1.0 MiB'), findsNothing);
-    expect(find.textContaining('Read: 1.0 GiB'), findsNothing);
-    expect(find.textContaining('Received: —'), findsOneWidget);
-  });
+      controller.active = const ConnectionProfile(
+        id: 'b',
+        name: 'B',
+        endpoint: 'https://b.example',
+      );
+      controller.notifyListeners();
+      await tester.pump();
+      expect(find.textContaining('Received: 1.0 MiB'), findsNothing);
+      expect(find.textContaining('Read: 1.0 GiB'), findsNothing);
+      expect(find.textContaining('Received: —'), findsOneWidget);
+    },
+  );
 
   testWidgets('guest browse filters and sorting reset on profile switch', (
     tester,
