@@ -260,6 +260,39 @@ class _GuestPageState extends State<GuestPage> {
                 leading: const Icon(Icons.schedule_rounded),
               ),
             ),
+            const SizedBox(height: 22),
+            Text(
+              'Guest I/O counters',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Cumulative bytes reported since the guest started, '
+              'not live transfer rates. Counters may reset or be unavailable.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                title: const Text('Network traffic'),
+                subtitle: Text(
+                  'Received: ${formatBytes(guest?.netIn)}\n'
+                  'Sent: ${formatBytes(guest?.netOut)}',
+                ),
+                leading: const Icon(Icons.swap_vert_rounded),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                title: const Text('Disk I/O'),
+                subtitle: Text(
+                  'Read: ${formatBytes(guest?.diskRead)}\n'
+                  'Written: ${formatBytes(guest?.diskWrite)}',
+                ),
+                leading: const Icon(Icons.storage_rounded),
+              ),
+            ),
             const SizedBox(height: 26),
             Text(
               'Power controls',
