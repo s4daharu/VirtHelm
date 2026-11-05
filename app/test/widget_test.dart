@@ -723,6 +723,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Guest I/O counters'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
 
       expect(find.text('Guest I/O counters'), findsOneWidget);
       expect(find.text('Network traffic'), findsOneWidget);
