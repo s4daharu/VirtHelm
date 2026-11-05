@@ -215,6 +215,75 @@ void main() {
     expect(find.textContaining('Connection changed.'), findsOneWidget);
   });
 
+  testWidgets('task history filters stay local and reset on profile switch', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = _TaskInspectionController(
+      ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'a',
+      name: 'A',
+      endpoint: 'https://a.example',
+    );
+    controller.serverTasks = const [
+      RecentServerTask(
+        node: 'pve1',
+        upid: 'UPID:pve1:1:2:3:qmstart:101:user@pve:',
+        operation: 'qmstart',
+        resourceId: '101',
+        status: 'stopped',
+        exitStatus: 'OK',
+      ),
+      RecentServerTask(
+        node: 'pve2',
+        upid: 'UPID:pve2:1:2:3:vzshutdown:202:user@pve:',
+        operation: 'vzshutdown',
+        resourceId: '202',
+        status: 'stopped',
+        exitStatus: 'failed',
+      ),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(home: ShellPage(controller: controller)),
+    );
+    await tester.tap(find.text('Tasks'));
+    await tester.pumpAndSettle();
+    expect(find.text('Start VM • 101'), findsOneWidget);
+    expect(find.text('Shut down container • 202'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('task-history-search')),
+      'pve2',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Start VM • 101'), findsNothing);
+    expect(find.text('Shut down container • 202'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('task-state-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Succeeded').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Shut down container • 202'), findsNothing);
+    expect(find.textContaining('No recent tasks match'), findsOneWidget);
+
+    // A different profile must never inherit another profile's task query.
+    controller.active = const ConnectionProfile(
+      id: 'b',
+      name: 'B',
+      endpoint: 'https://b.example',
+    );
+    await tester.pumpWidget(
+      MaterialApp(home: ShellPage(controller: controller)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Start VM • 101'), findsOneWidget);
+    expect(find.text('Shut down container • 202'), findsOneWidget);
+    expect(find.textContaining('No recent tasks match'), findsNothing);
+  });
+
   testWidgets('onboarding shows HTTPS and token fields', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
