@@ -629,7 +629,10 @@ class _GuestTile extends StatelessWidget {
         ),
         title: Text(guest.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(
-          '${guest.kind.toUpperCase()} • ${guest.vmid} • ${guest.node}',
+          '${guest.kind.toUpperCase()} • ${guest.vmid} • ${guest.node}'
+          '${guest.tags.isEmpty ? '' : '\n#${guest.tags.take(3).join('  #')}'}',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -684,6 +687,7 @@ class _GuestsTabState extends State<_GuestsTab> {
   GuestKindFilter kind = GuestKindFilter.all;
   GuestSort sort = GuestSort.favorites;
   String? nodeFilter;
+  String? tagFilter;
   String? profileId;
   String? activeViewId;
 
@@ -705,6 +709,7 @@ class _GuestsTabState extends State<_GuestsTab> {
       filter = 'all';
       kind = GuestKindFilter.all;
       nodeFilter = null;
+      tagFilter = null;
       sort = GuestSort.favorites;
       activeViewId = null;
     }
@@ -727,6 +732,7 @@ class _GuestsTabState extends State<_GuestsTab> {
       filter = view.status;
       kind = view.kind;
       nodeFilter = view.node;
+      tagFilter = view.tag;
       sort = view.sort;
       activeViewId = view.id;
     });
@@ -771,6 +777,7 @@ class _GuestsTabState extends State<_GuestsTab> {
         status: filter,
         kind: kind,
         node: nodeFilter,
+        tag: tagFilter,
         sort: sort,
       );
       final saved = await widget.controller.saveGuestView(
@@ -832,6 +839,8 @@ class _GuestsTabState extends State<_GuestsTab> {
     final controller = widget.controller;
     final allGuests = inv?.guests ?? <Guest>[];
     final nodes = allGuests.map((guest) => guest.node).toSet().toList()..sort();
+    final tags = allGuests.expand((guest) => guest.tags).toSet().toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     final guests = visibleGuests(
       allGuests,
       isFavorite: controller.isGuestFavorite,
@@ -839,6 +848,7 @@ class _GuestsTabState extends State<_GuestsTab> {
       status: filter,
       kind: kind,
       node: nodeFilter,
+      tag: tagFilter,
       sort: sort,
     );
     return RefreshIndicator(
@@ -855,7 +865,7 @@ class _GuestsTabState extends State<_GuestsTab> {
                     controller: search,
                     onChanged: (value) => _manualChange(() => query = value),
                     decoration: const InputDecoration(
-                      hintText: 'Search guests, VMID, or node',
+                      hintText: 'Search guests, VMID, node, or tag',
                       prefixIcon: Icon(Icons.search_rounded),
                     ),
                   ),
@@ -966,6 +976,38 @@ class _GuestsTabState extends State<_GuestsTab> {
                               nodeFilter == null
                                   ? 'All nodes'
                                   : 'Node: $nodeFilter',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ),
+                      PopupMenuButton<String>(
+                        key: const Key('guest-tag-filter'),
+                        tooltip: 'Filter by tag',
+                        onSelected: (value) => _manualChange(
+                          () => tagFilter = value == '__all' ? null : value,
+                        ),
+                        itemBuilder: (_) => [
+                          CheckedPopupMenuItem<String>(
+                            value: '__all',
+                            checked: tagFilter == null,
+                            child: const Text('All tags'),
+                          ),
+                          for (final tag in tags)
+                            CheckedPopupMenuItem<String>(
+                              value: tag,
+                              checked:
+                                  tagFilter?.toLowerCase() == tag.toLowerCase(),
+                              child: Text(tag),
+                            ),
+                        ],
+                        child: Chip(
+                          avatar: const Icon(Icons.sell_outlined, size: 18),
+                          label: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 150),
+                            child: Text(
+                              tagFilter == null ? 'All tags' : 'Tag: $tagFilter',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
