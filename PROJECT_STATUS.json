@@ -107,7 +107,7 @@
       "F12 retry source formatter drift corrected using pinned CI formatter output; final branch CI still required"
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 121,
+    "current_flutter_tests_defined": 123,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
@@ -186,6 +186,13 @@
       "tls_presentation": "Persistent shell/guest insecure-cert banners removed; header, connection chooser, settings, opt-in and guest action confirmations retain contextual risk information. Strict default and scoped exception unchanged.",
       "limitations": "Real PVE 9.2/8.4 fixtures and physical airplane mode, LAN-only, VPN, lifecycle, race and accessibility testing remain required.",
       "report": "docs/54-implementation-p0-android-connectivity.md"
+    },
+    "f09_task_pages": {
+      "status": "implemented_source_level_pending_final_ci",
+      "behavior": "Task detail inspection offers explicit status/log refresh and one read-only log page at a time, from offsets 0/100/200/300/400, with at most 100 lines per request and 500 viewable lines. No automatic polling, task mutation or persistent log cache.",
+      "safety": "Only known UPID/node in the active profile and connection generation can be inspected; status and log errors stay separate; page navigation and refresh revalidate current session and do not replay POSTs.",
+      "verification": "Synthetic controller, Dio and widget regressions extended; exact-head Flutter CI and physical PVE/Android verification remain open.",
+      "report": "docs/55-implementation-f09-task-log-pages.md"
     }
   }
 }
