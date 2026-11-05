@@ -44,25 +44,34 @@ void main() {
     expect(tasks.length, 4);
   });
 
-  test('search trims and matches operation labels, raw types, nodes and ids', () {
-    expect(
-      visibleServerTasks(tasks, search: '  START VM  ').map((t) => t.resourceId),
-      ['101'],
-    );
-    expect(
-      visibleServerTasks(tasks, search: 'vzshutdown').map((t) => t.resourceId),
-      ['202'],
-    );
-    expect(
-      visibleServerTasks(tasks, search: 'PVE1').map((t) => t.resourceId),
-      ['101', '103'],
-    );
-    expect(
-      visibleServerTasks(tasks, search: '202').map((t) => t.resourceId),
-      ['202'],
-    );
-    expect(visibleServerTasks(tasks, search: 'not-present'), isEmpty);
-  });
+  test(
+    'search trims and matches operation labels, raw types, nodes and ids',
+    () {
+      expect(
+        visibleServerTasks(
+          tasks,
+          search: '  START VM  ',
+        ).map((t) => t.resourceId),
+        ['101'],
+      );
+      expect(
+        visibleServerTasks(
+          tasks,
+          search: 'vzshutdown',
+        ).map((t) => t.resourceId),
+        ['202'],
+      );
+      expect(
+        visibleServerTasks(tasks, search: 'PVE1').map((t) => t.resourceId),
+        ['101', '103'],
+      );
+      expect(
+        visibleServerTasks(tasks, search: '202').map((t) => t.resourceId),
+        ['202'],
+      );
+      expect(visibleServerTasks(tasks, search: 'not-present'), isEmpty);
+    },
+  );
 
   test('state filters distinguish failed and unknown terminal outcomes', () {
     for (final (filter, expectedId) in [
