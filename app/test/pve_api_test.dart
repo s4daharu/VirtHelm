@@ -830,4 +830,175 @@ void main() {
       expect(requests, 1);
     },
   );
+
+  test('GET transport diagnoses show safe, distinct guidance', () async {
+    Future<void> verify(
+      DioExceptionType type,
+      Object? cause,
+      PveTransportFailure expected,
+      String guidance,
+    ) async {
+      final dio = Dio();
+      var requests = 0;
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            requests++;
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                type: type,
+                error: cause,
+              ),
+            );
+          },
+        ),
+      );
+      final gateway = DioPveGateway(
+        profile,
+        credentials,
+        http: dio,
+        retryWait: (_) async {},
+      );
+      addTearDown(gateway.close);
+
+      await expectLater(
+        gateway.version(),
+        throwsA(
+          isA<PveFailure>()
+              .having(
+                (failure) => failure.transportFailure,
+                'transportFailure',
+                expected,
+              )
+              .having(
+                (failure) => failure.message,
+                'message',
+                contains(guidance),
+              ),
+        ),
+      );
+      expect(requests, type == DioExceptionType.unknown ? 1 : 3);
+    }
+
+    await verify(
+      DioExceptionType.connectionError,
+      const SocketException('Failed host lookup: internal.example'),
+      PveTransportFailure.dnsFailure,
+      'DNS lookup failed',
+    );
+    await verify(
+      DioExceptionType.connectionError,
+      const SocketException('Network is unreachable'),
+      PveTransportFailure.networkUnreachable,
+      'Network unavailable',
+    );
+    await verify(
+      DioExceptionType.connectionError,
+      const SocketException('Connection refused'),
+      PveTransportFailure.connectionLost,
+      'Could not connect',
+    );
+    await verify(
+      DioExceptionType.connectionTimeout,
+      null,
+      PveTransportFailure.connectTimeout,
+      'Connection timed out',
+    );
+    await verify(
+      DioExceptionType.sendTimeout,
+      null,
+      PveTransportFailure.responseTimeout,
+      'Server response timed out',
+    );
+    await verify(
+      DioExceptionType.receiveTimeout,
+      null,
+      PveTransportFailure.responseTimeout,
+      'Server response timed out',
+    );
+    await verify(
+      DioExceptionType.unknown,
+      const SocketException('Failed host lookup: internal.example'),
+      PveTransportFailure.dnsFailure,
+      'DNS lookup failed',
+    );
+  });
+
+  test('transport diagnosis never exposes the raw socket error', () async {
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          handler.reject(
+            DioException(
+              requestOptions: options,
+              type: DioExceptionType.unknown,
+              error: const SocketException(
+                'Failed host lookup: secret.internal.example',
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(profile, credentials, http: dio);
+    addTearDown(gateway.close);
+
+    try {
+      await gateway.version();
+      fail('Expected a DNS failure.');
+    } on PveFailure catch (error) {
+      expect(error.transportFailure, PveTransportFailure.dnsFailure);
+      expect(error.message, isNot(contains('secret.internal.example')));
+      expect(error.status, isNull);
+      expect(error.mayHaveExecuted, isFalse);
+    }
+  });
+
+  test('classified POST transport loss stays uncertain and single-shot', () async {
+    final dio = Dio();
+    var requests = 0;
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          requests++;
+          handler.reject(
+            DioException(
+              requestOptions: options,
+              type: DioExceptionType.connectionError,
+              error: const SocketException('Network is unreachable'),
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(
+      profile,
+      credentials,
+      http: dio,
+      retryWait: (_) async {
+        fail('No retries are allowed for POST.');
+      },
+    );
+    addTearDown(gateway.close);
+
+    await expectLater(
+      gateway.submit(guest, GuestAction.shutdown),
+      throwsA(
+        isA<PveFailure>()
+            .having(
+              (failure) => failure.transportFailure,
+              'transportFailure',
+              PveTransportFailure.networkUnreachable,
+            )
+            .having(
+              (failure) => failure.mayHaveExecuted,
+              'mayHaveExecuted',
+              isTrue,
+            ),
+      ),
+    );
+    expect(requests, 1);
+  });
 }

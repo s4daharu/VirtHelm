@@ -28,7 +28,8 @@ required = [
   'docs/48-implementation-p0-read-retries.md',
   'docs/49-whole-repository-audit-2026-11-04.md',
   'docs/50-implementation-p0-local-preferences.md',
-  'docs/51-implementation-p0-task-details.md']
+  'docs/51-implementation-p0-task-details.md',
+  'docs/52-implementation-p0-transport-errors.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
@@ -50,6 +51,9 @@ assert 'setThemePreference' in files['app/lib/core/app_controller.dart']
 assert '_scheduleAutoRefresh' in files['app/lib/core/app_controller.dart']
 assert 'setShowNodeMetrics' in files['app/lib/core/profile_repository.dart']
 assert 'themeMode: switch' in files['app/lib/main.dart']
+assert 'enum PveTransportFailure' in files['app/lib/core/models.dart']
+assert '_transportFailure' in files['app/lib/core/pve_api.dart']
+assert "test('GET transport diagnoses show safe, distinct guidance'" in files['app/test/pve_api_test.dart']
 assert '_shouldRetryRead' in files['app/lib/core/pve_api.dart']
 assert 'attempt >= 2' in files['app/lib/core/pve_api.dart']
 assert "test('transient POST failure is never automatically retried'" in files['app/test/pve_api_test.dart']
