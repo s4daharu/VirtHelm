@@ -1013,7 +1013,9 @@ class _GuestsTabState extends State<_GuestsTab> {
                           label: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 150),
                             child: Text(
-                              tagFilter == null ? 'All tags' : 'Tag: $tagFilter',
+                              tagFilter == null
+                                  ? 'All tags'
+                                  : 'Tag: $tagFilter',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
