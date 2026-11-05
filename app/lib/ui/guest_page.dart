@@ -211,6 +211,21 @@ class _GuestPageState extends State<GuestPage> {
                       'Node: ${widget.guest.node}',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
+                    if (guest != null && guest.tags.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final tag in guest.tags)
+                            Chip(
+                              avatar: const Icon(Icons.sell_outlined, size: 16),
+                              label: Text(tag),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                        ],
+                      ),
+                    ],
                     if (widget.controller.inventory != null) ...[
                       const SizedBox(height: 4),
                       Text(
