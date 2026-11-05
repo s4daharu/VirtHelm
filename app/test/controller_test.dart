@@ -7,7 +7,6 @@ import 'package:virthelm/core/app_controller.dart';
 import 'package:virthelm/core/app_preferences.dart';
 import 'package:virthelm/core/guest_saved_view.dart';
 import 'package:virthelm/core/models.dart';
-import 'package:virthelm/core/offline_overview.dart';
 import 'package:virthelm/core/profile_repository.dart';
 import 'package:virthelm/core/pve_api.dart';
 
