@@ -478,22 +478,25 @@ class _SectionHeading extends StatelessWidget {
   final String title;
   final String trailing;
   @override
-  Widget build(BuildContext context) => Row(
+  Widget build(BuildContext context) => Wrap(
+    alignment: WrapAlignment.spaceBetween,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    spacing: 12,
+    runSpacing: 4,
     children: [
-      Expanded(
-        child: Text(
-          title,
-          style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
-        ),
-      ),
       Text(
-        trailing,
-        style: TextStyle(
-          fontSize: 10,
-          letterSpacing: 1,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
+        title,
+        style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
       ),
+      if (trailing.isNotEmpty)
+        Text(
+          trailing,
+          style: TextStyle(
+            fontSize: 10,
+            letterSpacing: 1,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
     ],
   );
 }

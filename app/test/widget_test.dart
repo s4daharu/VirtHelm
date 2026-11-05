@@ -488,13 +488,7 @@ void main() {
       ),
     );
     await tester.pump();
-    final layoutError = tester.takeException();
-    if (layoutError is FlutterError) {
-      // Preserve actionable creator-chain detail in CI for layout regressions.
-      debugPrint(layoutError.toStringDeep());
-      debugDumpRenderTree();
-    }
-    expect(layoutError, isNull);
+    expect(tester.takeException(), isNull);
     for (final tab in ['Guests', 'Tasks', 'Settings']) {
       await tester.tap(find.text(tab));
       await tester.pumpAndSettle();
