@@ -7,6 +7,7 @@ import 'package:virthelm/core/app_controller.dart';
 import 'package:virthelm/core/app_preferences.dart';
 import 'package:virthelm/core/guest_saved_view.dart';
 import 'package:virthelm/core/models.dart';
+import 'package:virthelm/core/offline_overview.dart';
 import 'package:virthelm/core/profile_repository.dart';
 import 'package:virthelm/core/pve_api.dart';
 
@@ -78,6 +79,8 @@ class _Gateway implements PveGateway {
   int taskLogCalls = 0;
   String status = 'running';
   String serverVersion = '9.2';
+  PveFailure? versionFailure;
+  PveFailure? inventoryFailure;
   Completer<Inventory>? inventoryGate;
   bool connected = true;
   Completer<String>? preflight;
@@ -120,10 +123,14 @@ class _Gateway implements PveGateway {
     ],
   );
   @override
-  Future<String> version() async => serverVersion;
+  Future<String> version() async {
+    if (versionFailure != null) throw versionFailure!;
+    return serverVersion;
+  }
   @override
   Future<Inventory> inventory() {
     inventoryCalls++;
+    if (inventoryFailure != null) return Future.error(inventoryFailure!);
     final value = Inventory.fromResources([
       {'type': 'node', 'node': 'pve1', 'status': 'online', 'uptime': 3600},
       {
@@ -1652,5 +1659,165 @@ void main() {
     expect(gateway.submissions, 0);
     // Cancel periodic timer before test teardown.
     controller.setForeground(false);
+  });
+
+  test('opt-in live counts restore after cold transport failure only', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final vault = _Vault();
+    final repo = ProfileRepository(prefs, vault);
+    final first = AppController(
+      repository: repo,
+      gatewayFactory: (p, c) => _Gateway(),
+    );
+    await first.initialize();
+    await first.connect(
+      name: 'Lab',
+      address: 'https://pve.local',
+      tokenId: 'me@pve!app',
+      secret: 's3cr3t',
+    );
+    final id = first.active!.id;
+    await first.setOfflineOverviewEnabled(true);
+    expect(repo.readOfflineOverview(id)?.totalGuests, 1);
+    first.dispose();
+
+    late _Gateway offline;
+    final restored = AppController(
+      repository: ProfileRepository(prefs, vault),
+      gatewayFactory: (p, c) => offline = _Gateway()
+        ..versionFailure = const PveFailure(
+          'DNS lookup failed.',
+          transportFailure: PveTransportFailure.dnsFailure,
+        ),
+    );
+    addTearDown(restored.dispose);
+    await restored.initialize();
+    expect(restored.active?.id, id);
+    expect(restored.inventory, isNull);
+    expect(restored.cachedOverview?.totalGuests, 1);
+    expect(restored.cachedOverview?.runningGuests, 1);
+    expect(restored.message, contains('DNS lookup failed'));
+    expect(restored.isInventoryFresh, isFalse);
+    expect(restored.isInventoryWriteSafe, isFalse);
+    await expectLater(
+      restored.runAction(
+        const Guest(
+          node: 'pve1',
+          vmid: 101,
+          kind: 'qemu',
+          name: 'Web',
+          status: 'running',
+        ),
+        GuestAction.shutdown,
+        profileId: id,
+      ),
+      throwsA(isA<PveFailure>()),
+    );
+    expect(offline.submissions, 0);
+  });
+
+  test('cache never appears for TLS or authentication errors', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final vault = _Vault();
+    final repo = ProfileRepository(prefs, vault);
+    final connected = AppController(
+      repository: repo,
+      gatewayFactory: (p, c) => _Gateway(),
+    );
+    await connected.initialize();
+    await connected.connect(
+      name: 'Lab',
+      address: 'https://pve.local',
+      tokenId: 'me@pve!app',
+      secret: 's3cr3t',
+    );
+    final id = connected.active!.id;
+    await connected.setOfflineOverviewEnabled(true);
+    connected.dispose();
+
+    final tls = AppController(
+      repository: ProfileRepository(prefs, vault),
+      gatewayFactory: (p, c) => _Gateway()
+        ..versionFailure = const PveFailure('TLS validation failed.'),
+    );
+    await tls.initialize();
+    expect(tls.cachedOverview, isNull);
+    expect(repo.readOfflineOverview(id), isNotNull);
+    tls.dispose();
+
+    final revoked = AppController(
+      repository: ProfileRepository(prefs, vault),
+      gatewayFactory: (p, c) => _Gateway()
+        ..versionFailure = const PveFailure(
+          'Authentication failed.',
+          status: 401,
+        ),
+    );
+    addTearDown(revoked.dispose);
+    await revoked.initialize();
+    expect(revoked.cachedOverview, isNull);
+    expect(repo.readOfflineOverview(id), isNull);
+  });
+
+  test('successful inventory with supplemental 401 erases stored counts', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repo = ProfileRepository(prefs, _Vault());
+    late _Gateway gateway;
+    final ctl = AppController(
+      repository: repo,
+      gatewayFactory: (p, c) => gateway = _Gateway(),
+    );
+    addTearDown(ctl.dispose);
+    await ctl.initialize();
+    await ctl.connect(
+      name: 'Lab',
+      address: 'https://pve.local',
+      tokenId: 'me@pve!app',
+      secret: 's3cr3t',
+    );
+    final id = ctl.active!.id;
+    await ctl.setOfflineOverviewEnabled(true);
+    expect(repo.readOfflineOverview(id), isNotNull);
+    gateway.storageFailure = const PveFailure(
+      'Authentication failed.',
+      status: 401,
+    );
+    await ctl.refresh();
+    expect(repo.readOfflineOverview(id), isNull);
+    expect(ctl.isInventoryWriteSafe, isFalse);
+    expect(ctl.message, contains('Authentication failed'));
+  });
+
+  test('refresh transport failure restores counts without a live inventory', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repo = ProfileRepository(prefs, _Vault());
+    late _Gateway gateway;
+    final ctl = AppController(
+      repository: repo,
+      gatewayFactory: (p, c) => gateway = _Gateway(),
+    );
+    addTearDown(ctl.dispose);
+    await ctl.initialize();
+    await ctl.connect(
+      name: 'Lab',
+      address: 'https://pve.local',
+      tokenId: 'me@pve!app',
+      secret: 's3cr3t',
+    );
+    final id = ctl.active!.id;
+    await ctl.setOfflineOverviewEnabled(true);
+    ctl.inventory = null;
+    gateway.inventoryFailure = const PveFailure(
+      'Connection timed out.',
+      transportFailure: PveTransportFailure.connectTimeout,
+    );
+    await ctl.refresh();
+    expect(ctl.cachedOverview?.totalNodes, 1);
+    expect(ctl.inventory, isNull);
+    expect(ctl.isInventoryWriteSafe, isFalse);
+
+    await ctl.setOfflineOverviewEnabled(false);
+    expect(repo.readOfflineOverview(id), isNull);
+    expect(ctl.cachedOverview, isNull);
   });
 }
