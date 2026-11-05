@@ -14,7 +14,7 @@ abstract class PveGateway {
   Future<String> guestStatus(Guest guest);
   Future<String> submit(Guest guest, GuestAction action);
   Future<ServerTaskStatus> taskStatus(TrackedTask task);
-  Future<TaskLogResult> taskLog(String node, String upid);
+  Future<TaskLogResult> taskLog(String node, String upid, {int start = 0});
   void close();
 }
 
@@ -420,13 +420,20 @@ class DioPveGateway implements PveGateway {
   }
 
   @override
-  Future<TaskLogResult> taskLog(String node, String upid) async {
+  Future<TaskLogResult> taskLog(
+    String node,
+    String upid, {
+    int start = 0,
+  }) async {
+    if (start < 0 || start > 400 || start % 100 != 0) {
+      throw const FormatException('Invalid task log page.');
+    }
     if (node.isEmpty || !upid.startsWith('UPID:')) {
       throw const FormatException('Invalid task identity.');
     }
     final raw = await _request(
       '/nodes/${_segment(node)}/tasks/${_segment(upid)}/log',
-      queryParameters: const {'start': 0, 'limit': 100},
+      queryParameters: {'start': start, 'limit': 100},
     );
     if (raw is! List) {
       throw const PveFailure('Unexpected task log response.');
