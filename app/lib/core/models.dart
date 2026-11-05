@@ -394,6 +394,12 @@ class TaskInspection {
   final String? logError;
 }
 
+// Absent, fractional and negative I/O counters are unavailable, not zero.
+int? _guestByteCounter(Object? value) {
+  final number = asInteger(value);
+  return number != null && number >= 0 ? number : null;
+}
+
 class Guest {
   const Guest({
     required this.node,
@@ -407,6 +413,10 @@ class Guest {
     this.disk,
     this.maxDisk,
     this.uptime,
+    this.netIn,
+    this.netOut,
+    this.diskRead,
+    this.diskWrite,
   });
   final String node;
   final int vmid;
@@ -419,6 +429,11 @@ class Guest {
   final int? disk;
   final int? maxDisk;
   final int? uptime;
+  // Optional cumulative bytes from /cluster/resources, not bytes per second.
+  final int? netIn;
+  final int? netOut;
+  final int? diskRead;
+  final int? diskWrite;
 
   bool get isRunning => status == 'running';
   bool get isStopped => status == 'stopped';
@@ -448,6 +463,10 @@ class Guest {
       disk: asInteger(json['disk']),
       maxDisk: asInteger(json['maxdisk']),
       uptime: asInteger(json['uptime']),
+      netIn: _guestByteCounter(json['netin']),
+      netOut: _guestByteCounter(json['netout']),
+      diskRead: _guestByteCounter(json['diskread']),
+      diskWrite: _guestByteCounter(json['diskwrite']),
     );
   }
 }
