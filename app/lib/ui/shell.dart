@@ -1225,14 +1225,16 @@ class _TasksTabState extends State<_TasksTab> {
             ),
             const SizedBox(height: 12),
           ],
-          if (!empty && serverTasks.isEmpty &&
+          if (!empty &&
+              serverTasks.isEmpty &&
               controller.serverTaskMessage == null)
             const _MessageCard(
               text: 'No recent server tasks are visible to this token.',
             )
           else if (serverTasks.isNotEmpty && visible.isEmpty)
             const _MessageCard(
-              text: 'No recent tasks match these filters. Clear search or choose another state or node.',
+              text:
+                  'No recent tasks match these filters. Clear search or choose another state or node.',
             )
           else
             for (final task in visible) ...[
