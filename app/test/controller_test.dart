@@ -1831,4 +1831,41 @@ void main() {
       expect(ctl.cachedOverview, isNull);
     },
   );
+
+  test(
+    'on-demand task authentication loss purges offline overview counts',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final repo = ProfileRepository(prefs, _Vault());
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: repo,
+        gatewayFactory: (p, c) => gateway = _Gateway(),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 's3cr3t',
+      );
+      final id = ctl.active!.id;
+      await ctl.setOfflineOverviewEnabled(true);
+      expect(repo.readOfflineOverview(id), isNotNull);
+      gateway.taskFailure = const PveFailure(
+        'Authentication failed.',
+        status: 401,
+      );
+      final result = await ctl.inspectTask(
+        profileId: id,
+        generation: ctl.connectionGeneration,
+        node: 'pve1',
+        upid: gateway.recentTaskResult.values.single.upid,
+      );
+      expect(result?.statusError, contains('Authentication failed'));
+      expect(gateway.taskLogCalls, 0);
+      expect(repo.readOfflineOverview(id), isNull);
+    },
+  );
 }

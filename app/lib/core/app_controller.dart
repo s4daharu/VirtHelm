@@ -101,6 +101,9 @@ class AppController extends ChangeNotifier {
     } on PveFailure catch (error) {
       statusError = error.message;
       authLost = error.status == 401;
+      if (authLost && current()) {
+        await _clearOfflineAfterAuth(generation);
+      }
     } catch (_) {
       statusError = 'Could not read task status.';
     }
@@ -110,6 +113,9 @@ class AppController extends ChangeNotifier {
         log = await gateway.taskLog(node, upid);
       } on PveFailure catch (error) {
         logError = error.message;
+        if (error.status == 401 && current()) {
+          await _clearOfflineAfterAuth(generation);
+        }
       } catch (_) {
         logError = 'Could not read task log.';
       }
@@ -910,6 +916,7 @@ class AppController extends ChangeNotifier {
           if (generation != _generation) return;
           if (error.status == 401) {
             message = error.message;
+            unawaited(_clearOfflineAfterAuth(generation));
             authenticationFailure = error.message;
             final index = tasks.indexWhere(
               (task) => task.upid == pendingTask.upid,
