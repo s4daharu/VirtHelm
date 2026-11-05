@@ -829,7 +829,6 @@ class AppController extends ChangeNotifier {
   /// Android's default-network signal is not a PVE server reachability test.
   void setDeviceNetworkState(DeviceNetworkState next) {
     if (_disposed || next == deviceNetworkState) return;
-    final wasUnavailable = deviceNetworkState == DeviceNetworkState.unavailable;
     deviceNetworkState = next;
     if (next == DeviceNetworkState.unavailable) {
       _requiresRecovery = true;
@@ -838,7 +837,7 @@ class AppController extends ChangeNotifier {
       if (inventory == null && active != null) {
         cachedOverview = repository.readOfflineOverview(active!.id);
       }
-    } else if (wasUnavailable && next == DeviceNetworkState.available) {
+    } else if (next == DeviceNetworkState.available && _requiresRecovery) {
       final profileId = active?.id;
       if (_foreground && profileId != null) {
         unawaited(_recoverNetwork(_generation, profileId));

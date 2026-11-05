@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:virthelm/core/app_controller.dart';
 import 'package:virthelm/core/app_preferences.dart';
+import 'package:virthelm/core/device_connectivity.dart';
 import 'package:virthelm/main.dart';
 import 'package:virthelm/core/guest_list_filter.dart';
 import 'package:virthelm/core/models.dart';
@@ -883,4 +884,33 @@ void main() {
     expect(find.text('No live data'), findsOneWidget);
     expect(find.text('Web'), findsNothing);
   });
+
+  testWidgets('Android offline signal shows a scoped status, not a TLS banner',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = AppController(
+      repository: ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'lab',
+      name: 'Lab',
+      endpoint: 'https://pve.local:8006',
+      allowInvalidCertificates: true,
+    );
+    controller.setDeviceNetworkState(DeviceNetworkState.unavailable);
+    await tester.pumpWidget(
+      MaterialApp(home: ShellPage(controller: controller)),
+    );
+    expect(find.byKey(const Key('device-network-unavailable')), findsOneWidget);
+    expect(find.textContaining('TLS UNVERIFIED'), findsWidgets);
+    expect(find.text('INSECURE: certificate verification disabled.'), findsNothing);
+    controller.setDeviceNetworkState(DeviceNetworkState.unknown);
+    await tester.pumpWidget(
+      MaterialApp(home: ShellPage(controller: controller)),
+    );
+    expect(find.byKey(const Key('device-network-unavailable')), findsNothing);
+  });
+
 }
