@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../core/app_controller.dart';
 import '../core/models.dart';
 import 'theme.dart';
-import 'tls_warning.dart';
 
 class GuestPage extends StatefulWidget {
   const GuestPage({
@@ -128,8 +127,6 @@ class _GuestPageState extends State<GuestPage> {
         body: ListView(
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 30),
           children: [
-            if (widget.controller.active?.allowInvalidCertificates == true)
-              const TlsWarning(),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),

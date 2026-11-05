@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:virthelm/core/app_controller.dart';
 import 'package:virthelm/core/app_preferences.dart';
+import 'package:virthelm/core/device_connectivity.dart';
 import 'package:virthelm/main.dart';
 import 'package:virthelm/core/guest_list_filter.dart';
 import 'package:virthelm/core/models.dart';
@@ -14,7 +15,6 @@ import 'package:virthelm/ui/connect_page.dart';
 import 'package:virthelm/ui/guest_page.dart';
 import 'package:virthelm/ui/shell.dart';
 import 'package:virthelm/ui/task_details_page.dart';
-import 'package:virthelm/ui/tls_warning.dart';
 
 class _EmptyVault implements CredentialVault {
   @override
@@ -496,54 +496,65 @@ void main() {
     }
   });
 
-  testWidgets('shell and guest screens warn for insecure profiles only', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
-    final controller = AppController(
-      repository: ProfileRepository(prefs, _EmptyVault()),
-    );
-    addTearDown(controller.dispose);
-    controller.active = const ConnectionProfile(
-      id: 'lab',
-      name: 'Lab',
-      endpoint: 'https://pve.local:8006',
-      allowInvalidCertificates: true,
-    );
-    await tester.pumpWidget(
-      MaterialApp(home: ShellPage(controller: controller)),
-    );
-    expect(find.byType(TlsWarning), findsOneWidget);
-    await tester.tap(find.text('Guests'));
-    await tester.pumpAndSettle();
-    expect(find.byType(TlsWarning), findsOneWidget);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: GuestPage(
-          controller: controller,
-          guest: const Guest(
-            node: 'pve1',
-            vmid: 101,
-            kind: 'qemu',
-            name: 'Web',
-            status: 'running',
+  testWidgets(
+    'insecure profiles retain contextual labels without persistent banners',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = AppController(
+        repository: ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      controller.active = const ConnectionProfile(
+        id: 'lab',
+        name: 'Lab',
+        endpoint: 'https://pve.local:8006',
+        allowInvalidCertificates: true,
+      );
+      await tester.pumpWidget(
+        MaterialApp(home: ShellPage(controller: controller)),
+      );
+      expect(find.textContaining('TLS UNVERIFIED'), findsWidgets);
+      expect(
+        find.text('INSECURE: certificate verification disabled.'),
+        findsNothing,
+      );
+      await tester.tap(find.text('Guests'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('INSECURE: certificate verification disabled.'),
+        findsNothing,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: GuestPage(
+            controller: controller,
+            guest: const Guest(
+              node: 'pve1',
+              vmid: 101,
+              kind: 'qemu',
+              name: 'Web',
+              status: 'running',
+            ),
+            profileId: 'lab',
           ),
-          profileId: 'lab',
         ),
-      ),
-    );
-    expect(find.byType(TlsWarning), findsOneWidget);
-    controller.active = const ConnectionProfile(
-      id: 'strict',
-      name: 'Strict',
-      endpoint: 'https://pve.local:8006',
-    );
-    await tester.pumpWidget(
-      MaterialApp(home: ShellPage(controller: controller)),
-    );
-    expect(find.byType(TlsWarning), findsNothing);
-  });
+      );
+      expect(
+        find.text('INSECURE: certificate verification disabled.'),
+        findsNothing,
+      );
+      controller.active = const ConnectionProfile(
+        id: 'strict',
+        name: 'Strict',
+        endpoint: 'https://pve.local:8006',
+      );
+      await tester.pumpWidget(
+        MaterialApp(home: ShellPage(controller: controller)),
+      );
+      expect(find.textContaining('TLS UNVERIFIED'), findsNothing);
+    },
+  );
 
   testWidgets('guest browse filters and sorting reset on profile switch', (
     tester,
@@ -883,4 +894,40 @@ void main() {
     expect(find.text('No live data'), findsOneWidget);
     expect(find.text('Web'), findsNothing);
   });
+
+  testWidgets(
+    'Android offline signal shows a scoped status, not a TLS banner',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = AppController(
+        repository: ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      controller.active = const ConnectionProfile(
+        id: 'lab',
+        name: 'Lab',
+        endpoint: 'https://pve.local:8006',
+        allowInvalidCertificates: true,
+      );
+      controller.setDeviceNetworkState(DeviceNetworkState.unavailable);
+      await tester.pumpWidget(
+        MaterialApp(home: ShellPage(controller: controller)),
+      );
+      expect(
+        find.byKey(const Key('device-network-unavailable')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('TLS UNVERIFIED'), findsWidgets);
+      expect(
+        find.text('INSECURE: certificate verification disabled.'),
+        findsNothing,
+      );
+      controller.setDeviceNetworkState(DeviceNetworkState.unknown);
+      await tester.pumpWidget(
+        MaterialApp(home: ShellPage(controller: controller)),
+      );
+      expect(find.byKey(const Key('device-network-unavailable')), findsNothing);
+    },
+  );
 }

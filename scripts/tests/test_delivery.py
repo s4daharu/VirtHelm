@@ -38,6 +38,14 @@ class DeliveryTests(unittest.TestCase):
         manifest.parent.mkdir(parents=True)
         manifest.write_text('<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
                             '<application android:label="virthelm"></application></manifest>')
+        activity = self.root / 'app/android/app/src/main/kotlin/com/s4daharu/virthelm/MainActivity.kt'
+        activity.parent.mkdir(parents=True)
+        activity.write_text('package com.s4daharu.virthelm\n'
+                            'import io.flutter.embedding.android.FlutterActivity\n'
+                            'class MainActivity : FlutterActivity() {}\n')
+        template = self.root / 'scripts/android/MainActivity.kt'
+        template.parent.mkdir(parents=True)
+        shutil.copy2(ROOT / 'scripts/android/MainActivity.kt', template)
         gradle = self.root / 'app/android/app/build.gradle.kts'
         (self.root / 'app/android/gradle.properties').write_text(
             'org.gradle.jvmargs=-Xmx8G\nandroid.useAndroidX=true\n')
@@ -55,13 +63,15 @@ android {
 }
 ''')
         self.run_checked(['python3', str(self.root / 'scripts/harden_android.py')])
-        first = (manifest.read_bytes(), gradle.read_bytes())
+        first = (manifest.read_bytes(), gradle.read_bytes(), activity.read_bytes())
         self.run_checked(['python3', str(self.root / 'scripts/harden_android.py')])
-        self.assertEqual(first, (manifest.read_bytes(), gradle.read_bytes()))
+        self.assertEqual(first, (manifest.read_bytes(), gradle.read_bytes(), activity.read_bytes()))
         self.run_checked(['python3', str(self.root / 'scripts/check_android_generated.py')])
         properties = (self.root / 'app/android/gradle.properties').read_text()
         self.assertNotIn('-Xmx8G', properties)
         self.assertIn('android.useAndroidX=true', properties)
+        self.assertIn('ACCESS_NETWORK_STATE', manifest.read_text())
+        self.assertIn('registerDefaultNetworkCallback', activity.read_text())
 
         script = release_script('Configure generated runner for release signing')
         self.run_checked(['bash', '-euo', 'pipefail', '-c', script], cwd=self.root / 'app')

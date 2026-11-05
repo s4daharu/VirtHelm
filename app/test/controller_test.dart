@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:virthelm/core/app_controller.dart';
 import 'package:virthelm/core/app_preferences.dart';
+import 'package:virthelm/core/device_connectivity.dart';
 import 'package:virthelm/core/guest_saved_view.dart';
 import 'package:virthelm/core/models.dart';
 import 'package:virthelm/core/profile_repository.dart';
@@ -1865,6 +1866,140 @@ void main() {
       expect(result?.statusError, contains('Authentication failed'));
       expect(gateway.taskLogCalls, 0);
       expect(repo.readOfflineOverview(id), isNull);
+    },
+  );
+
+  test(
+    'Android network loss blocks writes and restores only after fresh GET',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway(),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 'secret',
+      );
+      final guest = ctl.inventory!.guests.single;
+      final profileId = ctl.active!.id;
+      final before = gateway.inventoryCalls;
+      expect(ctl.isInventoryWriteSafe, isTrue);
+
+      ctl.setDeviceNetworkState(DeviceNetworkState.unavailable);
+      expect(ctl.isInventoryWriteSafe, isFalse);
+      await ctl.refresh();
+      expect(gateway.inventoryCalls, before);
+      await expectLater(
+        ctl.runAction(guest, GuestAction.stop, profileId: profileId),
+        throwsA(isA<PveFailure>()),
+      );
+      expect(gateway.submissions, 0);
+      ctl.setDeviceNetworkState(DeviceNetworkState.unknown);
+      expect(ctl.isInventoryWriteSafe, isFalse);
+
+      ctl.setDeviceNetworkState(DeviceNetworkState.available);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(gateway.inventoryCalls, before + 1);
+      expect(ctl.isInventoryWriteSafe, isTrue);
+      expect(gateway.submissions, 0);
+    },
+  );
+
+  test(
+    'cold offline profile reopens only after default network returns',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final vault = _Vault();
+      final repo = ProfileRepository(prefs, vault);
+      final initial = AppController(
+        repository: repo,
+        gatewayFactory: (profile, credentials) => _Gateway(),
+      );
+      await initial.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 'secret',
+      );
+      final id = initial.active!.id;
+      initial.dispose();
+
+      var gatewaysCreated = 0;
+      final restored = AppController(
+        repository: repo,
+        gatewayFactory: (profile, credentials) {
+          gatewaysCreated++;
+          return _Gateway();
+        },
+      );
+      addTearDown(restored.dispose);
+      restored.setDeviceNetworkState(DeviceNetworkState.unavailable);
+      await restored.initialize();
+      expect(restored.active?.id, id);
+      expect(restored.inventory, isNull);
+      expect(gatewaysCreated, 0);
+
+      restored.setDeviceNetworkState(DeviceNetworkState.available);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(gatewaysCreated, 1);
+      expect(restored.inventory, isNotNull);
+      expect(restored.isInventoryWriteSafe, isTrue);
+    },
+  );
+
+  test(
+    'network loss invalidates an in-flight GET even if it resolves after recovery',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway(),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 'secret',
+      );
+      final before = gateway.inventoryCalls;
+      final staleRead = Completer<Inventory>();
+      final newRead = Completer<Inventory>();
+      gateway.inventoryGate = staleRead;
+      final oldRefresh = ctl.refresh();
+      await Future<void>.delayed(Duration.zero);
+      expect(gateway.inventoryCalls, before + 1);
+
+      ctl.setDeviceNetworkState(DeviceNetworkState.unavailable);
+      ctl.setDeviceNetworkState(DeviceNetworkState.available);
+      gateway.inventoryGate = newRead;
+      staleRead.complete(ctl.inventory!);
+      await oldRefresh;
+      await Future<void>.delayed(Duration.zero);
+      expect(gateway.inventoryCalls, before + 2);
+      expect(ctl.isInventoryWriteSafe, isFalse);
+
+      newRead.complete(
+        Inventory.fromResources([
+          {'type': 'node', 'node': 'pve1', 'status': 'online'},
+          {
+            'type': 'qemu',
+            'vmid': 101,
+            'node': 'pve1',
+            'name': 'Web',
+            'status': 'running',
+          },
+        ]),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(ctl.isInventoryWriteSafe, isTrue);
+      expect(gateway.submissions, 0);
     },
   );
 }

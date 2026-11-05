@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
+import '../core/device_connectivity.dart';
 import '../core/app_preferences.dart';
 import '../core/guest_list_filter.dart';
 import '../core/guest_saved_view.dart';
@@ -11,7 +12,6 @@ import 'connect_page.dart';
 import 'guest_page.dart';
 import 'theme.dart';
 import 'task_details_page.dart';
-import 'tls_warning.dart';
 
 class ShellPage extends StatefulWidget {
   const ShellPage({super.key, required this.controller});
@@ -136,7 +136,23 @@ class _ShellPageState extends State<ShellPage> {
       ),
       body: Column(
         children: [
-          if (profile?.allowInvalidCertificates == true) const TlsWarning(),
+          if (controller.deviceNetworkState == DeviceNetworkState.unavailable)
+            const Padding(
+              key: Key('device-network-unavailable'),
+              padding: EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Icon(Icons.wifi_off_rounded),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'NO DEFAULT NETWORK • Android cannot see a default network. '
+                      'Live actions are disabled; check Wi-Fi/VPN and refresh.',
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: IndexedStack(
               index: selectedIndex,
@@ -427,9 +443,13 @@ class _OverviewTab extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Workloads',
-                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+              const Expanded(
+                child: Text(
+                  'Workloads',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+                ),
               ),
               TextButton(
                 onPressed: onOpenGuests,
@@ -458,22 +478,25 @@ class _SectionHeading extends StatelessWidget {
   final String title;
   final String trailing;
   @override
-  Widget build(BuildContext context) => Row(
+  Widget build(BuildContext context) => Wrap(
+    alignment: WrapAlignment.spaceBetween,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    spacing: 12,
+    runSpacing: 4,
     children: [
-      Expanded(
-        child: Text(
-          title,
-          style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
-        ),
-      ),
       Text(
-        trailing,
-        style: TextStyle(
-          fontSize: 10,
-          letterSpacing: 1,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
+        title,
+        style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
       ),
+      if (trailing.isNotEmpty)
+        Text(
+          trailing,
+          style: TextStyle(
+            fontSize: 10,
+            letterSpacing: 1,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
     ],
   );
 }

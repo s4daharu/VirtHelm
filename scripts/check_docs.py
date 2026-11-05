@@ -24,7 +24,10 @@ required=['README.md','SECURITY.md','CONTRIBUTING.md',
           'docs/48-implementation-p0-read-retries.md',
           'docs/49-whole-repository-audit-2026-11-04.md',
           'docs/50-implementation-p0-local-preferences.md',
-          'docs/51-implementation-p0-task-details.md']
+          'docs/51-implementation-p0-task-details.md',
+           'docs/52-implementation-p0-transport-errors.md',
+           'docs/53-implementation-p0-offline-overview.md',
+           'docs/54-implementation-p0-android-connectivity.md']
 missing=[p for p in required if not (root/p).is_file()]
 assert not missing, f'Missing required docs: {missing}'
 with (root/'docs/api-endpoint-index.csv').open(newline='',encoding='utf-8') as f:

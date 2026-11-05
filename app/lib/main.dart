@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/app_controller.dart';
 import 'core/app_preferences.dart';
+import 'core/device_connectivity.dart';
 import 'core/profile_repository.dart';
 import 'ui/connect_page.dart';
 import 'ui/shell.dart';
@@ -30,12 +31,18 @@ class VirtHelmApp extends StatefulWidget {
 
 class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
   late final AppController controller;
+  late final StreamSubscription<DeviceNetworkState> _networkSubscription;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     controller = AppController(repository: widget.repository);
+    _networkSubscription = deviceNetworkChanges().listen(
+      controller.setDeviceNetworkState,
+      onError: (Object _) =>
+          controller.setDeviceNetworkState(DeviceNetworkState.unknown),
+    );
     unawaited(controller.initialize());
   }
 
@@ -47,6 +54,7 @@ class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    unawaited(_networkSubscription.cancel());
     controller.dispose();
     super.dispose();
   }

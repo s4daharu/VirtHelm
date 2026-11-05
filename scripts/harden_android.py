@@ -13,9 +13,10 @@ text = manifest.read_text(encoding='utf-8')
 manifest_open = re.search(r'<manifest\b[^>]*>', text, re.S)
 if manifest_open is None:
     raise SystemExit('Manifest root missing; refusing unsecured runner.')
-if 'android.permission.INTERNET' not in text:
-    permission = '\n    <uses-permission android:name="android.permission.INTERNET"/>'
-    text = text[:manifest_open.end()] + permission + text[manifest_open.end():]
+for permission in ('android.permission.INTERNET', 'android.permission.ACCESS_NETWORK_STATE'):
+    if permission not in text:
+        declaration = f'\n    <uses-permission android:name="{permission}"/>'
+        text = text[:manifest_open.end()] + declaration + text[manifest_open.end():]
 
 start = re.search(r'<application\b[^>]*>', text, re.S)
 if start is None:
@@ -54,6 +55,18 @@ gradle_text = gradle_text.replace(
 )
 gradle.write_text(gradle_text, encoding='utf-8')
 
+# The generated Android runner is ignored. Reapply our reviewed activity
+# deterministically; fail closed if Flutter changes the generated class shape.
+activity = root / 'app/android/app/src/main/kotlin/com/s4daharu/virthelm/MainActivity.kt'
+template = root / 'scripts/android/MainActivity.kt'
+if not activity.is_file() or not template.is_file():
+    raise SystemExit('Generated MainActivity or native template missing.')
+activity_text = activity.read_text(encoding='utf-8')
+if ('package com.s4daharu.virthelm' not in activity_text or
+        not re.search(r'class MainActivity\s*:\s*FlutterActivity\(\)', activity_text)):
+    raise SystemExit('Generated MainActivity changed; review before replacement.')
+activity.write_text(template.read_text(encoding='utf-8'), encoding='utf-8')
+
 # Flutter's template requests an 8G heap, which can thrash an 8 GB host.
 # Preserve unrelated settings while enforcing the project's build resource caps.
 properties = root / 'app/android/gradle.properties'
@@ -68,6 +81,6 @@ lines = [line for line in lines if line.split('=', 1)[0].strip() not in caps]
 lines.extend(f'{key}={value}' for key, value in caps.items())
 properties.write_text('\n'.join(lines) + '\n', encoding='utf-8')
 print(
-    'Hardened Android runner: INTERNET enabled, backups/cleartext disabled, '
+    'Hardened Android runner: network permissions enabled, backups/cleartext disabled, '
     'minSdk 26, no debug release signing, capped Gradle/Kotlin resources'
 )
