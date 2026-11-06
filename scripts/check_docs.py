@@ -2,6 +2,7 @@
 """Offline documentation consistency smoke-check; no external requests."""
 from pathlib import Path
 import csv
+import json
 import re
 root=Path(__file__).resolve().parents[1]
 required=['README.md','SECURITY.md','CONTRIBUTING.md',
@@ -27,7 +28,15 @@ required=['README.md','SECURITY.md','CONTRIBUTING.md',
           'docs/51-implementation-p0-task-details.md',
            'docs/52-implementation-p0-transport-errors.md',
            'docs/53-implementation-p0-offline-overview.md',
-           'docs/54-implementation-p0-android-connectivity.md']
+           'docs/54-implementation-p0-android-connectivity.md',
+           'docs/55-implementation-f09-task-log-pages.md',
+           'docs/56-implementation-f09-task-history-filters.md',
+           'docs/57-implementation-guest-io-counters.md',
+           'docs/58-premerge-whole-repository-audit-2026-11-05.md',
+           'docs/59-implementation-guest-rrd-history.md',
+           'docs/60-implementation-tag-pool-browsing.md',
+           'docs/61-implementation-node-rrd-history.md',
+           'docs/62-whole-repository-cross-check-2026-11-06.md']
 missing=[p for p in required if not (root/p).is_file()]
 assert not missing, f'Missing required docs: {missing}'
 with (root/'docs/api-endpoint-index.csv').open(newline='',encoding='utf-8') as f:
@@ -42,4 +51,11 @@ for rel in required:
         if dest.startswith(('https://','http://','mailto:','/')): continue
         target=(root/rel).parent/dest
         assert target.exists(), f'Broken local link in {rel}: {dest}'
+status=json.loads((root/'PROJECT_STATUS.json').read_text(encoding='utf-8'))
+test_count=sum(
+    len(re.findall(r'\\btest(?:Widgets)?\\s*\\(', path.read_text(encoding='utf-8')))
+    for path in (root/'app/test').glob('*.dart')
+)
+assert status['implementation_audit']['current_flutter_tests_defined'] == test_count, 'PROJECT_STATUS Flutter test count drift'
+assert status['live_pve_tested'] is False, 'Repository CI must not claim live PVE validation'
 print(f'Documentation smoke-check passed: {len(required)} required files, {len(rows)} endpoint rows.')
