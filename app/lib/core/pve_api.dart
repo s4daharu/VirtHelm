@@ -23,6 +23,10 @@ abstract class PveGateway {
     String node,
     NodeMetricTimeframe timeframe,
   );
+  Future<StorageMetricSeries> storageMetrics(
+    StoragePool storage,
+    StorageMetricTimeframe timeframe,
+  );
   void close();
 }
 
@@ -541,6 +545,52 @@ class DioPveGateway implements PveGateway {
     points.sort((a, b) => a.timestamp.compareTo(b.timestamp));
     return NodeMetricSeries(
       points: List<NodeMetricPoint>.unmodifiable(points),
+      malformedRecords: malformed,
+      truncated: raw.length > pointLimit,
+    );
+  }
+
+  @override
+  Future<StorageMetricSeries> storageMetrics(
+    StoragePool storage,
+    StorageMetricTimeframe timeframe,
+  ) async {
+    final normalizedNode = storage.node.trim();
+    final normalizedStorage = storage.id.trim();
+    if (normalizedNode.isEmpty ||
+        normalizedNode.length > 200 ||
+        normalizedStorage.isEmpty ||
+        normalizedStorage.length > 200) {
+      throw const FormatException('Invalid storage identity.');
+    }
+    final raw = await _request(
+      '/nodes/${_segment(normalizedNode)}/storage/'
+      '${_segment(normalizedStorage)}/rrddata',
+      queryParameters: {'timeframe': timeframe.apiValue, 'cf': 'AVERAGE'},
+    );
+    if (raw is! List) {
+      throw const PveFailure('Unexpected storage performance response.');
+    }
+
+    const pointLimit = 1500;
+    final points = <StorageMetricPoint>[];
+    var malformed = 0;
+    for (final row in raw.take(pointLimit)) {
+      if (row is! Map) {
+        malformed++;
+        continue;
+      }
+      try {
+        points.add(StorageMetricPoint.fromApi(Map<String, dynamic>.from(row)));
+      } on FormatException {
+        malformed++;
+      } on TypeError {
+        malformed++;
+      }
+    }
+    points.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    return StorageMetricSeries(
+      points: List<StorageMetricPoint>.unmodifiable(points),
       malformedRecords: malformed,
       truncated: raw.length > pointLimit,
     );

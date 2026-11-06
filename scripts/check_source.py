@@ -10,7 +10,8 @@ required = [
   'app/lib/core/guest_list_filter.dart','app/lib/core/task_history_filter.dart',
   'app/lib/core/guest_saved_view.dart','app/lib/ui/theme.dart',
   'app/lib/ui/connect_page.dart','app/lib/ui/shell.dart',
-  'app/lib/ui/guest_page.dart','app/lib/ui/node_page.dart','app/lib/ui/task_details_page.dart',
+  'app/lib/ui/guest_page.dart','app/lib/ui/node_page.dart','app/lib/ui/storage_page.dart',
+  'app/lib/ui/task_details_page.dart',
   'app/test/models_test.dart',
   'app/test/controller_test.dart','app/test/pve_api_test.dart',
   'app/test/widget_test.dart','app/test/pve_tls_test.dart',
@@ -40,7 +41,8 @@ required = [
    'docs/59-implementation-guest-rrd-history.md',
    'docs/60-implementation-tag-pool-browsing.md',
    'docs/61-implementation-node-rrd-history.md',
-   'docs/62-whole-repository-cross-check-2026-11-06.md']
+   'docs/62-whole-repository-cross-check-2026-11-06.md',
+   'docs/63-implementation-storage-rrd-history.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
@@ -91,6 +93,12 @@ assert "'/nodes/${_segment(normalizedNode)}/rrddata'" in files['app/lib/core/pve
 assert 'inspectNodeMetrics' in files['app/lib/core/app_controller.dart']
 assert 'class NodePage' in files['app/lib/ui/node_page.dart']
 assert 'NodePage(' in files['app/lib/ui/shell.dart']
+assert 'StorageMetricTimeframe' in files['app/lib/core/models.dart']
+assert 'Future<StorageMetricSeries> storageMetrics' in files['app/lib/core/pve_api.dart']
+assert "'/storage/'" in files['app/lib/core/pve_api.dart']
+assert 'inspectStorageMetrics' in files['app/lib/core/app_controller.dart']
+assert 'class StoragePage' in files['app/lib/ui/storage_page.dart']
+assert 'StoragePage(' in files['app/lib/ui/shell.dart']
 assert '_guestTags' in files['app/lib/core/models.dart']
 assert 'final List<String> tags' in files['app/lib/core/models.dart']
 assert 'String? tag' in files['app/lib/core/guest_list_filter.dart']

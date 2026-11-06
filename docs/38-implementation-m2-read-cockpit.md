@@ -7,6 +7,7 @@ This slice adds no new mutation endpoint:
 - storage overview via per-node `GET /nodes/{node}/storage`;
 - recent task history via per-node `GET /nodes/{node}/tasks?limit=20&source=all`;
 - storage node/ID/backend/content/capacity/state display;
+- explicit on-demand per-storage used/total RRD capacity history for 1 hour, 24 hours and 7 days, with text alternatives and no persistence or background polling;
 - server-task history separated from session-local mutation tracking;
 - partial 403/read/malformed-record reporting without discarding successful node reads;
 - profile-scoped guest favorites stored only in local application preferences;
@@ -30,7 +31,7 @@ Search ignores case and surrounding whitespace and matches guest name, VMID, nod
 Recent tasks are capped at 20 per visible node and 60 combined rows. Storage is shown per node and never summed across nodes, avoiding false totals for shared storage. Guest task verification is foreground-only, single-flight, bounded by a verification TTL, and becomes `unknown` rather than retrying a mutation.
 
 ## Deliberately not implemented in this slice
-Full premium M2 remains broader: storage/capacity and richer RRD charts, notification center/alerts, richer grouping/topology views, persistent offline cache, accessibility/performance signoff, and 200-guest/device evidence are still pending. PBS/PDM, console, ticket/MFA, snapshot/backup execution and infrastructure mutation remain later gated milestones.
+Full premium M2 remains broader: cross-resource capacity comparisons and richer RRD analytics, notification center/alerts, richer grouping/topology views, persistent offline cache, accessibility/performance signoff, and 200-guest/device evidence are still pending. PBS/PDM, console, ticket/MFA, snapshot/backup execution and infrastructure mutation remain later gated milestones.
 
 ## Reconciliation and malformed-read fixes
 An already-in-flight inventory refresh may have started before a UPID reached terminal state. To avoid treating that old read as post-task evidence, terminal-task processing waits for it, then performs another inventory request before removing the pending guest lock. Malformed storage/task rows with non-string map keys are counted without discarding valid neighboring records. Both are covered by regression tests.

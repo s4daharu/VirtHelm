@@ -311,6 +311,79 @@ class NodeMetricSeries {
   final bool truncated;
 }
 
+enum StorageMetricTimeframe {
+  hour(apiValue: 'hour', label: '1 hour'),
+  day(apiValue: 'day', label: '24 hours'),
+  week(apiValue: 'week', label: '7 days');
+
+  const StorageMetricTimeframe({required this.apiValue, required this.label});
+
+  final String apiValue;
+  final String label;
+}
+
+class StorageMetricPoint {
+  const StorageMetricPoint({
+    required this.timestamp,
+    this.usedBytes,
+    this.totalBytes,
+  });
+
+  final DateTime timestamp;
+  final int? usedBytes;
+  final int? totalBytes;
+
+  double? get usageFraction {
+    final used = usedBytes;
+    final total = totalBytes;
+    if (used == null ||
+        total == null ||
+        used < 0 ||
+        total <= 0 ||
+        used > total) {
+      return null;
+    }
+    return used / total;
+  }
+
+  factory StorageMetricPoint.fromApi(Map<String, dynamic> json) {
+    final timestamp = asUnixSeconds(json['time']);
+    if (timestamp == null) {
+      throw const FormatException(
+        'Storage RRD sample is missing a valid timestamp.',
+      );
+    }
+
+    final rawUsed = asDouble(json['used']);
+    final rawTotal = asDouble(json['total']);
+    final used = rawUsed != null && rawUsed >= 0 ? rawUsed.round() : null;
+    final total = rawTotal != null && rawTotal > 0 ? rawTotal.round() : null;
+
+    if (used == null && total == null) {
+      throw const FormatException(
+        'Storage RRD sample has no usable capacity data.',
+      );
+    }
+    return StorageMetricPoint(
+      timestamp: timestamp,
+      usedBytes: used,
+      totalBytes: total,
+    );
+  }
+}
+
+class StorageMetricSeries {
+  const StorageMetricSeries({
+    required this.points,
+    this.malformedRecords = 0,
+    this.truncated = false,
+  });
+
+  final List<StorageMetricPoint> points;
+  final int malformedRecords;
+  final bool truncated;
+}
+
 class ReadCollection<T> {
   ReadCollection({
     required List<T> values,

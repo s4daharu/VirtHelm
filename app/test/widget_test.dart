@@ -15,6 +15,7 @@ import 'package:virthelm/ui/connect_page.dart';
 import 'package:virthelm/ui/guest_page.dart';
 import 'package:virthelm/ui/node_page.dart';
 import 'package:virthelm/ui/shell.dart';
+import 'package:virthelm/ui/storage_page.dart';
 import 'package:virthelm/ui/task_details_page.dart';
 
 class _EmptyVault implements CredentialVault {
@@ -113,6 +114,38 @@ class _NodeMetricController extends AppController {
           timestamp: DateTime.utc(2026, 11, 6, 13),
           cpuFraction: 0.4,
           memoryFraction: 0.75,
+        ),
+      ],
+      malformedRecords: 1,
+    );
+  }
+}
+
+class _StorageMetricController extends AppController {
+  _StorageMetricController(ProfileRepository repository)
+    : super(repository: repository);
+
+  final List<StorageMetricTimeframe> requestedTimeframes = [];
+
+  @override
+  Future<StorageMetricSeries?> inspectStorageMetrics({
+    required String profileId,
+    required int generation,
+    required StoragePool storage,
+    required StorageMetricTimeframe timeframe,
+  }) async {
+    requestedTimeframes.add(timeframe);
+    return StorageMetricSeries(
+      points: [
+        StorageMetricPoint(
+          timestamp: DateTime.utc(2026, 11, 6, 12),
+          usedBytes: 512,
+          totalBytes: 1024,
+        ),
+        StorageMetricPoint(
+          timestamp: DateTime.utc(2026, 11, 6, 13),
+          usedBytes: 768,
+          totalBytes: 1024,
         ),
       ],
       malformedRecords: 1,
@@ -274,6 +307,105 @@ void main() {
     expect(find.text('Node unavailable'), findsWidgets);
     expect(find.textContaining('Latest 40.0%'), findsNothing);
     expect(find.text('pve1'), findsNothing);
+  });
+
+  testWidgets('storage capacity history is explicit and session redacted', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = _StorageMetricController(
+      ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'a',
+      name: 'A',
+      endpoint: 'https://a.example',
+    );
+    controller.inventory = Inventory.fromResources([
+      {
+        'type': 'node',
+        'node': 'pve1',
+        'status': 'online',
+      },
+    ]);
+    controller.storages = const [
+      StoragePool(
+        node: 'pve1',
+        id: 'local',
+        type: 'dir',
+        active: true,
+        contentTypes: ['iso', 'backup'],
+        used: 512,
+        total: 1024,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(home: ShellPage(controller: controller)),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.requestedTimeframes, isEmpty);
+
+    await tester.scrollUntilVisible(
+      find.text('local'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('local'));
+    await tester.pumpAndSettle();
+    expect(find.byType(StoragePage), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Capacity history'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Capacity history'), findsOneWidget);
+    expect(controller.requestedTimeframes, isEmpty);
+
+    await tester.tap(find.text('Load history'));
+    await tester.pumpAndSettle();
+    expect(controller.requestedTimeframes, [StorageMetricTimeframe.hour]);
+    await tester.scrollUntilVisible(
+      find.textContaining('Latest 75.0%'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Latest 75.0%'), findsOneWidget);
+    expect(find.textContaining('Usage range 50.0%–75.0%'), findsOneWidget);
+    expect(find.textContaining('1 malformed ignored'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('24 hours'),
+      -200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('24 hours'));
+    await tester.pumpAndSettle();
+    expect(controller.requestedTimeframes, [StorageMetricTimeframe.hour]);
+    expect(find.textContaining('Latest 75.0%'), findsNothing);
+    await tester.tap(find.text('Load history'));
+    await tester.pumpAndSettle();
+    expect(controller.requestedTimeframes, [
+      StorageMetricTimeframe.hour,
+      StorageMetricTimeframe.day,
+    ]);
+
+    controller.active = const ConnectionProfile(
+      id: 'b',
+      name: 'B',
+      endpoint: 'https://b.example',
+    );
+    controller.notifyListeners();
+    await tester.pump();
+    expect(find.text('Storage unavailable'), findsWidgets);
+    expect(find.textContaining('Latest 75.0%'), findsNothing);
+    expect(find.text('local'), findsNothing);
   });
 
   testWidgets('guest performance history is explicit and session redacted', (

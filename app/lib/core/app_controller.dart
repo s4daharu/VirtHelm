@@ -212,6 +212,43 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<StorageMetricSeries?> inspectStorageMetrics({
+    required String profileId,
+    required int generation,
+    required StoragePool storage,
+    required StorageMetricTimeframe timeframe,
+  }) async {
+    final gateway = _gateway;
+    bool current() =>
+        !_disposed && generation == _generation && active?.id == profileId;
+    StoragePool? currentStorage() {
+      final matches = storages.where(
+        (item) => item.node == storage.node && item.id == storage.id,
+      );
+      if (matches.length != 1) return null;
+      return matches.single;
+    }
+
+    if (!current() ||
+        gateway == null ||
+        deviceNetworkState == DeviceNetworkState.unavailable) {
+      return null;
+    }
+    final target = currentStorage();
+    if (target == null) return null;
+
+    try {
+      final result = await gateway.storageMetrics(target, timeframe);
+      if (!current() || currentStorage() == null) return null;
+      return result;
+    } on PveFailure catch (error) {
+      if (error.status == 401 && current()) {
+        await _recordAuthenticatedReadLoss(generation, error.message);
+      }
+      rethrow;
+    }
+  }
+
   String _guestKey(Guest guest) => '${guest.kind}:${guest.node}:${guest.vmid}';
 
   bool isGuestFavorite(Guest guest) =>

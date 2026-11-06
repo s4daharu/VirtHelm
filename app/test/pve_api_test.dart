@@ -324,6 +324,48 @@ void main() {
     expect(series.truncated, isFalse);
   });
 
+  test('storage RRD history uses bounded GET parameters and parsing', () async {
+    final dio = Dio();
+    late RequestOptions request;
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          request = options;
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'data': [
+                  {'time': 1700000060, 'used': 768.4, 'total': 1024.0},
+                  'bad',
+                  {'time': 1700000000, 'used': 512, 'total': 1024},
+                  {'time': -1, 'used': 256, 'total': 1024},
+                ],
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(profile, credentials, http: dio);
+    addTearDown(gateway.close);
+
+    final series = await gateway.storageMetrics(
+      const StoragePool(node: 'pve1', id: 'local', type: 'dir'),
+      StorageMetricTimeframe.day,
+    );
+    expect(request.method, 'GET');
+    expect(request.path, '/nodes/pve1/storage/local/rrddata');
+    expect(request.queryParameters['timeframe'], 'day');
+    expect(request.queryParameters['cf'], 'AVERAGE');
+    expect(series.points.length, 2);
+    expect(series.points.first.usageFraction, 0.5);
+    expect(series.points.last.usedBytes, 768);
+    expect(series.malformedRecords, 2);
+    expect(series.truncated, isFalse);
+  });
+
   test(
     'task log uses bounded read-only URL and tolerates malformed rows',
     () async {

@@ -51,7 +51,8 @@
       "up to 12 profile-scoped named saved guest views for local search/filter/sort criteria",
       "on-demand read-only guest CPU/memory RRD performance history for 1h/24h/7d windows",
       "read-only guest tag/pool discovery, search, exact filtering and saved-view criteria from cluster inventory",
-      "on-demand read-only node CPU/memory RRD performance history for 1h/24h/7d windows"
+      "on-demand read-only node CPU/memory RRD performance history for 1h/24h/7d windows",
+      "on-demand read-only per-storage used/total RRD capacity history for 1h/24h/7d windows"
     ],
     "scope_note": "This is a partial M2 read-cockpit slice, not the full premium M2 roadmap.",
     "release_validation": "Real PVE 8.4/9.2 contracts/ACLs and Android device/release gates remain required.",
@@ -111,10 +112,11 @@
       "Guest RRD history is limited to explicit GET-only AVERAGE hour/day/week CPU/memory trends with route-session isolation; live PVE 8.4/9.2 fixtures and physical Android validation remain pending.",
       "HOME-007 tag/pool browsing is presentation-only over existing cluster inventory; malformed optional metadata does not invalidate guest identity or affect mutation authorization, and live PVE 8.4/9.2 field/ACL fixtures remain pending.",
       "Node RRD history is explicit GET-only AVERAGE hour/day/week CPU/memory history on a profile/generation-scoped route; live PVE 8.4/9.2 fixtures and physical Android validation remain pending.",
-      "On-demand task inspection now short-circuits on explicit Android default-network loss, and observed task/guest/node read 401s immediately invalidate live write safety until a clean authenticated refresh (fixed and regression-tested in the 2026-11-06 cross-check)."
+      "On-demand task inspection now short-circuits on explicit Android default-network loss, and observed task/guest/node read 401s immediately invalidate live write safety until a clean authenticated refresh (fixed and regression-tested in the 2026-11-06 cross-check).",
+      "Storage RRD capacity history is explicit GET-only AVERAGE hour/day/week used/total history on a profile/generation/exact-storage-scoped route; live PVE 8.4/9.2 storage backend/ACL fixtures and physical Android validation remain pending."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 144,
+    "current_flutter_tests_defined": 148,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
@@ -188,7 +190,7 @@
     },
     "f12_android_connectivity": {
       "status": "implemented_source_level_ci_passed_live_validation_pending",
-      "behavior": "Android default-network callback reports available/unavailable/unknown. Loss pauses timed GET/task polling, blocks new on-demand task/guest/node metric reads and mutations, and keeps counts display-only. Recovery requires a clean authenticated read or full cold activation.",
+      "behavior": "Android default-network callback reports available/unavailable/unknown. Loss pauses timed GET/task polling, blocks new on-demand task/guest/node/storage metric reads and mutations, and keeps counts display-only. Recovery requires a clean authenticated read or full cold activation.",
       "safety": "Network available does not establish PVE reachability. Unknown following loss does not unlock actions; no background recovery, mutation replay, or persistent network identifiers.",
       "tls_presentation": "Persistent shell/guest insecure-cert banners removed; header, connection chooser, settings, opt-in and guest action confirmations retain contextual risk information. Strict default and scoped exception unchanged.",
       "limitations": "Real PVE 9.2/8.4 fixtures and physical airplane mode, LAN-only, VPN, lifecycle, race and accessibility testing remain required.",
@@ -250,10 +252,18 @@
     "previous_report": "docs/49-whole-repository-audit-2026-11-04.md",
     "on_demand_read_fail_closed": {
       "status": "fixed_source_level",
-      "behavior": "Task-detail, guest-RRD and node-RRD reads refuse new I/O when Android reports the default network unavailable. Any observed 401 records authentication loss, hides/purges offline counts and makes current inventory write-unsafe until clean authenticated refresh.",
+      "behavior": "Task-detail plus guest/node/storage RRD reads refuse new I/O when Android reports the default network unavailable. Any observed 401 records authentication loss, hides/purges offline counts and makes current inventory write-unsafe until clean authenticated refresh.",
       "mutation_boundary": "No POST retry, mutation replay, background read, new permission, persistence or endpoint is added.",
       "verification": "Controller regressions cover offline short-circuiting and on-demand 401 invalidation; repository CI is required for every change, while live PVE/physical-device validation remains open.",
       "report": "docs/62-whole-repository-cross-check-2026-11-06.md"
+    },
+    "storage_rrd_history": {
+      "status": "implemented_source_level_ci_pending_live_validation_pending",
+      "behavior": "Home storage rows open a profile/generation/exact-storage-scoped detail route with current capacity and explicit 1h/24h/7d Proxmox RRD AVERAGE used/total history. Timeframe selection alone performs no request and history is not persisted.",
+      "safety": "GET-only exact visible node/storage lookup with active profile ID and connection-generation checks before and after I/O; explicit Android default-network loss blocks new reads; observed 401 marks live inventory unsafe until clean authenticated refresh; profile switches/reconnects or storage disappearance discard results and redact the route.",
+      "parsing": "At most 1,500 response rows are considered; timestamped non-negative used bytes and positive total bytes are retained, percentages require used <= total, malformed rows are counted, and charts include latest/range/sample text alternatives.",
+      "limitations": "PVE 9.2/8.4 storage RRD fixtures across backend types, ACL/resolution/cluster-forwarding behavior and physical Android accessibility/performance/security review remain open.",
+      "report": "docs/63-implementation-storage-rrd-history.md"
     }
   }
 }

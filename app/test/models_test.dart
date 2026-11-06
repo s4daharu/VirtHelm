@@ -228,6 +228,46 @@ void main() {
     );
   });
 
+  test('storage RRD samples retain capacity without inventing ratios', () {
+    final valid = StorageMetricPoint.fromApi({
+      'time': 1700000000,
+      'used': 512,
+      'total': 1024,
+    });
+    expect(valid.usedBytes, 512);
+    expect(valid.totalBytes, 1024);
+    expect(valid.usageFraction, 0.5);
+
+    final usedOnly = StorageMetricPoint.fromApi({
+      'time': 1700000060,
+      'used': 768.4,
+      'total': 0,
+    });
+    expect(usedOnly.usedBytes, 768);
+    expect(usedOnly.totalBytes, isNull);
+    expect(usedOnly.usageFraction, isNull);
+
+    final overCapacity = StorageMetricPoint.fromApi({
+      'time': 1700000120,
+      'used': 2048,
+      'total': 1024,
+    });
+    expect(overCapacity.usageFraction, isNull);
+
+    expect(
+      () => StorageMetricPoint.fromApi({'time': -1, 'used': 10, 'total': 20}),
+      throwsFormatException,
+    );
+    expect(
+      () => StorageMetricPoint.fromApi({
+        'time': 1700000000,
+        'used': -1,
+        'total': 0,
+      }),
+      throwsFormatException,
+    );
+  });
+
   test('missing or malformed guest I/O counters never become zero', () {
     final guest = Guest.fromResource({
       'type': 'lxc',

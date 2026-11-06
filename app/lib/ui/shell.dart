@@ -12,6 +12,7 @@ import '../core/task_history_filter.dart';
 import 'connect_page.dart';
 import 'guest_page.dart';
 import 'node_page.dart';
+import 'storage_page.dart';
 import 'theme.dart';
 import 'task_details_page.dart';
 
@@ -457,7 +458,21 @@ class _OverviewTab extends StatelessWidget {
             )
           else
             for (final storage in controller.storages) ...[
-              _StorageTile(storage: storage),
+              _StorageTile(
+                storage: storage,
+                onTap: profileId == null
+                    ? null
+                    : () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => StoragePage(
+                            controller: controller,
+                            storage: storage,
+                            profileId: profileId,
+                            generation: generation,
+                          ),
+                        ),
+                      ),
+              ),
               const SizedBox(height: 8),
             ],
           const SizedBox(height: 22),
@@ -581,8 +596,9 @@ class _MessageCard extends StatelessWidget {
 }
 
 class _StorageTile extends StatelessWidget {
-  const _StorageTile({required this.storage});
+  const _StorageTile({required this.storage, this.onTap});
   final StoragePool storage;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -604,6 +620,7 @@ class _StorageTile extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
         trailing: StatusChip(status: storage.stateLabel),
+        onTap: onTap,
       ),
     );
   }

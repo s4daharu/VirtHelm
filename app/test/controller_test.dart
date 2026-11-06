@@ -110,6 +110,22 @@ class _Gateway implements PveGateway {
       ),
     ],
   );
+  int storageMetricCalls = 0;
+  final List<StorageMetricTimeframe> storageMetricTimeframes = [];
+  Completer<StorageMetricSeries>? storageMetricGate;
+  PveFailure? storageMetricFailure;
+  StorageMetricSeries storageMetricResult = StorageMetricSeries(
+    points: [
+      StorageMetricPoint(
+        timestamp: DateTime.fromMillisecondsSinceEpoch(
+          1700000000000,
+          isUtc: true,
+        ),
+        usedBytes: 512,
+        totalBytes: 1024,
+      ),
+    ],
+  );
   String status = 'running';
   String serverVersion = '9.2';
   PveFailure? versionFailure;
@@ -252,6 +268,18 @@ class _Gateway implements PveGateway {
   }
 
   @override
+  Future<StorageMetricSeries> storageMetrics(
+    StoragePool storage,
+    StorageMetricTimeframe timeframe,
+  ) async {
+    storageMetricCalls++;
+    storageMetricTimeframes.add(timeframe);
+    if (storageMetricGate != null) return storageMetricGate!.future;
+    if (storageMetricFailure != null) throw storageMetricFailure!;
+    return storageMetricResult;
+  }
+
+  @override
   void close() {
     connected = false;
   }
@@ -345,6 +373,47 @@ void main() {
   );
 
   test(
+    'storage capacity inspection is read-only and session isolated',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway(),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!test',
+        secret: 'test',
+      );
+
+      final storage = ctl.storages.single;
+      final generation = ctl.connectionGeneration;
+      final series = await ctl.inspectStorageMetrics(
+        profileId: ctl.active!.id,
+        generation: generation,
+        storage: storage,
+        timeframe: StorageMetricTimeframe.week,
+      );
+      expect(series?.points.single.usageFraction, 0.5);
+      expect(gateway.storageMetricCalls, 1);
+      expect(gateway.storageMetricTimeframes, [StorageMetricTimeframe.week]);
+      expect(gateway.submissions, 0);
+
+      final stale = await ctl.inspectStorageMetrics(
+        profileId: ctl.active!.id,
+        generation: generation - 1,
+        storage: storage,
+        timeframe: StorageMetricTimeframe.hour,
+      );
+      expect(stale, isNull);
+      expect(gateway.storageMetricCalls, 1);
+    },
+  );
+
+  test(
     'on-demand reads short-circuit while Android network is unavailable',
     () async {
       final prefs = await SharedPreferences.getInstance();
@@ -366,10 +435,12 @@ void main() {
       final task = ctl.serverTasks.single;
       final guest = ctl.inventory!.guests.single;
       final node = ctl.inventory!.nodes.single;
+      final storage = ctl.storages.single;
       final beforeTaskStatus = gateway.taskStatusCalls;
       final beforeTaskLog = gateway.taskLogCalls;
       final beforeGuestMetrics = gateway.guestMetricCalls;
       final beforeNodeMetrics = gateway.nodeMetricCalls;
+      final beforeStorageMetrics = gateway.storageMetricCalls;
 
       ctl.setDeviceNetworkState(DeviceNetworkState.unavailable);
 
@@ -403,7 +474,17 @@ void main() {
       expect(gateway.taskStatusCalls, beforeTaskStatus);
       expect(gateway.taskLogCalls, beforeTaskLog);
       expect(gateway.guestMetricCalls, beforeGuestMetrics);
+      expect(
+        await ctl.inspectStorageMetrics(
+          profileId: profileId,
+          generation: generation,
+          storage: storage,
+          timeframe: StorageMetricTimeframe.hour,
+        ),
+        isNull,
+      );
       expect(gateway.nodeMetricCalls, beforeNodeMetrics);
+      expect(gateway.storageMetricCalls, beforeStorageMetrics);
       expect(gateway.submissions, 0);
     },
   );
@@ -461,6 +542,29 @@ void main() {
           generation: generation,
           node: node,
           timeframe: NodeMetricTimeframe.day,
+        ),
+        throwsA(isA<PveFailure>()),
+      );
+      expect(ctl.message, contains('Authentication failed'));
+      expect(ctl.isInventoryWriteSafe, isFalse);
+
+      gateway.nodeMetricFailure = null;
+      await ctl.refresh();
+      expect(ctl.message, isNull);
+      expect(ctl.isInventoryWriteSafe, isTrue);
+
+      generation = ctl.connectionGeneration;
+      final storage = ctl.storages.single;
+      gateway.storageMetricFailure = const PveFailure(
+        'Authentication failed. Check or rotate your API token.',
+        status: 401,
+      );
+      await expectLater(
+        ctl.inspectStorageMetrics(
+          profileId: profileId,
+          generation: generation,
+          storage: storage,
+          timeframe: StorageMetricTimeframe.day,
         ),
         throwsA(isA<PveFailure>()),
       );

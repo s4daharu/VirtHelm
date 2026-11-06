@@ -19,6 +19,7 @@ GET,/nodes/{node}/tasks,tasks,P0,api_token,needs_live_8.4_9.2
 GET,/nodes/{node}/tasks/{upid}/status,task_status,P0,api_token,needs_live_8.4_9.2
 GET,/nodes/{node}/tasks/{upid}/log,task_log,P1,api_token,needs_live_8.4_9.2
 GET,/nodes/{node}/storage,storage_list,P0,api_token,needs_live_8.4_9.2
+GET,/nodes/{node}/storage/{storage}/rrddata,storage_rrd_history,P1,api_token,needs_live_8.4_9.2
 POST,/access/ticket,user_ticket_login,P1,user_credentials,auth_tfa_spike
 POST,/nodes/{node}/qemu/{vmid}/vncproxy,qemu_console_proxy,P2,user_ticket,console_spike
 GET,/nodes/{node}/qemu/{vmid}/vncwebsocket,qemu_console_websocket,P2,user_ticket,console_spike

@@ -24,6 +24,7 @@ The committed `pubspec.lock` is enforced. The bootstrap generates the Android ru
 - Cluster nodes and QEMU/LXC inventory with search, freshness, CPU/memory/disk/uptime.
 - Guest status/type/node filters, deterministic favorites/name/VMID/CPU/memory sorting, and up to 12 profile-scoped named saved views, without extra API requests.
 - Read-only per-node storage and recent server task history with partial permission/error reporting, plus scoped on-demand task status and bounded log details for tracked/history tasks.
+- Explicit on-demand 1h/24h/7d guest/node CPU-memory and per-storage used/total RRD history; metric samples stay transient and session-scoped.
 - Transient GET failures use up to three total attempts with bounded jittered backoff; TLS/auth/redirect failures and all mutation POSTs are never automatically retried.
 - Start/shutdown/reboot/force-stop confirmation with exact profile/node/type/VMID target.
 - Fresh clean-inventory guard, live status preflight, exactly one POST, per-guest single-flight lock, no write auto-retry.
@@ -33,7 +34,7 @@ The committed `pubspec.lock` is enforced. The bootstrap generates the Android ru
 - CI format/analyzer/coverage tests and Android debug APK compile verification.
 
 ## Not yet release-complete
-No real PVE 8.4/9.2 lab matrix or production-signed APK is claimed. Physical-device certificate/backup/Keystore behavior, accessibility/font scaling, 200-guest performance, dependency/security review and signed-APK/device verification remain gates. Release signing secrets are configured; this alone does not verify a signed build. Full premium M2 features such as charts, alerts/notification center, persistent offline cache and tag/group filters remain unimplemented. Profile-scoped favorites and basic status filters are already implemented.
+No real PVE 8.4/9.2 lab matrix or production-signed APK is claimed. Physical-device certificate/backup/Keystore behavior, accessibility/font scaling, 200-guest performance, dependency/security review and signed-APK/device verification remain gates. Release signing secrets are configured; this alone does not verify a signed build. Full premium M2 scope such as cross-resource capacity analytics, alerts/notification center, persistent offline detail cache and richer topology/group views remains unimplemented. Bounded guest/node/storage charts, tag/pool filters, profile-scoped favorites and saved views are implemented at source level.
 
 No ticket/MFA, console, snapshots/backups, migration/provisioning, PBS/PDM, host/HA/Ceph/SDN mutation, subscriptions or payments are included.
 
