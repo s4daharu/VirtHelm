@@ -165,6 +165,32 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
                 ),
               ),
               Badge.count(
+                count: controller.thresholdAlertRules.length,
+                isLabelVisible: controller.thresholdAlertRules.isNotEmpty,
+                child: IconButton(
+                  key: const Key('manage-threshold-rules'),
+                  tooltip: 'Manage threshold rules',
+                  onPressed: controller.active == null
+                      ? null
+                      : () {
+                          final profileId = controller.active!.id;
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  ForegroundThresholdAlertRulesPage(
+                                    controller: controller,
+                                    profileId: profileId,
+                                    generation:
+                                        controller.connectionGeneration,
+                                  ),
+                            ),
+                          );
+                        },
+                  icon: const Icon(Icons.tune_rounded),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Badge.count(
                 count: incidents.length,
                 isLabelVisible: incidents.isNotEmpty,
                 child: const Icon(Icons.notifications_active_outlined),
@@ -178,32 +204,6 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
             'still have no persisted history, background checks, or Android '
             'notifications.',
             style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              key: const Key('manage-threshold-rules'),
-              onPressed: controller.active == null
-                  ? null
-                  : () {
-                      final profileId = controller.active!.id;
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => ForegroundThresholdAlertRulesPage(
-                            controller: controller,
-                            profileId: profileId,
-                            generation: controller.connectionGeneration,
-                          ),
-                        ),
-                      );
-                    },
-              icon: const Icon(Icons.tune_rounded),
-              label: Text(
-                'Manage threshold rules '
-                '(${controller.thresholdAlertRules.length})',
-              ),
-            ),
           ),
           if (stale) ...[
             const SizedBox(height: 14),
