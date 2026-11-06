@@ -169,6 +169,36 @@ void main() {
     expect(inv.guests.last.diskRead, isNull);
   });
 
+  test('guest tag and pool metadata is bounded without invalidating inventory', () {
+    final inventory = Inventory.fromResources([
+      {
+        'type': 'qemu',
+        'node': 'pve1',
+        'vmid': 101,
+        'name': 'Web',
+        'status': 'running',
+        'tags': ' production ; web ;production;;CaseSensitive ',
+        'pool': ' Team A ',
+      },
+      {
+        'type': 'lxc',
+        'node': 'pve1',
+        'vmid': 102,
+        'tags': 42,
+        'pool': 'bad\u0000pool',
+      },
+    ]);
+
+    expect(inventory.malformedGuestRecords, 0);
+    expect(
+      inventory.guests.first.tags,
+      ['production', 'web', 'CaseSensitive'],
+    );
+    expect(inventory.guests.first.pool, 'Team A');
+    expect(inventory.guests.last.tags, isEmpty);
+    expect(inventory.guests.last.pool, isNull);
+  });
+
   test('missing or malformed guest I/O counters never become zero', () {
     final guest = Guest.fromResource({
       'type': 'lxc',
