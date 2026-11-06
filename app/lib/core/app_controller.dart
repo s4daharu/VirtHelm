@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'app_preferences.dart';
 import 'device_connectivity.dart';
 import 'guest_saved_view.dart';
+import 'incident_center.dart';
 import 'models.dart';
 import 'offline_overview.dart';
 import 'profile_repository.dart';
@@ -32,6 +33,15 @@ class AppController extends ChangeNotifier {
   final List<TrackedTask> tasks = [];
   List<StoragePool> storages = [];
   List<RecentServerTask> serverTasks = [];
+  List<CockpitIncident> _retainedServerTaskIncidents =
+      const <CockpitIncident>[];
+
+  List<CockpitIncident> get incidents => buildCockpitIncidents(
+    inventory: inventory,
+    serverTasks: serverTasks,
+    sessionTasks: tasks,
+    retainedTaskIncidents: _retainedServerTaskIncidents,
+  );
   Set<String> favoriteGuests = <String>{};
   List<SavedGuestView> guestSavedViews = [];
   String? storageMessage;
@@ -593,6 +603,7 @@ class AppController extends ChangeNotifier {
     tasks.clear();
     storages = [];
     serverTasks = [];
+    _retainedServerTaskIncidents = const <CockpitIncident>[];
     storageMessage = null;
     serverTaskMessage = null;
     inventoryWarning = null;
@@ -783,6 +794,22 @@ class AppController extends ChangeNotifier {
     try {
       final result = await gateway.recentTasks(nodes);
       if (generation != _generation || _disposed) return;
+      if (result.complete) {
+        _retainedServerTaskIncidents = const <CockpitIncident>[];
+      } else {
+        final retained = <String, CockpitIncident>{
+          for (final incident in _retainedServerTaskIncidents)
+            incident.key: incident,
+          for (final incident in failedServerTaskIncidents(serverTasks))
+            incident.key: incident,
+        }.values.toList()
+          ..sort(
+            (left, right) => right.observedAt.compareTo(left.observedAt),
+          );
+        _retainedServerTaskIncidents = List<CockpitIncident>.unmodifiable(
+          retained.take(60),
+        );
+      }
       serverTasks = result.values;
       serverTaskMessage = _sectionWarning(result, 'server task history');
     } on PveFailure catch (error) {
@@ -1258,6 +1285,7 @@ class AppController extends ChangeNotifier {
       offlineOverviewEnabled = false;
       storages = [];
       serverTasks = [];
+      _retainedServerTaskIncidents = const <CockpitIncident>[];
       storageMessage = null;
       serverTaskMessage = null;
       inventoryWarning = null;

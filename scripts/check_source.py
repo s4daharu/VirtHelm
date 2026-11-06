@@ -8,13 +8,15 @@ required = [
   'app/lib/core/app_controller.dart','app/lib/core/app_preferences.dart',
   'app/lib/core/offline_overview.dart','app/lib/core/device_connectivity.dart',
   'app/lib/core/guest_list_filter.dart','app/lib/core/task_history_filter.dart',
-  'app/lib/core/guest_saved_view.dart','app/lib/ui/theme.dart',
+  'app/lib/core/guest_saved_view.dart','app/lib/core/incident_center.dart',
+  'app/lib/ui/theme.dart',
   'app/lib/ui/connect_page.dart','app/lib/ui/shell.dart',
   'app/lib/ui/guest_page.dart','app/lib/ui/node_page.dart','app/lib/ui/storage_page.dart',
-  'app/lib/ui/task_details_page.dart',
+  'app/lib/ui/incident_center_tab.dart','app/lib/ui/task_details_page.dart',
   'app/test/models_test.dart',
   'app/test/controller_test.dart','app/test/pve_api_test.dart',
   'app/test/widget_test.dart','app/test/pve_tls_test.dart',
+  'app/test/incident_center_test.dart',
   'app/test/guest_list_filter_test.dart','app/test/task_history_filter_test.dart',
   'app/test/saved_guest_view_test.dart',
   'app/test/app_preferences_test.dart','app/test/offline_overview_test.dart',
@@ -42,7 +44,8 @@ required = [
    'docs/60-implementation-tag-pool-browsing.md',
    'docs/61-implementation-node-rrd-history.md',
    'docs/62-whole-repository-cross-check-2026-11-06.md',
-   'docs/63-implementation-storage-rrd-history.md']
+   'docs/63-implementation-storage-rrd-history.md',
+   'docs/64-implementation-alert-incident-inbox.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
@@ -100,6 +103,11 @@ assert "'${_segment(normalizedStorage)}/rrddata'" in files['app/lib/core/pve_api
 assert 'inspectStorageMetrics' in files['app/lib/core/app_controller.dart']
 assert 'class StoragePage' in files['app/lib/ui/storage_page.dart']
 assert 'StoragePage(' in files['app/lib/ui/shell.dart']
+assert 'buildCockpitIncidents' in files['app/lib/core/incident_center.dart']
+assert '_retainedServerTaskIncidents' in files['app/lib/core/app_controller.dart']
+assert 'class IncidentCenterTab' in files['app/lib/ui/incident_center_tab.dart']
+assert "label: 'Incidents'" in files['app/lib/ui/shell.dart']
+assert 'INCIDENT DATA MAY BE STALE' in files['app/lib/ui/incident_center_tab.dart']
 assert '_guestTags' in files['app/lib/core/models.dart']
 assert 'final List<String> tags' in files['app/lib/core/models.dart']
 assert 'String? tag' in files['app/lib/core/guest_list_filter.dart']
