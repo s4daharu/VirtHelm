@@ -1,7 +1,7 @@
 # VirtHelm — Flutter/Dart Android client for Proxmox VE
 
 **Status:** executable Android source with CI-verified debug builds; **not release-certified**.  
-**Reviewed:** 2026-11-05. **Platform:** Android phones only.  
+**Reviewed:** 2026-11-06. **Platform:** Android phones only.  
 **Compatibility target:** PVE 9.2 primary / PVE 8.4 regression; live compatibility evidence remains required.
 
 VirtHelm is an independent, unofficial mobile client for user-operated Proxmox VE. The repository contains a working Flutter implementation plus the product/security/release documentation. It has no mandatory vendor cloud backend.
