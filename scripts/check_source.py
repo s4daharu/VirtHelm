@@ -108,6 +108,7 @@ assert '_retainedServerTaskIncidents' in files['app/lib/core/app_controller.dart
 assert 'class IncidentCenterTab' in files['app/lib/ui/incident_center_tab.dart']
 assert "label: 'Incidents'" in files['app/lib/ui/shell.dart']
 assert 'INCIDENT DATA MAY BE STALE' in files['app/lib/ui/incident_center_tab.dart']
+assert "Key('incident-inbox-list')" in files['app/lib/ui/incident_center_tab.dart']
 assert '_guestTags' in files['app/lib/core/models.dart']
 assert 'final List<String> tags' in files['app/lib/core/models.dart']
 assert 'String? tag' in files['app/lib/core/guest_list_filter.dart']
