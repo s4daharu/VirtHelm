@@ -17,6 +17,7 @@
 | GET | `/cluster/resources` | global overview | list of nodes/guests/storage; optional `type` filter | Candidate contract; validate details |
 | GET | `/nodes` | node list | node state/identifier | Candidate contract; validate details |
 | GET | `/nodes/{node}/status` | node detail | CPU, memory, uptime, etc. | Candidate contract; validate details |
+| GET | `/nodes/{node}/rrddata` | node performance history | timestamped CPU/memory averages with `timeframe` + `cf` | Source-confirmed read family; live 8.4/9.2 fixtures pending |
 | GET | `/nodes/{node}/qemu` | VM inventory | QEMU list | Candidate contract; validate details |
 | GET | `/nodes/{node}/qemu/{vmid}/status/current` | VM detail | current status | Candidate contract; validate details |
 | GET | `/nodes/{node}/{qemu|lxc}/{vmid}/rrddata` | guest performance history | timestamped CPU/memory averages with `timeframe` + `cf` | Source-confirmed read family; live 8.4/9.2 fixtures pending |
@@ -35,7 +36,7 @@
 | GET | `/nodes/{node}/tasks/{upid}/log` | task log | lines/events | P1; validate |
 | GET | `/nodes/{node}/storage` | storage list | storages with usage | Candidate contract; validate |
 
-Guest performance history uses only `hour`, `day`, and `week` timeframes with `cf=AVERAGE` in the source implementation. Samples are treated as provisional until sanitized PVE 9.2/8.4 QEMU/LXC fixtures confirm field availability, units, ACL behavior, timestamp resolution, and missing-point semantics.
+Guest and node performance history use only `hour`, `day`, and `week` timeframes with `cf=AVERAGE` in the source implementation. Node history currently retains CPU and memory ratios only; broader node fields remain deferred until versioned fixtures establish units and missing-point behavior. Samples are treated as provisional until sanitized PVE 9.2/8.4 QEMU/LXC fixtures confirm field availability, units, ACL behavior, timestamp resolution, and missing-point semantics.
 
 Guest resource entries may also expose optional `tags` and `pool` discovery metadata. Upstream source history confirms guest tags on `/cluster/resources`; this client treats both fields as display/filter metadata only and still requires sanitized PVE 8.4/9.2 fixtures for exact availability, ACL, case-sensitivity and pool-shape behavior. Missing or malformed optional metadata is unavailable rather than a malformed guest identity.\n\nGuest resource entries may include optional `netin`, `netout`, `diskread`, and `diskwrite` cumulative byte counters. They are **not** current bytes/second; missing or malformed fields are unavailable rather than zero. Source-level parsing/display is covered by synthetic tests, while exact PVE 8.4/9.2 fixtures and lifecycle reset semantics still require validation.
 
