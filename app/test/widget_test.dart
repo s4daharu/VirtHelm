@@ -237,10 +237,22 @@ void main() {
     await tester.tap(find.text('Load history'));
     await tester.pumpAndSettle();
     expect(controller.requestedTimeframes, [NodeMetricTimeframe.hour]);
+    await tester.scrollUntilVisible(
+      find.textContaining('Latest 40.0%'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     expect(find.textContaining('Latest 40.0%'), findsOneWidget);
     expect(find.textContaining('Range 20.0%–40.0%'), findsOneWidget);
     expect(find.textContaining('1 malformed ignored'), findsOneWidget);
 
+    await tester.scrollUntilVisible(
+      find.text('24 hours'),
+      -200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('24 hours'));
     await tester.pumpAndSettle();
     expect(controller.requestedTimeframes, [NodeMetricTimeframe.hour]);
