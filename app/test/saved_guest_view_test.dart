@@ -66,10 +66,7 @@ void main() {
     expect(legacy.pool, isNull);
 
     expect(
-      () => SavedGuestView.fromJson({
-        ...legacy.toJson(),
-        'tag': 42,
-      }),
+      () => SavedGuestView.fromJson({...legacy.toJson(), 'tag': 42}),
       throwsFormatException,
     );
   });
