@@ -244,6 +244,73 @@ class GuestMetricSeries {
   final bool truncated;
 }
 
+enum NodeMetricTimeframe {
+  hour(apiValue: 'hour', label: '1 hour'),
+  day(apiValue: 'day', label: '24 hours'),
+  week(apiValue: 'week', label: '7 days');
+
+  const NodeMetricTimeframe({required this.apiValue, required this.label});
+
+  final String apiValue;
+  final String label;
+}
+
+class NodeMetricPoint {
+  const NodeMetricPoint({
+    required this.timestamp,
+    this.cpuFraction,
+    this.memoryFraction,
+  });
+
+  final DateTime timestamp;
+  final double? cpuFraction;
+  final double? memoryFraction;
+
+  factory NodeMetricPoint.fromApi(Map<String, dynamic> json) {
+    final timestamp = asUnixSeconds(json['time']);
+    if (timestamp == null) {
+      throw const FormatException(
+        'Node RRD sample is missing a valid timestamp.',
+      );
+    }
+
+    final rawCpu = asDouble(json['cpu']);
+    final cpuFraction = rawCpu != null && rawCpu >= 0 && rawCpu <= 1
+        ? rawCpu
+        : null;
+
+    final mem = asDouble(json['mem']);
+    final maxMem = asDouble(json['maxmem']);
+    final memoryFraction =
+        mem != null && maxMem != null && mem >= 0 && maxMem > 0 && mem <= maxMem
+        ? mem / maxMem
+        : null;
+
+    if (cpuFraction == null && memoryFraction == null) {
+      throw const FormatException(
+        'Node RRD sample has no usable CPU or memory data.',
+      );
+    }
+    return NodeMetricPoint(
+      timestamp: timestamp,
+      cpuFraction: cpuFraction,
+      memoryFraction: memoryFraction,
+    );
+  }
+}
+
+class NodeMetricSeries {
+  const NodeMetricSeries({
+    required this.points,
+    this.malformedRecords = 0,
+    this.truncated = false,
+  });
+
+  final List<NodeMetricPoint> points;
+  final int malformedRecords;
+  final bool truncated;
+}
+
 class ReadCollection<T> {
   ReadCollection({
     required List<T> values,
