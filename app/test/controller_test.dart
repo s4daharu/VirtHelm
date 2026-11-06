@@ -345,6 +345,132 @@ void main() {
   );
 
   test(
+    'on-demand reads short-circuit while Android network is unavailable',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway(),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!test',
+        secret: 'test',
+      );
+
+      final profileId = ctl.active!.id;
+      final generation = ctl.connectionGeneration;
+      final task = ctl.serverTasks.single;
+      final guest = ctl.inventory!.guests.single;
+      final node = ctl.inventory!.nodes.single;
+      final beforeTaskStatus = gateway.taskStatusCalls;
+      final beforeTaskLog = gateway.taskLogCalls;
+      final beforeGuestMetrics = gateway.guestMetricCalls;
+      final beforeNodeMetrics = gateway.nodeMetricCalls;
+
+      ctl.setDeviceNetworkState(DeviceNetworkState.unavailable);
+
+      expect(
+        await ctl.inspectTask(
+          profileId: profileId,
+          generation: generation,
+          node: task.node,
+          upid: task.upid,
+        ),
+        isNull,
+      );
+      expect(
+        await ctl.inspectGuestMetrics(
+          profileId: profileId,
+          generation: generation,
+          guest: guest,
+          timeframe: GuestMetricTimeframe.hour,
+        ),
+        isNull,
+      );
+      expect(
+        await ctl.inspectNodeMetrics(
+          profileId: profileId,
+          generation: generation,
+          node: node,
+          timeframe: NodeMetricTimeframe.hour,
+        ),
+        isNull,
+      );
+      expect(gateway.taskStatusCalls, beforeTaskStatus);
+      expect(gateway.taskLogCalls, beforeTaskLog);
+      expect(gateway.guestMetricCalls, beforeGuestMetrics);
+      expect(gateway.nodeMetricCalls, beforeNodeMetrics);
+      expect(gateway.submissions, 0);
+    },
+  );
+
+  test(
+    'on-demand metric authentication loss invalidates live write safety',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway(),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!test',
+        secret: 'test',
+      );
+
+      final profileId = ctl.active!.id;
+      var generation = ctl.connectionGeneration;
+      final guest = ctl.inventory!.guests.single;
+      gateway.guestMetricFailure = const PveFailure(
+        'Authentication failed. Check or rotate your API token.',
+        status: 401,
+      );
+      await expectLater(
+        ctl.inspectGuestMetrics(
+          profileId: profileId,
+          generation: generation,
+          guest: guest,
+          timeframe: GuestMetricTimeframe.hour,
+        ),
+        throwsA(isA<PveFailure>()),
+      );
+      expect(ctl.message, contains('Authentication failed'));
+      expect(ctl.isInventoryWriteSafe, isFalse);
+
+      gateway.guestMetricFailure = null;
+      await ctl.refresh();
+      expect(ctl.message, isNull);
+      expect(ctl.isInventoryWriteSafe, isTrue);
+
+      generation = ctl.connectionGeneration;
+      final node = ctl.inventory!.nodes.single;
+      gateway.nodeMetricFailure = const PveFailure(
+        'Authentication failed. Check or rotate your API token.',
+        status: 401,
+      );
+      await expectLater(
+        ctl.inspectNodeMetrics(
+          profileId: profileId,
+          generation: generation,
+          node: node,
+          timeframe: NodeMetricTimeframe.day,
+        ),
+        throwsA(isA<PveFailure>()),
+      );
+      expect(ctl.message, contains('Authentication failed'));
+      expect(ctl.isInventoryWriteSafe, isFalse);
+      expect(gateway.submissions, 0);
+    },
+  );
+
+  test(
     'task inspection reads status and logs without posting, with partial 403',
     () async {
       final prefs = await SharedPreferences.getInstance();
@@ -2022,6 +2148,8 @@ void main() {
       expect(result?.statusError, contains('Authentication failed'));
       expect(gateway.taskLogCalls, 0);
       expect(repo.readOfflineOverview(id), isNull);
+      expect(ctl.message, contains('Authentication failed'));
+      expect(ctl.isInventoryWriteSafe, isFalse);
     },
   );
 

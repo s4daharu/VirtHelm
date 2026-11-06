@@ -18,7 +18,7 @@ The request is GET-only. Before and after I/O, the controller requires the same 
 
 RRD history is held only in transient widget state. It is not written to SharedPreferences, the credential vault, the offline overview cache, logs, exports or telemetry. There is no background RRD polling, Android permission, new dependency or write endpoint.
 
-A 401 follows the existing authentication-loss cache-clearing path. This increment does not change guest mutation authorization, task orchestration, refresh retry policy or offline counts.
+Explicit Android default-network loss prevents a new node-history request. An observed 401 purges/hides optional offline counts and marks the current live inventory authorization state unsafe until a clean authenticated refresh. This does not broaden mutation behavior, task orchestration or GET retry policy.
 
 ## Contract evidence and verification boundary
 

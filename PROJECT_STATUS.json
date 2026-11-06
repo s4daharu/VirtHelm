@@ -60,7 +60,7 @@
       "feature_id": "HOME-006",
       "storage": "SharedPreferences metadata keyed by profile ID; may contain user-entered search text, node names, tags and pool names; never credentials/task logs/metric samples; Android app backup is disabled",
       "limits": "12 views per profile, 40-character names, same-name update",
-      "verification": "automated model/repository/controller/widget coverage; pre-audit head passed full branch CI; final audit commit is merge-gated by the same workflow; device/accessibility/performance gates remain open"
+      "verification": "Automated model/repository/controller/widget coverage and merged exact-head CI evidence exist; device/accessibility/performance gates remain open."
     }
   },
   "dependency_lockfile_committed": true,
@@ -80,11 +80,11 @@
     "release_validation": "physical Android TLS/security review remains open; see docs/40-profile-tls-option.md"
   },
   "implementation_audit": {
-    "reviewed_at": "2026-11-04",
+    "reviewed_at": "2026-11-06",
     "source_review_completed": true,
     "automated_regressions_added": true,
     "android_generated_runner_audited": true,
-    "report": "docs/49-whole-repository-audit-2026-11-04.md",
+    "report": "docs/62-whole-repository-cross-check-2026-11-06.md",
     "local_flutter_version": "3.44.4",
     "local_dart_version": "3.12.2",
     "committed_lockfile_unchanged": true,
@@ -96,7 +96,7 @@
       "production signing and dependency/security release review",
       "full premium M2 features explicitly deferred in docs/39-implementation-audit.md"
     ],
-    "followup_cross_check": "docs/45-full-implementation-cross-check.md",
+    "followup_cross_check": "docs/62-whole-repository-cross-check-2026-11-06.md",
     "followup_findings": [
       "post-UPID inventory refresh must begin after terminal task status (fixed and regression-tested)",
       "invalid map keys in supplemental lists must not discard valid neighboring records (fixed and regression-tested)",
@@ -107,13 +107,14 @@
       "task-status authentication loss must become unknown and stop repeated verification polling while preserving the uncertain write lock (fixed in full cross-check)",
       "feature branches run pull-request CI without duplicate push CI; main pushes remain checked before release publication, with PR-number/ref concurrency cancelling stale runs",
       "F09 recent-task list parser now prefers explicit exitstatus over state=stopped; absent terminal exit code remains unknown (synthetic regression only; live PVE fixtures still needed)",
-      "F12 retry source formatter drift corrected using pinned CI formatter output; final branch CI still required",
+      "F12 retry source formatter drift was corrected using pinned CI formatter output; merged exact-head and main-push CI passed.",
       "Guest RRD history is limited to explicit GET-only AVERAGE hour/day/week CPU/memory trends with route-session isolation; live PVE 8.4/9.2 fixtures and physical Android validation remain pending.",
       "HOME-007 tag/pool browsing is presentation-only over existing cluster inventory; malformed optional metadata does not invalidate guest identity or affect mutation authorization, and live PVE 8.4/9.2 field/ACL fixtures remain pending.",
-      "Node RRD history is explicit GET-only AVERAGE hour/day/week CPU/memory history on a profile/generation-scoped route; live PVE 8.4/9.2 fixtures and physical Android validation remain pending."
+      "Node RRD history is explicit GET-only AVERAGE hour/day/week CPU/memory history on a profile/generation-scoped route; live PVE 8.4/9.2 fixtures and physical Android validation remain pending.",
+      "On-demand task inspection now short-circuits on explicit Android default-network loss, and observed task/guest/node read 401s immediately invalidate live write safety until a clean authenticated refresh (fixed and regression-tested in the 2026-11-06 cross-check)."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 142,
+    "current_flutter_tests_defined": 144,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
@@ -148,37 +149,37 @@
       "status": "implemented_source_level",
       "behavior": "at most three attempts for transient idempotent GET failures with bounded jittered backoff; never retry POST, TLS, redirects or auth/permission rejections",
       "lifecycle": "closed profile gateways do not issue delayed retries",
-      "limits": "no persistent offline cache, connectivity observer or full DNS/timeout/offline classification",
+      "limits": "No persistent guest/detail cache; Android network presence remains separate from PVE endpoint reachability, and full device/network fault-injection validation is still open.",
       "release_validation": "live PVE 9.2/8.4 and Android device/network fault-injection gates remain open"
     },
     "previous_review": "docs/45-full-implementation-cross-check.md",
     "f11_local_preferences": {
-      "status": "implemented_source_level_pending_final_ci",
+      "status": "implemented_source_level_ci_passed_live_validation_pending",
       "theme": "system (default), light and dark; persisted locally before shell display",
       "refresh": "manual (default), 30/60/120-second foreground-only coalesced GET refresh; pauses on inventory/auth failure; never performs background reads or write retries",
       "display": "optional node CPU/memory/uptime subtitle on Home; node identity and state retained",
       "storage": "nonsecret app-wide SharedPreferences; safe fallback for malformed values; no encrypted credential-vault writes",
-      "verification": "unit/controller/widget and foreground timer regressions added; final exact-head CI and physical Android/network tests still required",
+      "verification": "Unit/controller/widget and foreground timer regressions have passed merged exact-head/main CI; physical Android/network validation remains required.",
       "report": "docs/50-implementation-p0-local-preferences.md"
     },
     "f09_task_details": {
-      "status": "implemented_source_level_pending_final_ci",
+      "status": "implemented_source_level_ci_passed_live_validation_pending",
       "behavior": "Tap either session tasks or recent server-history tasks for a fresh GET task status and first 100 log lines; no task-log persistence, exports, telemetry or mutations.",
-      "safety": "Current profile ID plus connection generation and exact visible UPID/node membership are rechecked before and after reads; prior-session results are discarded and the route redacts on profile changes.",
+      "safety": "Current profile ID plus connection generation and exact visible UPID/node membership are rechecked before and after reads; explicit Android default-network loss blocks a new read; observed 401 marks live inventory unsafe until clean authenticated refresh; prior-session results are discarded and the route redacts on profile changes.",
       "parsing": "Malformed neighboring log rows are ignored; each line is capped at 500 characters; 403/status/log errors render separately and no authorization failures are retried.",
       "limitations": "PVE 9.2/8.4 endpoint/ACL fixtures, comprehensive F17 log browser/filtering, and physical Android accessibility/security validation remain open.",
       "report": "docs/51-implementation-p0-task-details.md"
     },
     "f12_transport_errors": {
-      "status": "implemented_source_level_pending_final_ci",
+      "status": "implemented_source_level_ci_passed_live_validation_pending",
       "behavior": "Dio and SocketException transport errors are classified as DNS failure, unreachable network route, connect timeout, response timeout or connection loss; UI receives safe, distinct messages.",
       "privacy": "Raw socket/OS error text, hostnames and addresses are never displayed or stored by the classifier.",
       "safety": "No changes to GET attempt caps, TLS/redirect/auth rules or POST unknown-outcome/single-shot semantics. Unreachable route is not proof the device is offline.",
-      "limitations": "No Android OS connectivity listener, automatic offline-state transition, persistent read cache or device/network verification.",
+      "limitations": "Android default-network observation is implemented separately, but network presence is not endpoint reachability. Full persistent guest/detail cache and physical device/network fault-injection validation remain open.",
       "report": "docs/52-implementation-p0-transport-errors.md"
     },
     "f12_offline_overview": {
-      "status": "implemented_source_level_pending_final_ci",
+      "status": "implemented_source_level_ci_passed_live_validation_pending",
       "scope": "Opt-in profile-scoped local summary of last-known node and guest counts, with timestamp and seven-day read eligibility; no node names, guest identities, tokens, endpoints, logs or request bodies in the snapshot.",
       "behavior": "Show clearly labeled cached counts after a typed transport failure when a live inventory cannot be loaded. Cached data never creates an Inventory or enables mutations.",
       "security": "Cache clears on opt-out, profile deletion, profile edits, and observed authentication 401. Invalid, expired, future-dated or corrupt records are ignored.",
@@ -186,51 +187,51 @@
       "report": "docs/53-implementation-p0-offline-overview.md"
     },
     "f12_android_connectivity": {
-      "status": "implemented_source_level_pending_final_ci",
-      "behavior": "Android default-network callback reports available/unavailable/unknown. Loss pauses timed GET and task polling, blocks mutations and keeps counts display-only. Recovery performs a clean authenticated read or full cold activation.",
+      "status": "implemented_source_level_ci_passed_live_validation_pending",
+      "behavior": "Android default-network callback reports available/unavailable/unknown. Loss pauses timed GET/task polling, blocks new on-demand task/guest/node metric reads and mutations, and keeps counts display-only. Recovery requires a clean authenticated read or full cold activation.",
       "safety": "Network available does not establish PVE reachability. Unknown following loss does not unlock actions; no background recovery, mutation replay, or persistent network identifiers.",
       "tls_presentation": "Persistent shell/guest insecure-cert banners removed; header, connection chooser, settings, opt-in and guest action confirmations retain contextual risk information. Strict default and scoped exception unchanged.",
       "limitations": "Real PVE 9.2/8.4 fixtures and physical airplane mode, LAN-only, VPN, lifecycle, race and accessibility testing remain required.",
       "report": "docs/54-implementation-p0-android-connectivity.md"
     },
     "f09_task_pages": {
-      "status": "implemented_source_level_pr_ci_passed_live_validation_pending",
+      "status": "implemented_source_level_ci_passed_live_validation_pending",
       "behavior": "Task detail inspection offers explicit status/log refresh and one read-only log page at a time, from offsets 0/100/200/300/400, with at most 100 lines per request and 500 viewable lines. No automatic polling, task mutation or persistent log cache.",
       "safety": "Only known UPID/node in the active profile and connection generation can be inspected; status and log errors stay separate; page navigation and refresh revalidate current session and do not replay POSTs.",
-      "verification": "Synthetic controller, Dio and widget regressions extended; exact-head Flutter CI and physical PVE/Android verification remain open.",
+      "verification": "Synthetic controller, Dio and widget regressions plus merged exact-head/main CI have passed; live PVE 8.4/9.2 fixtures and physical Android verification remain open.",
       "report": "docs/55-implementation-f09-task-log-pages.md"
     },
     "f09_task_history_filters": {
-      "status": "implemented_source_level_pr_ci_passed_live_validation_pending",
+      "status": "implemented_source_level_ci_passed_live_validation_pending",
       "behavior": "Local-only case-insensitive search across operation/node/resource/UPID, plus exact node and conservative task status filters (running/succeeded/failed/unknown) for the bounded already-loaded recent server-task list; session UPIDs stay visible and unchanged.",
       "isolation": "Filters and search text remain in transient widget state and are reset on profile switch/reconnect by profile and connection generation; no new network reads, API privileges, persistence or mutation behavior.",
-      "verification": "Synthetic filter and widget regressions, source checks, final exact-head CI pending; live PVE 8.4/9.2 fixtures and physical Android review still required.",
+      "verification": "Synthetic filter/widget regressions and source checks have passed merged exact-head/main CI; live PVE 8.4/9.2 fixtures and physical Android review remain open.",
       "report": "docs/56-implementation-f09-task-history-filters.md"
     },
     "guest_io_counters": {
-      "status": "implemented_source_level_final_exact_head_ci_required",
+      "status": "implemented_source_level_ci_passed_live_validation_pending",
       "behavior": "Decode optional non-negative cumulative netin/netout/diskread/diskwrite byte counters from existing /cluster/resources inventory for QEMU/LXC guest detail. Display formatted receive/send/read/write totals; unknown fields render unavailable and are never interpreted as live rates.",
       "security": "Read-only current inventory display with no extra API requests or persistence. Guest page and open power confirmation now redact on profile switch and reconnect, and reject stale confirmations.",
-      "verification": "Synthetic parser and guest-page widget tests; exact-head CI still required. Live PVE 9.2/8.4 units/availability and physical Android validation remain open.",
+      "verification": "Synthetic parser and guest-page widget tests have passed merged exact-head/main CI. Live PVE 9.2/8.4 units/availability and physical Android validation remain open.",
       "report": "docs/57-implementation-guest-io-counters.md"
     },
     "guest_session_isolation_audit": {
-      "status": "code_fixed_pending_final_exact_head_ci",
+      "status": "code_fixed_ci_passed_live_validation_pending",
       "finding": "Guest-detail page previously displayed the old profile's guest identity after a connection switch and accepted the same profile after reconnect; open power confirmation contained the prior target details.",
       "remediation": "Capture profile ID and connection generation on navigation, redact the entire guest route and in-flight power dialog on mismatch, and reject obsolete confirmations before requesting a mutation.",
-      "tests": "Profile-switch and same-profile reconnect widget regressions in app/test/widget_test.dart.",
+      "tests": "Profile-switch and same-profile reconnect widget regressions in app/test/widget_test.dart have passed merged exact-head/main CI.",
       "report": "docs/58-premerge-whole-repository-audit-2026-11-05.md"
     },
     "guest_rrd_history": {
-      "status": "implemented_source_level_pending_exact_head_ci",
+      "status": "implemented_source_level_ci_passed_live_validation_pending",
       "behavior": "Guest detail explicitly loads 1h/24h/7d Proxmox RRD AVERAGE CPU and memory history; timeframe selection alone performs no request and no background polling or persistence is added.",
-      "safety": "GET-only exact node/type/VMID lookup with active profile ID and connection-generation checks before and after I/O; profile switches/reconnects discard and redact prior history.",
+      "safety": "GET-only exact node/type/VMID lookup with active profile ID and connection-generation checks before and after I/O; explicit Android default-network loss blocks new reads; observed 401 marks live inventory unsafe until clean authenticated refresh; profile switches/reconnects discard and redact prior history.",
       "parsing": "At most 1,500 response rows are considered; timestamped finite CPU 0..1 and valid mem/maxmem ratios are retained, malformed rows counted, and visual charts include latest/range/sample text alternatives.",
       "limitations": "PVE 9.2/8.4 QEMU/LXC RRD fixtures, ACL/resolution/missing-series behavior and physical Android accessibility/performance/security review remain open.",
       "report": "docs/59-implementation-guest-rrd-history.md"
     },
     "tag_pool_browsing": {
-      "status": "implemented_source_level_pending_exact_head_ci",
+      "status": "implemented_source_level_ci_passed_live_validation_pending",
       "feature_id": "HOME-007",
       "behavior": "Parse optional guest tags and pool metadata from existing /cluster/resources inventory; include them in guest search, exact tag/pool filters, saved named views, list rows and guest details.",
       "safety": "No additional API request or write path. Optional malformed metadata is ignored and does not mark a guest malformed, authorize an action, change target identity or modify fresh-inventory/preflight requirements.",
@@ -239,12 +240,20 @@
       "report": "docs/60-implementation-tag-pool-browsing.md"
     },
     "node_rrd_history": {
-      "status": "implemented_source_level_pending_exact_head_ci",
+      "status": "implemented_source_level_ci_passed_live_validation_pending",
       "behavior": "Home node rows open a profile/generation-scoped detail route with current utilization and explicit 1h/24h/7d Proxmox RRD AVERAGE CPU/memory history. Timeframe selection alone performs no request and history is not persisted.",
-      "safety": "GET-only exact visible node lookup with active profile ID and connection-generation checks before and after I/O; profile switches/reconnects or node disappearance discard results and redact the route.",
+      "safety": "GET-only exact visible node lookup with active profile ID and connection-generation checks before and after I/O; explicit Android default-network loss blocks new reads; observed 401 marks live inventory unsafe until clean authenticated refresh; profile switches/reconnects or node disappearance discard results and redact the route.",
       "parsing": "At most 1,500 response rows are considered; timestamped finite CPU 0..1 and valid mem/maxmem ratios are retained, malformed rows counted, and charts include latest/range/sample text alternatives.",
       "limitations": "PVE 9.2/8.4 node RRD fixtures, ACL/resolution/cluster-forwarding behavior and physical Android accessibility/performance/security review remain open.",
       "report": "docs/61-implementation-node-rrd-history.md"
+    },
+    "previous_report": "docs/49-whole-repository-audit-2026-11-04.md",
+    "on_demand_read_fail_closed": {
+      "status": "fixed_source_level",
+      "behavior": "Task-detail, guest-RRD and node-RRD reads refuse new I/O when Android reports the default network unavailable. Any observed 401 records authentication loss, hides/purges offline counts and makes current inventory write-unsafe until clean authenticated refresh.",
+      "mutation_boundary": "No POST retry, mutation replay, background read, new permission, persistence or endpoint is added.",
+      "verification": "Controller regressions cover offline short-circuiting and on-demand 401 invalidation; repository CI is required for every change, while live PVE/physical-device validation remains open.",
+      "report": "docs/62-whole-repository-cross-check-2026-11-06.md"
     }
   }
 }
