@@ -12,7 +12,7 @@
 
 ## Session isolation and privacy
 
-The guest route already captures profile ID plus connection generation. RRD reads reuse that boundary: the exact node/type/VMID must still exist in the active live inventory before the request and after it completes. Profile switches, reconnects, guest disappearance, or stale generations discard the result. A 401 follows the existing authentication-loss cache clearing path.
+The guest route already captures profile ID plus connection generation. RRD reads reuse that boundary: the exact node/type/VMID must still exist in the active live inventory before the request and after it completes. Profile switches, reconnects, guest disappearance, or stale generations discard the result. Explicit Android default-network loss prevents a new history request. An observed 401 purges/hides optional offline counts and marks the current live inventory authorization state unsafe until a clean authenticated refresh.
 
 Loaded metric history is removed from view when the connection changes. Charts expose a text summary (latest value, range, and sample count) through normal text and semantics so the visual line is not the sole representation.
 
