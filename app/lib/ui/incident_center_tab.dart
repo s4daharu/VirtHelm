@@ -25,18 +25,20 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
   List<CockpitIncident> _visible(List<CockpitIncident> incidents) {
     return switch (filter) {
       _IncidentFilter.all => incidents,
-      _IncidentFilter.critical => incidents
-          .where(
-            (incident) =>
-                incident.severity == CockpitIncidentSeverity.critical,
-          )
-          .toList(growable: false),
-      _IncidentFilter.warning => incidents
-          .where(
-            (incident) =>
-                incident.severity == CockpitIncidentSeverity.warning,
-          )
-          .toList(growable: false),
+      _IncidentFilter.critical =>
+        incidents
+            .where(
+              (incident) =>
+                  incident.severity == CockpitIncidentSeverity.critical,
+            )
+            .toList(growable: false),
+      _IncidentFilter.warning =>
+        incidents
+            .where(
+              (incident) =>
+                  incident.severity == CockpitIncidentSeverity.warning,
+            )
+            .toList(growable: false),
     };
   }
 

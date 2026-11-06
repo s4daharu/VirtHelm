@@ -53,8 +53,7 @@ List<CockpitIncident> failedServerTaskIncidents(
         severity: CockpitIncidentSeverity.critical,
         source: CockpitIncidentSource.task,
         title: 'Task failed: ${task.operationLabel}$resource',
-        detail:
-            '${task.node} • Exit ${task.exitStatus ?? 'failure reported'}',
+        detail: '${task.node} • Exit ${task.exitStatus ?? 'failure reported'}',
         observedAt:
             task.endedAt ??
             task.startedAt ??
@@ -72,8 +71,7 @@ List<CockpitIncident> buildCockpitIncidents({
   required Inventory? inventory,
   required Iterable<RecentServerTask> serverTasks,
   required Iterable<TrackedTask> sessionTasks,
-  Iterable<CockpitIncident> retainedTaskIncidents =
-      const <CockpitIncident>[],
+  Iterable<CockpitIncident> retainedTaskIncidents = const <CockpitIncident>[],
 }) {
   final byKey = <String, CockpitIncident>{};
 

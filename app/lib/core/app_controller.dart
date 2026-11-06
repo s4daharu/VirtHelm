@@ -797,15 +797,15 @@ class AppController extends ChangeNotifier {
       if (result.complete) {
         _retainedServerTaskIncidents = const <CockpitIncident>[];
       } else {
-        final retained = <String, CockpitIncident>{
-          for (final incident in _retainedServerTaskIncidents)
-            incident.key: incident,
-          for (final incident in failedServerTaskIncidents(serverTasks))
-            incident.key: incident,
-        }.values.toList()
-          ..sort(
-            (left, right) => right.observedAt.compareTo(left.observedAt),
-          );
+        final retained =
+            <String, CockpitIncident>{
+              for (final incident in _retainedServerTaskIncidents)
+                incident.key: incident,
+              for (final incident in failedServerTaskIncidents(serverTasks))
+                incident.key: incident,
+            }.values.toList()..sort(
+              (left, right) => right.observedAt.compareTo(left.observedAt),
+            );
         _retainedServerTaskIncidents = List<CockpitIncident>.unmodifiable(
           retained.take(60),
         );

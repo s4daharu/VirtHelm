@@ -421,10 +421,7 @@ void main() {
       expect(ctl.incidents, hasLength(2));
       expect(
         ctl.incidents.map((incident) => incident.title),
-        containsAll([
-          'Node pve1 is offline',
-          'Task failed: Start VM • 101',
-        ]),
+        containsAll(['Node pve1 is offline', 'Task failed: Start VM • 101']),
       );
 
       gateway.inventoryResources = [
