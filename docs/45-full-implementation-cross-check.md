@@ -44,7 +44,7 @@ The table below cross-checks the P0 feature plan in [functional scope](02-featur
 | F02 auth/test/version | Token format validation; `/version` plus inventory permission check during onboarding | Server version is not retained/presented or used for compatibility gating; PVE 8.4/9.2 live auth/ACL evidence is missing |
 | F03 cluster overview | Node/guest counts, node state and read cockpit | Live single/multi-node compatibility/permission matrix missing |
 | F04 guests | QEMU/LXC inventory/details with node/type/VMID identity | Live version/ACL fixtures missing |
-| F05 discovery | Search, favorites, status/type/node filters, deterministic favorites/name/VMID/CPU/memory sorting and up to 12 profile-scoped named saved views | Tag/group filtering and 200-guest device evidence remain later scope |
+| F05 discovery | Search, favorites, status/type/node/tag/pool filters, deterministic favorites/name/VMID/CPU/memory sorting and up to 12 profile-scoped named saved views | Richer grouping/topology and 200-guest device evidence remain later scope |
 | F06 metrics | CPU/memory/disk/uptime formatting with null/invalid handling and freshness | Live schema/unit validation and device presentation evidence missing |
 | F07/F08 power | Guarded start/shutdown/reboot/force-stop, confirmation, one POST, UPID tracking and unknown-outcome lock | Disposable PVE 8.4/9.2 mutation/fault-injection matrix missing |
 | F09 tasks | Session mutation tracker plus recent server task list and terminal result normalization | **Rich task detail/log explorer is not implemented**; live task fixtures missing |
