@@ -52,7 +52,8 @@
       "on-demand read-only guest CPU/memory RRD performance history for 1h/24h/7d windows",
       "read-only guest tag/pool discovery, search, exact filtering and saved-view criteria from cluster inventory",
       "on-demand read-only node CPU/memory RRD performance history for 1h/24h/7d windows",
-      "on-demand read-only per-storage used/total RRD capacity history for 1h/24h/7d windows"
+      "on-demand read-only per-storage used/total RRD capacity history for 1h/24h/7d windows",
+      "foreground-only in-app incident inbox for explicit node-state problems, failed recent server tasks and failed/unknown session tasks"
     ],
     "scope_note": "This is a partial M2 read-cockpit slice, not the full premium M2 roadmap.",
     "release_validation": "Real PVE 8.4/9.2 contracts/ACLs and Android device/release gates remain required.",
@@ -113,10 +114,11 @@
       "HOME-007 tag/pool browsing is presentation-only over existing cluster inventory; malformed optional metadata does not invalidate guest identity or affect mutation authorization, and live PVE 8.4/9.2 field/ACL fixtures remain pending.",
       "Node RRD history is explicit GET-only AVERAGE hour/day/week CPU/memory history on a profile/generation-scoped route; live PVE 8.4/9.2 fixtures and physical Android validation remain pending.",
       "On-demand task inspection now short-circuits on explicit Android default-network loss, and observed task/guest/node read 401s immediately invalidate live write safety until a clean authenticated refresh (fixed and regression-tested in the 2026-11-06 cross-check).",
-      "Storage RRD capacity history is explicit GET-only AVERAGE hour/day/week used/total history on a profile/generation/exact-storage-scoped route; live PVE 8.4/9.2 storage backend/ACL fixtures and physical Android validation remain pending."
+      "Storage RRD capacity history is explicit GET-only AVERAGE hour/day/week used/total history on a profile/generation/exact-storage-scoped route; live PVE 8.4/9.2 storage backend/ACL fixtures and physical Android validation remain pending.",
+      "ALERT-001 foreground incident inbox derives only from existing authenticated inventory/task data, retains failed-task incidents across incomplete task-history reads, treats unknown node/session task states conservatively, and adds no Android notification/background/relay capability."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 148,
+    "current_flutter_tests_defined": 151,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
@@ -264,6 +266,16 @@
       "parsing": "At most 1,500 response rows are considered; timestamped non-negative used bytes and positive total bytes are retained, percentages require used <= total, malformed rows are counted, and charts include latest/range/sample text alternatives.",
       "limitations": "PVE 9.2/8.4 storage RRD fixtures across backend types, ACL/resolution/cluster-forwarding behavior and physical Android accessibility/performance/security review remain open.",
       "report": "docs/63-implementation-storage-rrd-history.md"
+    },
+    "incident_inbox": {
+      "status": "implemented_source_level_ci_pending_live_validation_pending",
+      "feature_id": "ALERT-001",
+      "behavior": "A fifth Incidents tab shows a badge and locally filters critical/warning signals derived from explicit node offline/unknown states, failed recent server tasks, and failed/unknown session tasks. Node/task incidents drill into existing session-scoped detail routes.",
+      "conservative_refresh": "Inventory failures retain the previous node snapshot. Partial task-history reads retain up to 60 previously observed failed-task incidents until a later complete task read; full task-history failures leave prior task data unchanged. Unknown is never presented as healthy.",
+      "privacy": "Foreground in-app only. No notification permission/channel, lock-screen payload, WorkManager job, relay registration, persistent incident history, task-log copy or additional PVE endpoint.",
+      "deferred": "ALERT-002 through ALERT-014 remain future work, including user thresholds, acknowledgement/history, hysteresis, quiet hours/cooldown, Android scheduled checks/notifications, lock-screen privacy controls, certificate/backup reminders and relay/webhooks.",
+      "limitations": "Live PVE 9.2/8.4 node/task fixtures, ACL/partial multi-node behavior, 200-guest/task performance and physical Android accessibility/lifecycle/network testing remain open.",
+      "report": "docs/64-implementation-alert-incident-inbox.md"
     }
   }
 }

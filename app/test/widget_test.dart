@@ -572,6 +572,68 @@ void main() {
     expect(find.textContaining('Connection changed.'), findsOneWidget);
   });
 
+  testWidgets(
+    'incident inbox shows retained signals and safe task drill-down',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = _TaskInspectionController(
+        ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      controller.active = const ConnectionProfile(
+        id: 'a',
+        name: 'A',
+        endpoint: 'https://a.example',
+      );
+      controller.inventory = Inventory.fromResources([
+        {'type': 'node', 'node': 'pve1', 'status': 'offline'},
+      ]);
+      controller.serverTasks = const [
+        RecentServerTask(
+          node: 'pve1',
+          upid: 'UPID:pve1:1:2:3:vzshutdown:202:user@pve:',
+          operation: 'vzshutdown',
+          resourceId: '202',
+          status: 'stopped',
+          exitStatus: 'failed',
+        ),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(home: ShellPage(controller: controller)),
+      );
+      expect(find.text('Incidents'), findsOneWidget);
+      await tester.tap(find.text('Incidents'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Incident inbox'), findsOneWidget);
+      expect(find.text('Node pve1 is offline'), findsOneWidget);
+      expect(
+        find.text('Task failed: Shut down container • 202'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('UPID:'), findsNothing);
+
+      await tester.tap(find.text('Task failed: Shut down container • 202'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TaskDetailsPage), findsOneWidget);
+      expect(controller.requestedStarts, [0]);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      controller.setDeviceNetworkState(DeviceNetworkState.unavailable);
+      await tester.pumpWidget(
+        MaterialApp(home: ShellPage(controller: controller)),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Incidents'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('incident-stale-warning')), findsOneWidget);
+      expect(find.text('Node pve1 is offline'), findsOneWidget);
+    },
+  );
+
   testWidgets('task history filters stay local and reset on profile switch', (
     tester,
   ) async {

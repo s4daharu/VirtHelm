@@ -11,6 +11,7 @@ import '../core/models.dart';
 import '../core/task_history_filter.dart';
 import 'connect_page.dart';
 import 'guest_page.dart';
+import 'incident_center_tab.dart';
 import 'node_page.dart';
 import 'storage_page.dart';
 import 'theme.dart';
@@ -171,6 +172,12 @@ class _ShellPageState extends State<ShellPage> {
                   ),
                   controller: controller,
                 ),
+                IncidentCenterTab(
+                  key: ValueKey(
+                    'incidents:${profile?.id}:${controller.connectionGeneration}',
+                  ),
+                  controller: controller,
+                ),
                 _SettingsTab(controller: controller),
               ],
             ),
@@ -180,23 +187,36 @@ class _ShellPageState extends State<ShellPage> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
         onDestinationSelected: (value) => setState(() => selectedIndex = value),
-        destinations: const [
-          NavigationDestination(
+        destinations: [
+          const NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
             selectedIcon: Icon(Icons.dashboard_rounded),
             label: 'Home',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.dns_outlined),
             selectedIcon: Icon(Icons.dns_rounded),
             label: 'Guests',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.timeline_outlined),
             selectedIcon: Icon(Icons.timeline_rounded),
             label: 'Tasks',
           ),
           NavigationDestination(
+            icon: Badge.count(
+              count: controller.incidents.length,
+              isLabelVisible: controller.incidents.isNotEmpty,
+              child: const Icon(Icons.notifications_outlined),
+            ),
+            selectedIcon: Badge.count(
+              count: controller.incidents.length,
+              isLabelVisible: controller.incidents.isNotEmpty,
+              child: const Icon(Icons.notifications_rounded),
+            ),
+            label: 'Incidents',
+          ),
+          const NavigationDestination(
             icon: Icon(Icons.settings_outlined),
             selectedIcon: Icon(Icons.settings_rounded),
             label: 'Settings',

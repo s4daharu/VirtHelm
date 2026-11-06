@@ -130,6 +130,7 @@ class _Gateway implements PveGateway {
   String serverVersion = '9.2';
   PveFailure? versionFailure;
   PveFailure? inventoryFailure;
+  List<dynamic>? inventoryResources;
   Completer<Inventory>? inventoryGate;
   bool connected = true;
   Completer<String>? preflight;
@@ -181,17 +182,25 @@ class _Gateway implements PveGateway {
   Future<Inventory> inventory() {
     inventoryCalls++;
     if (inventoryFailure != null) return Future.error(inventoryFailure!);
-    final value = Inventory.fromResources([
-      {'type': 'node', 'node': 'pve1', 'status': 'online', 'uptime': 3600},
-      {
-        'type': 'qemu',
-        'vmid': 101,
-        'node': 'pve1',
-        'name': 'Web',
-        'status': status,
-        'uptime': 1800,
-      },
-    ]);
+    final value = Inventory.fromResources(
+      inventoryResources ??
+          [
+            {
+              'type': 'node',
+              'node': 'pve1',
+              'status': 'online',
+              'uptime': 3600,
+            },
+            {
+              'type': 'qemu',
+              'vmid': 101,
+              'node': 'pve1',
+              'name': 'Web',
+              'status': status,
+              'uptime': 1800,
+            },
+          ],
+    );
     return inventoryGate?.future ?? Future.value(value);
   }
 
@@ -369,6 +378,77 @@ void main() {
       );
       expect(stale, isNull);
       expect(gateway.nodeMetricCalls, 1);
+    },
+  );
+
+  test(
+    'incident inbox retains failed tasks across incomplete reads and resolves on clean data',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final vault = _Vault();
+      final repo = ProfileRepository(prefs, vault);
+      final profile = ConnectionProfile.create(
+        name: 'Lab',
+        address: 'https://pve.local',
+      );
+      await repo.save(
+        profile,
+        const ApiCredentials(tokenId: 'me@pve!test', secret: 'test'),
+      );
+      final gateway = _Gateway()
+        ..inventoryResources = [
+          {'type': 'node', 'node': 'pve1', 'status': 'offline'},
+        ]
+        ..recentTaskResult = ReadCollection(
+          values: const [
+            RecentServerTask(
+              upid: 'UPID:pve1:1:2:3:qmstart:101:user@pve:',
+              node: 'pve1',
+              operation: 'qmstart',
+              resourceId: '101',
+              status: 'stopped',
+              exitStatus: 'ERROR',
+            ),
+          ],
+        );
+      final ctl = AppController(
+        repository: repo,
+        gatewayFactory: (profile, credentials) => gateway,
+      );
+      addTearDown(ctl.dispose);
+
+      await ctl.activate(profile);
+      expect(ctl.incidents, hasLength(2));
+      expect(
+        ctl.incidents.map((incident) => incident.title),
+        containsAll(['Node pve1 is offline', 'Task failed: Start VM • 101']),
+      );
+
+      gateway.inventoryResources = [
+        {'type': 'node', 'node': 'pve1', 'status': 'online'},
+      ];
+      gateway.recentTaskResult = ReadCollection(
+        values: const <RecentServerTask>[],
+        permissionDeniedNodes: 1,
+      );
+      await ctl.refresh();
+
+      expect(
+        ctl.incidents.map((incident) => incident.title),
+        isNot(contains('Node pve1 is offline')),
+      );
+      expect(
+        ctl.incidents.map((incident) => incident.title),
+        contains('Task failed: Start VM • 101'),
+      );
+      expect(ctl.serverTaskMessage, contains('denied access'));
+
+      gateway.recentTaskResult = ReadCollection(
+        values: const <RecentServerTask>[],
+      );
+      await ctl.refresh();
+      expect(ctl.incidents, isEmpty);
+      expect(ctl.serverTaskMessage, isNull);
     },
   );
 
