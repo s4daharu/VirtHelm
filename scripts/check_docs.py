@@ -53,7 +53,7 @@ for rel in required:
         assert target.exists(), f'Broken local link in {rel}: {dest}'
 status=json.loads((root/'PROJECT_STATUS.json').read_text(encoding='utf-8'))
 test_count=sum(
-    len(re.findall(r'\\btest(?:Widgets)?\\s*\\(', path.read_text(encoding='utf-8')))
+    len(re.findall(r'\btest(?:Widgets)?\s*\(', path.read_text(encoding='utf-8')))
     for path in (root/'app/test').glob('*.dart')
 )
 assert status['implementation_audit']['current_flutter_tests_defined'] == test_count, 'PROJECT_STATUS Flutter test count drift'
