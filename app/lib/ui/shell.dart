@@ -846,12 +846,13 @@ class _GuestsTabState extends State<_GuestsTab> {
     final nodes = allGuests.map((guest) => guest.node).toSet().toList()..sort();
     final tags = allGuests.expand((guest) => guest.tags).toSet().toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    final pools = allGuests
-        .map((guest) => guest.pool)
-        .whereType<String>()
-        .toSet()
-        .toList()
-      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final pools =
+        allGuests
+            .map((guest) => guest.pool)
+            .whereType<String>()
+            .toSet()
+            .toList()
+          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     final guests = visibleGuests(
       allGuests,
       isFavorite: controller.isGuestFavorite,
