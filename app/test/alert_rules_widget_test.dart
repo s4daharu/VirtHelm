@@ -1,0 +1,70 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:virthelm/core/app_controller.dart';
+import 'package:virthelm/core/models.dart';
+import 'package:virthelm/core/profile_repository.dart';
+import 'package:virthelm/ui/alert_rules_page.dart';
+
+class _MemoryVault implements CredentialVault {
+  final Map<String, ApiCredentials> values = {};
+
+  @override
+  Future<void> remove(String id) async {
+    values.remove(id);
+  }
+
+  @override
+  Future<ApiCredentials?> retrieve(String id) async => values[id];
+
+  @override
+  Future<void> store(String id, ApiCredentials credentials) async {
+    values[id] = credentials;
+  }
+}
+
+void main() {
+  testWidgets('operator can add a foreground threshold rule', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final repository = ProfileRepository(prefs, _MemoryVault());
+    const profile = ConnectionProfile(
+      id: 'lab',
+      name: 'Lab',
+      endpoint: 'https://pve.local:8006',
+    );
+    await repository.save(
+      profile,
+      const ApiCredentials(
+        tokenId: 'user@pve!mobile',
+        secret: 'secret',
+      ),
+    );
+    final controller = AppController(repository: repository);
+    addTearDown(controller.dispose);
+    controller.active = profile;
+    controller.inventory = Inventory.fromResources([
+      {'type': 'node', 'node': 'pve1', 'status': 'online', 'cpu': 0.91},
+    ]);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ForegroundThresholdAlertRulesPage(
+          controller: controller,
+          profileId: profile.id,
+          generation: controller.connectionGeneration,
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('add-threshold-rule')));
+    await tester.pumpAndSettle();
+    expect(find.text('Add foreground threshold'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('confirm-threshold-rule')));
+    await tester.pumpAndSettle();
+
+    expect(controller.thresholdAlertRules, hasLength(1));
+    expect(controller.incidents, hasLength(1));
+    expect(find.textContaining('80%'), findsOneWidget);
+  });
+}

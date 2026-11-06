@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'alert_rules.dart';
 import 'app_preferences.dart';
 import 'device_connectivity.dart';
 import 'guest_saved_view.dart';
@@ -33,6 +34,9 @@ class AppController extends ChangeNotifier {
   final List<TrackedTask> tasks = [];
   List<StoragePool> storages = [];
   List<RecentServerTask> serverTasks = [];
+  List<ForegroundThresholdAlertRule> thresholdAlertRules = [];
+  final ForegroundThresholdAlertEngine _thresholdAlertEngine =
+      ForegroundThresholdAlertEngine();
   List<CockpitIncident> _retainedServerTaskIncidents =
       const <CockpitIncident>[];
 
@@ -41,6 +45,7 @@ class AppController extends ChangeNotifier {
     serverTasks: serverTasks,
     sessionTasks: tasks,
     retainedTaskIncidents: _retainedServerTaskIncidents,
+    foregroundRuleIncidents: _thresholdAlertEngine.incidents,
   );
   Set<String> favoriteGuests = <String>{};
   List<SavedGuestView> guestSavedViews = [];
@@ -263,6 +268,47 @@ class AppController extends ChangeNotifier {
 
   bool isGuestFavorite(Guest guest) =>
       favoriteGuests.contains(_guestKey(guest));
+
+  Future<void> saveThresholdAlertRule(
+    ForegroundThresholdAlertRule rule, {
+    required String expectedProfileId,
+  }) async {
+    final profile = active;
+    if (profile == null || _disposed || profile.id != expectedProfileId) {
+      return;
+    }
+    await repository.saveThresholdAlertRule(profile.id, rule);
+    if (_disposed || active?.id != profile.id) return;
+    thresholdAlertRules = repository.readThresholdAlertRules(profile.id);
+    _evaluateThresholdAlerts();
+    _notify();
+  }
+
+  Future<void> deleteThresholdAlertRule(
+    String ruleId, {
+    required String expectedProfileId,
+  }) async {
+    final profile = active;
+    if (profile == null || _disposed || profile.id != expectedProfileId) {
+      return;
+    }
+    await repository.deleteThresholdAlertRule(profile.id, ruleId);
+    if (_disposed || active?.id != profile.id) return;
+    thresholdAlertRules = repository.readThresholdAlertRules(profile.id);
+    _evaluateThresholdAlerts();
+    _notify();
+  }
+
+  void _evaluateThresholdAlerts() {
+    final snapshot = inventory;
+    if (snapshot == null) return;
+    _thresholdAlertEngine.evaluate(
+      inventory: snapshot,
+      storages: storages,
+      rules: thresholdAlertRules,
+      storageDataCurrent: storageMessage == null,
+    );
+  }
 
   Future<void> setGuestFavorite(
     Guest guest,
@@ -599,6 +645,8 @@ class AppController extends ChangeNotifier {
     cachedOverview = null;
     favoriteGuests = repository.readGuestFavorites(profile.id);
     guestSavedViews = repository.readGuestViews(profile.id);
+    thresholdAlertRules = repository.readThresholdAlertRules(profile.id);
+    _thresholdAlertEngine.clear();
     inventory = null;
     tasks.clear();
     storages = [];
@@ -717,6 +765,7 @@ class AppController extends ChangeNotifier {
           _disposed) {
         return;
       }
+      _evaluateThresholdAlerts();
       // Do not turn a network-presence hint into authorization. A completed
       // clean authenticated read is the only way to restore live writes.
       if (message == null &&

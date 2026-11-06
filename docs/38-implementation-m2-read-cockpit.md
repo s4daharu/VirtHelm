@@ -16,7 +16,8 @@ This slice adds no new mutation endpoint:
 - explicit on-demand guest CPU/memory RRD averages for 1 hour, 24 hours and 7 days, with text alternatives and no persistence or background polling;
 - explicit on-demand node CPU/memory RRD averages for 1 hour, 24 hours and 7 days on a session-scoped node detail route, with no persistence or background polling;
 - optional guest tag/pool discovery from the existing cluster inventory, including search, exact filters, saved-view criteria and detail display;
-- a foreground-only in-app incident inbox for explicit node offline/unknown states, failed recent server tasks and failed/unknown session tasks, with severity filtering, retained failures across incomplete task reads and safe drill-down to existing node/task details.
+- a foreground-only in-app incident inbox for explicit node offline/unknown states, failed recent server tasks and failed/unknown session tasks, with severity filtering, retained failures across incomplete task reads and safe drill-down to existing node/task details;
+- up to 32 profile-scoped foreground threshold rules for exact node CPU, guest CPU and per-node storage usage targets, evaluated from live foreground snapshots without background polling or notification delivery.
 
 For the node task-list endpoint, active rows are normalized from raw `status=RUNNING`; archived rows use the raw terminal task result (for example `OK`) as the exit status. That differs from `/nodes/{node}/tasks/{upid}/status`, where tracked mutations use the detail endpoint's running/stopped state plus `exitstatus`. VirtHelm does not treat an HTTP acceptance or a merely terminal task as success.
 
@@ -32,7 +33,7 @@ Search ignores case and surrounding whitespace and matches guest name, VMID, nod
 Recent tasks are capped at 20 per visible node and 60 combined rows. Storage is shown per node and never summed across nodes, avoiding false totals for shared storage. Guest task verification is foreground-only, single-flight, bounded by a verification TTL, and becomes `unknown` rather than retrying a mutation.
 
 ## Deliberately not implemented in this slice
-Full premium M2 remains broader: cross-resource capacity comparisons and richer RRD analytics, configurable alert rules and acknowledgement/history, Android notifications/background checks, richer grouping/topology views, persistent offline cache, accessibility/performance signoff, and 200-guest/device evidence are still pending. PBS/PDM, console, ticket/MFA, snapshot/backup execution and infrastructure mutation remain later gated milestones.
+Full premium M2 remains broader: cross-resource capacity comparisons and richer RRD analytics, alert duration/hysteresis, acknowledgement/history, Android notifications/background checks, richer grouping/topology views, persistent offline cache, accessibility/performance signoff, and 200-guest/device evidence are still pending. PBS/PDM, console, ticket/MFA, snapshot/backup execution and infrastructure mutation remain later gated milestones.
 
 ## Reconciliation and malformed-read fixes
 An already-in-flight inventory refresh may have started before a UPID reached terminal state. To avoid treating that old read as post-task evidence, terminal-task processing waits for it, then performs another inventory request before removing the pending guest lock. Malformed storage/task rows with non-string map keys are counted without discarding valid neighboring records. Both are covered by regression tests.

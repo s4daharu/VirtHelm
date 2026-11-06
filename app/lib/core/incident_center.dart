@@ -1,8 +1,9 @@
+import 'alert_rules.dart';
 import 'models.dart';
 
 enum CockpitIncidentSeverity { critical, warning }
 
-enum CockpitIncidentSource { node, task }
+enum CockpitIncidentSource { node, task, rule }
 
 class CockpitIncident {
   const CockpitIncident({
@@ -15,6 +16,10 @@ class CockpitIncident {
     this.node,
     this.taskUpid,
     this.taskTitle,
+    this.guestKind,
+    this.guestVmid,
+    this.storageId,
+    this.ruleId,
   });
 
   final String key;
@@ -26,6 +31,10 @@ class CockpitIncident {
   final String? node;
   final String? taskUpid;
   final String? taskTitle;
+  final String? guestKind;
+  final int? guestVmid;
+  final String? storageId;
+  final String? ruleId;
 
   String get severityLabel => switch (severity) {
     CockpitIncidentSeverity.critical => 'critical',
@@ -35,7 +44,176 @@ class CockpitIncident {
   String get sourceLabel => switch (source) {
     CockpitIncidentSource.node => 'Node inventory',
     CockpitIncidentSource.task => 'Task history',
+    CockpitIncidentSource.rule => 'Foreground rule',
   };
+}
+
+
+class ForegroundThresholdAlertEngine {
+  final Map<String, CockpitIncident> _active = {};
+
+  List<CockpitIncident> get incidents {
+    final values = _active.values.toList(growable: false)
+      ..sort((left, right) {
+        final severity = left.severity.index.compareTo(right.severity.index);
+        if (severity != 0) return severity;
+        final time = right.observedAt.compareTo(left.observedAt);
+        if (time != 0) return time;
+        return left.key.compareTo(right.key);
+      });
+    return List<CockpitIncident>.unmodifiable(values);
+  }
+
+  void clear() => _active.clear();
+
+  void evaluate({
+    required Inventory inventory,
+    required Iterable<StoragePool> storages,
+    required Iterable<ForegroundThresholdAlertRule> rules,
+    required bool storageDataCurrent,
+  }) {
+    final enabled = <String, ForegroundThresholdAlertRule>{
+      for (final rule in rules)
+        if (rule.enabled) rule.id: rule,
+    };
+    _active.removeWhere((id, _) => !enabled.containsKey(id));
+    final storageList = storages.toList(growable: false);
+
+    for (final rule in enabled.values) {
+      final sample = _sample(
+        rule,
+        inventory,
+        storageList,
+        storageDataCurrent: storageDataCurrent,
+      );
+      if (sample == null) {
+        final previous = _active[rule.id];
+        if (previous != null) {
+          _active[rule.id] = CockpitIncident(
+            key: previous.key,
+            severity: _severity(rule.severity),
+            source: CockpitIncidentSource.rule,
+            title: previous.title,
+            detail:
+                'Previous threshold breach remains unresolved because the '
+                'current foreground snapshot has no usable '
+                '${rule.metric.label.toLowerCase()} sample for this target.',
+            observedAt: previous.observedAt,
+            node: previous.node,
+            guestKind: previous.guestKind,
+            guestVmid: previous.guestVmid,
+            storageId: previous.storageId,
+            ruleId: rule.id,
+          );
+        }
+        continue;
+      }
+
+      if (sample.fraction >= rule.thresholdFraction) {
+        _active[rule.id] = CockpitIncident(
+          key: 'rule:${rule.id}',
+          severity: _severity(rule.severity),
+          source: CockpitIncidentSource.rule,
+          title: sample.title,
+          detail:
+              'Foreground rule threshold ${rule.thresholdPercent}% exceeded. '
+              'Evaluated from the latest available live foreground snapshot.',
+          observedAt: inventory.fetchedAt,
+          node: sample.node,
+          guestKind: sample.guestKind,
+          guestVmid: sample.guestVmid,
+          storageId: sample.storageId,
+          ruleId: rule.id,
+        );
+      } else {
+        _active.remove(rule.id);
+      }
+    }
+  }
+
+  CockpitIncidentSeverity _severity(ForegroundAlertSeverity severity) {
+    return switch (severity) {
+      ForegroundAlertSeverity.warning => CockpitIncidentSeverity.warning,
+      ForegroundAlertSeverity.critical => CockpitIncidentSeverity.critical,
+    };
+  }
+
+  _ThresholdSample? _sample(
+    ForegroundThresholdAlertRule rule,
+    Inventory inventory,
+    List<StoragePool> storages, {
+    required bool storageDataCurrent,
+  }) {
+    switch (rule.metric) {
+      case ForegroundThresholdMetric.nodeCpu:
+        final matches = inventory.nodes.where(
+          (node) => node.name == rule.node,
+        );
+        if (matches.length != 1) return null;
+        final cpu = matches.single.cpu;
+        if (cpu == null || cpu < 0 || cpu > 1) return null;
+        return _ThresholdSample(
+          fraction: cpu,
+          title: 'Node ${matches.single.name} CPU is '
+              '${(cpu * 100).toStringAsFixed(1)}%',
+          node: matches.single.name,
+        );
+      case ForegroundThresholdMetric.guestCpu:
+        final matches = inventory.guests.where(
+          (guest) =>
+              guest.node == rule.node &&
+              guest.kind == rule.guestKind &&
+              guest.vmid == rule.guestVmid,
+        );
+        if (matches.length != 1) return null;
+        final guest = matches.single;
+        final cpu = guest.cpu;
+        if (cpu == null || cpu < 0 || cpu > 1) return null;
+        return _ThresholdSample(
+          fraction: cpu,
+          title: '${guest.name} (${guest.vmid}) CPU is '
+              '${(cpu * 100).toStringAsFixed(1)}%',
+          node: guest.node,
+          guestKind: guest.kind,
+          guestVmid: guest.vmid,
+        );
+      case ForegroundThresholdMetric.storageUsage:
+        if (!storageDataCurrent) return null;
+        final matches = storages.where(
+          (storage) =>
+              storage.node == rule.node && storage.id == rule.storageId,
+        );
+        if (matches.length != 1) return null;
+        final storage = matches.single;
+        final usage = storage.usageFraction;
+        if (usage == null || usage < 0 || usage > 1) return null;
+        return _ThresholdSample(
+          fraction: usage,
+          title: '${storage.id} on ${storage.node} is '
+              '${(usage * 100).toStringAsFixed(1)}% full',
+          node: storage.node,
+          storageId: storage.id,
+        );
+    }
+  }
+}
+
+class _ThresholdSample {
+  const _ThresholdSample({
+    required this.fraction,
+    required this.title,
+    this.node,
+    this.guestKind,
+    this.guestVmid,
+    this.storageId,
+  });
+
+  final double fraction;
+  final String title;
+  final String? node;
+  final String? guestKind;
+  final int? guestVmid;
+  final String? storageId;
 }
 
 List<CockpitIncident> failedServerTaskIncidents(
@@ -72,11 +250,18 @@ List<CockpitIncident> buildCockpitIncidents({
   required Iterable<RecentServerTask> serverTasks,
   required Iterable<TrackedTask> sessionTasks,
   Iterable<CockpitIncident> retainedTaskIncidents = const <CockpitIncident>[],
+  Iterable<CockpitIncident> foregroundRuleIncidents =
+      const <CockpitIncident>[],
 }) {
   final byKey = <String, CockpitIncident>{};
 
   for (final incident in retainedTaskIncidents) {
     if (incident.source == CockpitIncidentSource.task) {
+      byKey[incident.key] = incident;
+    }
+  }
+  for (final incident in foregroundRuleIncidents) {
+    if (incident.source == CockpitIncidentSource.rule) {
       byKey[incident.key] = incident;
     }
   }

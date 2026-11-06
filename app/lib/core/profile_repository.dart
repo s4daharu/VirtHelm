@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'alert_rules.dart';
 import 'app_preferences.dart';
 import 'guest_saved_view.dart';
 import 'models.dart';
@@ -44,6 +45,7 @@ class ProfileRepository {
   static const _activeKey = 'active_profile_v1';
   static const _favoritesKey = 'guest_favorites_v1';
   static const _guestViewsKey = 'guest_saved_views_v1';
+  static const _thresholdRulesKey = 'foreground_threshold_rules_v1';
   static const _themeKey = 'ui_theme_v1';
   static const _refreshKey = 'ui_refresh_v1';
   static const _nodeMetricsKey = 'ui_node_metrics_v1';
@@ -197,6 +199,135 @@ class ProfileRepository {
   Future<void> _clearOfflineOverview(String profileId) async {
     if (!await _prefs.remove(_offlineCountsKey(profileId))) {
       throw StateError('Could not clear offline overview.');
+    }
+  }
+
+  List<ForegroundThresholdAlertRule> readThresholdAlertRules(
+    String profileId,
+  ) {
+    final raw = _prefs.getString(_thresholdRulesKey);
+    if (raw == null) return [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) return [];
+      final items = decoded[profileId];
+      if (items is! List) return [];
+      final rules = <ForegroundThresholdAlertRule>[];
+      final ids = <String>{};
+      for (final item in items) {
+        if (item is! Map) continue;
+        try {
+          final rule = ForegroundThresholdAlertRule.fromJson(
+            Map<String, dynamic>.from(item),
+          );
+          if (!ids.add(rule.id)) continue;
+          rules.add(rule);
+          if (rules.length == maxForegroundThresholdRules) break;
+        } on FormatException {
+          continue;
+        }
+      }
+      return List.unmodifiable(rules);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> saveThresholdAlertRule(
+    String profileId,
+    ForegroundThresholdAlertRule rule,
+  ) => _mutate(() async {
+    if (!readProfiles().any((profile) => profile.id == profileId)) {
+      throw StateError('Connection no longer exists.');
+    }
+    final validated = ForegroundThresholdAlertRule.fromJson(rule.toJson());
+    final root = _readThresholdRulesRoot();
+    final rules = readThresholdAlertRules(profileId).toList();
+    final index = rules.indexWhere((item) => item.id == validated.id);
+    if (index >= 0) {
+      rules[index] = validated;
+    } else {
+      if (rules.length >= maxForegroundThresholdRules) {
+        throw StateError('Foreground threshold rule limit reached.');
+      }
+      rules.add(validated);
+    }
+    root[profileId] = rules.map((item) => item.toJson()).toList();
+    final saved = await _prefs.setString(
+      _thresholdRulesKey,
+      jsonEncode(root),
+    );
+    if (!saved) {
+      throw StateError('Could not save foreground threshold rule.');
+    }
+  });
+
+  Future<void> deleteThresholdAlertRule(
+    String profileId,
+    String ruleId,
+  ) => _mutate(() async {
+    if (!readProfiles().any((profile) => profile.id == profileId)) {
+      throw StateError('Connection no longer exists.');
+    }
+    final root = _readThresholdRulesRoot();
+    final rules = readThresholdAlertRules(
+      profileId,
+    ).where((item) => item.id != ruleId).toList();
+    if (rules.isEmpty) {
+      root.remove(profileId);
+    } else {
+      root[profileId] = rules.map((item) => item.toJson()).toList();
+    }
+    final saved = root.isEmpty
+        ? await _prefs.remove(_thresholdRulesKey)
+        : await _prefs.setString(_thresholdRulesKey, jsonEncode(root));
+    if (!saved) {
+      throw StateError('Could not delete foreground threshold rule.');
+    }
+  });
+
+  Map<String, dynamic> _readThresholdRulesRoot() {
+    final raw = _prefs.getString(_thresholdRulesKey);
+    if (raw == null) return <String, dynamic>{};
+    try {
+      final decoded = jsonDecode(raw);
+      return decoded is Map<String, dynamic>
+          ? Map<String, dynamic>.from(decoded)
+          : <String, dynamic>{};
+    } catch (_) {
+      return <String, dynamic>{};
+    }
+  }
+
+  Future<void> _clearThresholdAlertRules(String profileId) async {
+    final raw = _prefs.getString(_thresholdRulesKey);
+    if (raw == null) return;
+    Map<String, dynamic> root;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        final removed = await _prefs.remove(_thresholdRulesKey);
+        if (!removed) {
+          throw StateError('Could not clear foreground threshold rules.');
+        }
+        return;
+      }
+      root = Map<String, dynamic>.from(decoded);
+    } catch (error) {
+      if (error is StateError) rethrow;
+      final removed = await _prefs.remove(_thresholdRulesKey);
+      if (!removed) {
+        throw StateError('Could not clear foreground threshold rules.');
+      }
+      return;
+    }
+    if (!root.containsKey(profileId)) return;
+    root.remove(profileId);
+    final saved = root.isEmpty
+        ? await _prefs.remove(_thresholdRulesKey)
+        : await _prefs.setString(_thresholdRulesKey, jsonEncode(root));
+    if (!saved) {
+      throw StateError('Could not clear foreground threshold rules.');
     }
   }
 
@@ -492,6 +623,9 @@ class ProfileRepository {
     } catch (_) {}
     try {
       await _clearGuestViews(id);
+    } catch (_) {}
+    try {
+      await _clearThresholdAlertRules(id);
     } catch (_) {}
     try {
       await _clearOfflineOverview(id);

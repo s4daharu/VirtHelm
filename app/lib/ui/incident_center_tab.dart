@@ -4,7 +4,10 @@ import '../core/app_controller.dart';
 import '../core/device_connectivity.dart';
 import '../core/incident_center.dart';
 import '../core/models.dart';
+import 'alert_rules_page.dart';
+import 'guest_page.dart';
 import 'node_page.dart';
+import 'storage_page.dart';
 import 'task_details_page.dart';
 import 'theme.dart';
 
@@ -48,6 +51,50 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
     final generation = widget.controller.connectionGeneration;
     final upid = incident.taskUpid;
     final nodeName = incident.node;
+    final guestVmid = incident.guestVmid;
+    final guestKind = incident.guestKind;
+    if (guestVmid != null && guestKind != null && nodeName != null) {
+      final inventory = widget.controller.inventory;
+      if (inventory == null) return;
+      final matches = inventory.guests.where(
+        (guest) =>
+            guest.node == nodeName &&
+            guest.kind == guestKind &&
+            guest.vmid == guestVmid,
+      );
+      if (matches.length != 1) return;
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => GuestPage(
+            controller: widget.controller,
+            guest: matches.single,
+            profileId: profileId,
+            generation: generation,
+          ),
+        ),
+      );
+      return;
+    }
+
+    final storageId = incident.storageId;
+    if (storageId != null && nodeName != null) {
+      final matches = widget.controller.storages.where(
+        (storage) => storage.node == nodeName && storage.id == storageId,
+      );
+      if (matches.length != 1) return;
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => StoragePage(
+            controller: widget.controller,
+            storage: matches.single,
+            profileId: profileId,
+            generation: generation,
+          ),
+        ),
+      );
+      return;
+    }
+
     if (upid != null && nodeName != null) {
       final known =
           widget.controller.tasks.any(
@@ -127,8 +174,36 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
           const SizedBox(height: 6),
           Text(
             'Foreground-only signals from the current connection. '
-            'No background checks, Android notifications, or persisted incident history.',
+            'Threshold rules are profile-scoped local metadata; incidents '
+            'still have no persisted history, background checks, or Android '
+            'notifications.',
             style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              key: const Key('manage-threshold-rules'),
+              onPressed: controller.active == null
+                  ? null
+                  : () {
+                      final profileId = controller.active!.id;
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => ForegroundThresholdAlertRulesPage(
+                            controller: controller,
+                            profileId: profileId,
+                            generation: controller.connectionGeneration,
+                          ),
+                        ),
+                      );
+                    },
+              icon: const Icon(Icons.tune_rounded),
+              label: Text(
+                'Manage threshold rules '
+                '(${controller.thresholdAlertRules.length})',
+              ),
+            ),
           ),
           if (stale) ...[
             const SizedBox(height: 14),
@@ -255,9 +330,11 @@ class _IncidentCard extends StatelessWidget {
           backgroundColor: color.withValues(alpha: 0.14),
           foregroundColor: color,
           child: Icon(
-            incident.source == CockpitIncidentSource.node
-                ? Icons.dns_outlined
-                : Icons.error_outline_rounded,
+            switch (incident.source) {
+              CockpitIncidentSource.node => Icons.dns_outlined,
+              CockpitIncidentSource.task => Icons.error_outline_rounded,
+              CockpitIncidentSource.rule => Icons.speed_outlined,
+            },
           ),
         ),
         title: Text(

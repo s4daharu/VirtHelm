@@ -56,6 +56,6 @@ The app version is bumped to `0.1.11+1`. Repository CI remains the formatter/ana
 
 ## Deliberately deferred
 
-This does **not** complete ALERT-002 through ALERT-014 or Android-polish notification stories. Configurable thresholds, state-machine acknowledgement/history, quiet hours/cooldown, WorkManager checks, lock-screen privacy controls for system notifications, notification deep links, certificate/backup reminders and relay/webhook integration remain gated future work.
+This increment originally left ALERT-002 through ALERT-014 gated. ALERT-002/003 foreground CPU/storage thresholds are now implemented separately in [the threshold-rule increment](65-implementation-foreground-threshold-alert-rules.md). Alert duration/hysteresis, acknowledgement/history, quiet hours/cooldown, WorkManager checks, lock-screen privacy controls for system notifications, notification deep links, certificate/backup reminders and relay/webhook integration remain gated future work.
 
 Live PVE 9.2/8.4 node/task payloads, ACL variants, partial multi-node reads, 200-guest/task performance, TalkBack/font-scale behavior and physical Android lifecycle/network testing remain required before release claims.
