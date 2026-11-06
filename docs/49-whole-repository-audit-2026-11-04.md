@@ -33,7 +33,7 @@ The full `Docs and Android checks` workflow must pass **at the exact final featu
 
 **P0 gaps still open:** detailed task/log explorer (F09), user-controlled theme/refresh/display preferences (F11), persistent offline read cache (F12), complete DNS/timeout/offline differentiation and network-aware state transitions (F12), and real target-system/instrumented release verification.
 
-**Premium features still proposed/deferred:** ticket/2FA, console, snapshots/backups/restore, broader node/storage and long-range RRD charts, alert center, infrastructure mutations, HA/Ceph/SDN, PBS/PDM, multi-site and operations wizards. These are not delivered merely because their designs exist in docs 21–36.
+**Premium features still proposed/deferred:** ticket/2FA, console, snapshots/backups/restore, broader storage/capacity and long-range RRD charts, alert center, infrastructure mutations, HA/Ceph/SDN, PBS/PDM, multi-site and operations wizards. These are not delivered merely because their designs exist in docs 21–36.
 
 ## Merge/release decision
 
