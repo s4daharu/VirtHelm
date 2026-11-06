@@ -629,7 +629,11 @@ class _GuestTile extends StatelessWidget {
         ),
         title: Text(guest.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(
-          '${guest.kind.toUpperCase()} • ${guest.vmid} • ${guest.node}',
+          '${guest.kind.toUpperCase()} • ${guest.vmid} • ${guest.node}'
+          '${guest.pool == null ? '' : '\nPool: ${guest.pool}'}'
+          '${guest.tags.isEmpty ? '' : '\nTags: ${guest.tags.join(', ')}'}',
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -684,6 +688,8 @@ class _GuestsTabState extends State<_GuestsTab> {
   GuestKindFilter kind = GuestKindFilter.all;
   GuestSort sort = GuestSort.favorites;
   String? nodeFilter;
+  String? tagFilter;
+  String? poolFilter;
   String? profileId;
   String? activeViewId;
 
@@ -705,6 +711,8 @@ class _GuestsTabState extends State<_GuestsTab> {
       filter = 'all';
       kind = GuestKindFilter.all;
       nodeFilter = null;
+      tagFilter = null;
+      poolFilter = null;
       sort = GuestSort.favorites;
       activeViewId = null;
     }
@@ -727,6 +735,8 @@ class _GuestsTabState extends State<_GuestsTab> {
       filter = view.status;
       kind = view.kind;
       nodeFilter = view.node;
+      tagFilter = view.tag;
+      poolFilter = view.pool;
       sort = view.sort;
       activeViewId = view.id;
     });
@@ -771,6 +781,8 @@ class _GuestsTabState extends State<_GuestsTab> {
         status: filter,
         kind: kind,
         node: nodeFilter,
+        tag: tagFilter,
+        pool: poolFilter,
         sort: sort,
       );
       final saved = await widget.controller.saveGuestView(
@@ -832,6 +844,14 @@ class _GuestsTabState extends State<_GuestsTab> {
     final controller = widget.controller;
     final allGuests = inv?.guests ?? <Guest>[];
     final nodes = allGuests.map((guest) => guest.node).toSet().toList()..sort();
+    final tags = allGuests.expand((guest) => guest.tags).toSet().toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final pools = allGuests
+        .map((guest) => guest.pool)
+        .whereType<String>()
+        .toSet()
+        .toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     final guests = visibleGuests(
       allGuests,
       isFavorite: controller.isGuestFavorite,
@@ -839,6 +859,8 @@ class _GuestsTabState extends State<_GuestsTab> {
       status: filter,
       kind: kind,
       node: nodeFilter,
+      tag: tagFilter,
+      pool: poolFilter,
       sort: sort,
     );
     return RefreshIndicator(
@@ -855,7 +877,7 @@ class _GuestsTabState extends State<_GuestsTab> {
                     controller: search,
                     onChanged: (value) => _manualChange(() => query = value),
                     decoration: const InputDecoration(
-                      hintText: 'Search guests, VMID, or node',
+                      hintText: 'Search guests, VMID, node, tag, or pool',
                       prefixIcon: Icon(Icons.search_rounded),
                     ),
                   ),
@@ -966,6 +988,70 @@ class _GuestsTabState extends State<_GuestsTab> {
                               nodeFilter == null
                                   ? 'All nodes'
                                   : 'Node: $nodeFilter',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ),
+                      PopupMenuButton<String>(
+                        tooltip: 'Filter by tag',
+                        onSelected: (value) => _manualChange(
+                          () => tagFilter = value.isEmpty ? null : value,
+                        ),
+                        itemBuilder: (_) => [
+                          CheckedPopupMenuItem<String>(
+                            value: '',
+                            checked: tagFilter == null,
+                            child: const Text('All tags'),
+                          ),
+                          for (final tag in tags)
+                            CheckedPopupMenuItem<String>(
+                              value: tag,
+                              checked: tagFilter == tag,
+                              child: Text(tag),
+                            ),
+                        ],
+                        child: Chip(
+                          avatar: const Icon(Icons.sell_outlined, size: 18),
+                          label: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 150),
+                            child: Text(
+                              tagFilter == null
+                                  ? 'All tags'
+                                  : 'Tag: $tagFilter',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ),
+                      PopupMenuButton<String>(
+                        tooltip: 'Filter by pool',
+                        onSelected: (value) => _manualChange(
+                          () => poolFilter = value.isEmpty ? null : value,
+                        ),
+                        itemBuilder: (_) => [
+                          CheckedPopupMenuItem<String>(
+                            value: '',
+                            checked: poolFilter == null,
+                            child: const Text('All pools'),
+                          ),
+                          for (final pool in pools)
+                            CheckedPopupMenuItem<String>(
+                              value: pool,
+                              checked: poolFilter == pool,
+                              child: Text(pool),
+                            ),
+                        ],
+                        child: Chip(
+                          avatar: const Icon(Icons.folder_outlined, size: 18),
+                          label: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 150),
+                            child: Text(
+                              poolFilter == null
+                                  ? 'All pools'
+                                  : 'Pool: $poolFilter',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
