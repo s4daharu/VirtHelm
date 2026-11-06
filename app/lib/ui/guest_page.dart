@@ -265,6 +265,20 @@ class _GuestPageState extends State<GuestPage> {
                       'Node: ${widget.guest.node}',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
+                    if (guest?.pool != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Pool: ${guest!.pool}',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                    if (guest != null && guest.tags.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tags: ${guest.tags.join(', ')}',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
                     if (widget.controller.inventory != null) ...[
                       const SizedBox(height: 4),
                       Text(
