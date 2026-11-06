@@ -158,7 +158,9 @@ class _StoragePageState extends State<StoragePage> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        StatusChip(status: storage?.stateLabel ?? 'unavailable'),
+                        StatusChip(
+                          status: storage?.stateLabel ?? 'unavailable',
+                        ),
                       ],
                     ),
                     const SizedBox(height: 14),
@@ -229,7 +231,9 @@ class _StoragePageState extends State<StoragePage> {
             Align(
               alignment: Alignment.centerLeft,
               child: FilledButton.tonalIcon(
-                onPressed: storage == null || loadingMetrics ? null : loadMetrics,
+                onPressed: storage == null || loadingMetrics
+                    ? null
+                    : loadMetrics,
                 icon: loadingMetrics
                     ? const SizedBox.square(
                         dimension: 18,
@@ -332,7 +336,8 @@ class _StorageMetricHistoryCard extends StatelessWidget {
             Text(range),
             const SizedBox(height: 10),
             Semantics(
-              label: 'Storage usage. $summary. $range. ${values.length} samples.',
+              label:
+                  'Storage usage. $summary. $range. ${values.length} samples.',
               child: ExcludeSemantics(
                 child: SizedBox(
                   height: 108,

@@ -34,7 +34,7 @@ Synthetic regressions cover:
 - Android-network short-circuit and 401 write-safety invalidation;
 - explicit-load UI behavior, timeframe reset, accessible text summaries and session redaction.
 
-The app version is bumped to `0.1.10+1`. Repository CI remains the compile/analyzer/debug-build gate for the pushed commit.
+The app version is bumped to `0.1.10+2`. Repository CI remains the compile/analyzer/debug-build gate for the pushed commit.
 
 ## Remaining evidence
 

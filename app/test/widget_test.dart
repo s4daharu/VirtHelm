@@ -324,11 +324,7 @@ void main() {
       endpoint: 'https://a.example',
     );
     controller.inventory = Inventory.fromResources([
-      {
-        'type': 'node',
-        'node': 'pve1',
-        'status': 'online',
-      },
+      {'type': 'node', 'node': 'pve1', 'status': 'online'},
     ]);
     controller.storages = const [
       StoragePool(
