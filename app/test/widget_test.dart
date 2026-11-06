@@ -216,6 +216,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.requestedTimeframes, isEmpty);
 
+    await tester.scrollUntilVisible(
+      find.text('pve1'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('pve1'));
     await tester.pumpAndSettle();
     expect(find.byType(NodePage), findsOneWidget);
