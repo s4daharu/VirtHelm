@@ -176,13 +176,11 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
                           final profileId = controller.active!.id;
                           Navigator.of(context).push(
                             MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  ForegroundThresholdAlertRulesPage(
-                                    controller: controller,
-                                    profileId: profileId,
-                                    generation:
-                                        controller.connectionGeneration,
-                                  ),
+                              builder: (_) => ForegroundThresholdAlertRulesPage(
+                                controller: controller,
+                                profileId: profileId,
+                                generation: controller.connectionGeneration,
+                              ),
                             ),
                           );
                         },
