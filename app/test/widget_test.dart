@@ -219,6 +219,12 @@ void main() {
     await tester.tap(find.text('pve1'));
     await tester.pumpAndSettle();
     expect(find.byType(NodePage), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Performance history'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     expect(find.text('Performance history'), findsOneWidget);
     expect(controller.requestedTimeframes, isEmpty);
 
