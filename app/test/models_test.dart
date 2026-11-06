@@ -203,6 +203,31 @@ void main() {
     },
   );
 
+  test('node RRD samples reject invalid values without inventing metrics', () {
+    final valid = NodeMetricPoint.fromApi({
+      'time': 1700000000,
+      'cpu': 0.25,
+      'mem': 512,
+      'maxmem': 1024,
+    });
+    expect(valid.cpuFraction, 0.25);
+    expect(valid.memoryFraction, 0.5);
+
+    expect(
+      () => NodeMetricPoint.fromApi({
+        'time': 1700000000,
+        'cpu': 1.5,
+        'mem': 2048,
+        'maxmem': 1024,
+      }),
+      throwsFormatException,
+    );
+    expect(
+      () => NodeMetricPoint.fromApi({'time': -1, 'cpu': 0.2}),
+      throwsFormatException,
+    );
+  });
+
   test('missing or malformed guest I/O counters never become zero', () {
     final guest = Guest.fromResource({
       'type': 'lxc',
