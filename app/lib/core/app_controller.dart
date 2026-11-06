@@ -79,6 +79,7 @@ class AppController extends ChangeNotifier {
         !_disposed && generation == _generation && active?.id == profileId;
     if (!current() ||
         gateway == null ||
+        deviceNetworkState == DeviceNetworkState.unavailable ||
         !tasks.any((task) => task.node == node && task.upid == upid) &&
             !serverTasks.any(
               (task) => task.node == node && task.upid == upid,
@@ -107,7 +108,7 @@ class AppController extends ChangeNotifier {
       statusError = error.message;
       authLost = error.status == 401;
       if (authLost && current()) {
-        await _clearOfflineAfterAuth(generation);
+        await _recordAuthenticatedReadLoss(generation, error.message);
       }
     } catch (_) {
       statusError = 'Could not read task status.';
@@ -119,7 +120,7 @@ class AppController extends ChangeNotifier {
       } on PveFailure catch (error) {
         logError = error.message;
         if (error.status == 401 && current()) {
-          await _clearOfflineAfterAuth(generation);
+          await _recordAuthenticatedReadLoss(generation, error.message);
         }
       } catch (_) {
         logError = 'Could not read task log.';
@@ -170,7 +171,7 @@ class AppController extends ChangeNotifier {
       return result;
     } on PveFailure catch (error) {
       if (error.status == 401 && current()) {
-        await _clearOfflineAfterAuth(generation);
+        await _recordAuthenticatedReadLoss(generation, error.message);
       }
       rethrow;
     }
@@ -205,7 +206,7 @@ class AppController extends ChangeNotifier {
       return result;
     } on PveFailure catch (error) {
       if (error.status == 401 && current()) {
-        await _clearOfflineAfterAuth(generation);
+        await _recordAuthenticatedReadLoss(generation, error.message);
       }
       rethrow;
     }
@@ -363,6 +364,17 @@ class AppController extends ChangeNotifier {
     } catch (_) {
       // The cached data is hidden for this session even if deletion fails.
     }
+  }
+
+  Future<void> _recordAuthenticatedReadLoss(
+    int generation,
+    String errorMessage,
+  ) async {
+    if (_disposed || generation != _generation) return;
+    message = errorMessage;
+    await _clearOfflineAfterAuth(generation);
+    if (_disposed || generation != _generation) return;
+    _notify();
   }
 
   Future<void> connect({
