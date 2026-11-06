@@ -36,6 +36,8 @@ void main() {
       status: 'stopped',
       kind: GuestKindFilter.lxc,
       node: ' pve2 ',
+      tag: ' production ',
+      pool: ' Team A ',
       sort: GuestSort.memory,
     );
     final decoded = SavedGuestView.fromJson(view.toJson());
@@ -44,8 +46,32 @@ void main() {
     expect(decoded.status, 'stopped');
     expect(decoded.kind, GuestKindFilter.lxc);
     expect(decoded.node, 'pve2');
+    expect(decoded.tag, 'production');
+    expect(decoded.pool, 'Team A');
     expect(decoded.sort, GuestSort.memory);
     expect(decoded.id, view.id);
+  });
+
+  test('legacy saved views remain compatible without tag or pool fields', () {
+    final legacy = SavedGuestView.fromJson({
+      'id': 'legacy',
+      'name': 'Legacy',
+      'search': '',
+      'status': 'all',
+      'kind': 'all',
+      'node': null,
+      'sort': 'favorites',
+    });
+    expect(legacy.tag, isNull);
+    expect(legacy.pool, isNull);
+
+    expect(
+      () => SavedGuestView.fromJson({
+        ...legacy.toJson(),
+        'tag': 42,
+      }),
+      throwsFormatException,
+    );
   });
 
   test('saved view rejects unsupported or oversized persisted values', () {
