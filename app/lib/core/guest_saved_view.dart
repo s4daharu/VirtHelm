@@ -15,6 +15,8 @@ class SavedGuestView {
     required this.kind,
     required this.sort,
     this.node,
+    this.tag,
+    this.pool,
   });
 
   final String id;
@@ -23,6 +25,8 @@ class SavedGuestView {
   final String status;
   final GuestKindFilter kind;
   final String? node;
+  final String? tag;
+  final String? pool;
   final GuestSort sort;
 
   factory SavedGuestView.create({
@@ -31,11 +35,15 @@ class SavedGuestView {
     String status = 'all',
     GuestKindFilter kind = GuestKindFilter.all,
     String? node,
+    String? tag,
+    String? pool,
     GuestSort sort = GuestSort.favorites,
   }) {
     final normalizedName = _validatedName(name);
     final normalizedSearch = _validatedSearch(search);
-    final normalizedNode = _validatedNode(node);
+    final normalizedNode = _validatedDimension(node, 'node');
+    final normalizedTag = _validatedDimension(tag, 'tag');
+    final normalizedPool = _validatedDimension(pool, 'pool');
     _validateStatus(status);
     return SavedGuestView(
       id:
@@ -46,6 +54,8 @@ class SavedGuestView {
       status: status,
       kind: kind,
       node: normalizedNode,
+      tag: normalizedTag,
+      pool: normalizedPool,
       sort: sort,
     );
   }
@@ -57,6 +67,8 @@ class SavedGuestView {
     final status = json['status'];
     final kind = json['kind'];
     final node = json['node'];
+    final tag = json['tag'];
+    final pool = json['pool'];
     final sort = json['sort'];
     if (id is! String || id.trim().isEmpty || id.length > 96) {
       throw const FormatException('Saved view has an invalid identifier.');
@@ -80,11 +92,9 @@ class SavedGuestView {
       search: _validatedSearch(search),
       status: status,
       kind: parsedKind,
-      node: node == null
-          ? null
-          : node is String
-          ? _validatedNode(node)
-          : throw const FormatException('Saved view has an invalid node.'),
+      node: _optionalDimension(node, 'node'),
+      tag: _optionalDimension(tag, 'tag'),
+      pool: _optionalDimension(pool, 'pool'),
       sort: parsedSort,
     );
   }
@@ -96,6 +106,8 @@ class SavedGuestView {
     status: status,
     kind: kind,
     node: node,
+    tag: tag,
+    pool: pool,
     sort: sort,
   );
 
@@ -106,6 +118,8 @@ class SavedGuestView {
     'status': status,
     'kind': kind.name,
     'node': node,
+    'tag': tag,
+    'pool': pool,
     'sort': sort.name,
   };
 }
@@ -128,13 +142,23 @@ String _validatedSearch(String value) {
   return normalized;
 }
 
-String? _validatedNode(String? value) {
+String? _validatedDimension(String? value, String label) {
   if (value == null) return null;
   final normalized = value.trim();
-  if (normalized.isEmpty || normalized.length > 200) {
-    throw const FormatException('Saved view has an invalid node.');
+  if (normalized.isEmpty ||
+      normalized.length > 200 ||
+      RegExp(r'[\x00-\x1F\x7F]').hasMatch(normalized)) {
+    throw FormatException('Saved view has an invalid $label.');
   }
   return normalized;
+}
+
+String? _optionalDimension(Object? value, String label) {
+  if (value == null) return null;
+  if (value is! String) {
+    throw FormatException('Saved view has an invalid $label.');
+  }
+  return _validatedDimension(value, label);
 }
 
 void _validateStatus(String value) {

@@ -37,7 +37,8 @@ required = [
    'docs/56-implementation-f09-task-history-filters.md',
    'docs/57-implementation-guest-io-counters.md',
    'docs/58-premerge-whole-repository-audit-2026-11-05.md',
-   'docs/59-implementation-guest-rrd-history.md']
+   'docs/59-implementation-guest-rrd-history.md',
+   'docs/60-implementation-tag-pool-browsing.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
@@ -78,6 +79,12 @@ assert 'Future<GuestMetricSeries> guestMetrics' in files['app/lib/core/pve_api.d
 assert "'cf': 'AVERAGE'" in files['app/lib/core/pve_api.dart']
 assert 'inspectGuestMetrics' in files['app/lib/core/app_controller.dart']
 assert 'Performance history' in files['app/lib/ui/guest_page.dart']
+assert '_guestTags' in files['app/lib/core/models.dart']
+assert 'final List<String> tags' in files['app/lib/core/models.dart']
+assert 'String? tag' in files['app/lib/core/guest_list_filter.dart']
+assert 'String? pool' in files['app/lib/core/guest_saved_view.dart']
+assert "tooltip: 'Filter by tag'" in files['app/lib/ui/shell.dart']
+assert "tooltip: 'Filter by pool'" in files['app/lib/ui/shell.dart']
 assert '_currentSession' in files['app/lib/ui/guest_page.dart']
 assert 'generation: generation' in files['app/lib/ui/shell.dart']
 assert 'ServerTaskStateFilter' in files['app/lib/core/task_history_filter.dart']

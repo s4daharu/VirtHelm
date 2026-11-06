@@ -1042,6 +1042,8 @@ void main() {
         'node': 'pve1',
         'name': 'Alpha',
         'status': 'running',
+        'tags': 'prod;web',
+        'pool': 'team-a',
       },
       {
         'type': 'lxc',
@@ -1049,6 +1051,8 @@ void main() {
         'node': 'pve2',
         'name': 'Beta',
         'status': 'stopped',
+        'tags': 'dev;cache',
+        'pool': 'team-a',
       },
       {
         'type': 'lxc',
@@ -1056,6 +1060,8 @@ void main() {
         'node': 'pve2',
         'name': 'Gamma',
         'status': 'running',
+        'tags': 'dev',
+        'pool': 'team-b',
       },
     ]);
     await tester.pumpWidget(
@@ -1077,6 +1083,29 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('All tags'));
+    await tester.tap(find.text('All tags'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CheckedPopupMenuItem<String> && widget.value == 'dev',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('All pools'));
+    await tester.tap(find.text('All pools'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CheckedPopupMenuItem<String> && widget.value == 'team-a',
+      ),
+    );
+    await tester.pumpAndSettle();
+
     await tester.ensureVisible(find.text('Sort: Favorites first'));
     await tester.tap(find.text('Sort: Favorites first'));
     await tester.pumpAndSettle();
@@ -1111,6 +1140,29 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Tag: dev'));
+    await tester.tap(find.text('Tag: dev'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CheckedPopupMenuItem<String> && widget.value == '',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Pool: team-a'));
+    await tester.tap(find.text('Pool: team-a'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CheckedPopupMenuItem<String> && widget.value == '',
+      ),
+    );
+    await tester.pumpAndSettle();
+
     await tester.ensureVisible(find.text('Sort: VMID'));
     await tester.tap(find.text('Sort: VMID'));
     await tester.pumpAndSettle();
@@ -1131,6 +1183,8 @@ void main() {
     expect(find.widgetWithText(ListTile, 'Beta'), findsOneWidget);
     expect(find.text('Sort: VMID'), findsOneWidget);
     expect(find.text('Node: pve2'), findsOneWidget);
+    expect(find.text('Tag: dev'), findsOneWidget);
+    expect(find.text('Pool: team-a'), findsOneWidget);
     expect(
       tester.widget<TextField>(find.byType(TextField).first).controller?.text,
       'Beta',

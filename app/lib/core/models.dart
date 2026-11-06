@@ -465,6 +465,39 @@ int? _guestByteCounter(Object? value) {
   return number != null && number >= 0 ? number : null;
 }
 
+List<String> _guestTags(Object? value) {
+  final raw = asText(value);
+  if (raw == null || raw.trim().isEmpty || raw.length > 1024) {
+    return const <String>[];
+  }
+  final result = <String>[];
+  final seen = <String>{};
+  final controlCharacters = RegExp(r'[\x00-\x1F\x7F]');
+  for (final part in raw.split(';')) {
+    final tag = part.trim();
+    if (tag.isEmpty ||
+        tag.length > 64 ||
+        controlCharacters.hasMatch(tag) ||
+        !seen.add(tag)) {
+      continue;
+    }
+    result.add(tag);
+    if (result.length == 32) break;
+  }
+  return List<String>.unmodifiable(result);
+}
+
+String? _guestPool(Object? value) {
+  final raw = asText(value)?.trim();
+  if (raw == null ||
+      raw.isEmpty ||
+      raw.length > 200 ||
+      RegExp(r'[\x00-\x1F\x7F]').hasMatch(raw)) {
+    return null;
+  }
+  return raw;
+}
+
 class Guest {
   const Guest({
     required this.node,
@@ -482,6 +515,8 @@ class Guest {
     this.netOut,
     this.diskRead,
     this.diskWrite,
+    this.tags = const <String>[],
+    this.pool,
   });
   final String node;
   final int vmid;
@@ -499,6 +534,8 @@ class Guest {
   final int? netOut;
   final int? diskRead;
   final int? diskWrite;
+  final List<String> tags;
+  final String? pool;
 
   bool get isRunning => status == 'running';
   bool get isStopped => status == 'stopped';
@@ -532,6 +569,8 @@ class Guest {
       netOut: _guestByteCounter(json['netout']),
       diskRead: _guestByteCounter(json['diskread']),
       diskWrite: _guestByteCounter(json['diskwrite']),
+      tags: _guestTags(json['tags']),
+      pool: _guestPool(json['pool']),
     );
   }
 }
