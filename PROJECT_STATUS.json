@@ -249,10 +249,10 @@
     },
     "previous_report": "docs/49-whole-repository-audit-2026-11-04.md",
     "on_demand_read_fail_closed": {
-      "status": "fixed_source_level_pending_audit_exact_head_ci",
+      "status": "fixed_source_level",
       "behavior": "Task-detail, guest-RRD and node-RRD reads refuse new I/O when Android reports the default network unavailable. Any observed 401 records authentication loss, hides/purges offline counts and makes current inventory write-unsafe until clean authenticated refresh.",
       "mutation_boundary": "No POST retry, mutation replay, background read, new permission, persistence or endpoint is added.",
-      "verification": "Controller regressions added in the 2026-11-06 whole-repository cross-check; exact audit-head CI is required before merge.",
+      "verification": "Controller regressions cover offline short-circuiting and on-demand 401 invalidation; repository CI is required for every change, while live PVE/physical-device validation remains open.",
       "report": "docs/62-whole-repository-cross-check-2026-11-06.md"
     }
   }
