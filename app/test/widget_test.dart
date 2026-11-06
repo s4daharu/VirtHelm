@@ -13,6 +13,7 @@ import 'package:virthelm/core/offline_overview.dart';
 import 'package:virthelm/core/profile_repository.dart';
 import 'package:virthelm/ui/connect_page.dart';
 import 'package:virthelm/ui/guest_page.dart';
+import 'package:virthelm/ui/node_page.dart';
 import 'package:virthelm/ui/shell.dart';
 import 'package:virthelm/ui/task_details_page.dart';
 
@@ -87,6 +88,38 @@ class _GuestMetricController extends AppController {
   }
 }
 
+class _NodeMetricController extends AppController {
+  _NodeMetricController(ProfileRepository repository)
+    : super(repository: repository);
+
+  final List<NodeMetricTimeframe> requestedTimeframes = [];
+
+  @override
+  Future<NodeMetricSeries?> inspectNodeMetrics({
+    required String profileId,
+    required int generation,
+    required Node node,
+    required NodeMetricTimeframe timeframe,
+  }) async {
+    requestedTimeframes.add(timeframe);
+    return NodeMetricSeries(
+      points: [
+        NodeMetricPoint(
+          timestamp: DateTime.utc(2026, 11, 6, 12),
+          cpuFraction: 0.2,
+          memoryFraction: 0.5,
+        ),
+        NodeMetricPoint(
+          timestamp: DateTime.utc(2026, 11, 6, 13),
+          cpuFraction: 0.4,
+          memoryFraction: 0.75,
+        ),
+      ],
+      malformedRecords: 1,
+    );
+  }
+}
+
 class _BlockingController extends AppController {
   _BlockingController(ProfileRepository repository)
     : super(repository: repository);
@@ -150,6 +183,98 @@ class _RecordingController extends AppController {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('node performance history is explicit and session redacted', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = _NodeMetricController(
+      ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'a',
+      name: 'A',
+      endpoint: 'https://a.example',
+    );
+    controller.inventory = Inventory.fromResources([
+      {
+        'type': 'node',
+        'node': 'pve1',
+        'status': 'online',
+        'cpu': 0.1,
+        'mem': 1024,
+        'maxmem': 4096,
+        'uptime': 3600,
+      },
+    ]);
+
+    await tester.pumpWidget(
+      MaterialApp(home: ShellPage(controller: controller)),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.requestedTimeframes, isEmpty);
+
+    await tester.scrollUntilVisible(
+      find.text('pve1'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('pve1'));
+    await tester.pumpAndSettle();
+    expect(find.byType(NodePage), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Performance history'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Performance history'), findsOneWidget);
+    expect(controller.requestedTimeframes, isEmpty);
+
+    await tester.tap(find.text('Load history'));
+    await tester.pumpAndSettle();
+    expect(controller.requestedTimeframes, [NodeMetricTimeframe.hour]);
+    await tester.scrollUntilVisible(
+      find.textContaining('Latest 40.0%'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Latest 40.0%'), findsOneWidget);
+    expect(find.textContaining('Range 20.0%–40.0%'), findsOneWidget);
+    expect(find.textContaining('1 malformed ignored'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('24 hours'),
+      -200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('24 hours'));
+    await tester.pumpAndSettle();
+    expect(controller.requestedTimeframes, [NodeMetricTimeframe.hour]);
+    expect(find.textContaining('Latest 40.0%'), findsNothing);
+    await tester.tap(find.text('Load history'));
+    await tester.pumpAndSettle();
+    expect(controller.requestedTimeframes, [
+      NodeMetricTimeframe.hour,
+      NodeMetricTimeframe.day,
+    ]);
+
+    controller.active = const ConnectionProfile(
+      id: 'b',
+      name: 'B',
+      endpoint: 'https://b.example',
+    );
+    controller.notifyListeners();
+    await tester.pump();
+    expect(find.text('Node unavailable'), findsWidgets);
+    expect(find.textContaining('Latest 40.0%'), findsNothing);
+    expect(find.text('pve1'), findsNothing);
+  });
 
   testWidgets('guest performance history is explicit and session redacted', (
     tester,

@@ -50,7 +50,8 @@
       "local QEMU/LXC and node guest filters, combined search, and deterministic favorites/name/VMID/CPU/memory sorting",
       "up to 12 profile-scoped named saved guest views for local search/filter/sort criteria",
       "on-demand read-only guest CPU/memory RRD performance history for 1h/24h/7d windows",
-      "read-only guest tag/pool discovery, search, exact filtering and saved-view criteria from cluster inventory"
+      "read-only guest tag/pool discovery, search, exact filtering and saved-view criteria from cluster inventory",
+      "on-demand read-only node CPU/memory RRD performance history for 1h/24h/7d windows"
     ],
     "scope_note": "This is a partial M2 read-cockpit slice, not the full premium M2 roadmap.",
     "release_validation": "Real PVE 8.4/9.2 contracts/ACLs and Android device/release gates remain required.",
@@ -108,10 +109,11 @@
       "F09 recent-task list parser now prefers explicit exitstatus over state=stopped; absent terminal exit code remains unknown (synthetic regression only; live PVE fixtures still needed)",
       "F12 retry source formatter drift corrected using pinned CI formatter output; final branch CI still required",
       "Guest RRD history is limited to explicit GET-only AVERAGE hour/day/week CPU/memory trends with route-session isolation; live PVE 8.4/9.2 fixtures and physical Android validation remain pending.",
-      "HOME-007 tag/pool browsing is presentation-only over existing cluster inventory; malformed optional metadata does not invalidate guest identity or affect mutation authorization, and live PVE 8.4/9.2 field/ACL fixtures remain pending."
+      "HOME-007 tag/pool browsing is presentation-only over existing cluster inventory; malformed optional metadata does not invalidate guest identity or affect mutation authorization, and live PVE 8.4/9.2 field/ACL fixtures remain pending.",
+      "Node RRD history is explicit GET-only AVERAGE hour/day/week CPU/memory history on a profile/generation-scoped route; live PVE 8.4/9.2 fixtures and physical Android validation remain pending."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 138,
+    "current_flutter_tests_defined": 142,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
@@ -235,6 +237,14 @@
       "persistence": "Only explicitly saved profile-scoped views may persist selected tag/pool names in existing SharedPreferences metadata. Legacy views without these fields remain compatible.",
       "limitations": "PVE 9.2/8.4 QEMU/LXC tag/pool field availability, ACL behavior, case-sensitive tag settings, nested pool naming and physical Android accessibility/performance remain open.",
       "report": "docs/60-implementation-tag-pool-browsing.md"
+    },
+    "node_rrd_history": {
+      "status": "implemented_source_level_pending_exact_head_ci",
+      "behavior": "Home node rows open a profile/generation-scoped detail route with current utilization and explicit 1h/24h/7d Proxmox RRD AVERAGE CPU/memory history. Timeframe selection alone performs no request and history is not persisted.",
+      "safety": "GET-only exact visible node lookup with active profile ID and connection-generation checks before and after I/O; profile switches/reconnects or node disappearance discard results and redact the route.",
+      "parsing": "At most 1,500 response rows are considered; timestamped finite CPU 0..1 and valid mem/maxmem ratios are retained, malformed rows counted, and charts include latest/range/sample text alternatives.",
+      "limitations": "PVE 9.2/8.4 node RRD fixtures, ACL/resolution/cluster-forwarding behavior and physical Android accessibility/performance/security review remain open.",
+      "report": "docs/61-implementation-node-rrd-history.md"
     }
   }
 }

@@ -11,6 +11,7 @@ import '../core/models.dart';
 import '../core/task_history_filter.dart';
 import 'connect_page.dart';
 import 'guest_page.dart';
+import 'node_page.dart';
 import 'theme.dart';
 import 'task_details_page.dart';
 
@@ -216,6 +217,8 @@ class _OverviewTab extends StatelessWidget {
     final cached = inv == null ? controller.cachedOverview : null;
     final hasCounts = inv != null || cached != null;
     final scheme = Theme.of(context).colorScheme;
+    final profileId = controller.active?.id;
+    final generation = controller.connectionGeneration;
     final countRunning =
         inv?.guests.where((g) => g.isRunning).length ??
         cached?.runningGuests ??
@@ -417,6 +420,18 @@ class _OverviewTab extends StatelessWidget {
                         )
                       : null,
                   trailing: StatusChip(status: node.status),
+                  onTap: profileId == null
+                      ? null
+                      : () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => NodePage(
+                              controller: controller,
+                              node: node,
+                              profileId: profileId,
+                              generation: generation,
+                            ),
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 8),

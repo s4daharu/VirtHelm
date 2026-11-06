@@ -11,6 +11,7 @@ Evidence status codes: **DOC** = official source substantiates the concept; **AU
 | Cluster resource/guest parsing, units and uptime | AUTO | sanitized 8.4/9.2 fixtures and permission variants |
 | Optional cumulative guest network/disk byte counters from cluster resources | AUTO synthetic parser/widget tests | PVE 8.4/9.2 counter availability/units/restart-reset fixtures and physical-device accessibility |
 | On-demand guest CPU/memory RRD history with route-session isolation and text alternatives | AUTO synthetic parser/gateway/controller/widget tests | PVE 8.4/9.2 QEMU/LXC RRD payload/ACL/resolution fixtures and physical Android accessibility/performance |
+| On-demand node CPU/memory RRD history with route-session isolation and text alternatives | AUTO synthetic parser/gateway/controller/widget tests | PVE 8.4/9.2 node RRD payload/ACL/resolution/cluster-forwarding fixtures and physical Android accessibility/performance |
 | QEMU/LXC start/shutdown/reboot/stop paths and one-POST behavior | AUTO contract/fault guards | disposable 8.4/9.2 mutation tests |
 | Mutation single-flight, stale/profile race rejection, unknown timeout lockout | AUTO | network fault injection against real PVE |
 | Task-detail terminal success requires stopped + OK exit status | AUTO | live successful/failed task fixtures |

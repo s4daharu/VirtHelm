@@ -19,6 +19,10 @@ abstract class PveGateway {
     Guest guest,
     GuestMetricTimeframe timeframe,
   );
+  Future<NodeMetricSeries> nodeMetrics(
+    String node,
+    NodeMetricTimeframe timeframe,
+  );
   void close();
 }
 
@@ -496,6 +500,47 @@ class DioPveGateway implements PveGateway {
     points.sort((a, b) => a.timestamp.compareTo(b.timestamp));
     return GuestMetricSeries(
       points: List<GuestMetricPoint>.unmodifiable(points),
+      malformedRecords: malformed,
+      truncated: raw.length > pointLimit,
+    );
+  }
+
+  @override
+  Future<NodeMetricSeries> nodeMetrics(
+    String node,
+    NodeMetricTimeframe timeframe,
+  ) async {
+    final normalizedNode = node.trim();
+    if (normalizedNode.isEmpty || normalizedNode.length > 200) {
+      throw const FormatException('Invalid node identity.');
+    }
+    final raw = await _request(
+      '/nodes/${_segment(normalizedNode)}/rrddata',
+      queryParameters: {'timeframe': timeframe.apiValue, 'cf': 'AVERAGE'},
+    );
+    if (raw is! List) {
+      throw const PveFailure('Unexpected node performance response.');
+    }
+
+    const pointLimit = 1500;
+    final points = <NodeMetricPoint>[];
+    var malformed = 0;
+    for (final row in raw.take(pointLimit)) {
+      if (row is! Map) {
+        malformed++;
+        continue;
+      }
+      try {
+        points.add(NodeMetricPoint.fromApi(Map<String, dynamic>.from(row)));
+      } on FormatException {
+        malformed++;
+      } on TypeError {
+        malformed++;
+      }
+    }
+    points.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    return NodeMetricSeries(
+      points: List<NodeMetricPoint>.unmodifiable(points),
       malformedRecords: malformed,
       truncated: raw.length > pointLimit,
     );

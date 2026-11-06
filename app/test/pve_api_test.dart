@@ -285,6 +285,45 @@ void main() {
     expect(series.truncated, isFalse);
   });
 
+  test('node RRD history uses bounded GET parameters and parsing', () async {
+    final dio = Dio();
+    late RequestOptions request;
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          request = options;
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'data': [
+                  {'time': 1700000060, 'cpu': 0.4, 'mem': 1536, 'maxmem': 2048},
+                  'bad',
+                  {'time': 1700000000, 'cpu': 0.2, 'mem': 1024, 'maxmem': 2048},
+                  {'time': 1700000120, 'cpu': 2.0, 'mem': -1, 'maxmem': 2048},
+                ],
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(profile, credentials, http: dio);
+    addTearDown(gateway.close);
+
+    final series = await gateway.nodeMetrics('pve1', NodeMetricTimeframe.week);
+    expect(request.method, 'GET');
+    expect(request.path, '/nodes/pve1/rrddata');
+    expect(request.queryParameters['timeframe'], 'week');
+    expect(request.queryParameters['cf'], 'AVERAGE');
+    expect(series.points.length, 2);
+    expect(series.points.first.cpuFraction, 0.2);
+    expect(series.points.last.memoryFraction, 0.75);
+    expect(series.malformedRecords, 2);
+    expect(series.truncated, isFalse);
+  });
+
   test(
     'task log uses bounded read-only URL and tolerates malformed rows',
     () async {
