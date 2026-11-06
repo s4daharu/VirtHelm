@@ -86,8 +86,11 @@ void main() {
 
   test('search plus tag and pool filters compose from inventory metadata', () {
     expect(
-      visibleGuests(guests, isFavorite: favorite, search: 'customer-b')
-          .map(identity),
+      visibleGuests(
+        guests,
+        isFavorite: favorite,
+        search: 'customer-b',
+      ).map(identity),
       ['qemu/pve2/99'],
     );
     expect(
