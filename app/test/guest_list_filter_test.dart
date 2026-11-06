@@ -12,6 +12,8 @@ void main() {
       status: 'running',
       cpu: 0.35,
       mem: 1024,
+      tags: ['prod', 'web'],
+      pool: 'customer-a',
     ),
     Guest(
       node: 'pve1',
@@ -19,6 +21,8 @@ void main() {
       kind: 'lxc',
       name: 'cache',
       status: 'stopped',
+      tags: ['dev'],
+      pool: 'customer-a',
     ),
     Guest(
       node: 'pve2',
@@ -28,6 +32,8 @@ void main() {
       status: 'running',
       cpu: 0.8,
       mem: 2048,
+      tags: ['prod', 'db'],
+      pool: 'customer-b',
     ),
     Guest(
       node: 'pve2',
@@ -75,6 +81,36 @@ void main() {
     expect(
       visibleGuests(guests, isFavorite: favorite, search: '101').length,
       2,
+    );
+  });
+
+  test('search plus tag and pool filters compose from inventory metadata', () {
+    expect(
+      visibleGuests(guests, isFavorite: favorite, search: 'customer-b')
+          .map(identity),
+      ['qemu/pve2/99'],
+    );
+    expect(
+      visibleGuests(guests, isFavorite: favorite, search: 'DB').map(identity),
+      ['qemu/pve2/99'],
+    );
+    expect(
+      visibleGuests(guests, isFavorite: favorite, tag: 'prod').map(identity),
+      ['qemu/pve1/101', 'qemu/pve2/99'],
+    );
+    expect(
+      visibleGuests(
+        guests,
+        isFavorite: favorite,
+        tag: 'prod',
+        pool: 'customer-b',
+      ).map(identity),
+      ['qemu/pve2/99'],
+    );
+    expect(
+      visibleGuests(guests, isFavorite: favorite, tag: 'Prod'),
+      isEmpty,
+      reason: 'tag identity remains case-sensitive',
     );
   });
 
