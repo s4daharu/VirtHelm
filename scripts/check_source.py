@@ -39,7 +39,8 @@ required = [
    'docs/58-premerge-whole-repository-audit-2026-11-05.md',
    'docs/59-implementation-guest-rrd-history.md',
    'docs/60-implementation-tag-pool-browsing.md',
-   'docs/61-implementation-node-rrd-history.md']
+   'docs/61-implementation-node-rrd-history.md',
+   'docs/62-whole-repository-cross-check-2026-11-06.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
@@ -79,6 +80,10 @@ assert 'GuestMetricTimeframe' in files['app/lib/core/models.dart']
 assert 'Future<GuestMetricSeries> guestMetrics' in files['app/lib/core/pve_api.dart']
 assert "'cf': 'AVERAGE'" in files['app/lib/core/pve_api.dart']
 assert 'inspectGuestMetrics' in files['app/lib/core/app_controller.dart']
+controller = files['app/lib/core/app_controller.dart']
+task_inspection = controller.split('Future<TaskInspection?> inspectTask', 1)[1].split('Future<GuestMetricSeries?> inspectGuestMetrics', 1)[0]
+assert 'deviceNetworkState == DeviceNetworkState.unavailable' in task_inspection
+assert '_recordAuthenticatedReadLoss' in controller
 assert 'Performance history' in files['app/lib/ui/guest_page.dart']
 assert 'NodeMetricTimeframe' in files['app/lib/core/models.dart']
 assert 'Future<NodeMetricSeries> nodeMetrics' in files['app/lib/core/pve_api.dart']
