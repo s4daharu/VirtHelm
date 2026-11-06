@@ -48,7 +48,6 @@ class CockpitIncident {
   };
 }
 
-
 class ForegroundThresholdAlertEngine {
   final Map<String, CockpitIncident> _active = {};
 
@@ -146,15 +145,14 @@ class ForegroundThresholdAlertEngine {
   }) {
     switch (rule.metric) {
       case ForegroundThresholdMetric.nodeCpu:
-        final matches = inventory.nodes.where(
-          (node) => node.name == rule.node,
-        );
+        final matches = inventory.nodes.where((node) => node.name == rule.node);
         if (matches.length != 1) return null;
         final cpu = matches.single.cpu;
         if (cpu == null || cpu < 0 || cpu > 1) return null;
         return _ThresholdSample(
           fraction: cpu,
-          title: 'Node ${matches.single.name} CPU is '
+          title:
+              'Node ${matches.single.name} CPU is '
               '${(cpu * 100).toStringAsFixed(1)}%',
           node: matches.single.name,
         );
@@ -171,7 +169,8 @@ class ForegroundThresholdAlertEngine {
         if (cpu == null || cpu < 0 || cpu > 1) return null;
         return _ThresholdSample(
           fraction: cpu,
-          title: '${guest.name} (${guest.vmid}) CPU is '
+          title:
+              '${guest.name} (${guest.vmid}) CPU is '
               '${(cpu * 100).toStringAsFixed(1)}%',
           node: guest.node,
           guestKind: guest.kind,
@@ -189,7 +188,8 @@ class ForegroundThresholdAlertEngine {
         if (usage == null || usage < 0 || usage > 1) return null;
         return _ThresholdSample(
           fraction: usage,
-          title: '${storage.id} on ${storage.node} is '
+          title:
+              '${storage.id} on ${storage.node} is '
               '${(usage * 100).toStringAsFixed(1)}% full',
           node: storage.node,
           storageId: storage.id,
@@ -250,8 +250,7 @@ List<CockpitIncident> buildCockpitIncidents({
   required Iterable<RecentServerTask> serverTasks,
   required Iterable<TrackedTask> sessionTasks,
   Iterable<CockpitIncident> retainedTaskIncidents = const <CockpitIncident>[],
-  Iterable<CockpitIncident> foregroundRuleIncidents =
-      const <CockpitIncident>[],
+  Iterable<CockpitIncident> foregroundRuleIncidents = const <CockpitIncident>[],
 }) {
   final byKey = <String, CockpitIncident>{};
 

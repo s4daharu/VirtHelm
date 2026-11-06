@@ -105,10 +105,9 @@ void main() {
     );
 
     expect(engine.incidents, hasLength(3));
-    expect(
-      engine.incidents.map((incident) => incident.source).toSet(),
-      {CockpitIncidentSource.rule},
-    );
+    expect(engine.incidents.map((incident) => incident.source).toSet(), {
+      CockpitIncidentSource.rule,
+    });
     expect(
       engine.incidents.map((incident) => incident.title),
       containsAll([

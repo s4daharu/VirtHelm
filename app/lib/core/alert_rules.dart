@@ -64,8 +64,7 @@ class ForegroundThresholdAlertRule {
 
   String get resourceKey => switch (metric) {
     ForegroundThresholdMetric.nodeCpu => 'node:$node',
-    ForegroundThresholdMetric.guestCpu =>
-      'guest:$guestKind:$node:$guestVmid',
+    ForegroundThresholdMetric.guestCpu => 'guest:$guestKind:$node:$guestVmid',
     ForegroundThresholdMetric.storageUsage => 'storage:$node:$storageId',
   };
 

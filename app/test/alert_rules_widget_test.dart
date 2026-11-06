@@ -35,10 +35,7 @@ void main() {
     );
     await repository.save(
       profile,
-      const ApiCredentials(
-        tokenId: 'user@pve!mobile',
-        secret: 'secret',
-      ),
+      const ApiCredentials(tokenId: 'user@pve!mobile', secret: 'secret'),
     );
     final controller = AppController(repository: repository);
     addTearDown(controller.dispose);

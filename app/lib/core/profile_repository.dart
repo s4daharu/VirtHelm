@@ -202,9 +202,7 @@ class ProfileRepository {
     }
   }
 
-  List<ForegroundThresholdAlertRule> readThresholdAlertRules(
-    String profileId,
-  ) {
+  List<ForegroundThresholdAlertRule> readThresholdAlertRules(String profileId) {
     final raw = _prefs.getString(_thresholdRulesKey);
     if (raw == null) return [];
     try {
@@ -253,38 +251,33 @@ class ProfileRepository {
       rules.add(validated);
     }
     root[profileId] = rules.map((item) => item.toJson()).toList();
-    final saved = await _prefs.setString(
-      _thresholdRulesKey,
-      jsonEncode(root),
-    );
+    final saved = await _prefs.setString(_thresholdRulesKey, jsonEncode(root));
     if (!saved) {
       throw StateError('Could not save foreground threshold rule.');
     }
   });
 
-  Future<void> deleteThresholdAlertRule(
-    String profileId,
-    String ruleId,
-  ) => _mutate(() async {
-    if (!readProfiles().any((profile) => profile.id == profileId)) {
-      throw StateError('Connection no longer exists.');
-    }
-    final root = _readThresholdRulesRoot();
-    final rules = readThresholdAlertRules(
-      profileId,
-    ).where((item) => item.id != ruleId).toList();
-    if (rules.isEmpty) {
-      root.remove(profileId);
-    } else {
-      root[profileId] = rules.map((item) => item.toJson()).toList();
-    }
-    final saved = root.isEmpty
-        ? await _prefs.remove(_thresholdRulesKey)
-        : await _prefs.setString(_thresholdRulesKey, jsonEncode(root));
-    if (!saved) {
-      throw StateError('Could not delete foreground threshold rule.');
-    }
-  });
+  Future<void> deleteThresholdAlertRule(String profileId, String ruleId) =>
+      _mutate(() async {
+        if (!readProfiles().any((profile) => profile.id == profileId)) {
+          throw StateError('Connection no longer exists.');
+        }
+        final root = _readThresholdRulesRoot();
+        final rules = readThresholdAlertRules(
+          profileId,
+        ).where((item) => item.id != ruleId).toList();
+        if (rules.isEmpty) {
+          root.remove(profileId);
+        } else {
+          root[profileId] = rules.map((item) => item.toJson()).toList();
+        }
+        final saved = root.isEmpty
+            ? await _prefs.remove(_thresholdRulesKey)
+            : await _prefs.setString(_thresholdRulesKey, jsonEncode(root));
+        if (!saved) {
+          throw StateError('Could not delete foreground threshold rule.');
+        }
+      });
 
   Map<String, dynamic> _readThresholdRulesRoot() {
     final raw = _prefs.getString(_thresholdRulesKey);

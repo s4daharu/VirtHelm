@@ -25,4 +25,4 @@ This increment does not implement ALERT-006/007/008 state-machine duration, hyst
 ## Verification boundary
 Synthetic coverage validates rule JSON/target validation, node/guest/storage firing, conservative retention across missing samples, healthy resolution, profile isolation/purge and the rule-management UI path. Repository CI remains the formatter/analyzer/test/debug-APK gate.
 
-The app version is bumped to `0.1.12+1`. Real PVE 9.2/8.4 field/ACL behavior, physical Android accessibility/lifecycle/network testing, 200-guest/storage performance and release-security gates remain open.
+The feature landed at `0.1.12+1`; the formatter-only CI follow-up bumps the app version to `0.1.13+1`. Real PVE 9.2/8.4 field/ACL behavior, physical Android accessibility/lifecycle/network testing, 200-guest/storage performance and release-security gates remain open.

@@ -329,13 +329,11 @@ class _IncidentCard extends StatelessWidget {
         leading: CircleAvatar(
           backgroundColor: color.withValues(alpha: 0.14),
           foregroundColor: color,
-          child: Icon(
-            switch (incident.source) {
-              CockpitIncidentSource.node => Icons.dns_outlined,
-              CockpitIncidentSource.task => Icons.error_outline_rounded,
-              CockpitIncidentSource.rule => Icons.speed_outlined,
-            },
-          ),
+          child: Icon(switch (incident.source) {
+            CockpitIncidentSource.node => Icons.dns_outlined,
+            CockpitIncidentSource.task => Icons.error_outline_rounded,
+            CockpitIncidentSource.rule => Icons.speed_outlined,
+          }),
         ),
         title: Text(
           incident.title,
