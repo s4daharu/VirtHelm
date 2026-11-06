@@ -103,6 +103,7 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
     return RefreshIndicator(
       onRefresh: controller.refresh,
       child: ListView(
+        key: const Key('incident-inbox-list'),
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 30),
         children: [

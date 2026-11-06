@@ -624,6 +624,12 @@ void main() {
       await tester.pumpAndSettle();
       controller.setDeviceNetworkState(DeviceNetworkState.unavailable);
       await tester.pump();
+      await tester.fling(
+        find.byKey(const Key('incident-inbox-list')),
+        const Offset(0, 1000),
+        2000,
+      );
+      await tester.pumpAndSettle();
       expect(find.byKey(const Key('incident-stale-warning')), findsOneWidget);
       expect(find.text('Node pve1 is offline'), findsOneWidget);
     },
