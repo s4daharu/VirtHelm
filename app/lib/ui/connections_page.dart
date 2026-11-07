@@ -87,9 +87,9 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
           : error is FormatException
           ? error.message
           : 'Could not test this connection. Check local secure storage and try again.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => testingProfileId = null);
     }
@@ -221,7 +221,8 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
     final active = controller.active?.id == profile.id;
     final testing = testingProfileId == profile.id;
     final removing = removingProfileId == profile.id;
-    final disabled = testingProfileId != null ||
+    final disabled =
+        testingProfileId != null ||
         removingProfileId != null ||
         controller.connecting;
     return Card(
@@ -235,9 +236,7 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 CircleAvatar(
-                  child: Icon(
-                    active ? Icons.dns_rounded : Icons.dns_outlined,
-                  ),
+                  child: Icon(active ? Icons.dns_rounded : Icons.dns_outlined),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -246,9 +245,8 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
                     children: [
                       Text(
                         profile.name,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -263,10 +261,7 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
               ],
             ),
             const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: _stateChip(profile),
-            ),
+            Align(alignment: Alignment.centerLeft, child: _stateChip(profile)),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
@@ -297,10 +292,7 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
             ),
             if (active && controller.message != null) ...[
               const SizedBox(height: 12),
-              MessageCard(
-                text: controller.message!,
-                tone: MessageTone.warning,
-              ),
+              MessageCard(text: controller.message!, tone: MessageTone.warning),
             ],
             const SizedBox(height: 14),
             Wrap(
