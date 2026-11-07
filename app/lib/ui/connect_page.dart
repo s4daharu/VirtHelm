@@ -250,9 +250,9 @@ class _ConnectPageState extends State<ConnectPage> {
       children: [
         Text(
           'Server',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 8),
         Text(
@@ -316,9 +316,9 @@ class _ConnectPageState extends State<ConnectPage> {
       children: [
         Text(
           'API token',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 8),
         Text(
@@ -416,9 +416,9 @@ class _ConnectPageState extends State<ConnectPage> {
       children: [
         Text(
           'Verify connection',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 8),
         const Text(
@@ -499,9 +499,7 @@ class _ConnectPageState extends State<ConnectPage> {
               : submit,
           icon: const Icon(Icons.save_outlined),
           label: Text(editing ? 'Save changes' : 'Save connection'),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(52),
-          ),
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
         ),
         const SizedBox(height: 10),
         Text(
@@ -555,7 +553,10 @@ class _ConnectPageState extends State<ConnectPage> {
                       Text(
                         'Your infrastructure.\nIn your hands.',
                         style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(fontWeight: FontWeight.w800, height: 1.1),
+                            ?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              height: 1.1,
+                            ),
                       ),
                       const SizedBox(height: 8),
                       const Text(
