@@ -280,7 +280,7 @@ class AppController extends ChangeNotifier {
     await repository.saveThresholdAlertRule(profile.id, rule);
     if (_disposed || active?.id != profile.id) return;
     thresholdAlertRules = repository.readThresholdAlertRules(profile.id);
-    _evaluateThresholdAlerts();
+    _thresholdAlertEngine.reconcileRules(thresholdAlertRules);
     _notify();
   }
 
@@ -295,7 +295,7 @@ class AppController extends ChangeNotifier {
     await repository.deleteThresholdAlertRule(profile.id, ruleId);
     if (_disposed || active?.id != profile.id) return;
     thresholdAlertRules = repository.readThresholdAlertRules(profile.id);
-    _evaluateThresholdAlerts();
+    _thresholdAlertEngine.reconcileRules(thresholdAlertRules);
     _notify();
   }
 

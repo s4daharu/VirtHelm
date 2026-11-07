@@ -1,6 +1,6 @@
 {
   "project": "VirtHelm",
-  "as_of": "2026-11-06",
+  "as_of": "2026-11-07",
   "app_code_written": true,
   "flutter_build_executed": true,
   "live_pve_tested": false,
@@ -54,7 +54,8 @@
       "on-demand read-only node CPU/memory RRD performance history for 1h/24h/7d windows",
       "on-demand read-only per-storage used/total RRD capacity history for 1h/24h/7d windows",
       "foreground-only in-app incident inbox for explicit node-state problems, failed recent server tasks and failed/unknown session tasks",
-      "profile-scoped foreground CPU/storage threshold rules for exact visible node, guest and per-node storage targets, evaluated only from live foreground refreshes"
+      "profile-scoped foreground CPU/storage threshold rules for exact visible node, guest and per-node storage targets, evaluated only from live foreground refreshes",
+      "foreground threshold duration confirmation and hysteresis: rules can require consecutive usable live samples before firing and a lower clear threshold before resolving"
     ],
     "scope_note": "This is a partial M2 read-cockpit slice, not the full premium M2 roadmap.",
     "release_validation": "Real PVE 8.4/9.2 contracts/ACLs and Android device/release gates remain required.",
@@ -117,10 +118,11 @@
       "On-demand task inspection now short-circuits on explicit Android default-network loss, and observed task/guest/node read 401s immediately invalidate live write safety until a clean authenticated refresh (fixed and regression-tested in the 2026-11-06 cross-check).",
       "Storage RRD capacity history is explicit GET-only AVERAGE hour/day/week used/total history on a profile/generation/exact-storage-scoped route; live PVE 8.4/9.2 storage backend/ACL fixtures and physical Android validation remain pending.",
       "ALERT-001 foreground incident inbox derives only from existing authenticated inventory/task data, retains failed-task incidents across incomplete task-history reads, treats unknown node/session task states conservatively, and adds no Android notification/background/relay capability.",
-      "ALERT-002/003 foreground threshold rules persist only non-secret profile-scoped selectors/configuration, evaluate exact node/guest CPU and per-node storage usage from live foreground snapshots, retain prior firings across missing/stale samples, and add no background worker or Android notification delivery."
+      "ALERT-002/003 foreground threshold rules persist only non-secret profile-scoped selectors/configuration, evaluate exact node/guest CPU and per-node storage usage from live foreground snapshots, retain prior firings across missing/stale samples, and add no background worker or Android notification delivery.",
+      "ALERT-006 adds backward-compatible consecutive-sample duration and clear hysteresis to foreground threshold rules; missing samples reset pending confirmation but never resolve an active firing, and no background polling/notification delivery is added."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 156,
+    "current_flutter_tests_defined": 158,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
@@ -291,6 +293,15 @@
       "deferred": "ALERT-006/007/008 duration, hysteresis, quiet hours, cooldown, acknowledgement/history plus Android scheduled checks/notifications and relay/webhook work remain deferred.",
       "limitations": "Live PVE 9.2/8.4 field/ACL fixtures, physical Android lifecycle/accessibility/network behavior and performance validation remain pending.",
       "report": "docs/65-implementation-foreground-threshold-alert-rules.md"
+    },
+    "alert_rule_duration_hysteresis": {
+      "status": "implemented_source_level_ci_pending_live_validation_pending",
+      "feature_id": "ALERT-006",
+      "behavior": "Profile-scoped foreground threshold rules may require 1-10 consecutive usable live samples before firing and 0-20 percentage points of clear hysteresis. The UI exposes 1-5 samples and 0-10 percentage points.",
+      "conservative_semantics": "Missing/unusable samples reset pending confirmation, but an active firing remains unresolved until a usable sample reaches the lower clear threshold. Reconnect/profile changes clear runtime pending/firing state.",
+      "compatibility": "Existing saved rules without the new fields decode as one sample and zero hysteresis.",
+      "limitations": "No wall-clock duration SLA, quiet hours, cooldown, acknowledgement/history, WorkManager, Android notifications or relay/webhook delivery. Live PVE 8.4/9.2 and physical Android validation remain open.",
+      "report": "docs/66-implementation-alert-duration-hysteresis.md"
     }
   }
 }

@@ -50,6 +50,7 @@ class CockpitIncident {
 
 class ForegroundThresholdAlertEngine {
   final Map<String, CockpitIncident> _active = {};
+  final Map<String, int> _pendingSamples = {};
 
   List<CockpitIncident> get incidents {
     final values = _active.values.toList(growable: false)
@@ -63,7 +64,19 @@ class ForegroundThresholdAlertEngine {
     return List<CockpitIncident>.unmodifiable(values);
   }
 
-  void clear() => _active.clear();
+  void clear() {
+    _active.clear();
+    _pendingSamples.clear();
+  }
+
+  void reconcileRules(Iterable<ForegroundThresholdAlertRule> rules) {
+    final enabledIds = <String>{
+      for (final rule in rules)
+        if (rule.enabled) rule.id,
+    };
+    _active.removeWhere((id, _) => !enabledIds.contains(id));
+    _pendingSamples.removeWhere((id, _) => !enabledIds.contains(id));
+  }
 
   void evaluate({
     required Inventory inventory,
@@ -75,7 +88,7 @@ class ForegroundThresholdAlertEngine {
       for (final rule in rules)
         if (rule.enabled) rule.id: rule,
     };
-    _active.removeWhere((id, _) => !enabled.containsKey(id));
+    reconcileRules(enabled.values);
     final storageList = storages.toList(growable: false);
 
     for (final rule in enabled.values) {
@@ -86,6 +99,7 @@ class ForegroundThresholdAlertEngine {
         storageDataCurrent: storageDataCurrent,
       );
       if (sample == null) {
+        _pendingSamples.remove(rule.id);
         final previous = _active[rule.id];
         if (previous != null) {
           _active[rule.id] = CockpitIncident(
@@ -108,25 +122,68 @@ class ForegroundThresholdAlertEngine {
         continue;
       }
 
-      if (sample.fraction >= rule.thresholdFraction) {
+      final previous = _active[rule.id];
+      if (previous != null) {
+        final shouldResolve = rule.hysteresisPercent == 0
+            ? sample.fraction < rule.thresholdFraction
+            : sample.fraction <= rule.clearThresholdFraction;
+        if (shouldResolve) {
+          _active.remove(rule.id);
+          _pendingSamples.remove(rule.id);
+          continue;
+        }
+        final clearDetail = rule.hysteresisPercent == 0
+            ? 'It clears only below ${rule.thresholdPercent}%.'
+            : 'It clears only at or below '
+                  '${rule.thresholdPercent - rule.hysteresisPercent}% after '
+                  '${rule.hysteresisPercent}% hysteresis.';
         _active[rule.id] = CockpitIncident(
-          key: 'rule:${rule.id}',
+          key: previous.key,
           severity: _severity(rule.severity),
           source: CockpitIncidentSource.rule,
           title: sample.title,
-          detail:
-              'Foreground rule threshold ${rule.thresholdPercent}% exceeded. '
-              'Evaluated from the latest available live foreground snapshot.',
-          observedAt: inventory.fetchedAt,
+          detail: 'Foreground rule remains active. $clearDetail',
+          observedAt: previous.observedAt,
           node: sample.node,
           guestKind: sample.guestKind,
           guestVmid: sample.guestVmid,
           storageId: sample.storageId,
           ruleId: rule.id,
         );
-      } else {
-        _active.remove(rule.id);
+        continue;
       }
+
+      if (sample.fraction < rule.thresholdFraction) {
+        _pendingSamples.remove(rule.id);
+        continue;
+      }
+
+      final pending = (_pendingSamples[rule.id] ?? 0) + 1;
+      if (pending < rule.consecutiveSamples) {
+        _pendingSamples[rule.id] = pending;
+        continue;
+      }
+      _pendingSamples.remove(rule.id);
+      final clearDetail = rule.hysteresisPercent == 0
+          ? 'It clears below ${rule.thresholdPercent}%.'
+          : 'It clears at or below '
+                '${rule.thresholdPercent - rule.hysteresisPercent}%.';
+      _active[rule.id] = CockpitIncident(
+        key: 'rule:${rule.id}',
+        severity: _severity(rule.severity),
+        source: CockpitIncidentSource.rule,
+        title: sample.title,
+        detail:
+            'Foreground rule threshold ${rule.thresholdPercent}% was met for '
+            '${rule.consecutiveSamples} consecutive usable sample(s). '
+            '$clearDetail',
+        observedAt: inventory.fetchedAt,
+        node: sample.node,
+        guestKind: sample.guestKind,
+        guestVmid: sample.guestVmid,
+        storageId: sample.storageId,
+        ruleId: rule.id,
+      );
     }
   }
 

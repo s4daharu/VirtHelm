@@ -57,11 +57,23 @@ void main() {
     await tester.tap(find.byKey(const Key('add-threshold-rule')));
     await tester.pumpAndSettle();
     expect(find.text('Add foreground threshold'), findsOneWidget);
+    expect(
+      find.byKey(const Key('threshold-rule-consecutive-samples')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('threshold-rule-hysteresis-slider')),
+      findsOneWidget,
+    );
     await tester.tap(find.byKey(const Key('confirm-threshold-rule')));
     await tester.pumpAndSettle();
 
     expect(controller.thresholdAlertRules, hasLength(1));
-    expect(controller.incidents, hasLength(1));
+    expect(
+      controller.incidents,
+      isEmpty,
+      reason: 'Saving rule configuration must not count as a live sample.',
+    );
     expect(find.textContaining('80%'), findsOneWidget);
   });
 }
