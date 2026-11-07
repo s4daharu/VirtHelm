@@ -231,7 +231,18 @@ class _RecordingController extends AppController {
   Future<ConnectionCheckResult> testSavedConnection(String profileId) async {
     checks++;
     if (connectionError != null) throw connectionError!;
-    return checkResult;
+    final matches = profiles.where((profile) => profile.id == profileId);
+    final insecure =
+        matches.isNotEmpty && matches.first.allowInvalidCertificates;
+    return ConnectionCheckResult(
+      serverVersion: checkResult.serverVersion,
+      inventoryAccessible: checkResult.inventoryAccessible,
+      certificateVerificationEnabled: !insecure,
+      nodeCount: checkResult.nodeCount,
+      guestCount: checkResult.guestCount,
+      inventoryMessage: checkResult.inventoryMessage,
+      inventoryStatus: checkResult.inventoryStatus,
+    );
   }
 
   @override
@@ -1147,6 +1158,51 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Connection verified'), findsOneWidget);
     expect(controller.checks, 1);
+  });
+
+  testWidgets('saved insecure connection test requires confirmation', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = _RecordingController(
+      ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    const profile = ConnectionProfile(
+      id: 'lab',
+      name: 'Lab',
+      endpoint: 'https://pve.local:8006',
+      allowInvalidCertificates: true,
+      lastServerVersion: '9.2.4',
+    );
+    controller.active = profile;
+    controller.profiles = const [profile];
+
+    await tester.pumpWidget(
+      MaterialApp(home: ConnectionsPage(controller: controller)),
+    );
+    await tester.tap(find.byKey(const ValueKey('connection-test-lab')));
+    await tester.pumpAndSettle();
+
+    expect(controller.checks, 0);
+    expect(find.text('Test without certificate verification?'), findsOneWidget);
+    expect(find.textContaining('https://pve.local:8006'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(controller.checks, 0);
+
+    await tester.tap(find.byKey(const ValueKey('connection-test-lab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Test without verification'));
+    await tester.pumpAndSettle();
+
+    expect(controller.checks, 1);
+    expect(find.text('Connection verified'), findsOneWidget);
+    expect(
+      find.textContaining('TLS identity verification was disabled'),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
