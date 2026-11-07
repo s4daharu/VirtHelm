@@ -53,7 +53,7 @@ Coverage added for:
 - saved-profile testing updating version metadata without rewriting credentials;
 - startup chooser state when profiles exist without an active selection;
 - staged onboarding, verification-before-save and partial token validation;
-- insecure TLS confirmation before both test and save attempts;
+- insecure TLS confirmation before candidate test/save attempts and saved-profile tests;
 - dedicated manager navigation, version/TLS metadata and read-only test action;
 - narrow 320dp layout at 200% text scale.
 
