@@ -33,11 +33,22 @@ void main() {
       severity: ForegroundAlertSeverity.critical,
       guestKind: 'qemu',
       guestVmid: 101,
+      consecutiveSamples: 3,
+      hysteresisPercent: 5,
     );
 
     final decoded = ForegroundThresholdAlertRule.fromJson(rule.toJson());
     expect(decoded.resourceKey, 'guest:qemu:pve1:101');
     expect(decoded.thresholdFraction, 0.85);
+    expect(decoded.clearThresholdFraction, 0.80);
+    expect(decoded.consecutiveSamples, 3);
+    expect(decoded.hysteresisPercent, 5);
+    final legacy = Map<String, dynamic>.from(rule.toJson())
+      ..remove('consecutive_samples')
+      ..remove('hysteresis_percent');
+    final legacyDecoded = ForegroundThresholdAlertRule.fromJson(legacy);
+    expect(legacyDecoded.consecutiveSamples, 1);
+    expect(legacyDecoded.hysteresisPercent, 0);
     expect(
       () => ForegroundThresholdAlertRule.fromJson({
         ...rule.toJson(),
@@ -45,6 +56,96 @@ void main() {
       }),
       throwsFormatException,
     );
+  });
+
+  test('duration requires consecutive usable samples and resets on gaps', () {
+    const rule = ForegroundThresholdAlertRule(
+      id: 'node-duration',
+      metric: ForegroundThresholdMetric.nodeCpu,
+      node: 'pve1',
+      displayName: 'pve1',
+      thresholdPercent: 80,
+      severity: ForegroundAlertSeverity.warning,
+      consecutiveSamples: 2,
+      hysteresisPercent: 5,
+    );
+    final engine = ForegroundThresholdAlertEngine();
+    Inventory high() => Inventory.fromResources([
+      {'type': 'node', 'node': 'pve1', 'status': 'online', 'cpu': 0.9},
+    ]);
+
+    engine.evaluate(
+      inventory: high(),
+      storages: const [],
+      rules: const [rule],
+      storageDataCurrent: true,
+    );
+    expect(engine.incidents, isEmpty);
+
+    engine.evaluate(
+      inventory: Inventory.fromResources([]),
+      storages: const [],
+      rules: const [rule],
+      storageDataCurrent: true,
+    );
+    expect(engine.incidents, isEmpty);
+
+    engine.evaluate(
+      inventory: high(),
+      storages: const [],
+      rules: const [rule],
+      storageDataCurrent: true,
+    );
+    expect(engine.incidents, isEmpty);
+
+    engine.evaluate(
+      inventory: high(),
+      storages: const [],
+      rules: const [rule],
+      storageDataCurrent: true,
+    );
+    expect(engine.incidents, hasLength(1));
+  });
+
+  test('hysteresis keeps an active rule firing until its clear threshold', () {
+    const rule = ForegroundThresholdAlertRule(
+      id: 'node-hysteresis',
+      metric: ForegroundThresholdMetric.nodeCpu,
+      node: 'pve1',
+      displayName: 'pve1',
+      thresholdPercent: 80,
+      severity: ForegroundAlertSeverity.critical,
+      hysteresisPercent: 5,
+    );
+    final engine = ForegroundThresholdAlertEngine();
+    Inventory sample(double cpu) => Inventory.fromResources([
+      {'type': 'node', 'node': 'pve1', 'status': 'online', 'cpu': cpu},
+    ]);
+
+    engine.evaluate(
+      inventory: sample(0.85),
+      storages: const [],
+      rules: const [rule],
+      storageDataCurrent: true,
+    );
+    expect(engine.incidents, hasLength(1));
+
+    engine.evaluate(
+      inventory: sample(0.78),
+      storages: const [],
+      rules: const [rule],
+      storageDataCurrent: true,
+    );
+    expect(engine.incidents, hasLength(1));
+    expect(engine.incidents.single.detail, contains('hysteresis'));
+
+    engine.evaluate(
+      inventory: sample(0.75),
+      storages: const [],
+      rules: const [rule],
+      storageDataCurrent: true,
+    );
+    expect(engine.incidents, isEmpty);
   });
 
   test('engine fires node, guest and storage threshold incidents', () {
