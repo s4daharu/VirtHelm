@@ -45,8 +45,36 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
     await widget.controller.activate(profile);
   }
 
+  Future<bool> _confirmInsecureTest(ConnectionProfile profile) async {
+    if (!profile.allowInvalidCertificates) return true;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Test without certificate verification?'),
+        content: Text(
+          'Server: ${profile.endpoint}\n\n'
+          'This saved connection disables certificate and hostname '
+          'verification. The test can confirm that a server responded, but '
+          'cannot prove its identity. The saved TLS setting is not changed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Test without verification'),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
+  }
+
   Future<void> _test(ConnectionProfile profile) async {
     if (testingProfileId != null || widget.controller.connecting) return;
+    if (!await _confirmInsecureTest(profile) || !mounted) return;
     setState(() => testingProfileId = profile.id);
     try {
       final result = await widget.controller.testSavedConnection(profile.id);
