@@ -37,7 +37,7 @@ class _ShellPageState extends State<ShellPage> {
     final profile = controller.active;
     final inventory = controller.inventory;
     final freshness = profile == null
-        ? 'No connection'
+        ? null
         : controller.deviceNetworkState == DeviceNetworkState.unavailable
         ? 'Network unavailable'
         : inventory == null
@@ -67,7 +67,7 @@ class _ShellPageState extends State<ShellPage> {
                   Text(
                     '${profile?.name ?? 'No connection'}'
                     '${profile?.lastServerVersion == null ? '' : ' • PVE ${profile!.lastServerVersion}'}'
-                    ' • $freshness'
+                    '${freshness == null ? '' : ' • $freshness'}'
                     '${profile?.allowInvalidCertificates == true ? ' • TLS UNVERIFIED' : ''}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -960,7 +960,8 @@ class _GuestsTabState extends State<_GuestsTab> {
       kind != GuestKindFilter.all ||
       nodeFilter != null ||
       tagFilter != null ||
-      poolFilter != null;
+      poolFilter != null ||
+      sort != GuestSort.favorites;
 
   void _clearFilters() {
     search.clear();

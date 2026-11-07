@@ -290,12 +290,18 @@ class _ThresholdRuleEditorPageState extends State<_ThresholdRuleEditorPage> {
     final selected = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       showDragHandle: true,
-      builder: (_) => FractionallySizedBox(
-        heightFactor: 0.85,
-        child: _ThresholdTargetPicker(
-          targets: widget.targets,
-          selectedKey: _selectedKey,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+        ),
+        child: FractionallySizedBox(
+          heightFactor: 0.85,
+          child: _ThresholdTargetPicker(
+            targets: widget.targets,
+            selectedKey: _selectedKey,
+          ),
         ),
       ),
     );
@@ -337,6 +343,16 @@ class _ThresholdRuleEditorPageState extends State<_ThresholdRuleEditorPage> {
   Widget build(BuildContext context) {
     final target = _byKey[_selectedKey]!;
     final clearAt = _threshold.round() - _hysteresis.round();
+    final largeText = MediaQuery.textScalerOf(context).scale(12) > 16;
+    final confirm = FilledButton(
+      key: const Key('confirm-threshold-rule'),
+      onPressed: _save,
+      child: Text(_editing ? 'Save changes' : 'Add rule'),
+    );
+    final cancel = OutlinedButton(
+      onPressed: () => Navigator.pop(context),
+      child: const Text('Cancel'),
+    );
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -474,24 +490,19 @@ class _ThresholdRuleEditorPageState extends State<_ThresholdRuleEditorPage> {
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+          child: largeText
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [confirm, const SizedBox(height: 8), cancel],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: cancel),
+                    const SizedBox(width: 12),
+                    Expanded(child: confirm),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton(
-                  key: const Key('confirm-threshold-rule'),
-                  onPressed: _save,
-                  child: Text(_editing ? 'Save changes' : 'Add rule'),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

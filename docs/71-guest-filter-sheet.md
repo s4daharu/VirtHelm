@@ -32,4 +32,4 @@ Applying or clearing filters remains local widget state. Saved views continue to
 
 ## Remaining work
 
-Task timeline virtualization, a full-screen threshold-rule editor with searchable grouped targets, dedicated connection management, AMOLED/high-contrast themes, app lock/biometrics, notifications and golden screenshots remain future work.
+Dedicated connection management, AMOLED/high-contrast themes, app lock/biometrics, notification surfaces, golden/device screenshots and physical Android validation remain future work.

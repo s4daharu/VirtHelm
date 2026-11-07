@@ -6,8 +6,8 @@ Status: source-level foreground alert state-machine increment. It is **not** bac
 
 Foreground CPU and storage threshold rules now carry two backward-compatible state-machine controls:
 
-- `consecutiveSamples` / `consecutive_samples`: 1–10 usable foreground live samples must meet or exceed the firing threshold before a new incident is created. The rule editor exposes 1–5 samples.
-- `hysteresisPercent` / `hysteresis_percent`: 0–20 percentage points are subtracted from the firing threshold to form the clear threshold. The rule editor exposes 0–10 percentage points.
+- `consecutiveSamples` / `consecutive_samples`: 1–10 usable foreground live samples must meet or exceed the firing threshold before a new incident is created. The rule editor exposes 1–10 samples.
+- `hysteresisPercent` / `hysteresis_percent`: 0–20 percentage points are subtracted from the firing threshold to form the clear threshold. The rule editor exposes 0–20 percentage points.
 
 Existing saved rules that predate these fields decode as **1 sample / 0% hysteresis**, preserving the prior immediate-fire behavior.
 

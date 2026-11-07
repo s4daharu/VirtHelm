@@ -33,4 +33,4 @@ This note records the second UI-foundation slice. It is source-level synthetic c
 
 ## Remaining screen work
 
-Guest-detail tabs and sticky actions, guest-filter consolidation into a bottom sheet, a task timeline with virtualization, a full-screen threshold-rule editor with searchable targets, dedicated connection management, AMOLED/high-contrast themes, app lock/biometrics, notifications and golden screenshots remain future work.
+Dedicated connection management, AMOLED/high-contrast themes, app lock/biometrics, notification surfaces, golden/device screenshots and physical Android validation remain future work.

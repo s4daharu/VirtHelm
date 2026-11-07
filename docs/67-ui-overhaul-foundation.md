@@ -35,4 +35,4 @@ This note records the first implementation slice of the UI overhaul. It is a sou
 
 ## Remaining overhaul work
 
-The screen-level restructuring described in [the UX navigation plan](03-ux-navigation.md) and [the premium information architecture](23-premium-ux-information-architecture.md) is intentionally not complete. Guest detail tabs and sticky actions, guest-filter consolidation, a tasks timeline, a full-screen threshold-rule editor, connection management and About surfaces, chart axes/tables, app lock and notification surfaces remain future work.
+The screen-level restructuring described in [the UX navigation plan](03-ux-navigation.md) and [the premium information architecture](23-premium-ux-information-architecture.md) is partially complete through docs 69–73. Dedicated connection management, chart axes/table alternatives beyond text summaries, AMOLED/high-contrast themes, app lock/biometrics, notification surfaces, golden/device screenshots and physical Android validation remain future work.

@@ -56,7 +56,11 @@
       "foreground-only in-app incident inbox for explicit node-state problems, failed recent server tasks and failed/unknown session tasks",
       "profile-scoped foreground CPU/storage threshold rules for exact visible node, guest and per-node storage targets, evaluated only from live foreground refreshes",
       "foreground threshold duration confirmation and hysteresis: rules can require consecutive usable live samples before firing and a lower clear threshold before resolving",
-      "shared Material 3 status components, home incident summary, pull-to-refresh detail routes and a scoped MaterialApp rebuild boundary (source-level UI foundation)"
+      "shared Material 3 status components, home incident summary, pull-to-refresh detail routes and a scoped MaterialApp rebuild boundary (source-level UI foundation)",
+      "tabbed guest/node/storage detail routes with explicit read-only history tabs and a persistent guest action bar",
+      "compact guest filter sheet with removable active-filter chips and saved-view compatibility",
+      "task summary counts, compact tappable server-task rows and lazy task slivers",
+      "full-screen foreground threshold-rule add/edit editor with searchable grouped targets"
     ],
     "scope_note": "This is a partial M2 read-cockpit slice, not the full premium M2 roadmap.",
     "release_validation": "Real PVE 8.4/9.2 contracts/ACLs and Android device/release gates remain required.",
@@ -298,7 +302,7 @@
     "alert_rule_duration_hysteresis": {
       "status": "implemented_source_level_ci_pending_live_validation_pending",
       "feature_id": "ALERT-006",
-      "behavior": "Profile-scoped foreground threshold rules may require 1-10 consecutive usable live samples before firing and 0-20 percentage points of clear hysteresis. The UI exposes 1-5 samples and 0-10 percentage points.",
+      "behavior": "Profile-scoped foreground threshold rules may require 1-10 consecutive usable live samples before firing and 0-20 percentage points of clear hysteresis. The UI exposes 1-10 samples and 0-20 percentage points.",
       "conservative_semantics": "Missing/unusable samples reset pending confirmation, but an active firing remains unresolved until a usable sample reaches the lower clear threshold. Reconnect/profile changes clear runtime pending/firing state.",
       "compatibility": "Existing saved rules without the new fields decode as one sample and zero hysteresis.",
       "limitations": "No wall-clock duration SLA, quiet hours, cooldown, acknowledgement/history, WorkManager, Android notifications or relay/webhook delivery. Live PVE 8.4/9.2 and physical Android validation remain open.",
@@ -311,7 +315,7 @@
       "rebuild_boundary": "MaterialApp no longer rebuilds on every controller notification; theme changes use a dedicated notifier and inventory/task/incident updates rebuild only the active shell subtree.",
       "safety": "Presentation-only. No API endpoint, credential, persistence, TLS, POST retry, freshness guard or mutation behavior changes; task logs remain bounded, on-demand and non-persistent.",
       "verification": "flutter analyze --fatal-infos and the existing Flutter widget suite pass locally under the available SDK; new component tests cover status semantics and empty-state actions. Live PVE, physical Android TalkBack/contrast/200%-text and golden screenshots remain open.",
-      "limitations": "Guest detail tabs/sticky actions, guest-filter consolidation, task timeline, full-screen alert-rule editor, connection management and About surfaces remain future work."
+      "limitations": "Dedicated connection management, AMOLED/high-contrast themes, app lock/biometrics, notification surfaces, golden screenshots and physical-device validation remain future work."
     },
     "screen_polish_followup": "docs/68-screen-polish-followup.md",
     "screen_polish": {
@@ -319,7 +323,7 @@
       "scope": "Home metric-card hierarchy, incident severity summary and recovery actions, guest/task clear-filter actions, empty-state refresh actions, task-detail refresh action, connection autofill/keyboard hints, an About/licenses surface and sparkline grid/area styling.",
       "safety": "Presentation and local widget-state only. No endpoint, credential, persistence, TLS, POST retry, freshness guard or mutation behavior changes. Refresh actions reuse the existing foreground refresh path.",
       "verification": "flutter analyze --fatal-infos, 160 Flutter tests and formatting/source/documentation checks pass locally. Physical Android TalkBack/touch-target/contrast/200%-text and performance validation remain open.",
-      "limitations": "The remaining screen-level IA work (guest detail tabs/sticky actions, filter bottom sheet, task timeline virtualization, full-screen alert-rule editor, dedicated connection management, AMOLED/high-contrast themes, lock/biometrics and notification surfaces) is not implemented."
+      "limitations": "Dedicated connection management, AMOLED/high-contrast themes, app lock/biometrics, notification surfaces, golden screenshots and physical-device validation remain future work."
     },
     "guest_detail_tabs_followup": "docs/69-guest-detail-tabs-actions.md",
     "guest_detail_tabs": {
@@ -327,7 +331,7 @@
       "scope": "Guest detail now separates identity/live utilization, performance history and I/O counters into three tabs, with a persistent bottom primary action and overflow menu for the remaining power actions.",
       "safety": "The existing execute path, typed-risk confirmation, profile/generation checks, fresh-inventory requirements, single-flight reservation and unknown-outcome lockout are unchanged. No API, credential, persistence, retry or background behavior is added.",
       "verification": "flutter analyze --fatal-infos, 161 Flutter tests, formatting and source/documentation checks pass locally. The new regression covers all three tabs at 320dp/200% text scale without layout overflow. Physical Android TalkBack/touch-target/performance validation remains open.",
-      "limitations": "Guest-list filter consolidation, task timeline virtualization, the full-screen threshold-rule editor, dedicated connection management, AMOLED/high-contrast themes, lock/biometrics, notifications and golden screenshots remain future work."
+      "limitations": "Dedicated connection management, AMOLED/high-contrast themes, app lock/biometrics, notification surfaces, golden screenshots and physical-device validation remain future work."
     },
     "node_storage_detail_tabs_followup": "docs/70-node-storage-detail-tabs.md",
     "node_storage_detail_tabs": {
@@ -335,7 +339,7 @@
       "scope": "Node detail separates current utilization from RRD metrics, and storage detail separates capacity/content overview from capacity history, using the same tabbed read-only detail pattern as guest detail.",
       "safety": "Read-only. RRD history remains explicit, GET-only, bounded, transient and profile/generation scoped. Timeframe selection alone performs no request. Missing-resource and session-change redaction is preserved.",
       "verification": "flutter analyze --fatal-infos, 161 Flutter tests, formatting and source/documentation checks pass locally. Node/storage history regressions select the metrics/capacity tabs explicitly and still verify request timing, summaries, sample counts and profile-switch redaction.",
-      "limitations": "Physical Android TalkBack/touch-target/contrast/200%-text, 360/393/412dp screenshots and performance benchmarks remain open. Guest-filter consolidation, task timeline virtualization, alert-rule editor, connection management, AMOLED/high-contrast themes, lock/biometrics and notifications remain future work."
+      "limitations": "Physical Android TalkBack/touch-target/contrast/200%-text, 360/393/412dp screenshots and performance benchmarks remain open. Dedicated connection management, AMOLED/high-contrast themes, lock/biometrics, notifications and goldens remain future work."
     },
     "guest_filter_sheet_followup": "docs/71-guest-filter-sheet.md",
     "guest_filter_sheet": {
@@ -343,7 +347,7 @@
       "scope": "Guests now use search plus a filter-count button, a compact quick-status row, removable active-filter chips and a bottom sheet for type/node/tag/pool/sort. Saved views retain the same criteria.",
       "safety": "Presentation and local widget state only. No API, credential, persistence or mutation behavior is added. Filter changes cannot authorize guest writes and still reset on profile switch.",
       "verification": "flutter analyze --fatal-infos, 161 Flutter tests, formatting and source/documentation checks pass locally. Guest browse/filter/sort and saved-view regressions exercise the sheet and active chips; the 320dp/200%-text shell regression still passes.",
-      "limitations": "Physical Android TalkBack, sheet-at-scale, touch-target and 200-guest performance validation remain open. Task timeline virtualization, alert-rule editor, connection management, AMOLED/high-contrast themes, lock/biometrics, notifications and goldens remain future work."
+      "limitations": "Physical Android TalkBack, sheet-at-scale, touch-target and 200-guest performance validation remain open. Dedicated connection management, AMOLED/high-contrast themes, lock/biometrics, notifications and goldens remain future work."
     },
     "task_summary_compact_rows_followup": "docs/72-task-summary-compact-rows.md",
     "task_summary_compact_rows": {
@@ -351,7 +355,7 @@
       "scope": "Tasks now shows a running/succeeded/failed/unknown summary card, compact fully tappable server-task rows and lazy sliver lists for session and recent tasks. The per-card View details button was removed in favour of the whole-row target.",
       "safety": "Read-only presentation only. Task details remain on-demand, bounded GETs with profile/generation checks and no log persistence. No task mutation, polling, API or transport behavior changes.",
       "verification": "flutter analyze --fatal-infos, 161 Flutter tests, formatting and source/documentation checks pass locally. Task history/filter and task-detail regressions use the whole-row target; the 320dp/200%-text shell regression still passes.",
-      "limitations": "Physical Android TalkBack, touch-target, 200-task performance and 360/393/412dp validation remain open. Alert-rule editor, connection management, AMOLED/high-contrast themes, lock/biometrics, notifications and goldens remain future work."
+      "limitations": "Physical Android TalkBack, touch-target, 200-task performance and 360/393/412dp validation remain open. Dedicated connection management, AMOLED/high-contrast themes, lock/biometrics, notifications and goldens remain future work."
     },
     "threshold_rule_editor_followup": "docs/73-threshold-rule-editor.md",
     "threshold_rule_editor": {
@@ -360,6 +364,14 @@
       "safety": "Rules remain profile-scoped non-secret local metadata with foreground-only evaluation. Returned editor results are discarded if the profile or connection generation changed. No background worker, notification delivery, API, credential or persistence behavior is added.",
       "verification": "flutter analyze --fatal-infos, 162 Flutter tests, formatting and source/documentation checks pass locally. Added an edit regression that changes severity through the searchable grouped target picker; the original add-rule regression still passes.",
       "limitations": "Physical Android TalkBack, large-text editor layout, touch-target and 360/393/412dp validation remain open. Connection management, AMOLED/high-contrast themes, lock/biometrics, notifications and goldens remain future work."
+    },
+    "ui_cross_check_followup": "docs/74-premerge-ui-cross-check-2026-11-07.md",
+    "ui_cross_check": {
+      "status": "cross_checked_local_checks_passed_pinned_ci_and_device_gates_pending",
+      "scope": "Pre-merge audit of the UI-overhaul branch compared with main: app bar freshness, guest filter predicate/chips, guest bottom-bar theme fallback, storage capacity layout, alert-rule target-picker insets and large-text actions, alert-rule UI limit documentation, and earlier-slice remaining-work text.",
+      "checks": "git diff/lockfile integrity, docs/source/premium checks, 14 delivery tests, Dart formatting, flutter analyze --fatal-infos, 162 Flutter tests, and generated Android runner hardening. The local debug APK build was attempted but stopped after Gradle stalled on an external artifact download; pinned-toolchain CI remains the compile gate.",
+      "safety": "No PVE endpoint, gateway transport, credential, persistence, TLS, POST-retry or mutation behavior changed. Existing profile/generation and freshness guards remain in place.",
+      "limitations": "Physical Android TalkBack/contrast/200%-text/touch-target/performance and live PVE 9.2/8.4 fixtures remain open. The local SDK is newer than the pinned CI SDK, so exact-head CI is authoritative."
     }
   }
 }

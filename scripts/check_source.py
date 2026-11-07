@@ -61,7 +61,8 @@ required = [
    'docs/70-node-storage-detail-tabs.md',
    'docs/71-guest-filter-sheet.md',
    'docs/72-task-summary-compact-rows.md',
-   'docs/73-threshold-rule-editor.md']
+   'docs/73-threshold-rule-editor.md',
+   'docs/74-premerge-ui-cross-check-2026-11-07.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)

@@ -543,7 +543,9 @@ class _GuestPageState extends State<GuestPage> {
       top: false,
       child: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).cardTheme.color,
+          color:
+              Theme.of(context).cardTheme.color ??
+              Theme.of(context).colorScheme.surface,
           border: Border(
             top: BorderSide(
               color: scheme.outlineVariant.withValues(alpha: 0.45),

@@ -34,4 +34,4 @@ A persistent bottom action bar replaces the long list of power-control cards:
 
 ## Remaining work
 
-Guest-list filter consolidation, a task timeline with virtualization, a full-screen threshold-rule editor with searchable grouped targets, dedicated connection management, AMOLED/high-contrast themes, app lock/biometrics, notifications and golden screenshots remain future work.
+Dedicated connection management, AMOLED/high-contrast themes, app lock/biometrics, notification surfaces, golden/device screenshots and physical Android validation remain future work.

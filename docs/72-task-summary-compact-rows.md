@@ -31,4 +31,4 @@ This note records the Tasks-tab presentation overhaul. It is source-level synthe
 
 ## Remaining work
 
-A full-screen threshold-rule editor with searchable grouped targets, dedicated connection management, AMOLED/high-contrast themes, app lock/biometrics, notifications and golden screenshots remain future work.
+Dedicated connection management, AMOLED/high-contrast themes, app lock/biometrics, notification surfaces, golden/device screenshots and physical Android validation remain future work.

@@ -194,9 +194,12 @@ class _StoragePageState extends State<StoragePage> {
                         style: TextStyle(fontWeight: FontWeight.w600),
                       ),
                       const Spacer(),
-                      Text(
-                        '$capacity${usage == null ? '' : ' • ${formatPercent(usage)}'}',
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      Flexible(
+                        child: Text(
+                          '$capacity${usage == null ? '' : ' • ${formatPercent(usage)}'}',
+                          textAlign: TextAlign.end,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
                       ),
                     ],
                   ),
