@@ -49,7 +49,8 @@ required = [
    'docs/62-whole-repository-cross-check-2026-11-06.md',
    'docs/63-implementation-storage-rrd-history.md',
    'docs/64-implementation-alert-incident-inbox.md',
-   'docs/65-implementation-foreground-threshold-alert-rules.md']
+   'docs/65-implementation-foreground-threshold-alert-rules.md',
+   'docs/66-implementation-alert-duration-hysteresis.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
@@ -118,6 +119,10 @@ assert 'ForegroundThresholdAlertEngine' in files['app/lib/core/incident_center.d
 assert 'readThresholdAlertRules' in files['app/lib/core/profile_repository.dart']
 assert 'saveThresholdAlertRule' in files['app/lib/core/app_controller.dart']
 assert 'class ForegroundThresholdAlertRulesPage' in files['app/lib/ui/alert_rules_page.dart']
+assert 'consecutiveSamples' in files['app/lib/core/alert_rules.dart']
+assert 'clearThresholdFraction' in files['app/lib/core/alert_rules.dart']
+assert "Key('threshold-rule-consecutive-samples')" in files['app/lib/ui/alert_rules_page.dart']
+assert "Key('threshold-rule-hysteresis-slider')" in files['app/lib/ui/alert_rules_page.dart']
 assert "Key('manage-threshold-rules')" in files['app/lib/ui/incident_center_tab.dart']
 assert '_guestTags' in files['app/lib/core/models.dart']
 assert 'final List<String> tags' in files['app/lib/core/models.dart']
