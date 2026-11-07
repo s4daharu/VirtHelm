@@ -375,10 +375,10 @@
     },
     "connection_management_followup": "docs/75-connection-management-onboarding.md",
     "connection_management": {
-      "status": "implemented_source_level_branch_ci_pending_live_validation_pending",
+      "status": "implemented_ci_gated_live_validation_pending",
       "scope": "Dedicated Connections page with add/edit/test/remove/switch actions, explicit chooser state when saved profiles exist without an active selection, and staged Server → API token → Verify onboarding with read-only PVE version/inventory checks before save.",
       "safety": "Connection checks use only existing read endpoints and do not persist candidate credentials or switch sessions. Saved-profile tests may refresh last-observed version metadata without rewriting the encrypted token. Existing connect/update methods revalidate before persistence; TLS-insecure attempts still require explicit confirmation.",
-      "verification": "168 Flutter tests are defined after adding candidate/saved verification, chooser, staged onboarding, dedicated-manager, insecure saved-profile test and 320dp/200%-text regressions. Exact-head branch CI is still required before merge.",
+      "verification": "168 Flutter tests cover candidate/saved verification, chooser, staged onboarding, dedicated-manager, insecure saved-profile confirmation and 320dp/200%-text regressions. PR #32 must pass exact-head formatting, analyzer, Flutter tests and Android debug compilation before merge.",
       "limitations": "Live PVE 9.2/8.4 ACL/TLS fixtures and physical Android secure-storage, TalkBack, VPN/network-transition and 360/393/412dp validation remain open. Theme completion and native biometric/notification/widget surfaces remain later work."
     }
   }
