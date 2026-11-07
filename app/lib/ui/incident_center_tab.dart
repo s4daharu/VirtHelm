@@ -5,6 +5,7 @@ import '../core/device_connectivity.dart';
 import '../core/incident_center.dart';
 import '../core/models.dart';
 import 'alert_rules_page.dart';
+import 'components.dart';
 import 'guest_page.dart';
 import 'node_page.dart';
 import 'storage_page.dart';
@@ -205,8 +206,9 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
           ),
           if (stale) ...[
             const SizedBox(height: 14),
-            const _IncidentMessageCard(
+            const MessageCard(
               key: Key('incident-stale-warning'),
+              tone: MessageTone.warning,
               text:
                   'INCIDENT DATA MAY BE STALE • Retained incidents are not '
                   'resolved while live inventory is unavailable. Refresh a '
@@ -215,8 +217,9 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
           ],
           if (taskCoverageIncomplete) ...[
             const SizedBox(height: 10),
-            _IncidentMessageCard(
+            MessageCard(
               key: const Key('incident-task-coverage-warning'),
+              tone: MessageTone.warning,
               text:
                   'Task incident coverage is incomplete. '
                   '${controller.serverTaskMessage}',
@@ -287,27 +290,6 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
       ),
     );
   }
-}
-
-class _IncidentMessageCard extends StatelessWidget {
-  const _IncidentMessageCard({super.key, required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.info_outline_rounded),
-          const SizedBox(width: 10),
-          Expanded(child: Text(text)),
-        ],
-      ),
-    ),
-  );
 }
 
 class _IncidentCard extends StatelessWidget {

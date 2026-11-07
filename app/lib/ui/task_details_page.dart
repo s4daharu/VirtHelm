@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
 import '../core/models.dart';
+import 'theme.dart';
 
 /// Task logs are fetched on demand per page; nothing is persisted.
 class TaskDetailsPage extends StatefulWidget {
@@ -115,9 +116,15 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                         'Current status',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      Text(label),
-                      if (status?.exitStatus != null)
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: StatusChip(status: label),
+                      ),
+                      if (status?.exitStatus != null) ...[
+                        const SizedBox(height: 6),
                         Text('Exit: ${status!.exitStatus}'),
+                      ],
                       if (detail.statusError != null) Text(detail.statusError!),
                       const SizedBox(height: 8),
                       Align(
@@ -147,10 +154,28 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                         Text(
                           'Ignored ${detail.log!.malformedRecords} malformed log lines.',
                         ),
-                      for (final entry in logs)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text('${entry.number}: ${entry.text}'),
+                      if (logs.isNotEmpty)
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                for (final entry in logs)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Text(
+                                      '${entry.number}: ${entry.text}',
+                                      style: const TextStyle(
+                                        fontFamily: 'monospace',
+                                        fontSize: 12,
+                                        height: 1.45,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
                       if (_pageStart > 0 || (pageFilled && _pageStart < 400))
                         Padding(

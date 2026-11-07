@@ -3,12 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
+import '../core/app_info.dart';
 import '../core/device_connectivity.dart';
 import '../core/app_preferences.dart';
 import '../core/guest_list_filter.dart';
 import '../core/guest_saved_view.dart';
+import '../core/incident_center.dart';
 import '../core/models.dart';
 import '../core/task_history_filter.dart';
+import 'components.dart';
 import 'connect_page.dart';
 import 'guest_page.dart';
 import 'incident_center_tab.dart';
@@ -32,6 +35,16 @@ class _ShellPageState extends State<ShellPage> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final profile = controller.active;
+    final inventory = controller.inventory;
+    final freshness = profile == null
+        ? 'No connection'
+        : controller.deviceNetworkState == DeviceNetworkState.unavailable
+        ? 'Network unavailable'
+        : inventory == null
+        ? 'No live snapshot'
+        : controller.isInventoryFresh
+        ? 'Live • ${formatAge(inventory.fetchedAt)}'
+        : 'Stale • ${formatAge(inventory.fetchedAt)}';
     return Scaffold(
       appBar: AppBar(
         toolbarHeight:
@@ -54,13 +67,19 @@ class _ShellPageState extends State<ShellPage> {
                   Text(
                     '${profile?.name ?? 'No connection'}'
                     '${profile?.lastServerVersion == null ? '' : ' • PVE ${profile!.lastServerVersion}'}'
+                    ' • $freshness'
                     '${profile?.allowInvalidCertificates == true ? ' • TLS UNVERIFIED' : ''}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      color:
+                          controller.deviceNetworkState ==
+                                  DeviceNetworkState.unavailable ||
+                              inventory != null && !controller.isInventoryFresh
+                          ? Theme.of(context).colorScheme.error
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -164,6 +183,7 @@ class _ShellPageState extends State<ShellPage> {
                 _OverviewTab(
                   controller: controller,
                   onOpenGuests: () => setState(() => selectedIndex = 1),
+                  onOpenIncidents: () => setState(() => selectedIndex = 3),
                 ),
                 _GuestsTab(controller: controller),
                 _TasksTab(
@@ -228,9 +248,14 @@ class _ShellPageState extends State<ShellPage> {
 }
 
 class _OverviewTab extends StatelessWidget {
-  const _OverviewTab({required this.controller, required this.onOpenGuests});
+  const _OverviewTab({
+    required this.controller,
+    required this.onOpenGuests,
+    required this.onOpenIncidents,
+  });
   final AppController controller;
   final VoidCallback onOpenGuests;
+  final VoidCallback onOpenIncidents;
 
   @override
   Widget build(BuildContext context) {
@@ -350,7 +375,7 @@ class _OverviewTab extends StatelessWidget {
           ],
           if (cached != null) ...[
             const SizedBox(height: 14),
-            const _MessageCard(
+            const MessageCard(
               text:
                   'Last-known counts only. Guest details and power '
                   'actions require a fresh live connection.',
@@ -358,13 +383,19 @@ class _OverviewTab extends StatelessWidget {
           ],
           if (controller.inventoryWarning != null) ...[
             const SizedBox(height: 14),
-            _MessageCard(text: controller.inventoryWarning!),
+            MessageCard(text: controller.inventoryWarning!),
+          ],
+          if (controller.active != null &&
+              (controller.inventory != null ||
+                  controller.incidents.isNotEmpty)) ...[
+            const SizedBox(height: 18),
+            _OverviewIncidentSummary(
+              controller: controller,
+              onTap: onOpenIncidents,
+            ),
           ],
           const SizedBox(height: 24),
-          _SectionHeading(
-            title: 'Infrastructure',
-            trailing: 'CURRENT SNAPSHOT',
-          ),
+          SectionHeading(title: 'Infrastructure', trailing: 'CURRENT SNAPSHOT'),
           const SizedBox(height: 12),
           GridView(
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -410,17 +441,17 @@ class _OverviewTab extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-          _SectionHeading(
+          SectionHeading(
             title: 'Nodes',
             trailing: inv == null ? '' : '${inv.nodes.length} FOUND',
           ),
           const SizedBox(height: 12),
           if (inv == null)
-            const _MessageCard(
+            const MessageCard(
               text: 'Connect to load node health. Pull to refresh.',
             )
           else if (inv.nodes.isEmpty)
-            const _MessageCard(
+            const MessageCard(
               text: 'No nodes are visible to this token. Review permissions.',
             )
           else
@@ -459,7 +490,7 @@ class _OverviewTab extends StatelessWidget {
             ],
 
           const SizedBox(height: 22),
-          _SectionHeading(
+          SectionHeading(
             title: 'Storage',
             trailing: controller.storages.isEmpty
                 ? ''
@@ -467,13 +498,13 @@ class _OverviewTab extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (controller.storageMessage != null) ...[
-            _MessageCard(text: controller.storageMessage!),
+            MessageCard(text: controller.storageMessage!),
             const SizedBox(height: 8),
           ],
           if (inv != null &&
               controller.storages.isEmpty &&
               controller.storageMessage == null)
-            const _MessageCard(
+            const MessageCard(
               text: 'No storage pools are visible to this token.',
             )
           else
@@ -520,7 +551,7 @@ class _OverviewTab extends StatelessWidget {
               const SizedBox(height: 8),
             ],
           if (inv != null && inv.guests.isEmpty)
-            const _MessageCard(
+            const MessageCard(
               text: 'No QEMU VMs or LXC containers are visible.',
             ),
         ],
@@ -529,31 +560,155 @@ class _OverviewTab extends StatelessWidget {
   }
 }
 
-class _SectionHeading extends StatelessWidget {
-  const _SectionHeading({required this.title, required this.trailing});
-  final String title;
-  final String trailing;
+class _OverviewIncidentSummary extends StatelessWidget {
+  const _OverviewIncidentSummary({
+    required this.controller,
+    required this.onTap,
+  });
+
+  final AppController controller;
+  final VoidCallback onTap;
+
   @override
-  Widget build(BuildContext context) => Wrap(
-    alignment: WrapAlignment.spaceBetween,
-    crossAxisAlignment: WrapCrossAlignment.center,
-    spacing: 12,
-    runSpacing: 4,
-    children: [
-      Text(
-        title,
-        style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
-      ),
-      if (trailing.isNotEmpty)
-        Text(
-          trailing,
-          style: TextStyle(
-            fontSize: 10,
-            letterSpacing: 1,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final status =
+        Theme.of(context).extension<VirtHelmStatusColors>() ??
+        const VirtHelmStatusColors(
+          positive: Color(0xFF087A64),
+          warning: Color(0xFF9A5A12),
+          error: Color(0xFFB3261E),
+          neutral: Color(0xFF5F6368),
+        );
+    final incidents = controller.incidents;
+    final critical = incidents
+        .where(
+          (incident) => incident.severity == CockpitIncidentSeverity.critical,
+        )
+        .length;
+    final warning = incidents
+        .where(
+          (incident) => incident.severity == CockpitIncidentSeverity.warning,
+        )
+        .length;
+    final stale = !controller.isInventoryFresh;
+    return Card(
+      key: const Key('overview-incident-summary'),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    incidents.isEmpty
+                        ? Icons.verified_outlined
+                        : Icons.notifications_active_outlined,
+                    size: 20,
+                    color: incidents.isEmpty ? status.positive : status.error,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Foreground incidents',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              if (stale) ...[
+                Text(
+                  'MAY BE STALE • Confirm with a clean refresh.',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                    color: status.warning,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              if (incidents.isEmpty)
+                Text(
+                  stale
+                      ? 'No retained incidents, but live health cannot be confirmed.'
+                      : 'No current node or task incidents in the foreground snapshot.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                )
+              else
+                Row(
+                  children: [
+                    _IncidentCount(
+                      label: 'Critical',
+                      count: critical,
+                      color: status.error,
+                    ),
+                    const SizedBox(width: 10),
+                    _IncidentCount(
+                      label: 'Warnings',
+                      count: warning,
+                      color: status.warning,
+                    ),
+                  ],
+                ),
+            ],
           ),
         ),
-    ],
+      ),
+    );
+  }
+}
+
+class _IncidentCount extends StatelessWidget {
+  const _IncidentCount({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
+
+  final String label;
+  final int count;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Text(
+            '$count',
+            style: TextStyle(
+              color: color,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(color: color, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    ),
   );
 }
 
@@ -603,15 +758,6 @@ class _MetricCard extends StatelessWidget {
         ],
       ),
     ),
-  );
-}
-
-class _MessageCard extends StatelessWidget {
-  const _MessageCard({required this.text});
-  final String text;
-  @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(padding: const EdgeInsets.all(18), child: Text(text)),
   );
 }
 
@@ -1277,7 +1423,7 @@ class _TasksTabState extends State<_TasksTab> {
                   'Pull to refresh. Task visibility depends on Proxmox permissions.',
             ),
           if (!empty && sessionTasks.isNotEmpty) ...[
-            _SectionHeading(
+            SectionHeading(
               title: 'This session',
               trailing: '${sessionTasks.length} TRACKED',
             ),
@@ -1289,7 +1435,7 @@ class _TasksTabState extends State<_TasksTab> {
             const SizedBox(height: 14),
           ],
           if (!empty)
-            _SectionHeading(
+            SectionHeading(
               title: 'Recent server tasks',
               trailing: serverTasks.isEmpty
                   ? ''
@@ -1297,7 +1443,7 @@ class _TasksTabState extends State<_TasksTab> {
             ),
           if (!empty) const SizedBox(height: 10),
           if (!empty && controller.serverTaskMessage != null) ...[
-            _MessageCard(text: controller.serverTaskMessage!),
+            MessageCard(text: controller.serverTaskMessage!),
             const SizedBox(height: 10),
           ],
           if (serverTasks.isNotEmpty) ...[
@@ -1371,11 +1517,11 @@ class _TasksTabState extends State<_TasksTab> {
           if (!empty &&
               serverTasks.isEmpty &&
               controller.serverTaskMessage == null)
-            const _MessageCard(
+            const MessageCard(
               text: 'No recent server tasks are visible to this token.',
             )
           else if (serverTasks.isNotEmpty && visible.isEmpty)
-            const _MessageCard(
+            const MessageCard(
               text:
                   'No recent tasks match these filters. Clear search or choose another state or node.',
             )
@@ -1785,14 +1931,17 @@ class _SettingsTab extends StatelessWidget {
               ),
               SizedBox(height: 12),
               Text(
-                'Version 0.1: No console, background monitoring, or guest deletion. Use VPN for remote access.',
+                'Preview build: no console, background monitoring, guest deletion, or automatic write retries. Use VPN for remote access.',
               ),
             ],
           ),
         ),
       ),
       const SizedBox(height: 26),
-      Text('VirtHelm 0.1.3', style: Theme.of(context).textTheme.bodySmall),
+      Text(
+        '$virthelmDisplayName $virthelmDisplayVersion',
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
       const SizedBox(height: 4),
       Text(
         'Independent, unofficial Proxmox VE client',

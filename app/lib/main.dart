@@ -31,6 +31,7 @@ class VirtHelmApp extends StatefulWidget {
 
 class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
   late final AppController controller;
+  late final ValueNotifier<AppThemePreference> _themePreference;
   late final StreamSubscription<DeviceNetworkState> _networkSubscription;
 
   @override
@@ -38,12 +39,22 @@ class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     controller = AppController(repository: widget.repository);
+    _themePreference = ValueNotifier(controller.themePreference);
+    controller.addListener(_syncThemePreference);
     _networkSubscription = deviceNetworkChanges().listen(
       controller.setDeviceNetworkState,
       onError: (Object _) =>
           controller.setDeviceNetworkState(DeviceNetworkState.unknown),
     );
     unawaited(controller.initialize());
+  }
+
+  // Keep the MaterialApp rebuild scoped to rare theme changes. Inventory,
+  // task and incident notifications rebuild only the active shell subtree.
+  void _syncThemePreference() {
+    if (_themePreference.value != controller.themePreference) {
+      _themePreference.value = controller.themePreference;
+    }
   }
 
   @override
@@ -54,6 +65,8 @@ class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    controller.removeListener(_syncThemePreference);
+    _themePreference.dispose();
     unawaited(_networkSubscription.cancel());
     controller.dispose();
     super.dispose();
@@ -70,19 +83,23 @@ class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: controller,
-    builder: (context, _) => MaterialApp(
-      title: 'VirtHelm',
-      debugShowCheckedModeBanner: false,
-      theme: virthelmTheme(Brightness.light),
-      darkTheme: virthelmTheme(Brightness.dark),
-      themeMode: switch (controller.themePreference) {
-        AppThemePreference.system => ThemeMode.system,
-        AppThemePreference.light => ThemeMode.light,
-        AppThemePreference.dark => ThemeMode.dark,
-      },
-      home: _home(),
-    ),
-  );
+  Widget build(BuildContext context) =>
+      ValueListenableBuilder<AppThemePreference>(
+        valueListenable: _themePreference,
+        builder: (context, themePreference, _) => MaterialApp(
+          title: 'VirtHelm',
+          debugShowCheckedModeBanner: false,
+          theme: virthelmTheme(Brightness.light),
+          darkTheme: virthelmTheme(Brightness.dark),
+          themeMode: switch (themePreference) {
+            AppThemePreference.system => ThemeMode.system,
+            AppThemePreference.light => ThemeMode.light,
+            AppThemePreference.dark => ThemeMode.dark,
+          },
+          home: AnimatedBuilder(
+            animation: controller,
+            builder: (context, _) => _home(),
+          ),
+        ),
+      );
 }

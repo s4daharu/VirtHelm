@@ -55,7 +55,8 @@
       "on-demand read-only per-storage used/total RRD capacity history for 1h/24h/7d windows",
       "foreground-only in-app incident inbox for explicit node-state problems, failed recent server tasks and failed/unknown session tasks",
       "profile-scoped foreground CPU/storage threshold rules for exact visible node, guest and per-node storage targets, evaluated only from live foreground refreshes",
-      "foreground threshold duration confirmation and hysteresis: rules can require consecutive usable live samples before firing and a lower clear threshold before resolving"
+      "foreground threshold duration confirmation and hysteresis: rules can require consecutive usable live samples before firing and a lower clear threshold before resolving",
+      "shared Material 3 status components, home incident summary, pull-to-refresh detail routes and a scoped MaterialApp rebuild boundary (source-level UI foundation)"
     ],
     "scope_note": "This is a partial M2 read-cockpit slice, not the full premium M2 roadmap.",
     "release_validation": "Real PVE 8.4/9.2 contracts/ACLs and Android device/release gates remain required.",
@@ -122,7 +123,7 @@
       "ALERT-006 adds backward-compatible consecutive-sample duration and clear hysteresis to foreground threshold rules; missing samples reset pending confirmation but never resolve an active firing, and no background polling/notification delivery is added."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 158,
+    "current_flutter_tests_defined": 160,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
@@ -302,6 +303,15 @@
       "compatibility": "Existing saved rules without the new fields decode as one sample and zero hysteresis.",
       "limitations": "No wall-clock duration SLA, quiet hours, cooldown, acknowledgement/history, WorkManager, Android notifications or relay/webhook delivery. Live PVE 8.4/9.2 and physical Android validation remain open.",
       "report": "docs/66-implementation-alert-duration-hysteresis.md"
+    },
+    "ui_foundation_followup": "docs/67-ui-overhaul-foundation.md",
+    "ui_overhaul_foundation": {
+      "status": "implemented_source_level_ci_pending_live_validation_pending",
+      "scope": "Shared Material 3 theme tokens and components, semantic status badges with icons/TalkBack labels, empty-state recovery actions, pull-to-refresh on guest/node/storage details, home foreground-incident summary, monospace task-log presentation and an app-info version match guard.",
+      "rebuild_boundary": "MaterialApp no longer rebuilds on every controller notification; theme changes use a dedicated notifier and inventory/task/incident updates rebuild only the active shell subtree.",
+      "safety": "Presentation-only. No API endpoint, credential, persistence, TLS, POST retry, freshness guard or mutation behavior changes; task logs remain bounded, on-demand and non-persistent.",
+      "verification": "flutter analyze --fatal-infos and the existing Flutter widget suite pass locally under the available SDK; new component tests cover status semantics and empty-state actions. Live PVE, physical Android TalkBack/contrast/200%-text and golden screenshots remain open.",
+      "limitations": "Guest detail tabs/sticky actions, guest-filter consolidation, task timeline, full-screen alert-rule editor, connection management and About surfaces remain future work."
     }
   }
 }

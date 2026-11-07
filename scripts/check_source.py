@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Offline source structure/security assertions; not a replacement for Flutter tests."""
 from pathlib import Path
+import re
 root = Path(__file__).resolve().parents[1]
 required = [
   'app/pubspec.yaml','app/pubspec.lock','app/lib/main.dart','app/lib/core/models.dart',
@@ -11,6 +12,8 @@ required = [
   'app/lib/core/guest_saved_view.dart','app/lib/core/alert_rules.dart',
   'app/lib/core/incident_center.dart',
   'app/lib/ui/theme.dart',
+  'app/lib/ui/components.dart',
+  'app/lib/core/app_info.dart',
   'app/lib/ui/connect_page.dart','app/lib/ui/shell.dart',
   'app/lib/ui/guest_page.dart','app/lib/ui/node_page.dart','app/lib/ui/storage_page.dart',
   'app/lib/ui/alert_rules_page.dart','app/lib/ui/incident_center_tab.dart',
@@ -20,6 +23,7 @@ required = [
   'app/test/widget_test.dart','app/test/pve_tls_test.dart',
   'app/test/incident_center_test.dart','app/test/alert_rules_test.dart',
   'app/test/alert_rules_widget_test.dart',
+  'app/test/ui_components_test.dart',
   'app/test/guest_list_filter_test.dart','app/test/task_history_filter_test.dart',
   'app/test/saved_guest_view_test.dart',
   'app/test/app_preferences_test.dart','app/test/offline_overview_test.dart',
@@ -50,9 +54,16 @@ required = [
    'docs/63-implementation-storage-rrd-history.md',
    'docs/64-implementation-alert-incident-inbox.md',
    'docs/65-implementation-foreground-threshold-alert-rules.md',
-   'docs/66-implementation-alert-duration-hysteresis.md']
+   'docs/66-implementation-alert-duration-hysteresis.md',
+   'docs/67-ui-overhaul-foundation.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
+version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)
+assert version_match, 'pubspec version missing'
+assert f"virthelmDisplayVersion = '{version_match.group(1)}'" in files['app/lib/core/app_info.dart'], 'display version drift'
+assert 'class VirtHelmStatusColors' in files['app/lib/ui/theme.dart']
+assert 'class SparklineCard' in files['app/lib/ui/components.dart']
+assert "Key('overview-incident-summary')" in files['app/lib/ui/shell.dart']
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
 assert 'android:allowBackup' in files['scripts/harden_android.py']
 assert 'android:usesCleartextTraffic' in files['scripts/harden_android.py']

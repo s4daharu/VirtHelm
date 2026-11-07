@@ -1614,11 +1614,17 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.textContaining('CACHED COUNTS'), findsOneWidget);
+    expect(find.textContaining('Last-known counts only'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('1 / 2'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     expect(find.text('1 / 2'), findsOneWidget);
     expect(find.text('12'), findsOneWidget);
     expect(find.text('8'), findsOneWidget);
     expect(find.text('4'), findsOneWidget);
-    expect(find.textContaining('Last-known counts only'), findsOneWidget);
     await tester.tap(find.text('Guests'));
     await tester.pumpAndSettle();
     expect(find.text('No live data'), findsOneWidget);
