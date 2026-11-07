@@ -232,9 +232,12 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                _stateChip(profile),
               ],
+            ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: _stateChip(profile),
             ),
             const SizedBox(height: 12),
             Wrap(
