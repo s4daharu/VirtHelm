@@ -35,6 +35,7 @@ class _ShellPageState extends State<ShellPage> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final profile = controller.active;
+    final insecure = profile?.allowInvalidCertificates == true;
     final inventory = controller.inventory;
     final freshness = profile == null
         ? null
@@ -65,10 +66,10 @@ class _ShellPageState extends State<ShellPage> {
                 children: [
                   const Text('VirtHelm'),
                   Text(
+                    '${insecure ? 'TLS UNVERIFIED • ' : ''}'
                     '${profile?.name ?? 'No connection'}'
                     '${profile?.lastServerVersion == null ? '' : ' • PVE ${profile!.lastServerVersion}'}'
-                    '${freshness == null ? '' : ' • $freshness'}'
-                    '${profile?.allowInvalidCertificates == true ? ' • TLS UNVERIFIED' : ''}',
+                    '${freshness == null ? '' : ' • $freshness'}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -999,6 +1000,7 @@ class _GuestsTabState extends State<_GuestsTab> {
     final selection = await showModalBottomSheet<_GuestFilterSelection>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       showDragHandle: true,
       builder: (_) => _GuestFilterSheet(
         kind: kind,

@@ -570,8 +570,6 @@ class _GuestPageState extends State<GuestPage> {
                   Expanded(
                     child: Text(
                       guardReason,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: scheme.error,
                         fontSize: 12,

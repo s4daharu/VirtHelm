@@ -1038,6 +1038,19 @@ void main() {
       await tester.tap(find.text(tab));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull, reason: '$tab must not overflow');
+      if (tab == 'Guests') {
+        await tester.tap(find.byKey(const Key('guest-filter-button')));
+        await tester.pumpAndSettle();
+        expect(find.text('Filter guests'), findsOneWidget);
+        expect(find.byKey(const Key('guest-filter-apply')), findsOneWidget);
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'guest filter sheet must not overflow at large text',
+        );
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+      }
     }
   });
 
@@ -1086,6 +1099,16 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+      controller.setDeviceNetworkState(DeviceNetworkState.unavailable);
+      await tester.pumpAndSettle();
+      final guard = tester.widget<Text>(
+        find.text(
+          'STALE / OFFLINE — actions are disabled until a fresh refresh.',
+        ),
+      );
+      expect(guard.maxLines, isNull);
+      expect(guard.overflow, isNull);
+      expect(tester.takeException(), isNull);
       for (final tab in ['Metrics', 'I/O', 'Overview']) {
         await tester.ensureVisible(find.text(tab));
         await tester.pumpAndSettle();
@@ -1119,6 +1142,10 @@ void main() {
         MaterialApp(home: ShellPage(controller: controller)),
       );
       expect(find.textContaining('TLS UNVERIFIED'), findsWidgets);
+      final tlsContext = tester.widget<Text>(
+        find.textContaining('TLS UNVERIFIED').first,
+      );
+      expect(tlsContext.data, startsWith('TLS UNVERIFIED • Lab'));
       expect(
         find.text('INSECURE: certificate verification disabled.'),
         findsNothing,
