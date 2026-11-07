@@ -19,17 +19,17 @@ A non-firing rule starts confirmation only from a usable sample at or above its 
 
 A missing or unusable sample resets **pending** confirmation. This avoids claiming continuous threshold duration across a data gap. Once a rule is already firing, however, missing data does not resolve it: the previous firing remains visible because unknown is not healthy.
 
-An active rule resolves only when a usable sample is at or below:
+With positive hysteresis, an active rule resolves only when a usable sample is at or below:
 
 `clear threshold = firing threshold - hysteresis`
 
-Samples between the clear threshold and firing threshold remain inside the hysteresis band and keep the existing incident active. The original firing timestamp is retained while the incident remains active rather than being reset on every refresh.
+Samples between the clear threshold and firing threshold remain inside the hysteresis band and keep the existing incident active. With zero hysteresis, the prior behavior is preserved: a value exactly at the firing threshold remains active and resolution requires a sample below that threshold. The original firing timestamp is retained while the incident remains active rather than being reset on every refresh.
 
 Because this is foreground-only polling, “consecutive samples” is deliberately not presented as an exact number of minutes. Actual wall-clock spacing depends on manual refreshes and the selected foreground auto-refresh interval.
 
 ## Persistence and isolation
 
-Only rule configuration is persisted as profile-scoped non-secret SharedPreferences metadata. Pending counters and active firing state remain runtime-only and are cleared when the threshold engine is cleared during profile switch/reconnect.
+Only rule configuration is persisted as profile-scoped non-secret SharedPreferences metadata. Saving, enabling, disabling or deleting rule configuration does not count as a live sample; those changes only reconcile runtime state. Pending counters and active firing state remain runtime-only and are cleared when the threshold engine is cleared during profile switch/reconnect.
 
 Credential storage is unchanged. The new metadata does not contain tokens, task logs, metric samples, endpoints, or notification payloads.
 
@@ -52,7 +52,9 @@ Synthetic coverage now checks:
 - pending confirmation does not fire early;
 - missing data resets pending confirmation;
 - hysteresis keeps an active rule firing inside the band;
-- a sample at the lower clear threshold resolves the incident;
+- a sample at the lower clear threshold resolves a positive-hysteresis incident;
+- zero hysteresis keeps an active incident firing at exactly the configured threshold;
+- rule configuration writes do not advance confirmation counters;
 - existing node, guest and storage threshold behavior remains compatible.
 
 Repository CI remains the required formatter, analyzer, Flutter test and Android debug-APK gate. Test count is tracked in `PROJECT_STATUS.json`.
