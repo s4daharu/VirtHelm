@@ -258,23 +258,16 @@ void main() {
     await tester.tap(find.text('pve1'));
     await tester.pumpAndSettle();
     expect(find.byType(NodePage), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('Performance history'),
-      250,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.tap(find.byKey(const Key('node-metrics-tab')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('node-metrics-list')), findsOneWidget);
     expect(find.text('Performance history'), findsOneWidget);
     expect(controller.requestedTimeframes, isEmpty);
 
     await tester.tap(find.text('Load history'));
     await tester.pumpAndSettle();
     expect(controller.requestedTimeframes, [NodeMetricTimeframe.hour]);
-    await tester.scrollUntilVisible(
-      find.textContaining('Latest 40.0%'),
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.ensureVisible(find.textContaining('Latest 40.0%'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Latest 40.0%'), findsOneWidget);
     expect(find.textContaining('Range 20.0%–40.0%'), findsOneWidget);
@@ -283,7 +276,10 @@ void main() {
     await tester.scrollUntilVisible(
       find.text('24 hours'),
       -200,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('node-metrics-list')),
+        matching: find.byType(Scrollable),
+      ),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('24 hours'));
@@ -353,23 +349,16 @@ void main() {
     await tester.tap(find.text('local'));
     await tester.pumpAndSettle();
     expect(find.byType(StoragePage), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('Capacity history'),
-      250,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.tap(find.byKey(const Key('storage-capacity-tab')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('storage-capacity-list')), findsOneWidget);
     expect(find.text('Capacity history'), findsOneWidget);
     expect(controller.requestedTimeframes, isEmpty);
 
     await tester.tap(find.text('Load history'));
     await tester.pumpAndSettle();
     expect(controller.requestedTimeframes, [StorageMetricTimeframe.hour]);
-    await tester.scrollUntilVisible(
-      find.textContaining('Latest 75.0%'),
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.ensureVisible(find.textContaining('Latest 75.0%'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Latest 75.0%'), findsOneWidget);
     expect(find.textContaining('Usage range 50.0%–75.0%'), findsOneWidget);
@@ -378,7 +367,10 @@ void main() {
     await tester.scrollUntilVisible(
       find.text('24 hours'),
       -200,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('storage-capacity-list')),
+        matching: find.byType(Scrollable),
+      ),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('24 hours'));
@@ -439,7 +431,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Metrics'));
+    await tester.tap(find.byKey(const Key('guest-metrics-tab')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('guest-metrics-list')), findsOneWidget);
     expect(controller.requestedTimeframes, isEmpty);
@@ -1207,7 +1199,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('I/O'));
+      await tester.tap(find.byKey(const Key('guest-io-tab')));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Guest I/O counters'));
       await tester.pumpAndSettle();

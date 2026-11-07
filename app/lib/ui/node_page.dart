@@ -93,6 +93,231 @@ class _NodePageState extends State<NodePage> {
     });
   }
 
+  Widget _tabList({required Key key, required List<Widget> children}) =>
+      RefreshIndicator(
+        onRefresh: widget.controller.refresh,
+        child: ListView(
+          key: key,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 30),
+          children: children,
+        ),
+      );
+
+  Widget _identityHeading(Node? node, ColorScheme scheme) {
+    final title = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          node?.name ?? widget.node.name,
+          style: Theme.of(context).textTheme.titleLarge,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        Text(
+          'Node • ${widget.node.name}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+    final avatar = CircleAvatar(
+      radius: 26,
+      backgroundColor: scheme.primaryContainer,
+      foregroundColor: scheme.onPrimaryContainer,
+      child: const Icon(Icons.dns_rounded),
+    );
+    final status = StatusChip(status: node?.status ?? 'unavailable');
+    if (MediaQuery.textScalerOf(context).scale(12) > 16) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              avatar,
+              const SizedBox(width: 12),
+              Expanded(child: title),
+            ],
+          ),
+          const SizedBox(height: 10),
+          status,
+        ],
+      );
+    }
+    return Row(
+      children: [
+        avatar,
+        const SizedBox(width: 12),
+        Expanded(child: title),
+        status,
+      ],
+    );
+  }
+
+  Widget _overviewTab(Node? node, ColorScheme scheme) => _tabList(
+    key: const Key('node-overview-list'),
+    children: [
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _identityHeading(node, scheme),
+              if (widget.controller.inventory != null) ...[
+                const SizedBox(height: 14),
+                Text(
+                  'Last refreshed ${formatAge(widget.controller.inventory!.fetchedAt)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+              if (!widget.controller.isInventoryFresh) ...[
+                const SizedBox(height: 10),
+                Text(
+                  'STALE / OFFLINE — historical reads require a live connection.',
+                  style: TextStyle(
+                    color: scheme.error,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+              if (node == null) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'This node is no longer present in the current inventory.',
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      const SizedBox(height: 22),
+      Text(
+        'Current utilization',
+        style: Theme.of(context).textTheme.titleLarge,
+      ),
+      const SizedBox(height: 12),
+      MetricBar(
+        label: 'CPU',
+        value: formatPercent(node?.cpu),
+        fraction: node?.cpu,
+        icon: Icons.memory_rounded,
+      ),
+      const SizedBox(height: 8),
+      MetricBar(
+        label: 'Memory',
+        value: '${formatBytes(node?.mem)} / ${formatBytes(node?.maxMem)}',
+        fraction:
+            node != null &&
+                node.maxMem != null &&
+                node.maxMem! > 0 &&
+                node.mem != null
+            ? node.mem! / node.maxMem!
+            : null,
+        icon: Icons.storage_rounded,
+      ),
+      const SizedBox(height: 8),
+      Card(
+        child: ListTile(
+          leading: const Icon(Icons.schedule_rounded),
+          title: const Text('Uptime'),
+          subtitle: Text(formatUptime(node?.uptime)),
+        ),
+      ),
+    ],
+  );
+
+  Widget _metricsTab() {
+    final cpuHistory = normalizedSamples(
+      (metricSeries?.points ?? const <NodeMetricPoint>[]).map(
+        (point) => point.cpuFraction,
+      ),
+    );
+    final memoryHistory = normalizedSamples(
+      (metricSeries?.points ?? const <NodeMetricPoint>[]).map(
+        (point) => point.memoryFraction,
+      ),
+    );
+    return _tabList(
+      key: const Key('node-metrics-list'),
+      children: [
+        Text(
+          'Performance history',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Read-only Proxmox node RRD averages loaded only when requested. '
+          'History stays in this screen and is not cached.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final timeframe in NodeMetricTimeframe.values)
+              ChoiceChip(
+                label: Text(timeframe.label),
+                selected: metricTimeframe == timeframe,
+                onSelected: currentNode() == null || loadingMetrics
+                    ? null
+                    : (_) => selectMetricTimeframe(timeframe),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.tonalIcon(
+            onPressed: currentNode() == null || loadingMetrics
+                ? null
+                : loadMetrics,
+            icon: loadingMetrics
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.show_chart_rounded),
+            label: Text(
+              metricSeries == null ? 'Load history' : 'Refresh history',
+            ),
+          ),
+        ),
+        if (metricError != null) ...[
+          const SizedBox(height: 10),
+          Text(
+            metricError!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ],
+        if (metricSeries != null) ...[
+          const SizedBox(height: 10),
+          Text(
+            '${metricSeries!.points.length} usable samples'
+            '${metricSeries!.malformedRecords > 0 ? ' • ${metricSeries!.malformedRecords} malformed ignored' : ''}'
+            '${metricSeries!.truncated ? ' • response truncated locally' : ''}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          SparklineCard(
+            title: 'CPU average',
+            icon: Icons.memory_rounded,
+            values: cpuHistory,
+            summary: fractionRangeSummary(cpuHistory),
+          ),
+          const SizedBox(height: 8),
+          SparklineCard(
+            title: 'Memory average',
+            icon: Icons.storage_rounded,
+            values: memoryHistory,
+            summary: fractionRangeSummary(memoryHistory),
+          ),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.controller,
@@ -115,192 +340,29 @@ class _NodePageState extends State<NodePage> {
 
       final node = currentNode();
       final scheme = Theme.of(context).colorScheme;
-      final cpuHistory = normalizedSamples(
-        (metricSeries?.points ?? const <NodeMetricPoint>[]).map(
-          (point) => point.cpuFraction,
-        ),
-      );
-      final memoryHistory = normalizedSamples(
-        (metricSeries?.points ?? const <NodeMetricPoint>[]).map(
-          (point) => point.memoryFraction,
-        ),
-      );
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(node?.name ?? widget.node.name),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh_rounded),
-              tooltip: 'Refresh',
-              onPressed: widget.controller.refresh,
-            ),
-          ],
-        ),
-        body: RefreshIndicator(
-          onRefresh: widget.controller.refresh,
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(18, 12, 18, 30),
-            children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 26,
-                            backgroundColor: scheme.primaryContainer,
-                            foregroundColor: scheme.onPrimaryContainer,
-                            child: const Icon(Icons.dns_rounded),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              node?.name ?? widget.node.name,
-                              style: Theme.of(context).textTheme.titleLarge,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          StatusChip(status: node?.status ?? 'unavailable'),
-                        ],
-                      ),
-                      if (widget.controller.inventory != null) ...[
-                        const SizedBox(height: 14),
-                        Text(
-                          'Last refreshed ${formatAge(widget.controller.inventory!.fetchedAt)}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                      if (!widget.controller.isInventoryFresh) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          'STALE / OFFLINE — historical reads require a live connection.',
-                          style: TextStyle(
-                            color: scheme.error,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                      if (node == null) ...[
-                        const SizedBox(height: 8),
-                        const Text(
-                          'This node is no longer present in the current inventory.',
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+      return DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(node?.name ?? widget.node.name),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: 'Refresh',
+                onPressed: widget.controller.refresh,
               ),
-              const SizedBox(height: 22),
-              Text(
-                'Current utilization',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 12),
-              MetricBar(
-                label: 'CPU',
-                value: formatPercent(node?.cpu),
-                fraction: node?.cpu,
-                icon: Icons.memory_rounded,
-              ),
-              const SizedBox(height: 8),
-              MetricBar(
-                label: 'Memory',
-                value:
-                    '${formatBytes(node?.mem)} / ${formatBytes(node?.maxMem)}',
-                fraction:
-                    node != null &&
-                        node.maxMem != null &&
-                        node.maxMem! > 0 &&
-                        node.mem != null
-                    ? node.mem! / node.maxMem!
-                    : null,
-                icon: Icons.storage_rounded,
-              ),
-              const SizedBox(height: 8),
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.schedule_rounded),
-                  title: const Text('Uptime'),
-                  subtitle: Text(formatUptime(node?.uptime)),
-                ),
-              ),
-              const SizedBox(height: 22),
-              Text(
-                'Performance history',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Read-only Proxmox node RRD averages loaded only when requested. '
-                'History stays in this screen and is not cached.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final timeframe in NodeMetricTimeframe.values)
-                    ChoiceChip(
-                      label: Text(timeframe.label),
-                      selected: metricTimeframe == timeframe,
-                      onSelected: node == null || loadingMetrics
-                          ? null
-                          : (_) => selectMetricTimeframe(timeframe),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FilledButton.tonalIcon(
-                  onPressed: node == null || loadingMetrics
-                      ? null
-                      : loadMetrics,
-                  icon: loadingMetrics
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.show_chart_rounded),
-                  label: Text(
-                    metricSeries == null ? 'Load history' : 'Refresh history',
-                  ),
-                ),
-              ),
-              if (metricError != null) ...[
-                const SizedBox(height: 10),
-                Text(metricError!, style: TextStyle(color: scheme.error)),
-              ],
-              if (metricSeries != null) ...[
-                const SizedBox(height: 10),
-                Text(
-                  '${metricSeries!.points.length} usable samples'
-                  '${metricSeries!.malformedRecords > 0 ? ' • ${metricSeries!.malformedRecords} malformed ignored' : ''}'
-                  '${metricSeries!.truncated ? ' • response truncated locally' : ''}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 8),
-                SparklineCard(
-                  title: 'CPU average',
-                  icon: Icons.memory_rounded,
-                  values: cpuHistory,
-                  summary: fractionRangeSummary(cpuHistory),
-                ),
-                const SizedBox(height: 8),
-                SparklineCard(
-                  title: 'Memory average',
-                  icon: Icons.storage_rounded,
-                  values: memoryHistory,
-                  summary: fractionRangeSummary(memoryHistory),
-                ),
-              ],
             ],
+            bottom: const TabBar(
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              tabs: [
+                Tab(key: Key('node-overview-tab'), text: 'Overview'),
+                Tab(key: Key('node-metrics-tab'), text: 'Metrics'),
+              ],
+            ),
+          ),
+          body: TabBarView(
+            children: [_overviewTab(node, scheme), _metricsTab()],
           ),
         ),
       );

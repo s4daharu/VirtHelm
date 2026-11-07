@@ -328,6 +328,14 @@
       "safety": "The existing execute path, typed-risk confirmation, profile/generation checks, fresh-inventory requirements, single-flight reservation and unknown-outcome lockout are unchanged. No API, credential, persistence, retry or background behavior is added.",
       "verification": "flutter analyze --fatal-infos, 161 Flutter tests, formatting and source/documentation checks pass locally. The new regression covers all three tabs at 320dp/200% text scale without layout overflow. Physical Android TalkBack/touch-target/performance validation remains open.",
       "limitations": "Guest-list filter consolidation, task timeline virtualization, the full-screen threshold-rule editor, dedicated connection management, AMOLED/high-contrast themes, lock/biometrics, notifications and golden screenshots remain future work."
+    },
+    "node_storage_detail_tabs_followup": "docs/70-node-storage-detail-tabs.md",
+    "node_storage_detail_tabs": {
+      "status": "implemented_source_level_ci_pending_live_validation_pending",
+      "scope": "Node detail separates current utilization from RRD metrics, and storage detail separates capacity/content overview from capacity history, using the same tabbed read-only detail pattern as guest detail.",
+      "safety": "Read-only. RRD history remains explicit, GET-only, bounded, transient and profile/generation scoped. Timeframe selection alone performs no request. Missing-resource and session-change redaction is preserved.",
+      "verification": "flutter analyze --fatal-infos, 161 Flutter tests, formatting and source/documentation checks pass locally. Node/storage history regressions select the metrics/capacity tabs explicitly and still verify request timing, summaries, sample counts and profile-switch redaction.",
+      "limitations": "Physical Android TalkBack/touch-target/contrast/200%-text, 360/393/412dp screenshots and performance benchmarks remain open. Guest-filter consolidation, task timeline virtualization, alert-rule editor, connection management, AMOLED/high-contrast themes, lock/biometrics and notifications remain future work."
     }
   }
 }

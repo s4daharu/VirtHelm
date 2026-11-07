@@ -685,9 +685,9 @@ class _GuestPageState extends State<GuestPage> {
               isScrollable: true,
               tabAlignment: TabAlignment.start,
               tabs: [
-                Tab(text: 'Overview'),
-                Tab(text: 'Metrics'),
-                Tab(text: 'I/O'),
+                Tab(key: Key('guest-overview-tab'), text: 'Overview'),
+                Tab(key: Key('guest-metrics-tab'), text: 'Metrics'),
+                Tab(key: Key('guest-io-tab'), text: 'I/O'),
               ],
             ),
           ),
