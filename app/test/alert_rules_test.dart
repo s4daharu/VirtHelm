@@ -265,6 +265,23 @@ void main() {
           'vmid': 101,
           'name': 'Web',
           'status': 'running',
+          'cpu': 0.8,
+        },
+      ]),
+      storages: const [],
+      rules: const [guestRule],
+      storageDataCurrent: true,
+    );
+    expect(engine.incidents, hasLength(1));
+
+    engine.evaluate(
+      inventory: Inventory.fromResources([
+        {
+          'type': 'qemu',
+          'node': 'pve1',
+          'vmid': 101,
+          'name': 'Web',
+          'status': 'running',
           'cpu': 0.3,
         },
       ]),
