@@ -300,6 +300,113 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   test(
+    'candidate connection check reports limited inventory without persistence',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final vault = _Vault();
+      final repo = ProfileRepository(prefs, vault);
+      final gateway = _Gateway()
+        ..serverVersion = '9.2.8'
+        ..inventoryFailure = const PveFailure(
+          'Permission denied for cluster inventory.',
+          status: 403,
+        );
+      final ctl = AppController(
+        repository: repo,
+        gatewayFactory: (profile, credentials) => gateway,
+      );
+      addTearDown(ctl.dispose);
+
+      final result = await ctl.verifyConnectionConfiguration(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!test',
+        secret: 'test-secret',
+      );
+
+      expect(result.serverVersion, '9.2.8');
+      expect(result.inventoryAccessible, isFalse);
+      expect(result.permissionLimited, isTrue);
+      expect(result.inventoryStatus, 403);
+      expect(repo.readProfiles(), isEmpty);
+      expect(vault.values, isEmpty);
+      expect(vault.storeCalls, 0);
+      expect(ctl.active, isNull);
+    },
+  );
+
+  test(
+    'saved connection test refreshes version metadata without rewriting token',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final vault = _Vault();
+      final repo = ProfileRepository(prefs, vault);
+      final profile = ConnectionProfile.create(
+        name: 'Lab',
+        address: 'https://pve.local',
+      ).withServerVersion('8.4.0');
+      await repo.save(
+        profile,
+        const ApiCredentials(tokenId: 'me@pve!test', secret: 'test-secret'),
+      );
+      await repo.setActive(null);
+      expect(vault.storeCalls, 1);
+
+      final ctl = AppController(
+        repository: repo,
+        gatewayFactory: (candidate, credentials) =>
+            _Gateway()..serverVersion = '9.2.8',
+      );
+      addTearDown(ctl.dispose);
+      ctl.profiles = repo.readProfiles();
+
+      final result = await ctl.testSavedConnection(profile.id);
+
+      expect(result.inventoryAccessible, isTrue);
+      expect(result.serverVersion, '9.2.8');
+      expect(repo.readProfiles().single.lastServerVersion, '9.2.8');
+      expect(vault.storeCalls, 1);
+      expect(ctl.active, isNull);
+    },
+  );
+
+  test(
+    'initialize preserves explicit chooser state when no profile is selected',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final repo = ProfileRepository(prefs, _Vault());
+      final profiles = [
+        ConnectionProfile.create(name: 'A', address: 'https://a.example'),
+        ConnectionProfile.create(name: 'B', address: 'https://b.example'),
+      ];
+      for (final profile in profiles) {
+        await repo.save(
+          profile,
+          const ApiCredentials(tokenId: 'me@pve!test', secret: 'test-secret'),
+        );
+      }
+      await repo.setActive(null);
+      var gatewayCreations = 0;
+      final ctl = AppController(
+        repository: repo,
+        gatewayFactory: (profile, credentials) {
+          gatewayCreations++;
+          return _Gateway();
+        },
+      );
+      addTearDown(ctl.dispose);
+
+      await ctl.initialize();
+
+      expect(ctl.initialized, isTrue);
+      expect(ctl.profiles, hasLength(2));
+      expect(ctl.active, isNull);
+      expect(repo.activeId, isNull);
+      expect(gatewayCreations, 0);
+    },
+  );
+
+  test(
     'guest performance inspection is read-only and session isolated',
     () async {
       final prefs = await SharedPreferences.getInstance();
