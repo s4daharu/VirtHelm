@@ -890,7 +890,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(controller.checks, 0);
       expect(
-        find.textContaining('https://public.example:8006'),
+        find.textContaining('Server: https://public.example:8006'),
         findsOneWidget,
       );
       await tester.tap(find.text('Cancel'));
