@@ -50,6 +50,7 @@ class CockpitIncident {
 
 class ForegroundThresholdAlertEngine {
   final Map<String, CockpitIncident> _active = {};
+  final Map<String, int> _pendingSamples = {};
 
   List<CockpitIncident> get incidents {
     final values = _active.values.toList(growable: false)
@@ -63,7 +64,10 @@ class ForegroundThresholdAlertEngine {
     return List<CockpitIncident>.unmodifiable(values);
   }
 
-  void clear() => _active.clear();
+  void clear() {
+    _active.clear();
+    _pendingSamples.clear();
+  }
 
   void evaluate({
     required Inventory inventory,
@@ -76,6 +80,7 @@ class ForegroundThresholdAlertEngine {
         if (rule.enabled) rule.id: rule,
     };
     _active.removeWhere((id, _) => !enabled.containsKey(id));
+    _pendingSamples.removeWhere((id, _) => !enabled.containsKey(id));
     final storageList = storages.toList(growable: false);
 
     for (final rule in enabled.values) {
@@ -86,6 +91,7 @@ class ForegroundThresholdAlertEngine {
         storageDataCurrent: storageDataCurrent,
       );
       if (sample == null) {
+        _pendingSamples.remove(rule.id);
         final previous = _active[rule.id];
         if (previous != null) {
           _active[rule.id] = CockpitIncident(
@@ -108,25 +114,60 @@ class ForegroundThresholdAlertEngine {
         continue;
       }
 
-      if (sample.fraction >= rule.thresholdFraction) {
+      final previous = _active[rule.id];
+      if (previous != null) {
+        if (sample.fraction <= rule.clearThresholdFraction) {
+          _active.remove(rule.id);
+          _pendingSamples.remove(rule.id);
+          continue;
+        }
         _active[rule.id] = CockpitIncident(
-          key: 'rule:${rule.id}',
+          key: previous.key,
           severity: _severity(rule.severity),
           source: CockpitIncidentSource.rule,
           title: sample.title,
           detail:
-              'Foreground rule threshold ${rule.thresholdPercent}% exceeded. '
-              'Evaluated from the latest available live foreground snapshot.',
-          observedAt: inventory.fetchedAt,
+              'Foreground rule remains active. It clears only at or below '
+              '${rule.thresholdPercent - rule.hysteresisPercent}% after '
+              '${rule.hysteresisPercent}% hysteresis.',
+          observedAt: previous.observedAt,
           node: sample.node,
           guestKind: sample.guestKind,
           guestVmid: sample.guestVmid,
           storageId: sample.storageId,
           ruleId: rule.id,
         );
-      } else {
-        _active.remove(rule.id);
+        continue;
       }
+
+      if (sample.fraction < rule.thresholdFraction) {
+        _pendingSamples.remove(rule.id);
+        continue;
+      }
+
+      final pending = (_pendingSamples[rule.id] ?? 0) + 1;
+      if (pending < rule.consecutiveSamples) {
+        _pendingSamples[rule.id] = pending;
+        continue;
+      }
+      _pendingSamples.remove(rule.id);
+      _active[rule.id] = CockpitIncident(
+        key: 'rule:${rule.id}',
+        severity: _severity(rule.severity),
+        source: CockpitIncidentSource.rule,
+        title: sample.title,
+        detail:
+            'Foreground rule threshold ${rule.thresholdPercent}% was met for '
+            '${rule.consecutiveSamples} consecutive usable sample(s). '
+            'It clears at or below '
+            '${rule.thresholdPercent - rule.hysteresisPercent}%.',
+        observedAt: inventory.fetchedAt,
+        node: sample.node,
+        guestKind: sample.guestKind,
+        guestVmid: sample.guestVmid,
+        storageId: sample.storageId,
+        ruleId: rule.id,
+      );
     }
   }
 
