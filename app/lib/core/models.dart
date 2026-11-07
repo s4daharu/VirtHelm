@@ -67,6 +67,36 @@ class ConnectionProfile {
   );
 }
 
+/// Result of an explicit read-only connection verification.
+///
+/// A successful version read proves that the configured HTTPS origin responded.
+/// Inventory access is reported separately so the UI can distinguish a
+/// reachable server from a token that lacks authentication or inventory
+/// permissions. No credentials, raw responses or task data are retained here.
+class ConnectionCheckResult {
+  const ConnectionCheckResult({
+    required this.serverVersion,
+    required this.inventoryAccessible,
+    required this.certificateVerificationEnabled,
+    this.nodeCount = 0,
+    this.guestCount = 0,
+    this.inventoryMessage,
+    this.inventoryStatus,
+  });
+
+  final String serverVersion;
+  final bool inventoryAccessible;
+  final bool certificateVerificationEnabled;
+  final int nodeCount;
+  final int guestCount;
+  final String? inventoryMessage;
+  final int? inventoryStatus;
+
+  bool get permissionLimited =>
+      !inventoryAccessible &&
+      (inventoryStatus == 401 || inventoryStatus == 403);
+}
+
 String normalizeServerVersion(String value) {
   final normalized = value.trim();
   if (normalized.isEmpty || normalized.length > 80) {
