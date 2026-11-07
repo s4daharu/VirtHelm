@@ -75,11 +75,11 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
         ? 'Certificate and hostname verification passed.'
         : 'TLS identity verification was disabled for this check.';
     final inventory = result.inventoryAccessible
-        ? 'Inventory access confirmed: \${result.nodeCount} node(s), '
-              '\${result.guestCount} workload(s).'
+        ? 'Inventory access confirmed: ${result.nodeCount} node(s), '
+              '${result.guestCount} workload(s).'
         : result.permissionLimited
         ? 'The server responded, but the API token cannot read cluster '
-              'inventory. \${result.inventoryMessage ?? 'Check token privileges.'}'
+              'inventory. ${result.inventoryMessage ?? 'Check token privileges.'}'
         : 'Inventory access could not be confirmed.';
     await showDialog<void>(
       context: context,
@@ -91,10 +91,10 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
         ),
         content: SingleChildScrollView(
           child: Text(
-            '\${profile.name}\n'
-            'PVE \${result.serverVersion}\n\n'
-            '\$tls\n\n'
-            '\$inventory',
+            '${profile.name}\n'
+            'PVE ${result.serverVersion}\n\n'
+            '$tls\n\n'
+            '$inventory',
           ),
         ),
         actions: [
@@ -114,7 +114,7 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Remove connection?'),
         content: Text(
-          'Delete \${profile.name} and its locally stored API token. '
+          'Delete ${profile.name} and its locally stored API token. '
           'This does not revoke the token on the Proxmox server.',
         ),
         actions: [
@@ -197,7 +197,7 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
         removingProfileId != null ||
         controller.connecting;
     return Card(
-      key: ValueKey('connection-card-\${profile.id}'),
+      key: ValueKey('connection-card-${profile.id}'),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
         child: Column(
@@ -246,7 +246,7 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
                   label: Text(
                     profile.lastServerVersion == null
                         ? 'PVE version not observed'
-                        : 'PVE \${profile.lastServerVersion} • last observed',
+                        : 'PVE ${profile.lastServerVersion} • last observed',
                   ),
                 ),
                 Chip(
@@ -278,13 +278,13 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
               children: [
                 if (!active)
                   FilledButton.tonalIcon(
-                    key: ValueKey('connection-use-\${profile.id}'),
+                    key: ValueKey('connection-use-${profile.id}'),
                     onPressed: disabled ? null : () => _activate(profile),
                     icon: const Icon(Icons.login_rounded),
                     label: const Text('Use connection'),
                   ),
                 OutlinedButton.icon(
-                  key: ValueKey('connection-test-\${profile.id}'),
+                  key: ValueKey('connection-test-${profile.id}'),
                   onPressed: disabled ? null : () => _test(profile),
                   icon: testing
                       ? const SizedBox.square(
@@ -295,13 +295,13 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
                   label: Text(testing ? 'Testing…' : 'Test'),
                 ),
                 TextButton.icon(
-                  key: ValueKey('connection-edit-\${profile.id}'),
+                  key: ValueKey('connection-edit-${profile.id}'),
                   onPressed: disabled ? null : () => _openEdit(profile),
                   icon: const Icon(Icons.edit_outlined),
                   label: const Text('Edit'),
                 ),
                 TextButton.icon(
-                  key: ValueKey('connection-remove-\${profile.id}'),
+                  key: ValueKey('connection-remove-${profile.id}'),
                   onPressed: disabled ? null : () => _remove(profile),
                   icon: removing
                       ? const SizedBox.square(
@@ -349,7 +349,7 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
                     child: Text(
                       profiles.isEmpty
                           ? 'No saved connections'
-                          : '\${profiles.length} saved connection\${profiles.length == 1 ? '' : 's'}',
+                          : '${profiles.length} saved connection${profiles.length == 1 ? '' : 's'}',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ),
