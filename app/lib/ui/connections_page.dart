@@ -386,10 +386,10 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
               ),
               const SizedBox(height: 12),
               if (profiles.isEmpty)
-                const EmptyState(
+                const MessageCard(
                   icon: Icons.dns_outlined,
                   title: 'No connections yet',
-                  body:
+                  text:
                       'Add a Proxmox VE server and verify its API token before use.',
                 )
               else
