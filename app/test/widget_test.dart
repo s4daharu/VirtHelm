@@ -7,7 +7,6 @@ import 'package:virthelm/core/app_controller.dart';
 import 'package:virthelm/core/app_preferences.dart';
 import 'package:virthelm/core/device_connectivity.dart';
 import 'package:virthelm/main.dart';
-import 'package:virthelm/core/guest_list_filter.dart';
 import 'package:virthelm/core/models.dart';
 import 'package:virthelm/core/offline_overview.dart';
 import 'package:virthelm/core/profile_repository.dart';
@@ -1324,35 +1323,33 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('3 workloads'), findsOneWidget);
 
+    await tester.tap(find.byKey(const Key('guest-filter-button')));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Containers'));
+    await tester.ensureVisible(find.byKey(const Key('guest-filter-apply')));
+    await tester.tap(find.byKey(const Key('guest-filter-apply')));
     await tester.pumpAndSettle();
     expect(find.text('1 workloads'), findsOneWidget);
     expect(find.text('Beta'), findsOneWidget);
-    await tester.tap(find.text('Any type'));
-    await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('All nodes'));
-    await tester.tap(find.text('All nodes'));
+    await tester.tap(find.byKey(const Key('guest-filter-button')));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is CheckedPopupMenuItem<String> && widget.value == 'pve2',
-      ),
-    );
+    await tester.tap(find.text('Any type'));
+    await tester.ensureVisible(find.byKey(const Key('guest-filter-node-pve2')));
+    await tester.tap(find.byKey(const Key('guest-filter-node-pve2')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('guest-filter-apply')));
+    await tester.tap(find.byKey(const Key('guest-filter-apply')));
     await tester.pumpAndSettle();
     expect(find.text('2 workloads'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Sort: Favorites first'));
-    await tester.tap(find.text('Sort: Favorites first'));
+    await tester.tap(find.byKey(const Key('guest-filter-button')));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is CheckedPopupMenuItem<GuestSort> &&
-            widget.value == GuestSort.vmid,
-      ),
-    );
+    await tester.ensureVisible(find.byKey(const Key('guest-filter-sort-vmid')));
+    await tester.tap(find.byKey(const Key('guest-filter-sort-vmid')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('guest-filter-apply')));
+    await tester.tap(find.byKey(const Key('guest-filter-apply')));
     await tester.pumpAndSettle();
     expect(find.text('Sort: VMID'), findsOneWidget);
 
@@ -1376,8 +1373,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('1 workloads'), findsOneWidget);
     expect(find.text('New profile workload'), findsOneWidget);
-    expect(find.text('All nodes'), findsOneWidget);
-    expect(find.text('Sort: Favorites first'), findsOneWidget);
+    expect(find.byKey(const Key('guest-filter-button')), findsOneWidget);
+    expect(find.text('Sort: VMID'), findsNothing);
   });
 
   testWidgets('guest filters can be saved and restored as a named view', (
@@ -1435,50 +1432,25 @@ void main() {
 
     await tester.enterText(find.byType(TextField).first, 'Beta');
     await tester.tap(find.text('Stopped'));
+    await tester.tap(find.byKey(const Key('guest-filter-button')));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Containers'));
-    await tester.ensureVisible(find.text('All nodes'));
-    await tester.tap(find.text('All nodes'));
+    await tester.ensureVisible(find.byKey(const Key('guest-filter-node-pve2')));
+    await tester.tap(find.byKey(const Key('guest-filter-node-pve2')));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is CheckedPopupMenuItem<String> && widget.value == 'pve2',
-      ),
+    await tester.ensureVisible(find.byKey(const Key('guest-filter-tag-dev')));
+    await tester.tap(find.byKey(const Key('guest-filter-tag-dev')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const Key('guest-filter-pool-team-a')),
     );
+    await tester.tap(find.byKey(const Key('guest-filter-pool-team-a')));
     await tester.pumpAndSettle();
-
-    await tester.ensureVisible(find.text('All tags'));
-    await tester.tap(find.text('All tags'));
+    await tester.ensureVisible(find.byKey(const Key('guest-filter-sort-vmid')));
+    await tester.tap(find.byKey(const Key('guest-filter-sort-vmid')));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is CheckedPopupMenuItem<String> && widget.value == 'dev',
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.ensureVisible(find.text('All pools'));
-    await tester.tap(find.text('All pools'));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is CheckedPopupMenuItem<String> && widget.value == 'team-a',
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.ensureVisible(find.text('Sort: Favorites first'));
-    await tester.tap(find.text('Sort: Favorites first'));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is CheckedPopupMenuItem<GuestSort> &&
-            widget.value == GuestSort.vmid,
-      ),
-    );
+    await tester.ensureVisible(find.byKey(const Key('guest-filter-apply')));
+    await tester.tap(find.byKey(const Key('guest-filter-apply')));
     await tester.pumpAndSettle();
     expect(find.text('1 workloads'), findsOneWidget);
 
@@ -1492,50 +1464,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField).first, '');
     await tester.tap(find.text('All'));
-    await tester.tap(find.text('Any type'));
-    await tester.ensureVisible(find.text('Node: pve2'));
-    await tester.tap(find.text('Node: pve2'));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is CheckedPopupMenuItem<String> && widget.value == '__all',
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.ensureVisible(find.text('Tag: dev'));
-    await tester.tap(find.text('Tag: dev'));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is CheckedPopupMenuItem<String> && widget.value == '',
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.ensureVisible(find.text('Pool: team-a'));
-    await tester.tap(find.text('Pool: team-a'));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is CheckedPopupMenuItem<String> && widget.value == '',
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.ensureVisible(find.text('Sort: VMID'));
-    await tester.tap(find.text('Sort: VMID'));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is CheckedPopupMenuItem<GuestSort> &&
-            widget.value == GuestSort.favorites,
-      ),
-    );
+    await tester.tap(find.text('Clear filters'));
     await tester.pumpAndSettle();
     expect(find.text('3 workloads'), findsOneWidget);
 

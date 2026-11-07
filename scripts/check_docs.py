@@ -44,7 +44,8 @@ required=['README.md','SECURITY.md','CONTRIBUTING.md',
            'docs/67-ui-overhaul-foundation.md',
            'docs/68-screen-polish-followup.md',
            'docs/69-guest-detail-tabs-actions.md',
-           'docs/70-node-storage-detail-tabs.md']
+           'docs/70-node-storage-detail-tabs.md',
+           'docs/71-guest-filter-sheet.md']
 missing=[p for p in required if not (root/p).is_file()]
 assert not missing, f'Missing required docs: {missing}'
 with (root/'docs/api-endpoint-index.csv').open(newline='',encoding='utf-8') as f:

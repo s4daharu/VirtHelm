@@ -58,7 +58,8 @@ required = [
    'docs/67-ui-overhaul-foundation.md',
    'docs/68-screen-polish-followup.md',
    'docs/69-guest-detail-tabs-actions.md',
-   'docs/70-node-storage-detail-tabs.md']
+   'docs/70-node-storage-detail-tabs.md',
+   'docs/71-guest-filter-sheet.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)
@@ -143,8 +144,10 @@ assert '_guestTags' in files['app/lib/core/models.dart']
 assert 'final List<String> tags' in files['app/lib/core/models.dart']
 assert 'String? tag' in files['app/lib/core/guest_list_filter.dart']
 assert 'String? pool' in files['app/lib/core/guest_saved_view.dart']
-assert "tooltip: 'Filter by tag'" in files['app/lib/ui/shell.dart']
-assert "tooltip: 'Filter by pool'" in files['app/lib/ui/shell.dart']
+assert "Key('guest-filter-button')" in files['app/lib/ui/shell.dart']
+assert "Key('guest-filter-apply')" in files['app/lib/ui/shell.dart']
+assert 'guest-filter-tag-$value' in files['app/lib/ui/shell.dart']
+assert 'guest-filter-pool-$value' in files['app/lib/ui/shell.dart']
 assert '_currentSession' in files['app/lib/ui/guest_page.dart']
 assert 'generation: generation' in files['app/lib/ui/shell.dart']
 assert 'ServerTaskStateFilter' in files['app/lib/core/task_history_filter.dart']

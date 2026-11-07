@@ -976,6 +976,50 @@ class _GuestsTabState extends State<_GuestsTab> {
     });
   }
 
+  int get _sheetFilterCount =>
+      (kind == GuestKindFilter.all ? 0 : 1) +
+      (nodeFilter == null ? 0 : 1) +
+      (tagFilter == null ? 0 : 1) +
+      (poolFilter == null ? 0 : 1) +
+      (sort == GuestSort.favorites ? 0 : 1);
+
+  String _kindLabel(GuestKindFilter value) => switch (value) {
+    GuestKindFilter.all => 'Any type',
+    GuestKindFilter.qemu => 'VMs',
+    GuestKindFilter.lxc => 'Containers',
+  };
+
+  Future<void> _openFilters(
+    BuildContext context, {
+    required List<String> nodes,
+    required List<String> tags,
+    required List<String> pools,
+  }) async {
+    final selection = await showModalBottomSheet<_GuestFilterSelection>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _GuestFilterSheet(
+        kind: kind,
+        node: nodeFilter,
+        tag: tagFilter,
+        pool: poolFilter,
+        sort: sort,
+        nodes: nodes,
+        tags: tags,
+        pools: pools,
+      ),
+    );
+    if (selection == null || !mounted) return;
+    _manualChange(() {
+      kind = selection.kind;
+      nodeFilter = selection.node;
+      tagFilter = selection.tag;
+      poolFilter = selection.pool;
+      sort = selection.sort;
+    });
+  }
+
   Future<void> _saveCurrentView(BuildContext context) async {
     final scopedProfileId = profileId;
     if (scopedProfileId == null) return;
@@ -1107,14 +1151,37 @@ class _GuestsTabState extends State<_GuestsTab> {
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-                  child: TextField(
-                    controller: search,
-                    onChanged: (value) => _manualChange(() => query = value),
-                    decoration: const InputDecoration(
-                      hintText: 'Search guests, VMID, node, tag, or pool',
-                      prefixIcon: Icon(Icons.search_rounded),
-                    ),
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: search,
+                          onChanged: (value) =>
+                              _manualChange(() => query = value),
+                          decoration: const InputDecoration(
+                            hintText: 'Search guests, VMID, node, tag, or pool',
+                            prefixIcon: Icon(Icons.search_rounded),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Badge.count(
+                        count: _sheetFilterCount,
+                        isLabelVisible: _sheetFilterCount > 0,
+                        child: IconButton.filledTonal(
+                          key: const Key('guest-filter-button'),
+                          tooltip: 'Filter guests',
+                          onPressed: () => _openFilters(
+                            context,
+                            nodes: nodes,
+                            tags: tags,
+                            pools: pools,
+                          ),
+                          icon: const Icon(Icons.tune_rounded),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 SingleChildScrollView(
@@ -1169,157 +1236,48 @@ class _GuestsTabState extends State<_GuestsTab> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 18),
-                  child: Row(
-                    children: [
-                      for (final option in const [
-                        (GuestKindFilter.all, 'Any type'),
-                        (GuestKindFilter.qemu, 'VMs'),
-                        (GuestKindFilter.lxc, 'Containers'),
-                      ]) ...[
-                        FilterChip(
-                          label: Text(option.$2),
-                          selected: kind == option.$1,
-                          onSelected: (_) =>
-                              _manualChange(() => kind = option.$1),
-                        ),
-                        const SizedBox(width: 8),
+                if (_sheetFilterCount > 0) ...[
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 0, 18, 6),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        if (kind != GuestKindFilter.all)
+                          InputChip(
+                            label: Text('Type: ${_kindLabel(kind)}'),
+                            onDeleted: () =>
+                                _manualChange(() => kind = GuestKindFilter.all),
+                          ),
+                        if (nodeFilter != null)
+                          InputChip(
+                            label: Text('Node: $nodeFilter'),
+                            onDeleted: () =>
+                                _manualChange(() => nodeFilter = null),
+                          ),
+                        if (tagFilter != null)
+                          InputChip(
+                            label: Text('Tag: $tagFilter'),
+                            onDeleted: () =>
+                                _manualChange(() => tagFilter = null),
+                          ),
+                        if (poolFilter != null)
+                          InputChip(
+                            label: Text('Pool: $poolFilter'),
+                            onDeleted: () =>
+                                _manualChange(() => poolFilter = null),
+                          ),
+                        if (sort != GuestSort.favorites)
+                          InputChip(
+                            label: Text('Sort: ${sort.label}'),
+                            onDeleted: () =>
+                                _manualChange(() => sort = GuestSort.favorites),
+                          ),
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 8, 18, 4),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      PopupMenuButton<String>(
-                        tooltip: 'Filter by node',
-                        onSelected: (value) => _manualChange(
-                          () => nodeFilter = value == '__all' ? null : value,
-                        ),
-                        itemBuilder: (_) => [
-                          CheckedPopupMenuItem<String>(
-                            value: '__all',
-                            checked: nodeFilter == null,
-                            child: const Text('All nodes'),
-                          ),
-                          for (final node in nodes)
-                            CheckedPopupMenuItem<String>(
-                              value: node,
-                              checked: nodeFilter == node,
-                              child: Text(node),
-                            ),
-                        ],
-                        child: Chip(
-                          avatar: const Icon(Icons.hub_outlined, size: 18),
-                          label: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 150),
-                            child: Text(
-                              nodeFilter == null
-                                  ? 'All nodes'
-                                  : 'Node: $nodeFilter',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      ),
-                      PopupMenuButton<String>(
-                        tooltip: 'Filter by tag',
-                        onSelected: (value) => _manualChange(
-                          () => tagFilter = value.isEmpty ? null : value,
-                        ),
-                        itemBuilder: (_) => [
-                          CheckedPopupMenuItem<String>(
-                            value: '',
-                            checked: tagFilter == null,
-                            child: const Text('All tags'),
-                          ),
-                          for (final tag in tags)
-                            CheckedPopupMenuItem<String>(
-                              value: tag,
-                              checked: tagFilter == tag,
-                              child: Text(tag),
-                            ),
-                        ],
-                        child: Chip(
-                          avatar: const Icon(Icons.sell_outlined, size: 18),
-                          label: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 150),
-                            child: Text(
-                              tagFilter == null
-                                  ? 'All tags'
-                                  : 'Tag: $tagFilter',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      ),
-                      PopupMenuButton<String>(
-                        tooltip: 'Filter by pool',
-                        onSelected: (value) => _manualChange(
-                          () => poolFilter = value.isEmpty ? null : value,
-                        ),
-                        itemBuilder: (_) => [
-                          CheckedPopupMenuItem<String>(
-                            value: '',
-                            checked: poolFilter == null,
-                            child: const Text('All pools'),
-                          ),
-                          for (final pool in pools)
-                            CheckedPopupMenuItem<String>(
-                              value: pool,
-                              checked: poolFilter == pool,
-                              child: Text(pool),
-                            ),
-                        ],
-                        child: Chip(
-                          avatar: const Icon(Icons.folder_outlined, size: 18),
-                          label: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 150),
-                            child: Text(
-                              poolFilter == null
-                                  ? 'All pools'
-                                  : 'Pool: $poolFilter',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      ),
-                      PopupMenuButton<GuestSort>(
-                        tooltip: 'Sort guests',
-                        onSelected: (value) =>
-                            _manualChange(() => sort = value),
-                        itemBuilder: (_) => [
-                          for (final option in GuestSort.values)
-                            CheckedPopupMenuItem<GuestSort>(
-                              value: option,
-                              checked: sort == option,
-                              child: Text(option.label),
-                            ),
-                        ],
-                        child: Chip(
-                          avatar: const Icon(Icons.sort_rounded, size: 18),
-                          label: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 170),
-                            child: Text(
-                              'Sort: ${sort.label}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                ],
                 const SizedBox(height: 10),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -2051,5 +2009,215 @@ class _SettingsTab extends StatelessWidget {
         ),
       ),
     ],
+  );
+}
+
+class _GuestFilterSelection {
+  const _GuestFilterSelection({
+    required this.kind,
+    required this.node,
+    required this.tag,
+    required this.pool,
+    required this.sort,
+  });
+
+  final GuestKindFilter kind;
+  final String? node;
+  final String? tag;
+  final String? pool;
+  final GuestSort sort;
+}
+
+class _GuestFilterSheet extends StatefulWidget {
+  const _GuestFilterSheet({
+    required this.kind,
+    required this.node,
+    required this.tag,
+    required this.pool,
+    required this.sort,
+    required this.nodes,
+    required this.tags,
+    required this.pools,
+  });
+
+  final GuestKindFilter kind;
+  final String? node;
+  final String? tag;
+  final String? pool;
+  final GuestSort sort;
+  final List<String> nodes;
+  final List<String> tags;
+  final List<String> pools;
+
+  @override
+  State<_GuestFilterSheet> createState() => _GuestFilterSheetState();
+}
+
+class _GuestFilterSheetState extends State<_GuestFilterSheet> {
+  late GuestKindFilter kind;
+  String? node;
+  String? tag;
+  String? pool;
+  late GuestSort sort;
+
+  @override
+  void initState() {
+    super.initState();
+    kind = widget.kind;
+    node = widget.node;
+    tag = widget.tag;
+    pool = widget.pool;
+    sort = widget.sort;
+  }
+
+  void _reset() {
+    setState(() {
+      kind = GuestKindFilter.all;
+      node = null;
+      tag = null;
+      pool = null;
+      sort = GuestSort.favorites;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Filter guests',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                TextButton(onPressed: _reset, child: const Text('Reset')),
+              ],
+            ),
+            Text('Type', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (final option in const [
+                  (GuestKindFilter.all, 'Any type'),
+                  (GuestKindFilter.qemu, 'VMs'),
+                  (GuestKindFilter.lxc, 'Containers'),
+                ])
+                  ChoiceChip(
+                    label: Text(option.$2),
+                    selected: kind == option.$1,
+                    onSelected: (_) => setState(() => kind = option.$1),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text('Node', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                ChoiceChip(
+                  key: const Key('guest-filter-node-all'),
+                  label: const Text('All nodes'),
+                  selected: node == null,
+                  onSelected: (_) => setState(() => node = null),
+                ),
+                for (final value in widget.nodes)
+                  ChoiceChip(
+                    key: ValueKey('guest-filter-node-$value'),
+                    label: Text(value),
+                    selected: node == value,
+                    onSelected: (_) => setState(() => node = value),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text('Tag', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                ChoiceChip(
+                  key: const Key('guest-filter-tag-all'),
+                  label: const Text('All tags'),
+                  selected: tag == null,
+                  onSelected: (_) => setState(() => tag = null),
+                ),
+                for (final value in widget.tags)
+                  ChoiceChip(
+                    key: ValueKey('guest-filter-tag-$value'),
+                    label: Text(value),
+                    selected: tag == value,
+                    onSelected: (_) => setState(() => tag = value),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text('Pool', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                ChoiceChip(
+                  key: const Key('guest-filter-pool-all'),
+                  label: const Text('All pools'),
+                  selected: pool == null,
+                  onSelected: (_) => setState(() => pool = null),
+                ),
+                for (final value in widget.pools)
+                  ChoiceChip(
+                    key: ValueKey('guest-filter-pool-$value'),
+                    label: Text(value),
+                    selected: pool == value,
+                    onSelected: (_) => setState(() => pool = value),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text('Sort', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (final value in GuestSort.values)
+                  ChoiceChip(
+                    key: ValueKey('guest-filter-sort-${value.name}'),
+                    label: Text(value.label),
+                    selected: sort == value,
+                    onSelected: (_) => setState(() => sort = value),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              key: const Key('guest-filter-apply'),
+              onPressed: () => Navigator.pop(
+                context,
+                _GuestFilterSelection(
+                  kind: kind,
+                  node: node,
+                  tag: tag,
+                  pool: pool,
+                  sort: sort,
+                ),
+              ),
+              icon: const Icon(Icons.check_rounded),
+              label: const Text('Apply filters'),
+            ),
+          ],
+        ),
+      ),
+    ),
   );
 }
