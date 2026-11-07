@@ -1048,7 +1048,7 @@ void main() {
           isNull,
           reason: 'guest filter sheet must not overflow at large text',
         );
-        await tester.pageBack();
+        await tester.tap(find.byKey(const Key('guest-filter-apply')));
         await tester.pumpAndSettle();
       }
     }
