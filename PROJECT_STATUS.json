@@ -123,7 +123,7 @@
       "ALERT-006 adds backward-compatible consecutive-sample duration and clear hysteresis to foreground threshold rules; missing samples reset pending confirmation but never resolve an active firing, and no background polling/notification delivery is added."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 161,
+    "current_flutter_tests_defined": 162,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
@@ -352,6 +352,14 @@
       "safety": "Read-only presentation only. Task details remain on-demand, bounded GETs with profile/generation checks and no log persistence. No task mutation, polling, API or transport behavior changes.",
       "verification": "flutter analyze --fatal-infos, 161 Flutter tests, formatting and source/documentation checks pass locally. Task history/filter and task-detail regressions use the whole-row target; the 320dp/200%-text shell regression still passes.",
       "limitations": "Physical Android TalkBack, touch-target, 200-task performance and 360/393/412dp validation remain open. Alert-rule editor, connection management, AMOLED/high-contrast themes, lock/biometrics, notifications and goldens remain future work."
+    },
+    "threshold_rule_editor_followup": "docs/73-threshold-rule-editor.md",
+    "threshold_rule_editor": {
+      "status": "implemented_source_level_ci_pending_live_validation_pending",
+      "scope": "Threshold rules now use a full-screen add/edit editor with a searchable grouped Nodes/Guests/Storage target picker, threshold and hysteresis sliders, 1-10 consecutive samples, severity choice and a plain-language summary. Rule cards open the same editor prefilled.",
+      "safety": "Rules remain profile-scoped non-secret local metadata with foreground-only evaluation. Returned editor results are discarded if the profile or connection generation changed. No background worker, notification delivery, API, credential or persistence behavior is added.",
+      "verification": "flutter analyze --fatal-infos, 162 Flutter tests, formatting and source/documentation checks pass locally. Added an edit regression that changes severity through the searchable grouped target picker; the original add-rule regression still passes.",
+      "limitations": "Physical Android TalkBack, large-text editor layout, touch-target and 360/393/412dp validation remain open. Connection management, AMOLED/high-contrast themes, lock/biometrics, notifications and goldens remain future work."
     }
   }
 }

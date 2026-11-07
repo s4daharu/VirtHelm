@@ -71,7 +71,7 @@ class _ForegroundThresholdAlertRulesPageState
     return targets;
   }
 
-  Future<void> _addRule() async {
+  Future<void> _openEditor({ForegroundThresholdAlertRule? rule}) async {
     if (!_currentSession) return;
     final targets = _targets();
     if (targets.isEmpty) {
@@ -84,163 +84,21 @@ class _ForegroundThresholdAlertRulesPageState
       );
       return;
     }
-
-    final byKey = {for (final target in targets) target.key: target};
-    var selectedKey = targets.first.key;
-    var threshold = 80.0;
-    var consecutiveSamples = 1;
-    var hysteresis = 0.0;
-    var severity = ForegroundAlertSeverity.warning;
-    final rule = await showDialog<ForegroundThresholdAlertRule>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          final target = byKey[selectedKey]!;
-          return AlertDialog(
-            title: const Text('Add foreground threshold'),
-            scrollable: true,
-            content: SizedBox(
-              width: 420,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DropdownButtonFormField<String>(
-                    key: const Key('threshold-rule-target'),
-                    initialValue: selectedKey,
-                    decoration: const InputDecoration(labelText: 'Target'),
-                    isExpanded: true,
-                    items: [
-                      for (final item in targets)
-                        DropdownMenuItem(
-                          value: item.key,
-                          child: Text(
-                            item.label,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                    ],
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setDialogState(() => selectedKey = value);
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Threshold: ${threshold.round()}%',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  Slider(
-                    key: const Key('threshold-rule-slider'),
-                    value: threshold,
-                    min: 10,
-                    max: 100,
-                    divisions: 18,
-                    label: '${threshold.round()}%',
-                    onChanged: (value) {
-                      setDialogState(() {
-                        threshold = value;
-                        if (hysteresis >= threshold) {
-                          hysteresis = threshold - 1;
-                        }
-                      });
-                    },
-                  ),
-                  DropdownButtonFormField<int>(
-                    key: const Key('threshold-rule-consecutive-samples'),
-                    initialValue: consecutiveSamples,
-                    decoration: const InputDecoration(
-                      labelText: 'Consecutive live samples',
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 1, child: Text('1 sample')),
-                      DropdownMenuItem(value: 2, child: Text('2 samples')),
-                      DropdownMenuItem(value: 3, child: Text('3 samples')),
-                      DropdownMenuItem(value: 4, child: Text('4 samples')),
-                      DropdownMenuItem(value: 5, child: Text('5 samples')),
-                    ],
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setDialogState(() => consecutiveSamples = value);
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Clear hysteresis: ${hysteresis.round()}% '
-                    '(resolve at or below '
-                    '${threshold.round() - hysteresis.round()}%)',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  Slider(
-                    key: const Key('threshold-rule-hysteresis-slider'),
-                    value: hysteresis,
-                    min: 0,
-                    max: 10,
-                    divisions: 10,
-                    label: '${hysteresis.round()}%',
-                    onChanged: (value) {
-                      setDialogState(() {
-                        hysteresis = value >= threshold ? threshold - 1 : value;
-                      });
-                    },
-                  ),
-                  DropdownButtonFormField<ForegroundAlertSeverity>(
-                    key: const Key('threshold-rule-severity'),
-                    initialValue: severity,
-                    decoration: const InputDecoration(labelText: 'Severity'),
-                    items: const [
-                      DropdownMenuItem(
-                        value: ForegroundAlertSeverity.warning,
-                        child: Text('Warning'),
-                      ),
-                      DropdownMenuItem(
-                        value: ForegroundAlertSeverity.critical,
-                        child: Text('Critical'),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setDialogState(() => severity = value);
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'This rule is evaluated only during foreground live '
-                    'refreshes. Missing samples reset pending confirmation '
-                    'but never resolve a prior firing.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                key: const Key('confirm-threshold-rule'),
-                onPressed: () {
-                  Navigator.of(dialogContext).pop(
-                    target.toRule(
-                      thresholdPercent: threshold.round(),
-                      severity: severity,
-                      consecutiveSamples: consecutiveSamples,
-                      hysteresisPercent: hysteresis.round(),
-                    ),
-                  );
-                },
-                child: const Text('Add rule'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-    if (rule == null || !mounted || !_currentSession) return;
+    if (rule != null &&
+        !targets.any((target) => target.key == rule.resourceKey)) {
+      targets.insert(0, _ThresholdTarget.fromRule(rule));
+    }
+    final result = await Navigator.of(context)
+        .push<ForegroundThresholdAlertRule>(
+          MaterialPageRoute<ForegroundThresholdAlertRule>(
+            builder: (_) =>
+                _ThresholdRuleEditorPage(targets: targets, existing: rule),
+          ),
+        );
+    if (result == null || !mounted || !_currentSession) return;
     try {
       await widget.controller.saveThresholdAlertRule(
-        rule,
+        result,
         expectedProfileId: widget.profileId,
       );
     } catch (_) {
@@ -297,7 +155,7 @@ class _ForegroundThresholdAlertRulesPageState
               current && rules.length < maxForegroundThresholdRules
               ? FloatingActionButton.extended(
                   key: const Key('add-threshold-rule'),
-                  onPressed: _addRule,
+                  onPressed: () => _openEditor(),
                   icon: const Icon(Icons.add_alert_outlined),
                   label: const Text('Add rule'),
                 )
@@ -343,6 +201,7 @@ class _ForegroundThresholdAlertRulesPageState
                       for (final rule in rules) ...[
                         Card(
                           key: Key('threshold-rule-${rule.id}'),
+                          clipBehavior: Clip.antiAlias,
                           child: ListTile(
                             leading: Icon(
                               rule.metric ==
@@ -373,6 +232,7 @@ class _ForegroundThresholdAlertRulesPageState
                                 ),
                               ],
                             ),
+                            onTap: () => _openEditor(rule: rule),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -385,6 +245,359 @@ class _ForegroundThresholdAlertRulesPageState
   }
 }
 
+class _ThresholdRuleEditorPage extends StatefulWidget {
+  const _ThresholdRuleEditorPage({
+    required this.targets,
+    required this.existing,
+  });
+
+  final List<_ThresholdTarget> targets;
+  final ForegroundThresholdAlertRule? existing;
+
+  @override
+  State<_ThresholdRuleEditorPage> createState() =>
+      _ThresholdRuleEditorPageState();
+}
+
+class _ThresholdRuleEditorPageState extends State<_ThresholdRuleEditorPage> {
+  late final Map<String, _ThresholdTarget> _byKey;
+  late String _selectedKey;
+  late double _threshold;
+  late int _consecutiveSamples;
+  late double _hysteresis;
+  late ForegroundAlertSeverity _severity;
+
+  bool get _editing => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _byKey = {for (final target in widget.targets) target.key: target};
+    final existing = widget.existing;
+    _selectedKey = existing != null && _byKey.containsKey(existing.resourceKey)
+        ? existing.resourceKey
+        : widget.targets.first.key;
+    _threshold = (existing?.thresholdPercent ?? 80).toDouble();
+    _consecutiveSamples = (existing?.consecutiveSamples ?? 1).clamp(1, 10);
+    _hysteresis = (existing?.hysteresisPercent ?? 0).toDouble().clamp(
+      0,
+      _threshold - 1,
+    );
+    _severity = existing?.severity ?? ForegroundAlertSeverity.warning;
+  }
+
+  Future<void> _pickTarget() async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => FractionallySizedBox(
+        heightFactor: 0.85,
+        child: _ThresholdTargetPicker(
+          targets: widget.targets,
+          selectedKey: _selectedKey,
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    setState(() => _selectedKey = selected);
+  }
+
+  void _save() {
+    final target = _byKey[_selectedKey];
+    if (target == null) return;
+    final threshold = _threshold.round();
+    final hysteresis = _hysteresis.round().clamp(0, threshold - 1);
+    final existing = widget.existing;
+    final rule = existing == null
+        ? target.toRule(
+            thresholdPercent: threshold,
+            severity: _severity,
+            consecutiveSamples: _consecutiveSamples,
+            hysteresisPercent: hysteresis,
+          )
+        : ForegroundThresholdAlertRule(
+            id: existing.id,
+            metric: target.metric,
+            node: target.node,
+            displayName: target.displayName,
+            thresholdPercent: threshold,
+            severity: _severity,
+            guestKind: target.guestKind,
+            guestVmid: target.guestVmid,
+            storageId: target.storageId,
+            enabled: existing.enabled,
+            consecutiveSamples: _consecutiveSamples,
+            hysteresisPercent: hysteresis,
+          );
+    Navigator.pop(context, rule);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final target = _byKey[_selectedKey]!;
+    final clearAt = _threshold.round() - _hysteresis.round();
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          _editing ? 'Edit foreground threshold' : 'Add foreground threshold',
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 30),
+        children: [
+          Text(
+            'This rule is evaluated only during foreground live refreshes. '
+            'Missing samples reset pending confirmation but never resolve a '
+            'prior firing.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: ListTile(
+              key: const Key('threshold-rule-target'),
+              leading: Icon(_targetIcon(target.metric)),
+              title: const Text('Target'),
+              subtitle: Text(target.label),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: _pickTarget,
+            ),
+          ),
+          const SizedBox(height: 22),
+          Text(
+            'Threshold: ${_threshold.round()}%',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          Slider(
+            key: const Key('threshold-rule-slider'),
+            value: _threshold,
+            min: 10,
+            max: 100,
+            divisions: 18,
+            label: '${_threshold.round()}%',
+            onChanged: (value) {
+              setState(() {
+                _threshold = value;
+                if (_hysteresis >= _threshold) {
+                  _hysteresis = _threshold - 1;
+                }
+              });
+            },
+          ),
+          DropdownButtonFormField<int>(
+            key: const Key('threshold-rule-consecutive-samples'),
+            initialValue: _consecutiveSamples,
+            decoration: const InputDecoration(
+              labelText: 'Consecutive live samples',
+            ),
+            items: [
+              for (var value = 1; value <= 10; value++)
+                DropdownMenuItem(
+                  value: value,
+                  child: Text(value == 1 ? '1 sample' : '$value samples'),
+                ),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() => _consecutiveSamples = value);
+            },
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Clear hysteresis: ${_hysteresis.round()}% '
+            '(resolve at or below $clearAt%)',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          Slider(
+            key: const Key('threshold-rule-hysteresis-slider'),
+            value: _hysteresis,
+            min: 0,
+            max: 20,
+            divisions: 20,
+            label: '${_hysteresis.round()}%',
+            onChanged: (value) {
+              setState(() {
+                _hysteresis = value.clamp(0, _threshold - 1);
+              });
+            },
+          ),
+          const SizedBox(height: 12),
+          Text('Severity', style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              ChoiceChip(
+                label: const Text('Warning'),
+                selected: _severity == ForegroundAlertSeverity.warning,
+                onSelected: (_) =>
+                    setState(() => _severity = ForegroundAlertSeverity.warning),
+              ),
+              ChoiceChip(
+                label: const Text('Critical'),
+                selected: _severity == ForegroundAlertSeverity.critical,
+                onSelected: (_) => setState(
+                  () => _severity = ForegroundAlertSeverity.critical,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Rule summary',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Fire ${_severity.name} when ${target.displayName} '
+                    '${target.metric == ForegroundThresholdMetric.storageUsage ? 'usage' : 'CPU'} '
+                    'is at or above ${_threshold.round()}% for '
+                    '$_consecutiveSamples usable sample(s). Resolve at or '
+                    'below $clearAt%.',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  key: const Key('confirm-threshold-rule'),
+                  onPressed: _save,
+                  child: Text(_editing ? 'Save changes' : 'Add rule'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ThresholdTargetPicker extends StatefulWidget {
+  const _ThresholdTargetPicker({
+    required this.targets,
+    required this.selectedKey,
+  });
+
+  final List<_ThresholdTarget> targets;
+  final String selectedKey;
+
+  @override
+  State<_ThresholdTargetPicker> createState() => _ThresholdTargetPickerState();
+}
+
+class _ThresholdTargetPickerState extends State<_ThresholdTargetPicker> {
+  final search = TextEditingController();
+  String query = '';
+
+  @override
+  void dispose() {
+    search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final needle = query.trim().toLowerCase();
+    final visible = widget.targets
+        .where(
+          (target) =>
+              needle.isEmpty || target.label.toLowerCase().contains(needle),
+        )
+        .toList(growable: false);
+    return SafeArea(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+            child: TextField(
+              key: const Key('threshold-rule-target-search'),
+              controller: search,
+              autofocus: true,
+              onChanged: (value) => setState(() => query = value),
+              decoration: const InputDecoration(
+                hintText: 'Search nodes, guests, or storage',
+                prefixIcon: Icon(Icons.search_rounded),
+              ),
+            ),
+          ),
+          Expanded(
+            child: visible.isEmpty
+                ? const Center(child: Text('No matching targets.'))
+                : ListView(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                    children: [
+                      for (final metric in ForegroundThresholdMetric.values)
+                        if (visible.any(
+                          (target) => target.metric == metric,
+                        )) ...[
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 14, 8, 4),
+                            child: Text(switch (metric) {
+                              ForegroundThresholdMetric.nodeCpu => 'Nodes',
+                              ForegroundThresholdMetric.guestCpu => 'Guests',
+                              ForegroundThresholdMetric.storageUsage =>
+                                'Storage',
+                            }, style: Theme.of(context).textTheme.labelLarge),
+                          ),
+                          for (final target in visible.where(
+                            (target) => target.metric == metric,
+                          ))
+                            ListTile(
+                              key: ValueKey('threshold-target-${target.key}'),
+                              leading: Icon(_targetIcon(target.metric)),
+                              title: Text(target.label),
+                              trailing: target.key == widget.selectedKey
+                                  ? Icon(
+                                      Icons.check_circle_rounded,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                    )
+                                  : null,
+                              onTap: () => Navigator.pop(context, target.key),
+                            ),
+                        ],
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+IconData _targetIcon(ForegroundThresholdMetric metric) => switch (metric) {
+  ForegroundThresholdMetric.nodeCpu => Icons.dns_outlined,
+  ForegroundThresholdMetric.guestCpu => Icons.computer_outlined,
+  ForegroundThresholdMetric.storageUsage => Icons.storage_outlined,
+};
+
 class _ThresholdTarget {
   const _ThresholdTarget({
     required this.key,
@@ -396,6 +609,18 @@ class _ThresholdTarget {
     this.guestVmid,
     this.storageId,
   });
+
+  factory _ThresholdTarget.fromRule(ForegroundThresholdAlertRule rule) =>
+      _ThresholdTarget(
+        key: rule.resourceKey,
+        label: '${rule.displayName} • ${rule.metric.label}',
+        metric: rule.metric,
+        node: rule.node,
+        displayName: rule.displayName,
+        guestKind: rule.guestKind,
+        guestVmid: rule.guestVmid,
+        storageId: rule.storageId,
+      );
 
   final String key;
   final String label;
