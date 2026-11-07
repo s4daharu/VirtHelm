@@ -844,9 +844,9 @@ void main() {
     expect(find.text('https://pve.local:8006'), findsOneWidget);
     expect(find.byKey(const Key('connection-save')), findsOneWidget);
     expect(
-      tester.widget<FilledButton>(
-        find.byKey(const Key('connection-save')),
-      ).onPressed,
+      tester
+          .widget<FilledButton>(find.byKey(const Key('connection-save')))
+          .onPressed,
       isNull,
     );
 
@@ -855,9 +855,9 @@ void main() {
     expect(find.text('Connection verified'), findsOneWidget);
     expect(controller.checks, 1);
     expect(
-      tester.widget<FilledButton>(
-        find.byKey(const Key('connection-save')),
-      ).onPressed,
+      tester
+          .widget<FilledButton>(find.byKey(const Key('connection-save')))
+          .onPressed,
       isNotNull,
     );
   });
@@ -883,7 +883,10 @@ void main() {
       await tester.tap(find.byKey(const Key('connection-test')));
       await tester.pumpAndSettle();
       expect(controller.checks, 0);
-      expect(find.textContaining('https://public.example:8006'), findsOneWidget);
+      expect(
+        find.textContaining('https://public.example:8006'),
+        findsOneWidget,
+      );
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
       expect(controller.checks, 0);
@@ -893,7 +896,10 @@ void main() {
       await tester.tap(find.text('Connect without verification'));
       await tester.pumpAndSettle();
       expect(controller.checks, 1);
-      expect(find.textContaining('TLS identity verification was disabled'), findsOneWidget);
+      expect(
+        find.textContaining('TLS identity verification was disabled'),
+        findsOneWidget,
+      );
 
       await tester.tap(find.byKey(const Key('connection-save')));
       await tester.pumpAndSettle();
@@ -904,30 +910,28 @@ void main() {
     },
   );
 
-  testWidgets('strict connection verifies and saves without TLS warning dialog', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
-    final controller = _RecordingController(
-      ProfileRepository(prefs, _EmptyVault()),
-    );
-    addTearDown(controller.dispose);
-    await tester.pumpWidget(
-      MaterialApp(home: ConnectPage(controller: controller)),
-    );
-    await _advanceConnectionWizard(
-      tester,
-      address: 'https://public.example',
-    );
-    await tester.tap(find.byKey(const Key('connection-test')));
-    await tester.pumpAndSettle();
-    expect(controller.checks, 1);
-    expect(find.byType(AlertDialog), findsNothing);
-    await tester.tap(find.byKey(const Key('connection-save')));
-    await tester.pumpAndSettle();
-    expect(controller.connections, [false]);
-  });
+  testWidgets(
+    'strict connection verifies and saves without TLS warning dialog',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = _RecordingController(
+        ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(home: ConnectPage(controller: controller)),
+      );
+      await _advanceConnectionWizard(tester, address: 'https://public.example');
+      await tester.tap(find.byKey(const Key('connection-test')));
+      await tester.pumpAndSettle();
+      expect(controller.checks, 1);
+      expect(find.byType(AlertDialog), findsNothing);
+      await tester.tap(find.byKey(const Key('connection-save')));
+      await tester.pumpAndSettle();
+      expect(controller.connections, [false]);
+    },
+  );
 
   testWidgets(
     'profile edit keeps saved token when credential step stays blank',
@@ -950,24 +954,32 @@ void main() {
         ),
       );
       expect(
-        tester.widget<TextFormField>(
-          find.byKey(const Key('connection-name')),
-        ).controller?.text,
+        tester
+            .widget<TextFormField>(find.byKey(const Key('connection-name')))
+            .controller
+            ?.text,
         'Home Lab',
       );
       expect(
-        tester.widget<TextFormField>(
-          find.byKey(const Key('connection-url')),
-        ).controller?.text,
+        tester
+            .widget<TextFormField>(find.byKey(const Key('connection-url')))
+            .controller
+            ?.text,
         'https://pve.local:8006',
       );
 
       await tester.tap(find.byKey(const Key('connection-next')));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Leave both token fields blank'), findsOneWidget);
+      expect(
+        find.textContaining('Leave both token fields blank'),
+        findsOneWidget,
+      );
       await tester.tap(find.byKey(const Key('connection-next')));
       await tester.pumpAndSettle();
-      expect(find.text('Credential: keep encrypted saved token'), findsOneWidget);
+      expect(
+        find.text('Credential: keep encrypted saved token'),
+        findsOneWidget,
+      );
 
       await tester.tap(find.byKey(const Key('connection-test')));
       await tester.pumpAndSettle();
@@ -1016,49 +1028,48 @@ void main() {
     expect(find.text('Enter the secret or clear the token ID'), findsOneWidget);
   });
 
-  testWidgets(
-    'add-connection route cannot pop while final save is running',
-    (tester) async {
-      SharedPreferences.setMockInitialValues({});
-      final prefs = await SharedPreferences.getInstance();
-      final controller = _BlockingController(
-        ProfileRepository(prefs, _EmptyVault()),
-      );
-      addTearDown(controller.dispose);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Builder(
-            builder: (context) => Scaffold(
-              body: TextButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => ConnectPage(controller: controller),
-                  ),
+  testWidgets('add-connection route cannot pop while final save is running', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = _BlockingController(
+      ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ConnectPage(controller: controller),
                 ),
-                child: const Text('Open connection form'),
               ),
+              child: const Text('Open connection form'),
             ),
           ),
         ),
-      );
-      await tester.tap(find.text('Open connection form'));
-      await tester.pumpAndSettle();
-      await _advanceConnectionWizard(tester);
-      await tester.tap(find.byKey(const Key('connection-test')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('connection-save')));
-      await tester.pump();
-      await controller.started.future;
+      ),
+    );
+    await tester.tap(find.text('Open connection form'));
+    await tester.pumpAndSettle();
+    await _advanceConnectionWizard(tester);
+    await tester.tap(find.byKey(const Key('connection-test')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('connection-save')));
+    await tester.pump();
+    await controller.started.future;
 
-      await tester.binding.handlePopRoute();
-      await tester.pump();
-      expect(find.byType(ConnectPage), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(find.byType(ConnectPage), findsOneWidget);
 
-      controller.gate.complete();
-      await tester.pumpAndSettle();
-      expect(find.byType(ConnectPage), findsNothing);
-    },
-  );
+    controller.gate.complete();
+    await tester.pumpAndSettle();
+    expect(find.byType(ConnectPage), findsNothing);
+  });
 
   testWidgets('connection-check exceptions are never displayed verbatim', (
     tester,
