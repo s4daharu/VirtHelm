@@ -69,6 +69,15 @@ class ForegroundThresholdAlertEngine {
     _pendingSamples.clear();
   }
 
+  void reconcileRules(Iterable<ForegroundThresholdAlertRule> rules) {
+    final enabledIds = <String>{
+      for (final rule in rules)
+        if (rule.enabled) rule.id,
+    };
+    _active.removeWhere((id, _) => !enabledIds.contains(id));
+    _pendingSamples.removeWhere((id, _) => !enabledIds.contains(id));
+  }
+
   void evaluate({
     required Inventory inventory,
     required Iterable<StoragePool> storages,
@@ -79,8 +88,7 @@ class ForegroundThresholdAlertEngine {
       for (final rule in rules)
         if (rule.enabled) rule.id: rule,
     };
-    _active.removeWhere((id, _) => !enabled.containsKey(id));
-    _pendingSamples.removeWhere((id, _) => !enabled.containsKey(id));
+    reconcileRules(enabled.values);
     final storageList = storages.toList(growable: false);
 
     for (final rule in enabled.values) {
@@ -116,20 +124,25 @@ class ForegroundThresholdAlertEngine {
 
       final previous = _active[rule.id];
       if (previous != null) {
-        if (sample.fraction <= rule.clearThresholdFraction) {
+        final shouldResolve = rule.hysteresisPercent == 0
+            ? sample.fraction < rule.thresholdFraction
+            : sample.fraction <= rule.clearThresholdFraction;
+        if (shouldResolve) {
           _active.remove(rule.id);
           _pendingSamples.remove(rule.id);
           continue;
         }
+        final clearDetail = rule.hysteresisPercent == 0
+            ? 'It clears only below ${rule.thresholdPercent}%.'
+            : 'It clears only at or below '
+                  '${rule.thresholdPercent - rule.hysteresisPercent}% after '
+                  '${rule.hysteresisPercent}% hysteresis.';
         _active[rule.id] = CockpitIncident(
           key: previous.key,
           severity: _severity(rule.severity),
           source: CockpitIncidentSource.rule,
           title: sample.title,
-          detail:
-              'Foreground rule remains active. It clears only at or below '
-              '${rule.thresholdPercent - rule.hysteresisPercent}% after '
-              '${rule.hysteresisPercent}% hysteresis.',
+          detail: 'Foreground rule remains active. $clearDetail',
           observedAt: previous.observedAt,
           node: sample.node,
           guestKind: sample.guestKind,
@@ -151,6 +164,10 @@ class ForegroundThresholdAlertEngine {
         continue;
       }
       _pendingSamples.remove(rule.id);
+      final clearDetail = rule.hysteresisPercent == 0
+          ? 'It clears below ${rule.thresholdPercent}%.'
+          : 'It clears at or below '
+                '${rule.thresholdPercent - rule.hysteresisPercent}%.';
       _active[rule.id] = CockpitIncident(
         key: 'rule:${rule.id}',
         severity: _severity(rule.severity),
@@ -159,8 +176,7 @@ class ForegroundThresholdAlertEngine {
         detail:
             'Foreground rule threshold ${rule.thresholdPercent}% was met for '
             '${rule.consecutiveSamples} consecutive usable sample(s). '
-            'It clears at or below '
-            '${rule.thresholdPercent - rule.hysteresisPercent}%.',
+            '$clearDetail',
         observedAt: inventory.fetchedAt,
         node: sample.node,
         guestKind: sample.guestKind,
