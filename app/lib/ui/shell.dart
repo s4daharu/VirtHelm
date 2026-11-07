@@ -1440,143 +1440,311 @@ class _TasksTabState extends State<_TasksTab> {
         sessionTasks.isEmpty &&
         serverTasks.isEmpty &&
         controller.serverTaskMessage == null;
+    final running = serverTasks
+        .where((task) => task.stateLabel == 'running')
+        .length;
+    final succeeded = serverTasks
+        .where((task) => task.stateLabel == 'succeeded')
+        .length;
+    final failed = serverTasks
+        .where((task) => task.stateLabel == 'failed')
+        .length;
+    final unknown = serverTasks
+        .where((task) => task.stateLabel == 'unknown')
+        .length;
     return RefreshIndicator(
       onRefresh: controller.refresh,
-      child: ListView(
+      child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(18),
-        children: [
+        slivers: [
           if (empty)
-            EmptyState(
-              icon: Icons.receipt_long_outlined,
-              title: 'No recent tasks visible',
-              body:
-                  'Pull to refresh. Task visibility depends on Proxmox permissions.',
-              action: FilledButton.tonalIcon(
-                onPressed: controller.refresh,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Refresh'),
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: EmptyState(
+                icon: Icons.receipt_long_outlined,
+                title: 'No recent tasks visible',
+                body:
+                    'Pull to refresh. Task visibility depends on Proxmox permissions.',
+                action: FilledButton.tonalIcon(
+                  onPressed: controller.refresh,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Refresh'),
+                ),
               ),
-            ),
-          if (!empty && sessionTasks.isNotEmpty) ...[
-            SectionHeading(
-              title: 'This session',
-              trailing: '${sessionTasks.length} TRACKED',
-            ),
-            const SizedBox(height: 10),
-            for (final task in sessionTasks) ...[
-              _SessionTaskCard(task: task, controller: controller),
-              const SizedBox(height: 10),
-            ],
-            const SizedBox(height: 14),
-          ],
-          if (!empty)
-            SectionHeading(
-              title: 'Recent server tasks',
-              trailing: serverTasks.isEmpty
-                  ? ''
-                  : '${visible.length} OF ${serverTasks.length} VISIBLE',
-            ),
-          if (!empty) const SizedBox(height: 10),
-          if (!empty && controller.serverTaskMessage != null) ...[
-            MessageCard(text: controller.serverTaskMessage!),
-            const SizedBox(height: 10),
-          ],
-          if (serverTasks.isNotEmpty) ...[
-            TextField(
-              key: const Key('task-history-search'),
-              controller: search,
-              onChanged: (value) => setState(() => query = value),
-              decoration: const InputDecoration(
-                hintText: 'Search recent tasks, node, or resource',
-                prefixIcon: Icon(Icons.search_rounded),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 16,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Semantics(
-                  label: 'Filter recent tasks by node',
-                  child: DropdownButton<String>(
-                    key: const Key('task-node-filter'),
-                    value: activeNode,
-                    items: [
-                      const DropdownMenuItem(
-                        value: '',
-                        child: Text('All nodes'),
-                      ),
-                      for (final node in nodes)
-                        DropdownMenuItem(value: node, child: Text(node)),
-                    ],
-                    onChanged: (value) =>
-                        setState(() => nodeFilter = value ?? ''),
+            )
+          else ...[
+            if (serverTasks.isNotEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
+                sliver: SliverToBoxAdapter(
+                  child: _TaskSummaryBar(
+                    running: running,
+                    succeeded: succeeded,
+                    failed: failed,
+                    unknown: unknown,
                   ),
                 ),
-                Semantics(
-                  label: 'Filter recent tasks by state',
-                  child: DropdownButton<ServerTaskStateFilter>(
-                    key: const Key('task-state-filter'),
-                    value: stateFilter,
-                    items: const [
-                      DropdownMenuItem(
-                        value: ServerTaskStateFilter.all,
-                        child: Text('All states'),
-                      ),
-                      DropdownMenuItem(
-                        value: ServerTaskStateFilter.running,
-                        child: Text('Running'),
-                      ),
-                      DropdownMenuItem(
-                        value: ServerTaskStateFilter.succeeded,
-                        child: Text('Succeeded'),
-                      ),
-                      DropdownMenuItem(
-                        value: ServerTaskStateFilter.failed,
-                        child: Text('Failed'),
-                      ),
-                      DropdownMenuItem(
-                        value: ServerTaskStateFilter.unknown,
-                        child: Text('Unknown'),
-                      ),
-                    ],
-                    onChanged: (value) => setState(
-                      () => stateFilter = value ?? ServerTaskStateFilter.all,
+              ),
+            if (sessionTasks.isNotEmpty) ...[
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(18, 20, 18, 0),
+                sliver: SliverToBoxAdapter(
+                  child: SectionHeading(
+                    title: 'This session',
+                    trailing: '${sessionTasks.length} TRACKED',
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(18, 10, 18, 0),
+                sliver: SliverList.builder(
+                  itemCount: sessionTasks.length,
+                  itemBuilder: (context, index) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _SessionTaskCard(
+                      task: sessionTasks[index],
+                      controller: controller,
                     ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (!empty &&
-              serverTasks.isEmpty &&
-              controller.serverTaskMessage == null)
-            const MessageCard(
-              text: 'No recent server tasks are visible to this token.',
-            )
-          else if (serverTasks.isNotEmpty && visible.isEmpty)
-            MessageCard(
-              text:
-                  'No recent tasks match these filters. Clear search or choose another state or node.',
-              action: _hasActiveFilters
-                  ? TextButton(
-                      onPressed: _clearFilters,
-                      child: const Text('Clear filters'),
-                    )
-                  : null,
-            )
-          else
-            for (final task in visible) ...[
-              _ServerTaskCard(task: task, controller: controller),
-              const SizedBox(height: 10),
+              ),
             ],
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                18,
+                sessionTasks.isEmpty ? 18 : 22,
+                18,
+                0,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SectionHeading(
+                      title: 'Recent server tasks',
+                      trailing: serverTasks.isEmpty
+                          ? ''
+                          : '${visible.length} OF ${serverTasks.length} VISIBLE',
+                    ),
+                    const SizedBox(height: 10),
+                    if (controller.serverTaskMessage != null) ...[
+                      MessageCard(text: controller.serverTaskMessage!),
+                      const SizedBox(height: 10),
+                    ],
+                    if (serverTasks.isNotEmpty) ...[
+                      TextField(
+                        key: const Key('task-history-search'),
+                        controller: search,
+                        onChanged: (value) => setState(() => query = value),
+                        decoration: const InputDecoration(
+                          hintText: 'Search recent tasks, node, or resource',
+                          prefixIcon: Icon(Icons.search_rounded),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 16,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Semantics(
+                            label: 'Filter recent tasks by node',
+                            child: DropdownButton<String>(
+                              key: const Key('task-node-filter'),
+                              value: activeNode,
+                              items: [
+                                const DropdownMenuItem(
+                                  value: '',
+                                  child: Text('All nodes'),
+                                ),
+                                for (final node in nodes)
+                                  DropdownMenuItem(
+                                    value: node,
+                                    child: Text(node),
+                                  ),
+                              ],
+                              onChanged: (value) =>
+                                  setState(() => nodeFilter = value ?? ''),
+                            ),
+                          ),
+                          Semantics(
+                            label: 'Filter recent tasks by state',
+                            child: DropdownButton<ServerTaskStateFilter>(
+                              key: const Key('task-state-filter'),
+                              value: stateFilter,
+                              items: const [
+                                DropdownMenuItem(
+                                  value: ServerTaskStateFilter.all,
+                                  child: Text('All states'),
+                                ),
+                                DropdownMenuItem(
+                                  value: ServerTaskStateFilter.running,
+                                  child: Text('Running'),
+                                ),
+                                DropdownMenuItem(
+                                  value: ServerTaskStateFilter.succeeded,
+                                  child: Text('Succeeded'),
+                                ),
+                                DropdownMenuItem(
+                                  value: ServerTaskStateFilter.failed,
+                                  child: Text('Failed'),
+                                ),
+                                DropdownMenuItem(
+                                  value: ServerTaskStateFilter.unknown,
+                                  child: Text('Unknown'),
+                                ),
+                              ],
+                              onChanged: (value) => setState(
+                                () => stateFilter =
+                                    value ?? ServerTaskStateFilter.all,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            if (serverTasks.isEmpty && controller.serverTaskMessage == null)
+              const SliverPadding(
+                padding: EdgeInsets.fromLTRB(18, 12, 18, 30),
+                sliver: SliverToBoxAdapter(
+                  child: MessageCard(
+                    text: 'No recent server tasks are visible to this token.',
+                  ),
+                ),
+              )
+            else if (serverTasks.isNotEmpty && visible.isEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 30),
+                sliver: SliverToBoxAdapter(
+                  child: MessageCard(
+                    text:
+                        'No recent tasks match these filters. Clear search or choose another state or node.',
+                    action: _hasActiveFilters
+                        ? TextButton(
+                            onPressed: _clearFilters,
+                            child: const Text('Clear filters'),
+                          )
+                        : null,
+                  ),
+                ),
+              )
+            else if (visible.isNotEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 30),
+                sliver: SliverList.builder(
+                  itemCount: visible.length,
+                  itemBuilder: (context, index) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _ServerTaskCard(
+                      task: visible[index],
+                      controller: controller,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ],
       ),
     );
   }
+}
+
+class _TaskSummaryBar extends StatelessWidget {
+  const _TaskSummaryBar({
+    required this.running,
+    required this.succeeded,
+    required this.failed,
+    required this.unknown,
+  });
+
+  final int running;
+  final int succeeded;
+  final int failed;
+  final int unknown;
+
+  @override
+  Widget build(BuildContext context) {
+    final status =
+        Theme.of(context).extension<VirtHelmStatusColors>() ??
+        const VirtHelmStatusColors(
+          positive: Color(0xFF087A64),
+          warning: Color(0xFF9A5A12),
+          error: Color(0xFFB3261E),
+          neutral: Color(0xFF5F6368),
+        );
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _TaskCount(
+              label: 'Running',
+              count: running,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            _TaskCount(
+              label: 'Succeeded',
+              count: succeeded,
+              color: status.positive,
+            ),
+            _TaskCount(label: 'Failed', count: failed, color: status.error),
+            _TaskCount(label: 'Unknown', count: unknown, color: status.neutral),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TaskCount extends StatelessWidget {
+  const _TaskCount({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
+
+  final String label;
+  final int count;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.09),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: color.withValues(alpha: 0.18)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '$count',
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w800,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _SessionTaskCard extends StatelessWidget {
@@ -1651,68 +1819,84 @@ class _ServerTaskCard extends StatelessWidget {
   final RecentServerTask task;
   final AppController controller;
 
+  IconData get _stateIcon => switch (task.stateLabel) {
+    'running' => Icons.sync_rounded,
+    'succeeded' => Icons.task_alt_rounded,
+    'failed' => Icons.error_outline_rounded,
+    _ => Icons.help_outline_rounded,
+  };
+
   @override
   Widget build(BuildContext context) {
     final started = task.startedAt;
     final resource = task.resourceId == null || task.resourceId!.isEmpty
         ? ''
         : ' • ${task.resourceId!}';
+    final scheme = Theme.of(context).colorScheme;
+    void openDetails() => _openTaskDetails(
+      context,
+      controller,
+      node: task.node,
+      upid: task.upid,
+      title: task.operationLabel,
+    );
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.history_rounded),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    '${task.operationLabel}$resource',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: openDetails,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
+          child: Row(
+            children: [
+              Icon(_stateIcon, color: scheme.onSurfaceVariant),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${task.operationLabel}$resource',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        StatusChip(status: task.stateLabel),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${task.node} • '
+                      '${started == null ? 'time unavailable' : formatAge(started)}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    if (task.exitStatus != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        'Exit: ${task.exitStatus!}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                    const SizedBox(height: 4),
+                    Text(
+                      'UPID: ${task.upid}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ],
                 ),
-                StatusChip(status: task.stateLabel),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              '${task.node} • '
-              '${started == null ? 'time unavailable' : formatAge(started)}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            if (task.exitStatus != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                'Exit: ${task.exitStatus!}',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall,
               ),
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
             ],
-            const SizedBox(height: 6),
-            Text(
-              'UPID: ${task.upid}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: () => _openTaskDetails(
-                context,
-                controller,
-                node: task.node,
-                upid: task.upid,
-                title: task.operationLabel,
-              ),
-              icon: const Icon(Icons.list_alt_outlined),
-              label: const Text('View details'),
-            ),
-          ],
+          ),
         ),
       ),
     );

@@ -494,7 +494,7 @@ void main() {
     );
     await tester.tap(find.text('Tasks'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('View details'));
+    await tester.tap(find.text('Start VM • 101'));
     await tester.pumpAndSettle();
     expect(find.byType(TaskDetailsPage), findsOneWidget);
     expect(find.textContaining('Read-only log entry'), findsOneWidget);
