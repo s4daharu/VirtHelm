@@ -13,6 +13,7 @@ import '../core/models.dart';
 import '../core/task_history_filter.dart';
 import 'components.dart';
 import 'connect_page.dart';
+import 'connections_page.dart';
 import 'guest_page.dart';
 import 'incident_center_tab.dart';
 import 'node_page.dart';
@@ -107,6 +108,14 @@ class _ShellPageState extends State<ShellPage> {
           PopupMenuButton<String>(
             tooltip: 'Switch connection',
             onSelected: (value) {
+              if (value == '__manage') {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => ConnectionsPage(controller: controller),
+                  ),
+                );
+                return;
+              }
               if (value == '__add') {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
@@ -144,6 +153,16 @@ class _ShellPageState extends State<ShellPage> {
                   ),
                 ),
               const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: '__manage',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings_input_component_outlined, size: 18),
+                    SizedBox(width: 10),
+                    Text('Manage connections'),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
                 value: '__add',
                 child: Row(
@@ -1956,94 +1975,29 @@ class _SettingsTab extends StatelessWidget {
     }
   }
 
-  Future<void> _remove(BuildContext context, ConnectionProfile profile) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Remove connection?'),
-        content: Text(
-          'Delete ${profile.name} and its locally stored API token. This will not revoke the token on the Proxmox server.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !context.mounted) return;
-    try {
-      await controller.deleteProfile(profile.id);
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not remove stored connection.')),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.all(18),
     children: [
       Text('Connections', style: Theme.of(context).textTheme.titleLarge),
-      const SizedBox(height: 12),
-      for (final profile in controller.profiles) ...[
-        Card(
-          child: ListTile(
-            leading: Icon(
-              profile.id == controller.active?.id
-                  ? Icons.check_circle_rounded
-                  : Icons.dns_outlined,
-            ),
-            title: Text(profile.name),
-            subtitle: Text(
-              '${profile.endpoint}\n'
-              '${profile.lastServerVersion == null ? 'Server version not observed' : 'PVE ${profile.lastServerVersion} (last observed)'}\n'
-              '${profile.allowInvalidCertificates ? 'INSECURE: certificate verification disabled' : 'Certificate verification enabled'}',
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
-            ),
-            onTap: () => unawaited(controller.activate(profile)),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: 'Edit ${profile.name}',
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) =>
-                          ConnectPage(controller: controller, profile: profile),
-                    ),
-                  ),
-                  icon: const Icon(Icons.edit_outlined),
-                ),
-                IconButton(
-                  tooltip: 'Remove ${profile.name}',
-                  onPressed: () => _remove(context, profile),
-                  icon: const Icon(Icons.delete_outline_rounded),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-      ],
       const SizedBox(height: 10),
-      OutlinedButton.icon(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => ConnectPage(controller: controller),
+      Card(
+        child: ListTile(
+          key: const Key('manage-connections'),
+          leading: const Icon(Icons.dns_outlined),
+          title: const Text('Manage connections'),
+          subtitle: Text(
+            controller.profiles.isEmpty
+                ? 'Add and verify a Proxmox VE connection.'
+                : '${controller.profiles.length} saved • add, test, edit, switch or remove',
+          ),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => ConnectionsPage(controller: controller),
+            ),
           ),
         ),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Add connection'),
       ),
       const SizedBox(height: 28),
       Text('Display & refresh', style: Theme.of(context).textTheme.titleLarge),

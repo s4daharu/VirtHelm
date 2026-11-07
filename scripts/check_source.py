@@ -14,7 +14,7 @@ required = [
   'app/lib/ui/theme.dart',
   'app/lib/ui/components.dart',
   'app/lib/core/app_info.dart',
-  'app/lib/ui/connect_page.dart','app/lib/ui/shell.dart',
+  'app/lib/ui/connect_page.dart','app/lib/ui/connections_page.dart','app/lib/ui/shell.dart',
   'app/lib/ui/guest_page.dart','app/lib/ui/node_page.dart','app/lib/ui/storage_page.dart',
   'app/lib/ui/alert_rules_page.dart','app/lib/ui/incident_center_tab.dart',
   'app/lib/ui/task_details_page.dart',
@@ -62,7 +62,8 @@ required = [
    'docs/71-guest-filter-sheet.md',
    'docs/72-task-summary-compact-rows.md',
    'docs/73-threshold-rule-editor.md',
-   'docs/74-premerge-ui-cross-check-2026-11-07.md']
+   'docs/74-premerge-ui-cross-check-2026-11-07.md',
+   'docs/75-connection-management-onboarding.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)
@@ -82,9 +83,14 @@ assert 'options.followRedirects = false' in files['app/lib/core/pve_api.dart']
 assert 'SecureCredentialVault' in files['app/lib/core/profile_repository.dart']
 assert 'Future<void> update(ConnectionProfile profile' in files['app/lib/core/profile_repository.dart']
 assert 'Future<void> updateConnection' in files['app/lib/core/app_controller.dart']
+assert 'verifyConnectionConfiguration' in files['app/lib/core/app_controller.dart']
+assert 'testSavedConnection' in files['app/lib/core/app_controller.dart']
+assert 'class ConnectionCheckResult' in files['app/lib/core/models.dart']
+assert 'class ConnectionsPage' in files['app/lib/ui/connections_page.dart']
+assert "Key('manage-connections')" in files['app/lib/ui/shell.dart']
 assert 'lastServerVersion' in files['app/lib/core/models.dart']
 assert 'Future<void> updateMetadata' in files['app/lib/core/profile_repository.dart']
-assert "last observed" in files['app/lib/ui/shell.dart']
+assert "last observed" in files['app/lib/ui/connections_page.dart']
 assert 'mayHaveExecuted' in files['app/lib/core/pve_api.dart']
 assert 'setThemePreference' in files['app/lib/core/app_controller.dart']
 assert '_scheduleAutoRefresh' in files['app/lib/core/app_controller.dart']

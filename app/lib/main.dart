@@ -8,6 +8,7 @@ import 'core/app_preferences.dart';
 import 'core/device_connectivity.dart';
 import 'core/profile_repository.dart';
 import 'ui/connect_page.dart';
+import 'ui/connections_page.dart';
 import 'ui/shell.dart';
 import 'ui/theme.dart';
 
@@ -77,6 +78,9 @@ class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (controller.active == null) {
+      if (controller.profiles.isNotEmpty) {
+        return ConnectionsPage(controller: controller, chooserMode: true);
+      }
       return ConnectPage(controller: controller);
     }
     return ShellPage(controller: controller);

@@ -11,6 +11,7 @@ import 'package:virthelm/core/models.dart';
 import 'package:virthelm/core/offline_overview.dart';
 import 'package:virthelm/core/profile_repository.dart';
 import 'package:virthelm/ui/connect_page.dart';
+import 'package:virthelm/ui/connections_page.dart';
 import 'package:virthelm/ui/guest_page.dart';
 import 'package:virthelm/ui/node_page.dart';
 import 'package:virthelm/ui/shell.dart';
@@ -160,6 +161,22 @@ class _BlockingController extends AppController {
   final gate = Completer<void>();
 
   @override
+  Future<ConnectionCheckResult> verifyConnectionConfiguration({
+    required String name,
+    required String address,
+    String tokenId = '',
+    String secret = '',
+    bool allowInvalidCertificates = false,
+    String? existingProfileId,
+  }) async => ConnectionCheckResult(
+    serverVersion: '9.2-test',
+    inventoryAccessible: true,
+    certificateVerificationEnabled: !allowInvalidCertificates,
+    nodeCount: 1,
+    guestCount: 1,
+  );
+
+  @override
   Future<void> connect({
     required String name,
     required String address,
@@ -178,7 +195,55 @@ class _RecordingController extends AppController {
 
   final List<bool> connections = [];
   final List<Map<String, Object?>> updates = [];
+  int checks = 0;
   Object? connectionError;
+  ConnectionCheckResult checkResult = const ConnectionCheckResult(
+    serverVersion: '9.2-test',
+    inventoryAccessible: true,
+    certificateVerificationEnabled: true,
+    nodeCount: 1,
+    guestCount: 1,
+  );
+
+  @override
+  Future<ConnectionCheckResult> verifyConnectionConfiguration({
+    required String name,
+    required String address,
+    String tokenId = '',
+    String secret = '',
+    bool allowInvalidCertificates = false,
+    String? existingProfileId,
+  }) async {
+    checks++;
+    if (connectionError != null) throw connectionError!;
+    return ConnectionCheckResult(
+      serverVersion: checkResult.serverVersion,
+      inventoryAccessible: checkResult.inventoryAccessible,
+      certificateVerificationEnabled: !allowInvalidCertificates,
+      nodeCount: checkResult.nodeCount,
+      guestCount: checkResult.guestCount,
+      inventoryMessage: checkResult.inventoryMessage,
+      inventoryStatus: checkResult.inventoryStatus,
+    );
+  }
+
+  @override
+  Future<ConnectionCheckResult> testSavedConnection(String profileId) async {
+    checks++;
+    if (connectionError != null) throw connectionError!;
+    final matches = profiles.where((profile) => profile.id == profileId);
+    final insecure =
+        matches.isNotEmpty && matches.first.allowInvalidCertificates;
+    return ConnectionCheckResult(
+      serverVersion: checkResult.serverVersion,
+      inventoryAccessible: checkResult.inventoryAccessible,
+      certificateVerificationEnabled: !insecure,
+      nodeCount: checkResult.nodeCount,
+      guestCount: checkResult.guestCount,
+      inventoryMessage: checkResult.inventoryMessage,
+      inventoryStatus: checkResult.inventoryStatus,
+    );
+  }
 
   @override
   Future<void> updateConnection({
@@ -211,6 +276,45 @@ class _RecordingController extends AppController {
     connections.add(allowInvalidCertificates);
     if (connectionError != null) throw connectionError!;
   }
+}
+
+Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
+}
+
+Future<void> _advanceConnectionWizard(
+  WidgetTester tester, {
+  String name = 'Lab',
+  String address = 'https://pve.local',
+  String? tokenId = 'me@pve!test',
+  String? secret = 'test-secret',
+  bool toggleInsecure = false,
+}) async {
+  await tester.enterText(find.byKey(const Key('connection-name')), name);
+  await tester.enterText(find.byKey(const Key('connection-url')), address);
+  if (toggleInsecure) {
+    await _tapVisible(tester, find.byKey(const Key('connection-tls-toggle')));
+    await tester.pumpAndSettle();
+  }
+  await _tapVisible(tester, find.byKey(const Key('connection-next')));
+  await tester.pumpAndSettle();
+  if (tokenId != null) {
+    await tester.enterText(
+      find.byKey(const Key('connection-token-id')),
+      tokenId,
+    );
+  }
+  if (secret != null) {
+    await tester.enterText(
+      find.byKey(const Key('connection-token-secret')),
+      secret,
+    );
+  }
+  await _tapVisible(tester, find.byKey(const Key('connection-next')));
+  await tester.pumpAndSettle();
+  expect(find.text('Verify connection'), findsOneWidget);
 }
 
 void main() {
@@ -698,91 +802,145 @@ void main() {
     expect(find.textContaining('No recent tasks match'), findsNothing);
   });
 
-  testWidgets('onboarding shows HTTPS and token fields', (tester) async {
+  testWidgets('onboarding stages server token and verification', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
-    final controller = AppController(
-      repository: ProfileRepository(prefs, _EmptyVault()),
+    final controller = _RecordingController(
+      ProfileRepository(prefs, _EmptyVault()),
     );
     addTearDown(controller.dispose);
+
     await tester.pumpWidget(
       MaterialApp(home: ConnectPage(controller: controller)),
     );
     expect(find.text('Your infrastructure.\nIn your hands.'), findsOneWidget);
+    expect(find.text('Step 1 of 3 • Server'), findsOneWidget);
     expect(find.text('Server URL'), findsOneWidget);
+    expect(find.text('API token identifier'), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const Key('connection-name')),
+      'Home Lab',
+    );
+    await tester.enterText(
+      find.byKey(const Key('connection-url')),
+      'https://pve.local',
+    );
+    await _tapVisible(tester, find.byKey(const Key('connection-next')));
+    await tester.pumpAndSettle();
+    expect(find.text('Step 2 of 3 • API token'), findsOneWidget);
     expect(find.text('API token identifier'), findsOneWidget);
     expect(find.text('API token secret'), findsOneWidget);
-    expect(find.text('Connect securely'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('connection-token-id')),
+      'me@pve!test',
+    );
+    await tester.enterText(
+      find.byKey(const Key('connection-token-secret')),
+      'test-secret',
+    );
+    await _tapVisible(tester, find.byKey(const Key('connection-next')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Step 3 of 3 • Verify'), findsOneWidget);
+    expect(find.text('Verify connection'), findsOneWidget);
+    expect(find.text('https://pve.local:8006'), findsOneWidget);
+    expect(find.byKey(const Key('connection-save')), findsOneWidget);
     expect(
-      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-      isFalse,
+      tester
+          .widget<FilledButton>(find.byKey(const Key('connection-save')))
+          .onPressed,
+      isNull,
     );
-  });
 
-  testWidgets('insecure connection requires confirmation before each attempt', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
-    final controller = _RecordingController(
-      ProfileRepository(prefs, _EmptyVault()),
-    );
-    addTearDown(controller.dispose);
-    await tester.pumpWidget(
-      MaterialApp(home: ConnectPage(controller: controller)),
-    );
-    final fields = find.byType(TextFormField);
-    await tester.enterText(fields.at(0), 'Lab');
-    await tester.enterText(fields.at(1), 'https://public.example');
-    await tester.enterText(fields.at(2), 'me@pve!test');
-    await tester.enterText(fields.at(3), 'test-secret');
-    await tester.ensureVisible(find.byType(SwitchListTile));
-    await tester.tap(find.byType(SwitchListTile));
+    await _tapVisible(tester, find.byKey(const Key('connection-test')));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Connect (insecure)'));
-    await tester.tap(find.text('Connect (insecure)'));
-    // The connection button's busy spinner runs while consent is pending.
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(controller.connections, isEmpty);
-    expect(find.textContaining('https://public.example:8006'), findsOneWidget);
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
-    expect(controller.connections, isEmpty);
-    await tester.tap(find.text('Connect (insecure)'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('Connect without verification'));
-    await tester.pumpAndSettle();
-    expect(controller.connections, [true]);
-  });
-
-  testWidgets('strict connection needs no insecure confirmation', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
-    final controller = _RecordingController(
-      ProfileRepository(prefs, _EmptyVault()),
+    expect(find.text('Connection verified'), findsOneWidget);
+    expect(controller.checks, 1);
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('connection-save')))
+          .onPressed,
+      isNotNull,
     );
-    addTearDown(controller.dispose);
-    await tester.pumpWidget(
-      MaterialApp(home: ConnectPage(controller: controller)),
-    );
-    final fields = find.byType(TextFormField);
-    await tester.enterText(fields.at(0), 'Lab');
-    await tester.enterText(fields.at(1), 'https://public.example');
-    await tester.enterText(fields.at(2), 'me@pve!test');
-    await tester.enterText(fields.at(3), 'test-secret');
-    await tester.ensureVisible(find.text('Connect securely'));
-    await tester.tap(find.text('Connect securely'));
-    await tester.pumpAndSettle();
-    expect(controller.connections, [false]);
-    expect(find.byType(AlertDialog), findsNothing);
   });
 
   testWidgets(
-    'profile edit prefills fields and keeps saved token when token fields are blank',
+    'insecure connection requires confirmation before check and save',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = _RecordingController(
+        ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(home: ConnectPage(controller: controller)),
+      );
+      await _advanceConnectionWizard(
+        tester,
+        address: 'https://public.example',
+        toggleInsecure: true,
+      );
+
+      await _tapVisible(tester, find.byKey(const Key('connection-test')));
+      await tester.pumpAndSettle();
+      expect(controller.checks, 0);
+      expect(
+        find.textContaining('Server: https://public.example:8006'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(controller.checks, 0);
+
+      await _tapVisible(tester, find.byKey(const Key('connection-test')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Connect without verification'));
+      await tester.pumpAndSettle();
+      expect(controller.checks, 1);
+      expect(
+        find.textContaining('TLS identity verification was disabled'),
+        findsOneWidget,
+      );
+
+      await _tapVisible(tester, find.byKey(const Key('connection-save')));
+      await tester.pumpAndSettle();
+      expect(controller.connections, isEmpty);
+      await tester.tap(find.text('Connect without verification'));
+      await tester.pumpAndSettle();
+      expect(controller.connections, [true]);
+    },
+  );
+
+  testWidgets(
+    'strict connection verifies and saves without TLS warning dialog',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = _RecordingController(
+        ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(home: ConnectPage(controller: controller)),
+      );
+      await _advanceConnectionWizard(tester, address: 'https://public.example');
+      await _tapVisible(tester, find.byKey(const Key('connection-test')));
+      await tester.pumpAndSettle();
+      expect(controller.checks, 1);
+      expect(find.byType(AlertDialog), findsNothing);
+      await _tapVisible(tester, find.byKey(const Key('connection-save')));
+      await tester.pumpAndSettle();
+      expect(controller.connections, [false]);
+    },
+  );
+
+  testWidgets(
+    'profile edit keeps saved token when credential step stays blank',
     (tester) async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
@@ -801,27 +959,37 @@ void main() {
           home: ConnectPage(controller: controller, profile: profile),
         ),
       );
-
-      final fields = find.byType(TextFormField);
       expect(
-        tester.widget<TextFormField>(fields.at(0)).controller?.text,
+        tester
+            .widget<TextFormField>(find.byKey(const Key('connection-name')))
+            .controller
+            ?.text,
         'Home Lab',
       );
       expect(
-        tester.widget<TextFormField>(fields.at(1)).controller?.text,
+        tester
+            .widget<TextFormField>(find.byKey(const Key('connection-url')))
+            .controller
+            ?.text,
         'https://pve.local:8006',
       );
+
+      await _tapVisible(tester, find.byKey(const Key('connection-next')));
+      await tester.pumpAndSettle();
       expect(
-        tester.widget<TextFormField>(fields.at(2)).controller?.text,
-        isEmpty,
+        find.textContaining('Leave both token fields blank'),
+        findsOneWidget,
       );
+      await _tapVisible(tester, find.byKey(const Key('connection-next')));
+      await tester.pumpAndSettle();
       expect(
-        tester.widget<TextFormField>(fields.at(3)).controller?.text,
-        isEmpty,
+        find.text('Credential: keep encrypted saved token'),
+        findsOneWidget,
       );
 
-      await tester.ensureVisible(find.text('Save connection'));
-      await tester.tap(find.text('Save connection'));
+      await _tapVisible(tester, find.byKey(const Key('connection-test')));
+      await tester.pumpAndSettle();
+      await _tapVisible(tester, find.byKey(const Key('connection-save')));
       await tester.pumpAndSettle();
 
       expect(controller.updates, hasLength(1));
@@ -852,64 +1020,64 @@ void main() {
         home: ConnectPage(controller: controller, profile: profile),
       ),
     );
-    final fields = find.byType(TextFormField);
-    await tester.enterText(fields.at(2), 'me@pve!new');
-    await tester.ensureVisible(find.text('Save connection'));
-    await tester.tap(find.text('Save connection'));
+    await _tapVisible(tester, find.byKey(const Key('connection-next')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('connection-token-id')),
+      'me@pve!new',
+    );
+    await _tapVisible(tester, find.byKey(const Key('connection-next')));
     await tester.pump();
 
     expect(controller.updates, isEmpty);
+    expect(controller.checks, 0);
     expect(find.text('Enter the secret or clear the token ID'), findsOneWidget);
   });
 
-  testWidgets(
-    'add-connection route cannot pop while connection check is running',
-    (tester) async {
-      SharedPreferences.setMockInitialValues({});
-      final prefs = await SharedPreferences.getInstance();
-      final controller = _BlockingController(
-        ProfileRepository(prefs, _EmptyVault()),
-      );
-      addTearDown(controller.dispose);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Builder(
-            builder: (context) => Scaffold(
-              body: TextButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => ConnectPage(controller: controller),
-                  ),
+  testWidgets('add-connection route cannot pop while final save is running', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = _BlockingController(
+      ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ConnectPage(controller: controller),
                 ),
-                child: const Text('Open connection form'),
               ),
+              child: const Text('Open connection form'),
             ),
           ),
         ),
-      );
-      await tester.tap(find.text('Open connection form'));
-      await tester.pumpAndSettle();
-      final fields = find.byType(TextFormField);
-      await tester.enterText(fields.at(0), 'Lab');
-      await tester.enterText(fields.at(1), 'https://pve.local');
-      await tester.enterText(fields.at(2), 'me@pve!test');
-      await tester.enterText(fields.at(3), 'test-secret');
-      await tester.ensureVisible(find.text('Connect securely'));
-      await tester.tap(find.text('Connect securely'));
-      await tester.pump();
-      await controller.started.future;
+      ),
+    );
+    await tester.tap(find.text('Open connection form'));
+    await tester.pumpAndSettle();
+    await _advanceConnectionWizard(tester);
+    await _tapVisible(tester, find.byKey(const Key('connection-test')));
+    await tester.pumpAndSettle();
+    await _tapVisible(tester, find.byKey(const Key('connection-save')));
+    await tester.pump();
+    await controller.started.future;
 
-      await tester.binding.handlePopRoute();
-      await tester.pump();
-      expect(find.byType(ConnectPage), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(find.byType(ConnectPage), findsOneWidget);
 
-      controller.gate.complete();
-      await tester.pumpAndSettle();
-      expect(find.byType(ConnectPage), findsNothing);
-    },
-  );
+    controller.gate.complete();
+    await tester.pumpAndSettle();
+    expect(find.byType(ConnectPage), findsNothing);
+  });
 
-  testWidgets('credential-plugin exceptions are never displayed verbatim', (
+  testWidgets('connection-check exceptions are never displayed verbatim', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -921,13 +1089,8 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(home: ConnectPage(controller: controller)),
     );
-    final fields = find.byType(TextFormField);
-    await tester.enterText(fields.at(0), 'Lab');
-    await tester.enterText(fields.at(1), 'https://pve.local');
-    await tester.enterText(fields.at(2), 'me@pve!test');
-    await tester.enterText(fields.at(3), 'test-secret');
-    await tester.ensureVisible(find.text('Connect securely'));
-    await tester.tap(find.text('Connect securely'));
+    await _advanceConnectionWizard(tester);
+    await _tapVisible(tester, find.byKey(const Key('connection-test')));
     await tester.pumpAndSettle();
     expect(find.textContaining('sensitive-test-marker'), findsNothing);
     expect(find.textContaining('Could not save or open'), findsOneWidget);
@@ -974,13 +1137,13 @@ void main() {
     },
   );
 
-  testWidgets('shell and settings show last observed server version', (
+  testWidgets('shell opens dedicated connection manager with metadata', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
-    final controller = AppController(
-      repository: ProfileRepository(prefs, _EmptyVault()),
+    final controller = _RecordingController(
+      ProfileRepository(prefs, _EmptyVault()),
     );
     addTearDown(controller.dispose);
     const profile = ConnectionProfile(
@@ -999,8 +1162,126 @@ void main() {
     expect(find.textContaining('PVE 9.2.4'), findsOneWidget);
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('PVE 9.2.4 (last observed)'), findsOneWidget);
+    expect(find.byKey(const Key('manage-connections')), findsOneWidget);
+    expect(find.textContaining('PVE 9.2.4 (last observed)'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('manage-connections')));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConnectionsPage), findsOneWidget);
+    expect(find.text('PVE 9.2.4 • last observed'), findsOneWidget);
+    expect(find.text('TLS verification on'), findsOneWidget);
+
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('connection-test-lab')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Connection verified'), findsOneWidget);
+    expect(controller.checks, 1);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
   });
+
+  testWidgets('saved insecure connection test requires confirmation', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = _RecordingController(
+      ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    const profile = ConnectionProfile(
+      id: 'lab',
+      name: 'Lab',
+      endpoint: 'https://pve.local:8006',
+      allowInvalidCertificates: true,
+      lastServerVersion: '9.2.4',
+    );
+    controller.active = profile;
+    controller.profiles = const [profile];
+
+    await tester.pumpWidget(
+      MaterialApp(home: ConnectionsPage(controller: controller)),
+    );
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('connection-test-lab')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(controller.checks, 0);
+    expect(find.text('Test without certificate verification?'), findsOneWidget);
+    expect(
+      find.textContaining('Server: https://pve.local:8006'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(controller.checks, 0);
+
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('connection-test-lab')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Test without verification'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(controller.checks, 1);
+    expect(find.text('Connection verified'), findsOneWidget);
+    expect(
+      find.textContaining('TLS identity verification was disabled'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets(
+    'connection manager fits a narrow phone at 200 percent text scale',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = _RecordingController(
+        ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      const profile = ConnectionProfile(
+        id: 'lab',
+        name: 'A very long saved connection display name',
+        endpoint: 'https://pve-long-hostname.example:8006',
+        allowInvalidCertificates: true,
+        lastServerVersion: '9.2.4',
+      );
+      controller.active = profile;
+      controller.profiles = const [profile];
+      controller.message =
+          'Authentication needs attention before live inventory can be trusted.';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: ConnectionsPage(controller: controller),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Connections'), findsOneWidget);
+      expect(find.text('TLS UNVERIFIED'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('all shell tabs fit a narrow phone at 200 percent text scale', (
     tester,
@@ -1508,6 +1789,34 @@ void main() {
       tester.widget<TextField>(find.byType(TextField).first).controller?.text,
       'Beta',
     );
+  });
+
+  testWidgets('saved profiles without an active selection show chooser', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final repository = ProfileRepository(prefs, _EmptyVault());
+    const profile = ConnectionProfile(
+      id: 'lab',
+      name: 'Home Lab',
+      endpoint: 'https://pve.local:8006',
+      lastServerVersion: '9.2.4',
+    );
+    await repository.save(
+      profile,
+      const ApiCredentials(tokenId: 'me@pve!test', secret: 'test-secret'),
+    );
+    await repository.setActive(null);
+
+    await tester.pumpWidget(VirtHelmApp(repository: repository));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ConnectionsPage), findsOneWidget);
+    expect(find.text('Choose connection'), findsOneWidget);
+    expect(find.text('Choose where to connect'), findsOneWidget);
+    expect(find.text('Home Lab'), findsOneWidget);
+    expect(find.byKey(const ValueKey('connection-use-lab')), findsOneWidget);
   });
 
   testWidgets('app applies persisted theme before connection setup', (

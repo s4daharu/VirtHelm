@@ -389,9 +389,15 @@ class AppController extends ChangeNotifier {
       showNodeMetrics = repository.showNodeMetrics;
       profiles = repository.readProfiles();
       final selected = repository.activeId;
-      if (profiles.isNotEmpty) {
-        final first = profiles.where((p) => p.id == selected);
-        await activate(first.isEmpty ? profiles.first : first.first);
+      if (selected != null) {
+        final matches = profiles.where((profile) => profile.id == selected);
+        if (matches.isNotEmpty) {
+          await activate(matches.first);
+        } else {
+          // Do not silently connect to a different profile when the persisted
+          // selection is missing or corrupt. Let the operator choose.
+          await repository.setActive(null);
+        }
       }
     } catch (_) {
       message = 'Could not load saved connections. Check local secure storage.';
@@ -468,6 +474,162 @@ class AppController extends ChangeNotifier {
     await _clearOfflineAfterAuth(generation);
     if (_disposed || generation != _generation) return;
     _notify();
+  }
+
+  Future<ConnectionCheckResult> verifyConnectionConfiguration({
+    required String name,
+    required String address,
+    String tokenId = '',
+    String secret = '',
+    bool allowInvalidCertificates = false,
+    String? existingProfileId,
+  }) async {
+    if (_disposed) throw const PveFailure('Connection check canceled.');
+    if (connecting) {
+      throw const PveFailure('A connection is already being checked.');
+    }
+
+    ConnectionProfile profile;
+    ApiCredentials? credential;
+    if (existingProfileId == null) {
+      profile = ConnectionProfile.create(
+        name: name,
+        address: address,
+        allowInvalidCertificates: allowInvalidCertificates,
+      );
+      credential = ApiCredentials(tokenId: tokenId.trim(), secret: secret);
+    } else {
+      final matches = repository.readProfiles().where(
+        (item) => item.id == existingProfileId,
+      );
+      if (matches.isEmpty) {
+        throw const PveFailure('Connection no longer exists.');
+      }
+      final existing = matches.first;
+      final normalizedName = name.trim();
+      if (normalizedName.isEmpty) {
+        throw const FormatException('Enter a profile name.');
+      }
+      profile = ConnectionProfile(
+        id: existing.id,
+        name: normalizedName,
+        endpoint: normalizePveEndpoint(address),
+        allowInvalidCertificates: allowInvalidCertificates,
+        lastServerVersion: existing.lastServerVersion,
+      );
+      final tokenChanged = tokenId.trim().isNotEmpty || secret.isNotEmpty;
+      credential = tokenChanged
+          ? ApiCredentials(tokenId: tokenId.trim(), secret: secret)
+          : await repository.vault.retrieve(existing.id);
+      if (credential == null) {
+        throw const PveFailure(
+          'Saved token unavailable. Enter a replacement token to check this connection.',
+        );
+      }
+    }
+
+    if (!credential.isValid) {
+      throw const FormatException(
+        'Enter both a valid token ID (user@realm!token-name) and token secret.',
+      );
+    }
+
+    final generation = _generation;
+    connecting = true;
+    _notify();
+    try {
+      return await _checkConnectionCandidate(profile, credential, generation);
+    } finally {
+      connecting = false;
+      _notify();
+    }
+  }
+
+  Future<ConnectionCheckResult> testSavedConnection(String profileId) async {
+    if (_disposed) throw const PveFailure('Connection check canceled.');
+    if (connecting) {
+      throw const PveFailure('A connection is already being checked.');
+    }
+    final matches = repository.readProfiles().where(
+      (profile) => profile.id == profileId,
+    );
+    if (matches.isEmpty) {
+      throw const PveFailure('Connection no longer exists.');
+    }
+    final profile = matches.first;
+    final credential = await repository.vault.retrieve(profile.id);
+    if (credential == null || !credential.isValid) {
+      throw const PveFailure(
+        'Saved token unavailable. Edit this connection and enter a replacement token.',
+      );
+    }
+
+    final generation = _generation;
+    connecting = true;
+    _notify();
+    try {
+      final result = await _checkConnectionCandidate(
+        profile,
+        credential,
+        generation,
+      );
+      final observed = profile.withServerVersion(result.serverVersion);
+      if (observed.lastServerVersion != profile.lastServerVersion) {
+        try {
+          await repository.updateMetadata(observed);
+          if (!_disposed && generation == _generation) {
+            profiles = repository.readProfiles();
+            if (active?.id == observed.id) active = observed;
+            _notify();
+          }
+        } catch (_) {
+          // Verification remains valid even if display-only version metadata
+          // cannot be refreshed locally.
+        }
+      }
+      return result;
+    } finally {
+      connecting = false;
+      _notify();
+    }
+  }
+
+  Future<ConnectionCheckResult> _checkConnectionCandidate(
+    ConnectionProfile profile,
+    ApiCredentials credential,
+    int generation,
+  ) async {
+    PveGateway? candidate;
+    try {
+      candidate = _factory(profile, credential);
+      final serverVersion = normalizeServerVersion(await candidate.version());
+      _checkConnectionSetup(generation);
+      try {
+        final snapshot = await candidate.inventory();
+        _checkConnectionSetup(generation);
+        return ConnectionCheckResult(
+          serverVersion: serverVersion,
+          inventoryAccessible: true,
+          certificateVerificationEnabled: !profile.allowInvalidCertificates,
+          nodeCount: snapshot.nodes.length,
+          guestCount: snapshot.guests.length,
+        );
+      } on PveFailure catch (error) {
+        _checkConnectionSetup(generation);
+        if (error.status == 401 || error.status == 403) {
+          return ConnectionCheckResult(
+            serverVersion: serverVersion,
+            inventoryAccessible: false,
+            certificateVerificationEnabled: !profile.allowInvalidCertificates,
+            inventoryMessage: error.message,
+            inventoryStatus: error.status,
+          );
+        }
+        rethrow;
+      }
+    } finally {
+      candidate?.close();
+    }
   }
 
   Future<void> connect({
