@@ -278,6 +278,12 @@ class _RecordingController extends AppController {
   }
 }
 
+Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
+}
+
 Future<void> _advanceConnectionWizard(
   WidgetTester tester, {
   String name = 'Lab',
@@ -289,10 +295,10 @@ Future<void> _advanceConnectionWizard(
   await tester.enterText(find.byKey(const Key('connection-name')), name);
   await tester.enterText(find.byKey(const Key('connection-url')), address);
   if (toggleInsecure) {
-    await tester.tap(find.byKey(const Key('connection-tls-toggle')));
+    await _tapVisible(tester, find.byKey(const Key('connection-tls-toggle')));
     await tester.pumpAndSettle();
   }
-  await tester.tap(find.byKey(const Key('connection-next')));
+  await _tapVisible(tester, find.byKey(const Key('connection-next')));
   await tester.pumpAndSettle();
   if (tokenId != null) {
     await tester.enterText(
@@ -306,7 +312,7 @@ Future<void> _advanceConnectionWizard(
       secret,
     );
   }
-  await tester.tap(find.byKey(const Key('connection-next')));
+  await _tapVisible(tester, find.byKey(const Key('connection-next')));
   await tester.pumpAndSettle();
   expect(find.text('Verify connection'), findsOneWidget);
 }
@@ -822,7 +828,7 @@ void main() {
       find.byKey(const Key('connection-url')),
       'https://pve.local',
     );
-    await tester.tap(find.byKey(const Key('connection-next')));
+    await _tapVisible(tester, find.byKey(const Key('connection-next')));
     await tester.pumpAndSettle();
     expect(find.text('Step 2 of 3 • API token'), findsOneWidget);
     expect(find.text('API token identifier'), findsOneWidget);
@@ -836,7 +842,7 @@ void main() {
       find.byKey(const Key('connection-token-secret')),
       'test-secret',
     );
-    await tester.tap(find.byKey(const Key('connection-next')));
+    await _tapVisible(tester, find.byKey(const Key('connection-next')));
     await tester.pumpAndSettle();
 
     expect(find.text('Step 3 of 3 • Verify'), findsOneWidget);
@@ -850,7 +856,7 @@ void main() {
       isNull,
     );
 
-    await tester.tap(find.byKey(const Key('connection-test')));
+    await _tapVisible(tester, find.byKey(const Key('connection-test')));
     await tester.pumpAndSettle();
     expect(find.text('Connection verified'), findsOneWidget);
     expect(controller.checks, 1);
@@ -880,7 +886,7 @@ void main() {
         toggleInsecure: true,
       );
 
-      await tester.tap(find.byKey(const Key('connection-test')));
+      await _tapVisible(tester, find.byKey(const Key('connection-test')));
       await tester.pumpAndSettle();
       expect(controller.checks, 0);
       expect(
@@ -891,7 +897,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(controller.checks, 0);
 
-      await tester.tap(find.byKey(const Key('connection-test')));
+      await _tapVisible(tester, find.byKey(const Key('connection-test')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Connect without verification'));
       await tester.pumpAndSettle();
@@ -901,7 +907,7 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(find.byKey(const Key('connection-save')));
+      await _tapVisible(tester, find.byKey(const Key('connection-save')));
       await tester.pumpAndSettle();
       expect(controller.connections, isEmpty);
       await tester.tap(find.text('Connect without verification'));
@@ -923,11 +929,11 @@ void main() {
         MaterialApp(home: ConnectPage(controller: controller)),
       );
       await _advanceConnectionWizard(tester, address: 'https://public.example');
-      await tester.tap(find.byKey(const Key('connection-test')));
+      await _tapVisible(tester, find.byKey(const Key('connection-test')));
       await tester.pumpAndSettle();
       expect(controller.checks, 1);
       expect(find.byType(AlertDialog), findsNothing);
-      await tester.tap(find.byKey(const Key('connection-save')));
+      await _tapVisible(tester, find.byKey(const Key('connection-save')));
       await tester.pumpAndSettle();
       expect(controller.connections, [false]);
     },
@@ -968,22 +974,22 @@ void main() {
         'https://pve.local:8006',
       );
 
-      await tester.tap(find.byKey(const Key('connection-next')));
+      await _tapVisible(tester, find.byKey(const Key('connection-next')));
       await tester.pumpAndSettle();
       expect(
         find.textContaining('Leave both token fields blank'),
         findsOneWidget,
       );
-      await tester.tap(find.byKey(const Key('connection-next')));
+      await _tapVisible(tester, find.byKey(const Key('connection-next')));
       await tester.pumpAndSettle();
       expect(
         find.text('Credential: keep encrypted saved token'),
         findsOneWidget,
       );
 
-      await tester.tap(find.byKey(const Key('connection-test')));
+      await _tapVisible(tester, find.byKey(const Key('connection-test')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('connection-save')));
+      await _tapVisible(tester, find.byKey(const Key('connection-save')));
       await tester.pumpAndSettle();
 
       expect(controller.updates, hasLength(1));
@@ -1014,13 +1020,13 @@ void main() {
         home: ConnectPage(controller: controller, profile: profile),
       ),
     );
-    await tester.tap(find.byKey(const Key('connection-next')));
+    await _tapVisible(tester, find.byKey(const Key('connection-next')));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('connection-token-id')),
       'me@pve!new',
     );
-    await tester.tap(find.byKey(const Key('connection-next')));
+    await _tapVisible(tester, find.byKey(const Key('connection-next')));
     await tester.pump();
 
     expect(controller.updates, isEmpty);
@@ -1056,9 +1062,9 @@ void main() {
     await tester.tap(find.text('Open connection form'));
     await tester.pumpAndSettle();
     await _advanceConnectionWizard(tester);
-    await tester.tap(find.byKey(const Key('connection-test')));
+    await _tapVisible(tester, find.byKey(const Key('connection-test')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('connection-save')));
+    await _tapVisible(tester, find.byKey(const Key('connection-save')));
     await tester.pump();
     await controller.started.future;
 
@@ -1084,7 +1090,7 @@ void main() {
       MaterialApp(home: ConnectPage(controller: controller)),
     );
     await _advanceConnectionWizard(tester);
-    await tester.tap(find.byKey(const Key('connection-test')));
+    await _tapVisible(tester, find.byKey(const Key('connection-test')));
     await tester.pumpAndSettle();
     expect(find.textContaining('sensitive-test-marker'), findsNothing);
     expect(find.textContaining('Could not save or open'), findsOneWidget);
@@ -1165,10 +1171,16 @@ void main() {
     expect(find.text('PVE 9.2.4 • last observed'), findsOneWidget);
     expect(find.text('TLS verification on'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('connection-test-lab')));
-    await tester.pumpAndSettle();
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('connection-test-lab')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Connection verified'), findsOneWidget);
     expect(controller.checks, 1);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('saved insecure connection test requires confirmation', (
@@ -1193,20 +1205,30 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(home: ConnectionsPage(controller: controller)),
     );
-    await tester.tap(find.byKey(const ValueKey('connection-test-lab')));
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('connection-test-lab')),
+    );
     await tester.pumpAndSettle();
 
     expect(controller.checks, 0);
     expect(find.text('Test without certificate verification?'), findsOneWidget);
-    expect(find.textContaining('https://pve.local:8006'), findsOneWidget);
+    expect(
+      find.textContaining('Server: https://pve.local:8006'),
+      findsOneWidget,
+    );
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
     expect(controller.checks, 0);
 
-    await tester.tap(find.byKey(const ValueKey('connection-test-lab')));
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('connection-test-lab')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Test without verification'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(controller.checks, 1);
     expect(find.text('Connection verified'), findsOneWidget);
@@ -1214,6 +1236,8 @@ void main() {
       find.textContaining('TLS identity verification was disabled'),
       findsOneWidget,
     );
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets(
