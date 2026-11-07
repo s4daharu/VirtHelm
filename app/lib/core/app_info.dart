@@ -4,4 +4,4 @@
 /// enforces that this display constant matches its `MAJOR.MINOR.PATCH` value so
 /// screens never show a stale hand-maintained version again.
 const String virthelmDisplayName = 'VirtHelm';
-const String virthelmDisplayVersion = '0.1.25';
+const String virthelmDisplayVersion = '0.1.26';
