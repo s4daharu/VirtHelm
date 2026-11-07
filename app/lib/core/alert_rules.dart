@@ -24,6 +24,8 @@ class ForegroundThresholdAlertRule {
     this.guestVmid,
     this.storageId,
     this.enabled = true,
+    this.consecutiveSamples = 1,
+    this.hysteresisPercent = 0,
   });
 
   factory ForegroundThresholdAlertRule.create({
@@ -35,6 +37,8 @@ class ForegroundThresholdAlertRule {
     String? guestKind,
     int? guestVmid,
     String? storageId,
+    int consecutiveSamples = 1,
+    int hysteresisPercent = 0,
   }) {
     return ForegroundThresholdAlertRule(
       id: 'rule-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}',
@@ -46,6 +50,8 @@ class ForegroundThresholdAlertRule {
       guestKind: guestKind,
       guestVmid: guestVmid,
       storageId: storageId,
+      consecutiveSamples: consecutiveSamples,
+      hysteresisPercent: hysteresisPercent,
     );
   }
 
@@ -59,8 +65,12 @@ class ForegroundThresholdAlertRule {
   final int? guestVmid;
   final String? storageId;
   final bool enabled;
+  final int consecutiveSamples;
+  final int hysteresisPercent;
 
   double get thresholdFraction => thresholdPercent / 100;
+  double get clearThresholdFraction =>
+      (thresholdPercent - hysteresisPercent) / 100;
 
   String get resourceKey => switch (metric) {
     ForegroundThresholdMetric.nodeCpu => 'node:$node',
@@ -68,7 +78,11 @@ class ForegroundThresholdAlertRule {
     ForegroundThresholdMetric.storageUsage => 'storage:$node:$storageId',
   };
 
-  ForegroundThresholdAlertRule copyWith({bool? enabled}) {
+  ForegroundThresholdAlertRule copyWith({
+    bool? enabled,
+    int? consecutiveSamples,
+    int? hysteresisPercent,
+  }) {
     return ForegroundThresholdAlertRule(
       id: id,
       metric: metric,
@@ -80,6 +94,8 @@ class ForegroundThresholdAlertRule {
       guestVmid: guestVmid,
       storageId: storageId,
       enabled: enabled ?? this.enabled,
+      consecutiveSamples: consecutiveSamples ?? this.consecutiveSamples,
+      hysteresisPercent: hysteresisPercent ?? this.hysteresisPercent,
     );
   }
 
@@ -94,6 +110,8 @@ class ForegroundThresholdAlertRule {
     'guest_vmid': guestVmid,
     'storage_id': storageId,
     'enabled': enabled,
+    'consecutive_samples': consecutiveSamples,
+    'hysteresis_percent': hysteresisPercent,
   };
 
   factory ForegroundThresholdAlertRule.fromJson(Map<String, dynamic> json) {
@@ -104,6 +122,8 @@ class ForegroundThresholdAlertRule {
     final threshold = json['threshold_percent'];
     final severityName = json['severity'];
     final enabled = json['enabled'];
+    final consecutiveSamples = json['consecutive_samples'] ?? 1;
+    final hysteresisPercent = json['hysteresis_percent'] ?? 0;
 
     ForegroundThresholdMetric? metric;
     for (final value in ForegroundThresholdMetric.values) {
@@ -128,7 +148,14 @@ class ForegroundThresholdAlertRule {
         threshold < 1 ||
         threshold > 100 ||
         severity == null ||
-        enabled is! bool) {
+        enabled is! bool ||
+        consecutiveSamples is! int ||
+        consecutiveSamples < 1 ||
+        consecutiveSamples > 10 ||
+        hysteresisPercent is! int ||
+        hysteresisPercent < 0 ||
+        hysteresisPercent > 20 ||
+        hysteresisPercent >= threshold) {
       throw const FormatException('Invalid foreground threshold rule.');
     }
 
@@ -165,6 +192,8 @@ class ForegroundThresholdAlertRule {
       guestVmid: guestVmid as int?,
       storageId: storageId as String?,
       enabled: enabled,
+      consecutiveSamples: consecutiveSamples,
+      hysteresisPercent: hysteresisPercent,
     );
   }
 }
