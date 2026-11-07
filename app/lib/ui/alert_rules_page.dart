@@ -88,6 +88,8 @@ class _ForegroundThresholdAlertRulesPageState
     final byKey = {for (final target in targets) target.key: target};
     var selectedKey = targets.first.key;
     var threshold = 80.0;
+    var consecutiveSamples = 1;
+    var hysteresis = 0.0;
     var severity = ForegroundAlertSeverity.warning;
     final rule = await showDialog<ForegroundThresholdAlertRule>(
       context: context,
@@ -136,7 +138,50 @@ class _ForegroundThresholdAlertRulesPageState
                     divisions: 18,
                     label: '${threshold.round()}%',
                     onChanged: (value) {
-                      setDialogState(() => threshold = value);
+                      setDialogState(() {
+                        threshold = value;
+                        if (hysteresis >= threshold) {
+                          hysteresis = threshold - 1;
+                        }
+                      });
+                    },
+                  ),
+                  DropdownButtonFormField<int>(
+                    key: const Key('threshold-rule-consecutive-samples'),
+                    initialValue: consecutiveSamples,
+                    decoration: const InputDecoration(
+                      labelText: 'Consecutive live samples',
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 1, child: Text('1 sample')),
+                      DropdownMenuItem(value: 2, child: Text('2 samples')),
+                      DropdownMenuItem(value: 3, child: Text('3 samples')),
+                      DropdownMenuItem(value: 4, child: Text('4 samples')),
+                      DropdownMenuItem(value: 5, child: Text('5 samples')),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setDialogState(() => consecutiveSamples = value);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Clear hysteresis: ${hysteresis.round()}% '
+                    '(resolve at or below '
+                    '${threshold.round() - hysteresis.round()}%)',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  Slider(
+                    key: const Key('threshold-rule-hysteresis-slider'),
+                    value: hysteresis,
+                    min: 0,
+                    max: 10,
+                    divisions: 10,
+                    label: '${hysteresis.round()}%',
+                    onChanged: (value) {
+                      setDialogState(() {
+                        hysteresis = value >= threshold ? threshold - 1 : value;
+                      });
                     },
                   ),
                   DropdownButtonFormField<ForegroundAlertSeverity>(
@@ -161,7 +206,8 @@ class _ForegroundThresholdAlertRulesPageState
                   const SizedBox(height: 16),
                   Text(
                     'This rule is evaluated only during foreground live '
-                    'refreshes. Missing samples never resolve a prior firing.',
+                    'refreshes. Missing samples reset pending confirmation '
+                    'but never resolve a prior firing.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -179,6 +225,8 @@ class _ForegroundThresholdAlertRulesPageState
                     target.toRule(
                       thresholdPercent: threshold.round(),
                       severity: severity,
+                      consecutiveSamples: consecutiveSamples,
+                      hysteresisPercent: hysteresis.round(),
                     ),
                   );
                 },
@@ -306,6 +354,8 @@ class _ForegroundThresholdAlertRulesPageState
                             subtitle: Text(
                               '${rule.metric.label} • at or above '
                               '${rule.thresholdPercent}% • '
+                              '${rule.consecutiveSamples} sample(s) • '
+                              '${rule.hysteresisPercent}% hysteresis • '
                               '${rule.severity.name}',
                             ),
                             trailing: Row(
@@ -359,6 +409,8 @@ class _ThresholdTarget {
   ForegroundThresholdAlertRule toRule({
     required int thresholdPercent,
     required ForegroundAlertSeverity severity,
+    required int consecutiveSamples,
+    required int hysteresisPercent,
   }) {
     return ForegroundThresholdAlertRule.create(
       metric: metric,
@@ -366,6 +418,8 @@ class _ThresholdTarget {
       displayName: displayName,
       thresholdPercent: thresholdPercent,
       severity: severity,
+      consecutiveSamples: consecutiveSamples,
+      hysteresisPercent: hysteresisPercent,
       guestKind: guestKind,
       guestVmid: guestVmid,
       storageId: storageId,
