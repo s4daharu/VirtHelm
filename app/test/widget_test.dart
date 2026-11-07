@@ -1109,13 +1109,13 @@ void main() {
     },
   );
 
-  testWidgets('shell and settings show last observed server version', (
+  testWidgets('shell opens dedicated connection manager with metadata', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
-    final controller = AppController(
-      repository: ProfileRepository(prefs, _EmptyVault()),
+    final controller = _RecordingController(
+      ProfileRepository(prefs, _EmptyVault()),
     );
     addTearDown(controller.dispose);
     const profile = ConnectionProfile(
@@ -1134,8 +1134,63 @@ void main() {
     expect(find.textContaining('PVE 9.2.4'), findsOneWidget);
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('PVE 9.2.4 (last observed)'), findsOneWidget);
+    expect(find.byKey(const Key('manage-connections')), findsOneWidget);
+    expect(find.textContaining('PVE 9.2.4 (last observed)'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('manage-connections')));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConnectionsPage), findsOneWidget);
+    expect(find.text('PVE 9.2.4 • last observed'), findsOneWidget);
+    expect(find.text('TLS verification on'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('connection-test-lab')));
+    await tester.pumpAndSettle();
+    expect(find.text('Connection verified'), findsOneWidget);
+    expect(controller.checks, 1);
   });
+
+  testWidgets(
+    'connection manager fits a narrow phone at 200 percent text scale',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = _RecordingController(
+        ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      const profile = ConnectionProfile(
+        id: 'lab',
+        name: 'A very long saved connection display name',
+        endpoint: 'https://pve-long-hostname.example:8006',
+        allowInvalidCertificates: true,
+        lastServerVersion: '9.2.4',
+      );
+      controller.active = profile;
+      controller.profiles = const [profile];
+      controller.message =
+          'Authentication needs attention before live inventory can be trusted.';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: ConnectionsPage(controller: controller),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Connections'), findsOneWidget);
+      expect(find.text('TLS UNVERIFIED'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('all shell tabs fit a narrow phone at 200 percent text scale', (
     tester,
@@ -1643,6 +1698,34 @@ void main() {
       tester.widget<TextField>(find.byType(TextField).first).controller?.text,
       'Beta',
     );
+  });
+
+  testWidgets('saved profiles without an active selection show chooser', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final repository = ProfileRepository(prefs, _EmptyVault());
+    const profile = ConnectionProfile(
+      id: 'lab',
+      name: 'Home Lab',
+      endpoint: 'https://pve.local:8006',
+      lastServerVersion: '9.2.4',
+    );
+    await repository.save(
+      profile,
+      const ApiCredentials(tokenId: 'me@pve!test', secret: 'test-secret'),
+    );
+    await repository.setActive(null);
+
+    await tester.pumpWidget(VirtHelmApp(repository: repository));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ConnectionsPage), findsOneWidget);
+    expect(find.text('Choose connection'), findsOneWidget);
+    expect(find.text('Choose where to connect'), findsOneWidget);
+    expect(find.text('Home Lab'), findsOneWidget);
+    expect(find.byKey(const ValueKey('connection-use-lab')), findsOneWidget);
   });
 
   testWidgets('app applies persisted theme before connection setup', (
