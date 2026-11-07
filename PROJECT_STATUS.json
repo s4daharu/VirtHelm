@@ -312,6 +312,14 @@
       "safety": "Presentation-only. No API endpoint, credential, persistence, TLS, POST retry, freshness guard or mutation behavior changes; task logs remain bounded, on-demand and non-persistent.",
       "verification": "flutter analyze --fatal-infos and the existing Flutter widget suite pass locally under the available SDK; new component tests cover status semantics and empty-state actions. Live PVE, physical Android TalkBack/contrast/200%-text and golden screenshots remain open.",
       "limitations": "Guest detail tabs/sticky actions, guest-filter consolidation, task timeline, full-screen alert-rule editor, connection management and About surfaces remain future work."
+    },
+    "screen_polish_followup": "docs/68-screen-polish-followup.md",
+    "screen_polish": {
+      "status": "implemented_source_level_ci_pending_live_validation_pending",
+      "scope": "Home metric-card hierarchy, incident severity summary and recovery actions, guest/task clear-filter actions, empty-state refresh actions, task-detail refresh action, connection autofill/keyboard hints, an About/licenses surface and sparkline grid/area styling.",
+      "safety": "Presentation and local widget-state only. No endpoint, credential, persistence, TLS, POST retry, freshness guard or mutation behavior changes. Refresh actions reuse the existing foreground refresh path.",
+      "verification": "flutter analyze --fatal-infos, 160 Flutter tests and formatting/source/documentation checks pass locally. Physical Android TalkBack/touch-target/contrast/200%-text and performance validation remain open.",
+      "limitations": "The remaining screen-level IA work (guest detail tabs/sticky actions, filter bottom sheet, task timeline virtualization, full-screen alert-rule editor, dedicated connection management, AMOLED/high-contrast themes, lock/biometrics and notification surfaces) is not implemented."
     }
   }
 }

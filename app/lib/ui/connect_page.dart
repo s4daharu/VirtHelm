@@ -216,6 +216,7 @@ class _ConnectPageState extends State<ConnectPage> {
                         controller: endpoint,
                         keyboardType: TextInputType.url,
                         autocorrect: false,
+                        autofillHints: const [AutofillHints.url],
                         decoration: const InputDecoration(
                           labelText: 'Server URL',
                           hintText: 'https://pve.example:8006',
@@ -229,6 +230,7 @@ class _ConnectPageState extends State<ConnectPage> {
                       TextFormField(
                         controller: tokenId,
                         autocorrect: false,
+                        autofillHints: const [AutofillHints.username],
                         decoration: const InputDecoration(
                           labelText: 'API token identifier',
                           hintText: 'operator@pve!virthelm',
@@ -242,6 +244,9 @@ class _ConnectPageState extends State<ConnectPage> {
                         obscureText: !showSecret,
                         enableSuggestions: false,
                         autocorrect: false,
+                        autofillHints: const [AutofillHints.password],
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => submit(),
                         decoration: InputDecoration(
                           labelText: 'API token secret',
                           helperText: editing

@@ -27,6 +27,7 @@ Evidence status codes: **DOC** = official source substantiates the concept; **AU
 | Android default-network callback and post-loss action guard | AUTO synthetic controller/native bridge tests | physical airplane-mode, isolated-LAN, VPN and process-death tests |
 | Contextual TLS exception labels without permanent banner | AUTO source/widget tests | physical Android accessibility and TLS security review |
 | Shared Material 3 status/component foundation and scoped MaterialApp rebuild | AUTO widget tests + analyzer | physical Android TalkBack/contrast/200% text, 360/393/412dp screenshots and performance benchmarks |
+| Screen-level recovery actions, clear-filter paths and incident severity summary | AUTO widget tests + analyzer | physical Android touch-target/TalkBack/200% text and state-transition review |
 | 200-guest responsiveness/accessibility targets | PENDING | representative phone benchmark/TalkBack/font-scale |
 | Ticket/MFA, console, PBS/PDM and high-risk operations | PLAN/deferred | separate milestone RFC/integration gates |
 

@@ -67,7 +67,16 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
           widget.controller.active?.id == widget.profileId &&
           widget.controller.connectionGeneration == widget.generation;
       return Scaffold(
-        appBar: AppBar(title: const Text('Task details')),
+        appBar: AppBar(
+          title: const Text('Task details'),
+          actions: [
+            IconButton(
+              tooltip: 'Refresh task status and log',
+              onPressed: current ? () => _showPage(_pageStart) : null,
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+          ],
+        ),
         body: !current
             ? const Center(
                 child: Text(

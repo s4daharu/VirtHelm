@@ -55,7 +55,8 @@ required = [
    'docs/64-implementation-alert-incident-inbox.md',
    'docs/65-implementation-foreground-threshold-alert-rules.md',
    'docs/66-implementation-alert-duration-hysteresis.md',
-   'docs/67-ui-overhaul-foundation.md']
+   'docs/67-ui-overhaul-foundation.md',
+   'docs/68-screen-polish-followup.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)

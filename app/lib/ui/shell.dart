@@ -733,8 +733,17 @@ class _MetricCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, color: color, size: 22),
-              const SizedBox(width: 8),
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   title,
@@ -752,7 +761,12 @@ class _MetricCard extends StatelessWidget {
             fit: BoxFit.scaleDown,
             child: Text(
               value,
-              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
+              style: const TextStyle(
+                fontSize: 26,
+                height: 1.1,
+                fontWeight: FontWeight.w800,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
             ),
           ),
         ],
@@ -937,6 +951,28 @@ class _GuestsTabState extends State<_GuestsTab> {
       poolFilter = view.pool;
       sort = view.sort;
       activeViewId = view.id;
+    });
+  }
+
+  bool get _hasActiveFilters =>
+      query.isNotEmpty ||
+      filter != 'all' ||
+      kind != GuestKindFilter.all ||
+      nodeFilter != null ||
+      tagFilter != null ||
+      poolFilter != null;
+
+  void _clearFilters() {
+    search.clear();
+    setState(() {
+      query = '';
+      filter = 'all';
+      kind = GuestKindFilter.all;
+      nodeFilter = null;
+      tagFilter = null;
+      poolFilter = null;
+      sort = GuestSort.favorites;
+      activeViewId = null;
     });
   }
 
@@ -1307,6 +1343,11 @@ class _GuestsTabState extends State<_GuestsTab> {
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
+                      if (_hasActiveFilters)
+                        TextButton(
+                          onPressed: _clearFilters,
+                          child: const Text('Clear filters'),
+                        ),
                     ],
                   ),
                 ),
@@ -1315,22 +1356,33 @@ class _GuestsTabState extends State<_GuestsTab> {
             ),
           ),
           if (inv == null)
-            const SliverFillRemaining(
+            SliverFillRemaining(
               hasScrollBody: false,
               child: EmptyState(
                 icon: Icons.cloud_off_outlined,
                 title: 'Not connected',
                 body: 'Refresh or verify the connection to browse workloads.',
+                action: FilledButton.tonalIcon(
+                  onPressed: widget.controller.refresh,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Refresh'),
+                ),
               ),
             )
           else if (guests.isEmpty)
-            const SliverFillRemaining(
+            SliverFillRemaining(
               hasScrollBody: false,
               child: EmptyState(
                 icon: Icons.search_off_rounded,
                 title: 'No workloads found',
                 body:
                     'Try a different search or filter, or check token permissions.',
+                action: _hasActiveFilters
+                    ? TextButton(
+                        onPressed: _clearFilters,
+                        child: const Text('Clear filters'),
+                      )
+                    : null,
               ),
             )
           else
@@ -1388,9 +1440,30 @@ class _TasksTab extends StatefulWidget {
 }
 
 class _TasksTabState extends State<_TasksTab> {
+  final search = TextEditingController();
   String query = '';
   String nodeFilter = '';
   ServerTaskStateFilter stateFilter = ServerTaskStateFilter.all;
+
+  bool get _hasActiveFilters =>
+      query.isNotEmpty ||
+      nodeFilter.isNotEmpty ||
+      stateFilter != ServerTaskStateFilter.all;
+
+  void _clearFilters() {
+    search.clear();
+    setState(() {
+      query = '';
+      nodeFilter = '';
+      stateFilter = ServerTaskStateFilter.all;
+    });
+  }
+
+  @override
+  void dispose() {
+    search.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1416,11 +1489,16 @@ class _TasksTabState extends State<_TasksTab> {
         padding: const EdgeInsets.all(18),
         children: [
           if (empty)
-            const EmptyState(
+            EmptyState(
               icon: Icons.receipt_long_outlined,
               title: 'No recent tasks visible',
               body:
                   'Pull to refresh. Task visibility depends on Proxmox permissions.',
+              action: FilledButton.tonalIcon(
+                onPressed: controller.refresh,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Refresh'),
+              ),
             ),
           if (!empty && sessionTasks.isNotEmpty) ...[
             SectionHeading(
@@ -1449,6 +1527,7 @@ class _TasksTabState extends State<_TasksTab> {
           if (serverTasks.isNotEmpty) ...[
             TextField(
               key: const Key('task-history-search'),
+              controller: search,
               onChanged: (value) => setState(() => query = value),
               decoration: const InputDecoration(
                 hintText: 'Search recent tasks, node, or resource',
@@ -1521,9 +1600,15 @@ class _TasksTabState extends State<_TasksTab> {
               text: 'No recent server tasks are visible to this token.',
             )
           else if (serverTasks.isNotEmpty && visible.isEmpty)
-            const MessageCard(
+            MessageCard(
               text:
                   'No recent tasks match these filters. Clear search or choose another state or node.',
+              action: _hasActiveFilters
+                  ? TextButton(
+                      onPressed: _clearFilters,
+                      child: const Text('Clear filters'),
+                    )
+                  : null,
             )
           else
             for (final task in visible) ...[
@@ -1937,15 +2022,33 @@ class _SettingsTab extends StatelessWidget {
           ),
         ),
       ),
-      const SizedBox(height: 26),
-      Text(
-        '$virthelmDisplayName $virthelmDisplayVersion',
-        style: Theme.of(context).textTheme.bodySmall,
-      ),
-      const SizedBox(height: 4),
-      Text(
-        'Independent, unofficial Proxmox VE client',
-        style: Theme.of(context).textTheme.bodySmall,
+      const SizedBox(height: 28),
+      Text('About', style: Theme.of(context).textTheme.titleLarge),
+      const SizedBox(height: 10),
+      Card(
+        child: Column(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.info_outline_rounded),
+              title: Text('$virthelmDisplayName $virthelmDisplayVersion'),
+              subtitle: const Text(
+                'Independent, unofficial Proxmox VE client. '
+                'Preview build for Android phones.',
+              ),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.description_outlined),
+              title: const Text('Open-source licenses'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => showLicensePage(
+                context: context,
+                applicationName: virthelmDisplayName,
+                applicationVersion: virthelmDisplayVersion,
+              ),
+            ),
+          ],
+        ),
       ),
     ],
   );

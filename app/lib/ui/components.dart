@@ -334,6 +334,13 @@ class SparklinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (values.isEmpty || size.width <= 0 || size.height <= 0) return;
+    final gridPaint = Paint()
+      ..color = color.withValues(alpha: 0.12)
+      ..strokeWidth = 1;
+    for (final fraction in const [0.0, 0.5, 1.0]) {
+      final y = size.height * (1 - fraction);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
@@ -359,6 +366,16 @@ class SparklinePainter extends CustomPainter {
         path.lineTo(x, y);
       }
     }
+    final fill = Path.from(path)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(
+      fill,
+      Paint()
+        ..color = color.withValues(alpha: 0.08)
+        ..style = PaintingStyle.fill,
+    );
     canvas.drawPath(path, paint);
   }
 

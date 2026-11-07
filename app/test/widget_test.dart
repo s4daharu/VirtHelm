@@ -615,6 +615,12 @@ void main() {
       );
       expect(find.textContaining('UPID:'), findsNothing);
 
+      await tester.scrollUntilVisible(
+        find.text('Task failed: Shut down container • 202'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Task failed: Shut down container • 202'));
       await tester.pumpAndSettle();
       expect(find.byType(TaskDetailsPage), findsOneWidget);

@@ -204,6 +204,10 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
             'notifications.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
+          if (incidents.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            _IncidentSeveritySummary(incidents: incidents),
+          ],
           if (stale) ...[
             const SizedBox(height: 14),
             const MessageCard(
@@ -257,18 +261,27 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
               body: 'Open a connection to evaluate foreground incidents.',
             )
           else if (visible.isEmpty && incidents.isNotEmpty)
-            const EmptyState(
+            EmptyState(
               icon: Icons.filter_alt_off_outlined,
               title: 'No incidents in this filter',
               body: 'Choose another severity to see retained incidents.',
+              action: TextButton(
+                onPressed: () => setState(() => filter = _IncidentFilter.all),
+                child: const Text('Show all incidents'),
+              ),
             )
           else if (incidents.isEmpty && (stale || taskCoverageIncomplete))
-            const EmptyState(
+            EmptyState(
               icon: Icons.help_outline_rounded,
               title: 'Health cannot be confirmed',
               body:
                   'No retained incidents are visible, but one or more live '
                   'sources are unavailable or incomplete.',
+              action: FilledButton.tonalIcon(
+                onPressed: controller.refresh,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Refresh'),
+              ),
             )
           else if (incidents.isEmpty)
             const EmptyState(
@@ -290,6 +303,110 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
       ),
     );
   }
+}
+
+class _IncidentSeveritySummary extends StatelessWidget {
+  const _IncidentSeveritySummary({required this.incidents});
+
+  final List<CockpitIncident> incidents;
+
+  @override
+  Widget build(BuildContext context) {
+    final status =
+        Theme.of(context).extension<VirtHelmStatusColors>() ??
+        const VirtHelmStatusColors(
+          positive: Color(0xFF087A64),
+          warning: Color(0xFF9A5A12),
+          error: Color(0xFFB3261E),
+          neutral: Color(0xFF5F6368),
+        );
+    final critical = incidents
+        .where(
+          (incident) => incident.severity == CockpitIncidentSeverity.critical,
+        )
+        .length;
+    final warning = incidents
+        .where(
+          (incident) => incident.severity == CockpitIncidentSeverity.warning,
+        )
+        .length;
+    return Row(
+      children: [
+        Expanded(
+          child: _IncidentSummaryTile(
+            label: 'Critical',
+            count: critical,
+            color: status.error,
+            icon: Icons.error_rounded,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _IncidentSummaryTile(
+            label: 'Warnings',
+            count: warning,
+            color: status.warning,
+            icon: Icons.warning_amber_rounded,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _IncidentSummaryTile extends StatelessWidget {
+  const _IncidentSummaryTile({
+    required this.label,
+    required this.count,
+    required this.color,
+    required this.icon,
+  });
+
+  final String label;
+  final int count;
+  final Color color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.09),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: color.withValues(alpha: 0.18)),
+    ),
+    child: Row(
+      children: [
+        Icon(icon, size: 20, color: color),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$count',
+                style: TextStyle(
+                  color: color,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _IncidentCard extends StatelessWidget {
