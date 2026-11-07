@@ -8,6 +8,7 @@ Evidence status codes: **DOC** = official source substantiates the concept; **AU
 | HTTPS-only origin, redirect rejection, explicit TLS failure | AUTO | physical-device valid/wrong-name/expired/private-CA tests |
 | Profile credential isolation and secure-storage metadata separation | AUTO | Android Keystore backup/restore/device-loss tests |
 | Guest detail/confirmation redaction on profile switch and same-profile reconnect | AUTO widget regression and generation guards | physical Android route/dialog race and screen privacy testing |
+| Guest detail tabbed layout and persistent bottom action bar | AUTO widget tests + 320dp/200% text regression | physical Android TalkBack, touch-target and dialog-at-scale review |
 | Cluster resource/guest parsing, units and uptime | AUTO | sanitized 8.4/9.2 fixtures and permission variants |
 | Optional cumulative guest network/disk byte counters from cluster resources | AUTO synthetic parser/widget tests | PVE 8.4/9.2 counter availability/units/restart-reset fixtures and physical-device accessibility |
 | On-demand guest CPU/memory RRD history with route-session isolation and text alternatives | AUTO synthetic parser/gateway/controller/widget tests | PVE 8.4/9.2 QEMU/LXC RRD payload/ACL/resolution fixtures and physical Android accessibility/performance |

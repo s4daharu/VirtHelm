@@ -439,11 +439,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Performance history'),
-      250,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.tap(find.text('Metrics'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('guest-metrics-list')), findsOneWidget);
     expect(controller.requestedTimeframes, isEmpty);
 
     await tester.tap(find.text('Load history'));
@@ -1053,6 +1051,65 @@ void main() {
   });
 
   testWidgets(
+    'guest detail tabs and actions fit a narrow phone at 200 percent text scale',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = AppController(
+        repository: ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      controller.active = const ConnectionProfile(
+        id: 'lab',
+        name: 'Lab',
+        endpoint: 'https://pve.local',
+      );
+      controller.inventory = Inventory.fromResources([
+        {
+          'type': 'qemu',
+          'node': 'pve1',
+          'vmid': 101,
+          'name': 'A very long guest display name',
+          'status': 'running',
+        },
+      ]);
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: GuestPage(
+            controller: controller,
+            guest: controller.inventory!.guests.single,
+            profileId: 'lab',
+            generation: controller.connectionGeneration,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      for (final tab in ['Metrics', 'I/O', 'Overview']) {
+        await tester.ensureVisible(find.text(tab));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(tab));
+        await tester.pumpAndSettle();
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: '$tab must not overflow',
+        );
+      }
+    },
+  );
+
+  testWidgets(
     'insecure profiles retain contextual labels without persistent banners',
     (tester) async {
       SharedPreferences.setMockInitialValues({});
@@ -1150,11 +1207,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        find.text('Guest I/O counters'),
-        250,
-        scrollable: find.byType(Scrollable).first,
-      );
+      await tester.tap(find.text('I/O'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Guest I/O counters'));
       await tester.pumpAndSettle();
 
       expect(find.text('Guest I/O counters'), findsOneWidget);
@@ -1215,15 +1270,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final shutdownTile = find.widgetWithText(ListTile, 'Shut down');
-    await tester.scrollUntilVisible(
-      shutdownTile,
-      250,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.ensureVisible(shutdownTile);
+    final shutdownButton = find.byKey(const Key('guest-primary-action'));
+    await tester.ensureVisible(shutdownButton);
     await tester.pumpAndSettle();
-    await tester.tap(shutdownTile);
+    await tester.tap(shutdownButton);
     await tester.pumpAndSettle();
     expect(find.text('Shut down Confidential guest?'), findsOneWidget);
 

@@ -123,7 +123,7 @@
       "ALERT-006 adds backward-compatible consecutive-sample duration and clear hysteresis to foreground threshold rules; missing samples reset pending confirmation but never resolve an active firing, and no background polling/notification delivery is added."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 160,
+    "current_flutter_tests_defined": 161,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
@@ -320,6 +320,14 @@
       "safety": "Presentation and local widget-state only. No endpoint, credential, persistence, TLS, POST retry, freshness guard or mutation behavior changes. Refresh actions reuse the existing foreground refresh path.",
       "verification": "flutter analyze --fatal-infos, 160 Flutter tests and formatting/source/documentation checks pass locally. Physical Android TalkBack/touch-target/contrast/200%-text and performance validation remain open.",
       "limitations": "The remaining screen-level IA work (guest detail tabs/sticky actions, filter bottom sheet, task timeline virtualization, full-screen alert-rule editor, dedicated connection management, AMOLED/high-contrast themes, lock/biometrics and notification surfaces) is not implemented."
+    },
+    "guest_detail_tabs_followup": "docs/69-guest-detail-tabs-actions.md",
+    "guest_detail_tabs": {
+      "status": "implemented_source_level_ci_pending_live_validation_pending",
+      "scope": "Guest detail now separates identity/live utilization, performance history and I/O counters into three tabs, with a persistent bottom primary action and overflow menu for the remaining power actions.",
+      "safety": "The existing execute path, typed-risk confirmation, profile/generation checks, fresh-inventory requirements, single-flight reservation and unknown-outcome lockout are unchanged. No API, credential, persistence, retry or background behavior is added.",
+      "verification": "flutter analyze --fatal-infos, 161 Flutter tests, formatting and source/documentation checks pass locally. The new regression covers all three tabs at 320dp/200% text scale without layout overflow. Physical Android TalkBack/touch-target/performance validation remains open.",
+      "limitations": "Guest-list filter consolidation, task timeline virtualization, the full-screen threshold-rule editor, dedicated connection management, AMOLED/high-contrast themes, lock/biometrics, notifications and golden screenshots remain future work."
     }
   }
 }
