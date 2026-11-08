@@ -1,6 +1,6 @@
 {
   "project": "VirtHelm",
-  "as_of": "2026-11-07",
+  "as_of": "2026-11-08",
   "app_code_written": true,
   "flutter_build_executed": true,
   "live_pve_tested": false,
@@ -127,7 +127,7 @@
       "ALERT-006 adds backward-compatible consecutive-sample duration and clear hysteresis to foreground threshold rules; missing samples reset pending confirmation but never resolve an active firing, and no background polling/notification delivery is added."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 168,
+    "current_flutter_tests_defined": 172,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
     "p0_scope_complete": false,
@@ -380,6 +380,15 @@
       "safety": "Connection checks use only existing read endpoints and do not persist candidate credentials or switch sessions. Saved-profile tests may refresh last-observed version metadata without rewriting the encrypted token. Existing connect/update methods revalidate before persistence; TLS-insecure attempts still require explicit confirmation.",
       "verification": "168 Flutter tests cover candidate/saved verification, chooser, staged onboarding, dedicated-manager, insecure saved-profile confirmation and 320dp/200%-text regressions. PR #32 must pass exact-head formatting, analyzer, Flutter tests and Android debug compilation before merge.",
       "limitations": "Live PVE 9.2/8.4 ACL/TLS fixtures and physical Android secure-storage, TalkBack, VPN/network-transition and 360/393/412dp validation remain open. Theme completion and native biometric/notification/widget surfaces remain later work."
+    },
+    "accessibility_theme_followup": "docs/76-accessibility-theme-completion.md",
+    "accessibility_theme_completion": {
+      "status": "implemented_source_level_ci_pending_device_validation_pending",
+      "scope": "Device/light/dark/AMOLED themes, persisted high-contrast and reduced-motion preferences, 48dp shared text-button target, and guest/node/storage RRD charts with visible percentage/time axes plus on-demand timestamped sample tables.",
+      "persistence": "High-contrast and reduced-motion are non-secret device-local SharedPreferences and never rewrite encrypted credentials.",
+      "safety": "Presentation-only. No PVE endpoint, permission, TLS, retry, background-read, task-polling or mutation behavior changes. Chart sample tables use only already-loaded transient RRD data.",
+      "verification": "Flutter coverage includes AMOLED/high-contrast construction, preference persistence, reduced-motion application, chart data-table presentation and 360/393/412dp light/dark layouts at 200% text. Exact-head CI remains authoritative.",
+      "limitations": "Physical Android TalkBack, contrast/touch-target inspection, remove-animation behavior and screenshots/goldens remain open. Android wallpaper dynamic color is optional/deferred; biometrics, notifications, widgets and shortcuts remain later work."
     }
   }
 }
