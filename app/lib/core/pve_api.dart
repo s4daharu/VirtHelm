@@ -6,6 +6,10 @@ import 'package:dio/io.dart';
 
 import 'models.dart';
 
+abstract class GuestPermissionGateway {
+  Future<GuestPermissionSnapshot> guestPermissions(Guest guest);
+}
+
 abstract class PveGateway {
   Future<String> version();
   Future<Inventory> inventory();
@@ -37,7 +41,7 @@ typedef GatewayFactory =
 
 /// A new Dio instance is created for each profile; credentials are origin-scoped.
 /// Redirects are rejected so Authorization is never forwarded to another host.
-class DioPveGateway implements PveGateway {
+class DioPveGateway implements PveGateway, GuestPermissionGateway {
   DioPveGateway(
     ConnectionProfile profile,
     ApiCredentials credentials, {
@@ -528,6 +532,27 @@ class DioPveGateway implements PveGateway {
       throw const PveFailure('Unexpected guest configuration response.');
     } on TypeError {
       throw const PveFailure('Unexpected guest configuration response.');
+    }
+  }
+
+  @override
+  Future<GuestPermissionSnapshot> guestPermissions(Guest guest) async {
+    final raw = await _request(
+      '/access/permissions',
+      queryParameters: {'path': '/vms/${guest.vmid}'},
+    );
+    if (raw is! Map) {
+      throw const PveFailure('Unexpected guest permission response.');
+    }
+    try {
+      return GuestPermissionSnapshot.fromApi(
+        Map<String, dynamic>.from(raw),
+        vmid: guest.vmid,
+      );
+    } on FormatException {
+      throw const PveFailure('Unexpected guest permission response.');
+    } on TypeError {
+      throw const PveFailure('Unexpected guest permission response.');
     }
   }
 
