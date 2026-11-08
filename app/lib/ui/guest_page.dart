@@ -36,6 +36,10 @@ class _GuestPageState extends State<GuestPage> {
   GuestConfiguration? configuration;
   String? configurationError;
   DateTime? configurationLoadedAt;
+  bool loadingPermissions = false;
+  GuestPermissionSnapshot? permissionSnapshot;
+  String? permissionError;
+  DateTime? permissionsLoadedAt;
 
   bool get _currentSession =>
       widget.controller.active?.id == widget.profileId &&
@@ -144,6 +148,49 @@ class _GuestPageState extends State<GuestPage> {
     } finally {
       if (mounted && _currentSession) {
         setState(() => loadingConfiguration = false);
+      }
+    }
+  }
+
+  Future<void> loadPermissions() async {
+    final guest = currentGuest();
+    if (loadingPermissions || !_currentSession || guest == null) return;
+    setState(() {
+      loadingPermissions = true;
+      permissionError = null;
+    });
+    try {
+      final result = await widget.controller.inspectGuestPermissions(
+        profileId: widget.profileId,
+        generation: widget.generation,
+        guest: guest,
+      );
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        permissionSnapshot = result;
+        permissionsLoadedAt = result == null ? null : DateTime.now();
+        if (result == null) {
+          permissionError =
+              'Guest permission data is no longer current. Refresh and reopen this guest.';
+        }
+      });
+    } on PveFailure catch (error) {
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        permissionSnapshot = null;
+        permissionsLoadedAt = null;
+        permissionError = error.message;
+      });
+    } catch (_) {
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        permissionSnapshot = null;
+        permissionsLoadedAt = null;
+        permissionError = 'Could not load guest permission hints.';
+      });
+    } finally {
+      if (mounted && _currentSession) {
+        setState(() => loadingPermissions = false);
       }
     }
   }
@@ -691,6 +738,189 @@ class _GuestPageState extends State<GuestPage> {
     ),
   );
 
+  Widget _permissionTile({
+    required GuestPermissionSnapshot snapshot,
+    required String privilege,
+    required String label,
+    required IconData icon,
+  }) {
+    final granted = snapshot.has(privilege);
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      child: ListTile(
+        key: ValueKey('guest-permission-$privilege'),
+        leading: Icon(icon),
+        title: Text(label),
+        subtitle: Text(privilege),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              granted ? Icons.check_circle_outline : Icons.block_outlined,
+              size: 18,
+              color: granted ? scheme.primary : scheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 6),
+            Text(granted ? 'Granted' : 'Not granted'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _accessTab(Guest? guest) {
+    final visible = guest == null ? null : permissionSnapshot;
+    final scheme = Theme.of(context).colorScheme;
+    const knownPrivileges = <String>{
+      'VM.Audit',
+      'VM.PowerMgmt',
+      'VM.Backup',
+      'VM.Snapshot',
+      'VM.Snapshot.Rollback',
+      'VM.Clone',
+      'VM.Migrate',
+      'VM.Config.CPU',
+      'VM.Config.Memory',
+      'VM.Config.Disk',
+      'VM.Config.Network',
+      'VM.Config.Options',
+    };
+    final otherCount = visible == null
+        ? 0
+        : visible.privileges.where((item) => !knownPrivileges.contains(item)).length;
+
+    return _tabList(
+      key: const Key('guest-access-list'),
+      children: [
+        Text('Effective access', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 6),
+        Text(
+          guest == null
+              ? 'Permission hints are unavailable because this guest is no longer in the live inventory.'
+              : 'Loaded on demand from Proxmox for the exact /vms/${guest.vmid} ACL path. '
+                    'These are capability hints only: Proxmox authorization and '
+                    'VirtHelm live mutation preflight remain authoritative.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.tonalIcon(
+            key: const Key('guest-load-permissions'),
+            onPressed: guest == null || loadingPermissions ? null : loadPermissions,
+            icon: loadingPermissions
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.admin_panel_settings_outlined),
+            label: Text(
+              visible == null ? 'Load permission hints' : 'Refresh permission hints',
+            ),
+          ),
+        ),
+        if (guest != null && permissionError != null) ...[
+          const SizedBox(height: 10),
+          Text(permissionError!, style: TextStyle(color: scheme.error)),
+        ],
+        if (visible != null) ...[
+          const SizedBox(height: 10),
+          Text(
+            '${visible.privileges.length} effective privileges reported'
+            '${visible.malformedPrivileges > 0 ? ' • ${visible.malformedPrivileges} malformed ignored' : ''}'
+            '${visible.truncated ? ' • privilege list truncated locally' : ''}'
+            '${otherCount > 0 ? ' • $otherCount other privileges not shown' : ''}'
+            '${permissionsLoadedAt != null ? ' • loaded ${formatAge(permissionsLoadedAt!)}' : ''}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          Text('Current operator capabilities', style: Theme.of(context).textTheme.titleMedium),
+          _permissionTile(
+            snapshot: visible,
+            privilege: 'VM.Audit',
+            label: 'Inspect guest',
+            icon: Icons.visibility_outlined,
+          ),
+          _permissionTile(
+            snapshot: visible,
+            privilege: 'VM.PowerMgmt',
+            label: 'Power controls',
+            icon: Icons.power_settings_new_rounded,
+          ),
+          _permissionTile(
+            snapshot: visible,
+            privilege: 'VM.Backup',
+            label: 'Back up / restore',
+            icon: Icons.backup_outlined,
+          ),
+          _permissionTile(
+            snapshot: visible,
+            privilege: 'VM.Snapshot',
+            label: 'Create / delete snapshots',
+            icon: Icons.camera_outlined,
+          ),
+          _permissionTile(
+            snapshot: visible,
+            privilege: 'VM.Snapshot.Rollback',
+            label: 'Rollback snapshots',
+            icon: Icons.restore_rounded,
+          ),
+          _permissionTile(
+            snapshot: visible,
+            privilege: 'VM.Clone',
+            label: 'Clone guest',
+            icon: Icons.copy_all_outlined,
+          ),
+          _permissionTile(
+            snapshot: visible,
+            privilege: 'VM.Migrate',
+            label: 'Migrate guest',
+            icon: Icons.drive_file_move_outline,
+          ),
+          const SizedBox(height: 8),
+          Text('Configuration privileges', style: Theme.of(context).textTheme.titleMedium),
+          _permissionTile(
+            snapshot: visible,
+            privilege: 'VM.Config.CPU',
+            label: 'Configure CPU',
+            icon: Icons.memory_rounded,
+          ),
+          _permissionTile(
+            snapshot: visible,
+            privilege: 'VM.Config.Memory',
+            label: 'Configure memory',
+            icon: Icons.developer_board_outlined,
+          ),
+          _permissionTile(
+            snapshot: visible,
+            privilege: 'VM.Config.Disk',
+            label: 'Configure disks',
+            icon: Icons.storage_rounded,
+          ),
+          _permissionTile(
+            snapshot: visible,
+            privilege: 'VM.Config.Network',
+            label: 'Configure network',
+            icon: Icons.hub_outlined,
+          ),
+          _permissionTile(
+            snapshot: visible,
+            privilege: 'VM.Config.Options',
+            label: 'Configure other options',
+            icon: Icons.tune_rounded,
+          ),
+        ],
+        const SizedBox(height: 14),
+        Text(
+          'A granted privilege does not enable an unimplemented M4 operation, '
+          'prove that every required companion privilege is present, or replace '
+          'server-side ACL checks.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+
   Widget _configurationTab(Guest? guest) {
     final visibleConfiguration = guest == null ? null : configuration;
     final scheme = Theme.of(context).colorScheme;
@@ -1106,7 +1336,7 @@ class _GuestPageState extends State<GuestPage> {
           !operationBlocked;
       final guardReason = _guardReason(guest, operationBlocked);
       return DefaultTabController(
-        length: 5,
+        length: 6,
         child: Scaffold(
           appBar: AppBar(
             title: Text(guest?.name ?? widget.guest.name),
@@ -1122,6 +1352,7 @@ class _GuestPageState extends State<GuestPage> {
               tabAlignment: TabAlignment.start,
               tabs: [
                 Tab(key: Key('guest-overview-tab'), text: 'Overview'),
+                Tab(key: Key('guest-access-tab'), text: 'Access'),
                 Tab(key: Key('guest-configuration-tab'), text: 'Configuration'),
                 Tab(key: Key('guest-metrics-tab'), text: 'Metrics'),
                 Tab(key: Key('guest-io-tab'), text: 'I/O'),
@@ -1132,6 +1363,7 @@ class _GuestPageState extends State<GuestPage> {
           body: TabBarView(
             children: [
               _overviewTab(guest, scheme),
+              _accessTab(guest),
               _configurationTab(guest),
               _metricsTab(),
               _ioTab(guest),
