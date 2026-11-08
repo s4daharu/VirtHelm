@@ -1959,6 +1959,22 @@ class _SettingsTab extends StatelessWidget {
     }
   }
 
+  Future<void> _updateHighContrast(BuildContext context, bool value) async {
+    try {
+      await controller.setHighContrast(value);
+    } catch (_) {
+      if (context.mounted) _showPreferenceError(context);
+    }
+  }
+
+  Future<void> _updateReduceMotion(BuildContext context, bool value) async {
+    try {
+      await controller.setReduceMotion(value);
+    } catch (_) {
+      if (context.mounted) _showPreferenceError(context);
+    }
+  }
+
   Future<void> _updateOfflineOverview(BuildContext context, bool value) async {
     try {
       await controller.setOfflineOverviewEnabled(value);
@@ -2000,7 +2016,10 @@ class _SettingsTab extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 28),
-      Text('Display & refresh', style: Theme.of(context).textTheme.titleLarge),
+      Text(
+        'Display & accessibility',
+        style: Theme.of(context).textTheme.titleLarge,
+      ),
       const SizedBox(height: 10),
       Card(
         child: Padding(
@@ -2026,12 +2045,42 @@ class _SettingsTab extends StatelessWidget {
                     value: AppThemePreference.dark,
                     child: Text('Dark'),
                   ),
+                  DropdownMenuItem(
+                    value: AppThemePreference.amoled,
+                    child: Text('AMOLED black'),
+                  ),
                 ],
                 onChanged: (value) {
                   if (value != null) {
                     unawaited(_updateTheme(context, value));
                   }
                 },
+              ),
+              const Divider(),
+              SwitchListTile(
+                key: const Key('high-contrast-preference'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('High contrast'),
+                subtitle: const Text(
+                  'Strengthen borders and semantic status contrast. '
+                  'Android high-contrast mode is also respected.',
+                ),
+                value: controller.highContrast,
+                onChanged: (value) =>
+                    unawaited(_updateHighContrast(context, value)),
+              ),
+              const Divider(),
+              SwitchListTile(
+                key: const Key('reduce-motion-preference'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Reduce motion'),
+                subtitle: const Text(
+                  'Minimize theme and interface animation. '
+                  'Android remove-animations is also respected.',
+                ),
+                value: controller.reduceMotion,
+                onChanged: (value) =>
+                    unawaited(_updateReduceMotion(context, value)),
               ),
               const Divider(),
               const Text('Automatic read refresh'),
