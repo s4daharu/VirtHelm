@@ -37,7 +37,7 @@
   "m1_validation": "Automated branch CI has passed source checks, analyzer, tests and Android debug APK build for the M1 safety implementation; live PVE/device release validation remains open.",
   "flutter_build_success": true,
   "ci_flutter_version": "3.44.4",
-  "android_build_evidence": "Historical CI debug builds verified; consult the latest Actions checks for the current commit. No local APK build was run during the cross-check audit.",
+  "android_build_evidence": "Main CI passed full Docs and Android checks plus signed prerelease publication for ef1208c26546fee42485170173aecd5f5e61ed1f. The subsequent launcher commit reached generated-runner validation, formatting, analyzer and Flutter tests but its docs job caught display-version drift; this audit repairs that inconsistency and requires fresh main CI.",
   "m1_safety_followup": "Implemented: per-guest single-flight, profile/snapshot revalidation, bounded task verification, ambiguous-outcome lockout, auth-revocation fail-closed handling and race regression tests.",
   "m2_read_cockpit": {
     "features": [
@@ -89,11 +89,11 @@
     "release_validation": "physical Android TLS/security review remains open; see docs/40-profile-tls-option.md"
   },
   "implementation_audit": {
-    "reviewed_at": "2026-11-06",
+    "reviewed_at": "2026-11-08",
     "source_review_completed": true,
     "automated_regressions_added": true,
     "android_generated_runner_audited": true,
-    "report": "docs/62-whole-repository-cross-check-2026-11-06.md",
+    "report": "docs/77-whole-repository-cross-check-2026-11-08.md",
     "local_flutter_version": "3.44.4",
     "local_dart_version": "3.12.2",
     "committed_lockfile_unchanged": true,
@@ -105,7 +105,7 @@
       "production signing and dependency/security release review",
       "full premium M2 features explicitly deferred in docs/39-implementation-audit.md"
     ],
-    "followup_cross_check": "docs/62-whole-repository-cross-check-2026-11-06.md",
+    "followup_cross_check": "docs/77-whole-repository-cross-check-2026-11-08.md",
     "followup_findings": [
       "post-UPID inventory refresh must begin after terminal task status (fixed and regression-tested)",
       "invalid map keys in supplemental lists must not discard valid neighboring records (fixed and regression-tested)",
@@ -124,7 +124,10 @@
       "Storage RRD capacity history is explicit GET-only AVERAGE hour/day/week used/total history on a profile/generation/exact-storage-scoped route; live PVE 8.4/9.2 storage backend/ACL fixtures and physical Android validation remain pending.",
       "ALERT-001 foreground incident inbox derives only from existing authenticated inventory/task data, retains failed-task incidents across incomplete task-history reads, treats unknown node/session task states conservatively, and adds no Android notification/background/relay capability.",
       "ALERT-002/003 foreground threshold rules persist only non-secret profile-scoped selectors/configuration, evaluate exact node/guest CPU and per-node storage usage from live foreground snapshots, retain prior firings across missing/stale samples, and add no background worker or Android notification delivery.",
-      "ALERT-006 adds backward-compatible consecutive-sample duration and clear hysteresis to foreground threshold rules; missing samples reset pending confirmation but never resolve an active firing, and no background polling/notification delivery is added."
+      "ALERT-006 adds backward-compatible consecutive-sample duration and clear hysteresis to foreground threshold rules; missing samples reset pending confirmation but never resolve an active firing, and no background polling/notification delivery is added.",
+      "The Android launcher-branding commit bumped pubspec to 0.1.28 without updating the display-only app_info constant; check_source caught the drift on main CI. This audit fixes the version sync and strengthens source checks for persistent launcher resources.",
+      "README/app README/PROJECT_STATUS current-state text still described ALERT-006 duration/hysteresis, connection management, and AMOLED/high-contrast work as pending after those milestones had merged. Current status text is corrected without rewriting historical milestone documents.",
+      "The generated Android runner remains ignored by design; reviewed SVG/adaptive-icon resources live under scripts/android and harden_android.py installs them deterministically. Source and delivery smoke checks now both guard that path."
     ],
     "full_premium_scope_complete": false,
     "current_flutter_tests_defined": 172,
@@ -136,8 +139,8 @@
       "Android default-network observation remains unverified on physical Android devices, especially isolated LAN and VPN transitions"
     ],
     "unverified_repository_controls": [
-      "GitHub currently reports main.protected=false; no verified enforced branch protection",
-      "repository rulesets are not configured; branch protection remains an administrative follow-up"
+      "GitHub branches API reports main.protected=false; no enforced branch protection is verified",
+      "The connected GitHub App cannot read the administration-only branch-protection/ruleset endpoint, so this audit makes no stronger ruleset claim"
     ],
     "profile_editing_followup": "docs/46-implementation-p0-profile-editing.md",
     "f01_profile_editing": {
@@ -282,7 +285,7 @@
       "behavior": "A fifth Incidents tab shows a badge and locally filters critical/warning signals derived from explicit node offline/unknown states, failed recent server tasks, and failed/unknown session tasks. Node/task incidents drill into existing session-scoped detail routes.",
       "conservative_refresh": "Inventory failures retain the previous node snapshot. Partial task-history reads retain up to 60 previously observed failed-task incidents until a later complete task read; full task-history failures leave prior task data unchanged. Unknown is never presented as healthy.",
       "privacy": "Foreground in-app only. No notification permission/channel, lock-screen payload, WorkManager job, relay registration, persistent incident history, task-log copy or additional PVE endpoint.",
-      "deferred": "ALERT-004 through ALERT-014 remain future work where not already covered by foreground inbox behavior; duration/hysteresis, acknowledgement/history, quiet hours/cooldown, Android scheduled checks/notifications, lock-screen privacy controls, certificate/backup reminders and relay/webhooks are not implemented.",
+      "deferred": "ALERT-004 through ALERT-014 remain future work where not already covered by foreground inbox behavior. ALERT-006 duration/hysteresis is implemented separately; acknowledgement/history, quiet hours/cooldown, Android scheduled checks/notifications, lock-screen privacy controls, certificate/backup reminders and relay/webhooks remain unimplemented.",
       "limitations": "Live PVE 9.2/8.4 node/task fixtures, ACL/partial multi-node behavior, 200-guest/task performance and physical Android accessibility/lifecycle/network testing remain open.",
       "report": "docs/64-implementation-alert-incident-inbox.md"
     },
@@ -315,7 +318,7 @@
       "rebuild_boundary": "MaterialApp no longer rebuilds on every controller notification; theme changes use a dedicated notifier and inventory/task/incident updates rebuild only the active shell subtree.",
       "safety": "Presentation-only. No API endpoint, credential, persistence, TLS, POST retry, freshness guard or mutation behavior changes; task logs remain bounded, on-demand and non-persistent.",
       "verification": "flutter analyze --fatal-infos and the existing Flutter widget suite pass locally under the available SDK; new component tests cover status semantics and empty-state actions. Live PVE, physical Android TalkBack/contrast/200%-text and golden screenshots remain open.",
-      "limitations": "Dedicated connection management, AMOLED/high-contrast themes, app lock/biometrics, notification surfaces, golden screenshots and physical-device validation remain future work."
+      "limitations": "At this milestone dedicated connection management and AMOLED/high-contrast work were still pending; they were subsequently implemented in docs/75 and docs/76. Current remaining gates are physical-device validation, app lock/biometrics, notification surfaces and golden/device screenshots."
     },
     "screen_polish_followup": "docs/68-screen-polish-followup.md",
     "screen_polish": {
@@ -323,7 +326,7 @@
       "scope": "Home metric-card hierarchy, incident severity summary and recovery actions, guest/task clear-filter actions, empty-state refresh actions, task-detail refresh action, connection autofill/keyboard hints, an About/licenses surface and sparkline grid/area styling.",
       "safety": "Presentation and local widget-state only. No endpoint, credential, persistence, TLS, POST retry, freshness guard or mutation behavior changes. Refresh actions reuse the existing foreground refresh path.",
       "verification": "flutter analyze --fatal-infos, 160 Flutter tests and formatting/source/documentation checks pass locally. Physical Android TalkBack/touch-target/contrast/200%-text and performance validation remain open.",
-      "limitations": "Dedicated connection management, AMOLED/high-contrast themes, app lock/biometrics, notification surfaces, golden screenshots and physical-device validation remain future work."
+      "limitations": "At this milestone dedicated connection management and AMOLED/high-contrast work were still pending; they were subsequently implemented in docs/75 and docs/76. Current remaining gates are physical-device validation, app lock/biometrics, notification surfaces and golden/device screenshots."
     },
     "guest_detail_tabs_followup": "docs/69-guest-detail-tabs-actions.md",
     "guest_detail_tabs": {
@@ -331,7 +334,7 @@
       "scope": "Guest detail now separates identity/live utilization, performance history and I/O counters into three tabs, with a persistent bottom primary action and overflow menu for the remaining power actions.",
       "safety": "The existing execute path, typed-risk confirmation, profile/generation checks, fresh-inventory requirements, single-flight reservation and unknown-outcome lockout are unchanged. No API, credential, persistence, retry or background behavior is added.",
       "verification": "flutter analyze --fatal-infos, 161 Flutter tests, formatting and source/documentation checks pass locally. The new regression covers all three tabs at 320dp/200% text scale without layout overflow. Physical Android TalkBack/touch-target/performance validation remains open.",
-      "limitations": "Dedicated connection management, AMOLED/high-contrast themes, app lock/biometrics, notification surfaces, golden screenshots and physical-device validation remain future work."
+      "limitations": "At this milestone dedicated connection management and AMOLED/high-contrast work were still pending; they were subsequently implemented in docs/75 and docs/76. Current remaining gates are physical-device validation, app lock/biometrics, notification surfaces and golden/device screenshots."
     },
     "node_storage_detail_tabs_followup": "docs/70-node-storage-detail-tabs.md",
     "node_storage_detail_tabs": {
@@ -339,7 +342,7 @@
       "scope": "Node detail separates current utilization from RRD metrics, and storage detail separates capacity/content overview from capacity history, using the same tabbed read-only detail pattern as guest detail.",
       "safety": "Read-only. RRD history remains explicit, GET-only, bounded, transient and profile/generation scoped. Timeframe selection alone performs no request. Missing-resource and session-change redaction is preserved.",
       "verification": "flutter analyze --fatal-infos, 161 Flutter tests, formatting and source/documentation checks pass locally. Node/storage history regressions select the metrics/capacity tabs explicitly and still verify request timing, summaries, sample counts and profile-switch redaction.",
-      "limitations": "Physical Android TalkBack/touch-target/contrast/200%-text, 360/393/412dp screenshots and performance benchmarks remain open. Dedicated connection management, AMOLED/high-contrast themes, lock/biometrics, notifications and goldens remain future work."
+      "limitations": "Physical Android TalkBack/touch-target/contrast/200%-text, 360/393/412dp screenshots and performance benchmarks remain open. Connection management and AMOLED/high-contrast work were subsequently implemented in docs/75 and docs/76; lock/biometrics, notifications and goldens remain future work."
     },
     "guest_filter_sheet_followup": "docs/71-guest-filter-sheet.md",
     "guest_filter_sheet": {
@@ -347,7 +350,7 @@
       "scope": "Guests now use search plus a filter-count button, a compact quick-status row, removable active-filter chips and a bottom sheet for type/node/tag/pool/sort. Saved views retain the same criteria.",
       "safety": "Presentation and local widget state only. No API, credential, persistence or mutation behavior is added. Filter changes cannot authorize guest writes and still reset on profile switch.",
       "verification": "flutter analyze --fatal-infos, 161 Flutter tests, formatting and source/documentation checks pass locally. Guest browse/filter/sort and saved-view regressions exercise the sheet and active chips; the 320dp/200%-text shell regression still passes.",
-      "limitations": "Physical Android TalkBack, sheet-at-scale, touch-target and 200-guest performance validation remain open. Dedicated connection management, AMOLED/high-contrast themes, lock/biometrics, notifications and goldens remain future work."
+      "limitations": "Physical Android TalkBack, sheet-at-scale, touch-target and 200-guest performance validation remain open. Connection management and AMOLED/high-contrast work were subsequently implemented in docs/75 and docs/76; lock/biometrics, notifications and goldens remain future work."
     },
     "task_summary_compact_rows_followup": "docs/72-task-summary-compact-rows.md",
     "task_summary_compact_rows": {
@@ -355,7 +358,7 @@
       "scope": "Tasks now shows a running/succeeded/failed/unknown summary card, compact fully tappable server-task rows and lazy sliver lists for session and recent tasks. The per-card View details button was removed in favour of the whole-row target.",
       "safety": "Read-only presentation only. Task details remain on-demand, bounded GETs with profile/generation checks and no log persistence. No task mutation, polling, API or transport behavior changes.",
       "verification": "flutter analyze --fatal-infos, 161 Flutter tests, formatting and source/documentation checks pass locally. Task history/filter and task-detail regressions use the whole-row target; the 320dp/200%-text shell regression still passes.",
-      "limitations": "Physical Android TalkBack, touch-target, 200-task performance and 360/393/412dp validation remain open. Dedicated connection management, AMOLED/high-contrast themes, lock/biometrics, notifications and goldens remain future work."
+      "limitations": "Physical Android TalkBack, touch-target, 200-task performance and 360/393/412dp validation remain open. Connection management and AMOLED/high-contrast work were subsequently implemented in docs/75 and docs/76; lock/biometrics, notifications and goldens remain future work."
     },
     "threshold_rule_editor_followup": "docs/73-threshold-rule-editor.md",
     "threshold_rule_editor": {
@@ -363,7 +366,7 @@
       "scope": "Threshold rules now use a full-screen add/edit editor with a searchable grouped Nodes/Guests/Storage target picker, threshold and hysteresis sliders, 1-10 consecutive samples, severity choice and a plain-language summary. Rule cards open the same editor prefilled.",
       "safety": "Rules remain profile-scoped non-secret local metadata with foreground-only evaluation. Returned editor results are discarded if the profile or connection generation changed. No background worker, notification delivery, API, credential or persistence behavior is added.",
       "verification": "flutter analyze --fatal-infos, 162 Flutter tests, formatting and source/documentation checks pass locally. Added an edit regression that changes severity through the searchable grouped target picker; the original add-rule regression still passes.",
-      "limitations": "Physical Android TalkBack, large-text editor layout, touch-target and 360/393/412dp validation remain open. Connection management, AMOLED/high-contrast themes, lock/biometrics, notifications and goldens remain future work."
+      "limitations": "Physical Android TalkBack, large-text editor layout, touch-target and 360/393/412dp validation remain open. Connection management and AMOLED/high-contrast work were subsequently implemented in docs/75 and docs/76; lock/biometrics, notifications and goldens remain future work."
     },
     "ui_cross_check_followup": "docs/74-premerge-ui-cross-check-2026-11-07.md",
     "ui_cross_check": {
@@ -375,20 +378,27 @@
     },
     "connection_management_followup": "docs/75-connection-management-onboarding.md",
     "connection_management": {
-      "status": "implemented_ci_gated_live_validation_pending",
+      "status": "implemented_ci_passed_live_validation_pending",
       "scope": "Dedicated Connections page with add/edit/test/remove/switch actions, explicit chooser state when saved profiles exist without an active selection, and staged Server → API token → Verify onboarding with read-only PVE version/inventory checks before save.",
       "safety": "Connection checks use only existing read endpoints and do not persist candidate credentials or switch sessions. Saved-profile tests may refresh last-observed version metadata without rewriting the encrypted token. Existing connect/update methods revalidate before persistence; TLS-insecure attempts still require explicit confirmation.",
-      "verification": "168 Flutter tests cover candidate/saved verification, chooser, staged onboarding, dedicated-manager, insecure saved-profile confirmation and 320dp/200%-text regressions. PR #32 must pass exact-head formatting, analyzer, Flutter tests and Android debug compilation before merge.",
-      "limitations": "Live PVE 9.2/8.4 ACL/TLS fixtures and physical Android secure-storage, TalkBack, VPN/network-transition and 360/393/412dp validation remain open. Theme completion and native biometric/notification/widget surfaces remain later work."
+      "verification": "168 Flutter tests covered candidate/saved verification, chooser, staged onboarding, dedicated-manager, insecure saved-profile confirmation and 320dp/200%-text regressions. Main-push Docs and Android checks passed for 401cfffe51efcc9abc9f9e16093dbf633a48c30e, including formatting, analyzer, Flutter tests and Android debug compilation.",
+      "limitations": "Live PVE 9.2/8.4 ACL/TLS fixtures and physical Android secure-storage, TalkBack, VPN/network-transition and 360/393/412dp validation remain open. Native biometric/notification/widget surfaces remain later work."
     },
     "accessibility_theme_followup": "docs/76-accessibility-theme-completion.md",
     "accessibility_theme_completion": {
-      "status": "implemented_source_level_ci_pending_device_validation_pending",
+      "status": "implemented_ci_passed_device_validation_pending",
       "scope": "Device/light/dark/AMOLED themes, persisted high-contrast and reduced-motion preferences, 48dp shared text-button target, and guest/node/storage RRD charts with visible percentage/time axes plus on-demand timestamped sample tables.",
       "persistence": "High-contrast and reduced-motion are non-secret device-local SharedPreferences and never rewrite encrypted credentials.",
       "safety": "Presentation-only. No PVE endpoint, permission, TLS, retry, background-read, task-polling or mutation behavior changes. Chart sample tables use only already-loaded transient RRD data.",
-      "verification": "Flutter coverage includes AMOLED/high-contrast construction, preference persistence, reduced-motion application, chart data-table presentation and 360/393/412dp light/dark layouts at 200% text. Exact-head CI remains authoritative.",
+      "verification": "172 defined Flutter tests cover AMOLED/high-contrast construction, preference persistence, reduced-motion application, chart data-table presentation and 360/393/412dp light/dark layouts at 200% text. Main-push Docs and Android checks passed for ef1208c26546fee42485170173aecd5f5e61ed1f, and signed prerelease v0.1.27-build-242 was published.",
       "limitations": "Physical Android TalkBack, contrast/touch-target inspection, remove-animation behavior and screenshots/goldens remain open. Android wallpaper dynamic color is optional/deferred; biometrics, notifications, widgets and shortcuts remain later work."
+    },
+    "android_launcher_branding": {
+      "status": "implemented_source_level_ci_repair_pending",
+      "scope": "Reviewed VirtHelm SVG master plus Android adaptive foreground/background resources are stored outside the ignored runner under scripts/android; harden_android.py installs them after every Flutter runner generation and adds the round-icon manifest reference.",
+      "safety": "Branding-only native resource change. No API, credential, TLS, network, persistence or mutation behavior changes.",
+      "verification": "On 027e15dc44960cce2deb3fde130d2b39655e2c70 generated-runner validation, Dart formatting, flutter analyze and the full Flutter test suite passed; the docs job failed only because the pubspec version bump was not mirrored in app_info.dart. This audit fixes that drift and adds source-level branding assertions; fresh main CI remains authoritative.",
+      "report": "docs/77-whole-repository-cross-check-2026-11-08.md"
     }
   }
 }

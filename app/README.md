@@ -14,7 +14,7 @@ flutter test --coverage
 flutter build apk --debug
 ```
 
-The committed `pubspec.lock` is enforced. The bootstrap generates the Android runner, adds release Internet permission, disables cleartext and app backup, pins minSdk 26, and removes debug-key release signing. Release signing must be supplied outside Git.
+The committed `pubspec.lock` is enforced. The bootstrap generates the Android runner, adds release Internet permission, disables cleartext and app backup, pins minSdk 26, installs the reviewed adaptive launcher icon resources, and removes debug-key release signing. Release signing must be supplied outside Git.
 
 ## Implemented
 - HTTPS-only named PVE profiles with strict endpoint validation and encrypted API-token storage.
@@ -27,6 +27,7 @@ The committed `pubspec.lock` is enforced. The bootstrap generates the Android ru
 - Explicit on-demand 1h/24h/7d guest/node CPU-memory and per-storage used/total RRD history; metric samples stay transient and session-scoped.
 - Foreground-only ALERT-001 incident inbox for explicit node-state problems, failed recent server tasks and failed/unknown session tasks; incomplete task reads retain prior failures instead of falsely resolving them.
 - Profile-scoped ALERT-002/003 foreground CPU and storage threshold rules persisted as non-secret local metadata; missing/stale samples do not falsely resolve a prior firing.
+- ALERT-006 adds 1–10 consecutive usable foreground samples before firing and 0–20 percentage points of clear hysteresis, with backward-compatible saved-rule defaults.
 - Transient GET failures use up to three total attempts with bounded jittered backoff; TLS/auth/redirect failures and all mutation POSTs are never automatically retried.
 - Start/shutdown/reboot/force-stop confirmation with exact profile/node/type/VMID target.
 - Fresh clean-inventory guard, live status preflight, exactly one POST, per-guest single-flight lock, no write auto-retry.
@@ -37,7 +38,7 @@ The committed `pubspec.lock` is enforced. The bootstrap generates the Android ru
 - CI format/analyzer/coverage tests and Android debug APK compile verification.
 
 ## Not yet release-complete
-No real PVE 8.4/9.2 lab matrix or production-signed APK is claimed. Physical-device certificate/backup/Keystore behavior, accessibility/font scaling, 200-guest performance, dependency/security review and signed-APK/device verification remain gates. Release signing secrets are configured; this alone does not verify a signed build. Full premium M2 scope such as cross-resource capacity analytics, alert duration/hysteresis/acknowledgement/history, Android notifications/background checks, persistent offline detail cache and richer topology/group views remains unimplemented. Bounded guest/node/storage charts, the foreground incident inbox, foreground CPU/storage thresholds, tag/pool filters, profile-scoped favorites and saved views are implemented at source level.
+No real PVE 8.4/9.2 lab matrix or production-signed APK is claimed. Physical-device certificate/backup/Keystore behavior, accessibility/font scaling, 200-guest performance, dependency/security review and signed-APK/device verification remain gates. Release signing secrets are configured; this alone does not verify a signed build. Full premium M2 scope such as cross-resource capacity analytics, alert acknowledgement/history, quiet hours/cooldown, Android notifications/background checks, persistent offline detail cache and richer topology/group views remains unimplemented. Bounded guest/node/storage charts, the foreground incident inbox, foreground CPU/storage thresholds, tag/pool filters, profile-scoped favorites and saved views are implemented at source level.
 
 No ticket/MFA, console, snapshots/backups, migration/provisioning, PBS/PDM, host/HA/Ceph/SDN mutation, subscriptions or payments are included.
 

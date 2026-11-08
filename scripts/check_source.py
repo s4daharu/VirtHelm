@@ -29,6 +29,11 @@ required = [
   'app/test/app_preferences_test.dart','app/test/offline_overview_test.dart',
   'scripts/bootstrap_android.sh','scripts/harden_android.py',
   'scripts/check_android_generated.py',
+  'scripts/android/branding/virthelm_icon.svg',
+  'scripts/android/launcher/drawable/virthelm_icon_background.xml',
+  'scripts/android/launcher/drawable/virthelm_icon_foreground.xml',
+  'scripts/android/launcher/mipmap-anydpi-v26/ic_launcher.xml',
+  'scripts/android/launcher/mipmap-anydpi-v26/ic_launcher_round.xml',
   'docs/37-implementation-m1.md','docs/38-implementation-m2-read-cockpit.md',
   'docs/39-implementation-audit.md','docs/40-profile-tls-option.md',
   'docs/41-cross-check-audit.md','docs/42-merge-readiness-cross-check.md',
@@ -64,7 +69,8 @@ required = [
    'docs/73-threshold-rule-editor.md',
    'docs/74-premerge-ui-cross-check-2026-11-07.md',
    'docs/75-connection-management-onboarding.md',
-   'docs/76-accessibility-theme-completion.md']
+   'docs/76-accessibility-theme-completion.md',
+   'docs/77-whole-repository-cross-check-2026-11-08.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)
@@ -79,6 +85,11 @@ assert 'android:usesCleartextTraffic' in files['scripts/harden_android.py']
 assert 'android.permission.INTERNET' in files['scripts/harden_android.py']
 assert 'minSdk = 26' in files['scripts/harden_android.py']
 assert 'debug release signing' in files['scripts/harden_android.py']
+assert "launcher_resources = root / 'scripts/android/launcher'" in files['scripts/harden_android.py']
+assert "('android:roundIcon', '@mipmap/ic_launcher_round')" in files['scripts/harden_android.py']
+assert '#00B8AF' in files['scripts/android/branding/virthelm_icon.svg']
+assert '@drawable/virthelm_icon_foreground' in files['scripts/android/launcher/mipmap-anydpi-v26/ic_launcher.xml']
+assert '@drawable/virthelm_icon_background' in files['scripts/android/launcher/mipmap-anydpi-v26/ic_launcher_round.xml']
 assert 'PVEAPIToken=' in files['app/lib/core/models.dart']
 assert 'options.followRedirects = false' in files['app/lib/core/pve_api.dart']
 assert 'SecureCredentialVault' in files['app/lib/core/profile_repository.dart']
