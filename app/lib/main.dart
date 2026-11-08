@@ -99,65 +99,59 @@ class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      ValueListenableBuilder<AppThemePreference>(
-        valueListenable: _themePreference,
-        builder: (context, themePreference, _) =>
-            ValueListenableBuilder<bool>(
-              valueListenable: _highContrast,
-              builder: (context, highContrast, _) =>
-                  ValueListenableBuilder<bool>(
-                    valueListenable: _reduceMotion,
-                    builder: (context, reduceMotion, _) {
-                      final amoled =
-                          themePreference == AppThemePreference.amoled;
-                      return MaterialApp(
-                        title: 'VirtHelm',
-                        debugShowCheckedModeBanner: false,
-                        theme: virthelmTheme(
-                          Brightness.light,
-                          highContrast: highContrast,
-                        ),
-                        darkTheme: virthelmTheme(
-                          Brightness.dark,
-                          amoled: amoled,
-                          highContrast: highContrast,
-                        ),
-                        highContrastTheme: virthelmTheme(
-                          Brightness.light,
-                          highContrast: true,
-                        ),
-                        highContrastDarkTheme: virthelmTheme(
-                          Brightness.dark,
-                          amoled: amoled,
-                          highContrast: true,
-                        ),
-                        themeAnimationDuration: reduceMotion
-                            ? Duration.zero
-                            : const Duration(milliseconds: 200),
-                        themeMode: switch (themePreference) {
-                          AppThemePreference.system => ThemeMode.system,
-                          AppThemePreference.light => ThemeMode.light,
-                          AppThemePreference.dark => ThemeMode.dark,
-                          AppThemePreference.amoled => ThemeMode.dark,
-                        },
-                        builder: (context, child) {
-                          final media = MediaQuery.of(context);
-                          return MediaQuery(
-                            data: media.copyWith(
-                              disableAnimations:
-                                  media.disableAnimations || reduceMotion,
-                            ),
-                            child: child!,
-                          );
-                        },
-                        home: AnimatedBuilder(
-                          animation: controller,
-                          builder: (context, _) => _home(),
-                        ),
-                      );
-                    },
-                  ),
+  Widget build(
+    BuildContext context,
+  ) => ValueListenableBuilder<AppThemePreference>(
+    valueListenable: _themePreference,
+    builder: (context, themePreference, _) => ValueListenableBuilder<bool>(
+      valueListenable: _highContrast,
+      builder: (context, highContrast, _) => ValueListenableBuilder<bool>(
+        valueListenable: _reduceMotion,
+        builder: (context, reduceMotion, _) {
+          final amoled = themePreference == AppThemePreference.amoled;
+          return MaterialApp(
+            title: 'VirtHelm',
+            debugShowCheckedModeBanner: false,
+            theme: virthelmTheme(Brightness.light, highContrast: highContrast),
+            darkTheme: virthelmTheme(
+              Brightness.dark,
+              amoled: amoled,
+              highContrast: highContrast,
             ),
-      );
+            highContrastTheme: virthelmTheme(
+              Brightness.light,
+              highContrast: true,
+            ),
+            highContrastDarkTheme: virthelmTheme(
+              Brightness.dark,
+              amoled: amoled,
+              highContrast: true,
+            ),
+            themeAnimationDuration: reduceMotion
+                ? Duration.zero
+                : const Duration(milliseconds: 200),
+            themeMode: switch (themePreference) {
+              AppThemePreference.system => ThemeMode.system,
+              AppThemePreference.light => ThemeMode.light,
+              AppThemePreference.dark => ThemeMode.dark,
+              AppThemePreference.amoled => ThemeMode.dark,
+            },
+            builder: (context, child) {
+              final media = MediaQuery.of(context);
+              return MediaQuery(
+                data: media.copyWith(
+                  disableAnimations: media.disableAnimations || reduceMotion,
+                ),
+                child: child!,
+              );
+            },
+            home: AnimatedBuilder(
+              animation: controller,
+              builder: (context, _) => _home(),
+            ),
+          );
+        },
+      ),
+    ),
+  );
 }
