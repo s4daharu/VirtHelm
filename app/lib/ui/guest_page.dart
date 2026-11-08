@@ -637,15 +637,17 @@ class _GuestPageState extends State<GuestPage> {
   );
 
   Widget _recoveryTab(Guest? guest) {
-    final snapshots =
-        snapshotInventory?.snapshots ?? const <GuestSnapshot>[];
+    final snapshots = snapshotInventory?.snapshots ?? const <GuestSnapshot>[];
     final recoveryPoints = snapshots.where((item) => !item.isCurrent).length;
     final backupTasks = _backupTasks(guest);
     final scheme = Theme.of(context).colorScheme;
     return _tabList(
       key: const Key('guest-recovery-list'),
       children: [
-        Text('Recovery visibility', style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          'Recovery visibility',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
         const SizedBox(height: 6),
         Text(
           'Snapshots are not backups. Snapshot inventory is read-only and '
@@ -666,7 +668,9 @@ class _GuestPageState extends State<GuestPage> {
                   )
                 : const Icon(Icons.restore_rounded),
             label: Text(
-              snapshotInventory == null ? 'Load snapshots' : 'Refresh snapshots',
+              snapshotInventory == null
+                  ? 'Load snapshots'
+                  : 'Refresh snapshots',
             ),
           ),
         ),
@@ -702,13 +706,18 @@ class _GuestPageState extends State<GuestPage> {
                       ? Icons.radio_button_checked_rounded
                       : Icons.restore_page_rounded,
                 ),
-                title: Text(snapshot.isCurrent ? 'Current state' : snapshot.name),
+                title: Text(
+                  snapshot.isCurrent ? 'Current state' : snapshot.name,
+                ),
                 subtitle: Text(_snapshotSubtitle(snapshot)),
               ),
             ),
         ],
         const SizedBox(height: 22),
-        Text('Recent backup tasks', style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          'Recent backup tasks',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
         const SizedBox(height: 6),
         Text(
           'Recent Proxmox vzdump task outcomes for this VMID only. A successful '

@@ -659,7 +659,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('guest-recovery-list')), findsOneWidget);
       expect(controller.requestedVmids, isEmpty);
-      expect(find.textContaining('does not prove an archive exists'), findsOneWidget);
+      expect(
+        find.textContaining('does not prove an archive exists'),
+        findsOneWidget,
+      );
       expect(find.text('Backup task • succeeded'), findsOneWidget);
       expect(find.textContaining('202'), findsNothing);
 

@@ -464,43 +464,40 @@ void main() {
     },
   );
 
-  test(
-    'guest snapshot inspection is read-only and session isolated',
-    () async {
-      final prefs = await SharedPreferences.getInstance();
-      late _Gateway gateway;
-      final ctl = AppController(
-        repository: ProfileRepository(prefs, _Vault()),
-        gatewayFactory: (profile, credentials) => gateway = _Gateway(),
-      );
-      addTearDown(ctl.dispose);
-      await ctl.connect(
-        name: 'Lab',
-        address: 'https://pve.local',
-        tokenId: 'me@pve!test',
-        secret: 'test',
-      );
+  test('guest snapshot inspection is read-only and session isolated', () async {
+    final prefs = await SharedPreferences.getInstance();
+    late _Gateway gateway;
+    final ctl = AppController(
+      repository: ProfileRepository(prefs, _Vault()),
+      gatewayFactory: (profile, credentials) => gateway = _Gateway(),
+    );
+    addTearDown(ctl.dispose);
+    await ctl.connect(
+      name: 'Lab',
+      address: 'https://pve.local',
+      tokenId: 'me@pve!test',
+      secret: 'test',
+    );
 
-      final guest = ctl.inventory!.guests.single;
-      final generation = ctl.connectionGeneration;
-      final result = await ctl.inspectGuestSnapshots(
-        profileId: ctl.active!.id,
-        generation: generation,
-        guest: guest,
-      );
-      expect(result?.snapshots.last.name, 'before-upgrade');
-      expect(gateway.guestSnapshotCalls, 1);
-      expect(gateway.submissions, 0);
+    final guest = ctl.inventory!.guests.single;
+    final generation = ctl.connectionGeneration;
+    final result = await ctl.inspectGuestSnapshots(
+      profileId: ctl.active!.id,
+      generation: generation,
+      guest: guest,
+    );
+    expect(result?.snapshots.last.name, 'before-upgrade');
+    expect(gateway.guestSnapshotCalls, 1);
+    expect(gateway.submissions, 0);
 
-      final stale = await ctl.inspectGuestSnapshots(
-        profileId: ctl.active!.id,
-        generation: generation - 1,
-        guest: guest,
-      );
-      expect(stale, isNull);
-      expect(gateway.guestSnapshotCalls, 1);
-    },
-  );
+    final stale = await ctl.inspectGuestSnapshots(
+      profileId: ctl.active!.id,
+      generation: generation - 1,
+      guest: guest,
+    );
+    expect(stale, isNull);
+    expect(gateway.guestSnapshotCalls, 1);
+  });
 
   test(
     'node performance inspection is read-only and session isolated',
