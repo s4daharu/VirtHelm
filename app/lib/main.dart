@@ -160,3 +160,4 @@ class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
                   ),
             ),
       );
+}
