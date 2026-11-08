@@ -371,11 +371,13 @@ void main() {
     await tester.tap(find.text('Load history'));
     await tester.pumpAndSettle();
     expect(controller.requestedTimeframes, [NodeMetricTimeframe.hour]);
+    await tester.ensureVisible(find.textContaining('1 malformed ignored'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('1 malformed ignored'), findsOneWidget);
     await tester.ensureVisible(find.textContaining('Latest 40.0%'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Latest 40.0%'), findsOneWidget);
     expect(find.textContaining('Range 20.0%–40.0%'), findsOneWidget);
-    expect(find.textContaining('1 malformed ignored'), findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.text('24 hours'),
@@ -1970,11 +1972,17 @@ void main() {
                 ).copyWith(textScaler: TextScaler.linear(2)),
                 child: child!,
               ),
-              home: ShellPage(controller: controller),
+              home: ShellPage(
+                key: ValueKey('settings-$width-$brightness'),
+                controller: controller,
+              ),
             ),
           );
           await tester.pumpAndSettle();
-          await tester.tap(find.text('Settings'));
+          final navigation = tester.widget<NavigationBar>(
+            find.byType(NavigationBar),
+          );
+          navigation.onDestinationSelected?.call(4);
           await tester.pumpAndSettle();
           await tester.ensureVisible(
             find.byKey(const Key('high-contrast-preference')),
