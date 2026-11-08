@@ -63,7 +63,8 @@ required = [
    'docs/72-task-summary-compact-rows.md',
    'docs/73-threshold-rule-editor.md',
    'docs/74-premerge-ui-cross-check-2026-11-07.md',
-   'docs/75-connection-management-onboarding.md']
+   'docs/75-connection-management-onboarding.md',
+   'docs/76-accessibility-theme-completion.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)
@@ -93,6 +94,12 @@ assert 'Future<void> updateMetadata' in files['app/lib/core/profile_repository.d
 assert "last observed" in files['app/lib/ui/connections_page.dart']
 assert 'mayHaveExecuted' in files['app/lib/core/pve_api.dart']
 assert 'setThemePreference' in files['app/lib/core/app_controller.dart']
+assert 'AppThemePreference.amoled' in files['app/lib/main.dart']
+assert 'setHighContrast' in files['app/lib/core/app_controller.dart']
+assert 'setReduceMotion' in files['app/lib/core/app_controller.dart']
+assert "Key('high-contrast-preference')" in files['app/lib/ui/shell.dart']
+assert "Key('reduce-motion-preference')" in files['app/lib/ui/shell.dart']
+assert 'View data table' in files['app/lib/ui/components.dart']
 assert '_scheduleAutoRefresh' in files['app/lib/core/app_controller.dart']
 assert 'setShowNodeMetrics' in files['app/lib/core/profile_repository.dart']
 assert 'themeMode: switch' in files['app/lib/main.dart']
