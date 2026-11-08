@@ -1984,9 +1984,15 @@ void main() {
           );
           navigation.onDestinationSelected?.call(4);
           await tester.pumpAndSettle();
-          await tester.ensureVisible(
+          await tester.scrollUntilVisible(
             find.byKey(const Key('high-contrast-preference')),
+            180,
+            scrollable: find.descendant(
+              of: find.byKey(const Key('settings-list')),
+              matching: find.byType(Scrollable),
+            ),
           );
+          await tester.pumpAndSettle();
           expect(
             tester.takeException(),
             isNull,
