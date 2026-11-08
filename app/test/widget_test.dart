@@ -90,6 +90,35 @@ class _GuestMetricController extends AppController {
   }
 }
 
+class _GuestSnapshotController extends AppController {
+  _GuestSnapshotController(ProfileRepository repository)
+    : super(repository: repository);
+
+  final List<int> requestedVmids = [];
+
+  @override
+  Future<GuestSnapshotInventory?> inspectGuestSnapshots({
+    required String profileId,
+    required int generation,
+    required Guest guest,
+  }) async {
+    requestedVmids.add(guest.vmid);
+    return GuestSnapshotInventory(
+      snapshots: [
+        const GuestSnapshot(name: 'current'),
+        GuestSnapshot(
+          name: 'before-upgrade',
+          parent: 'baseline',
+          description: 'Before package update',
+          createdAt: DateTime.utc(2026, 11, 8, 10),
+          includesMemory: true,
+        ),
+      ],
+      malformedRecords: 1,
+    );
+  }
+}
+
 class _NodeMetricController extends AppController {
   _NodeMetricController(ProfileRepository repository)
     : super(repository: repository);
@@ -571,6 +600,89 @@ void main() {
     expect(find.text('Web'), findsNothing);
     expect(find.text('Guest unavailable'), findsOneWidget);
   });
+
+  testWidgets(
+    'guest recovery tab loads snapshots and scopes recent backup tasks',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = _GuestSnapshotController(
+        ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      controller.active = const ConnectionProfile(
+        id: 'a',
+        name: 'A',
+        endpoint: 'https://a.example',
+      );
+      controller.inventory = Inventory.fromResources([
+        {
+          'type': 'qemu',
+          'node': 'pve1',
+          'vmid': 101,
+          'name': 'Web',
+          'status': 'running',
+        },
+      ]);
+      controller.serverTasks = const [
+        RecentServerTask(
+          upid: 'UPID:pve1:1:2:3:vzdump:101:user@pve:',
+          node: 'pve1',
+          operation: 'vzdump',
+          resourceId: '101',
+          status: 'stopped',
+          exitStatus: 'OK',
+        ),
+        RecentServerTask(
+          upid: 'UPID:pve1:4:5:6:vzdump:202:user@pve:',
+          node: 'pve1',
+          operation: 'vzdump',
+          resourceId: '202',
+          status: 'stopped',
+          exitStatus: 'OK',
+        ),
+      ];
+      final guest = controller.inventory!.guests.single;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: GuestPage(
+            controller: controller,
+            guest: guest,
+            profileId: 'a',
+            generation: controller.connectionGeneration,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('guest-recovery-tab')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('guest-recovery-list')), findsOneWidget);
+      expect(controller.requestedVmids, isEmpty);
+      expect(find.textContaining('does not prove an archive exists'), findsOneWidget);
+      expect(find.text('Backup task • succeeded'), findsOneWidget);
+      expect(find.textContaining('202'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('guest-load-snapshots')));
+      await tester.pumpAndSettle();
+      expect(controller.requestedVmids, [101]);
+      expect(find.text('Current state'), findsOneWidget);
+      expect(find.text('before-upgrade'), findsOneWidget);
+      expect(find.textContaining('1 malformed ignored'), findsOneWidget);
+      expect(find.textContaining('Includes VM memory state'), findsOneWidget);
+
+      controller.active = const ConnectionProfile(
+        id: 'b',
+        name: 'B',
+        endpoint: 'https://b.example',
+      );
+      controller.notifyListeners();
+      await tester.pump();
+      expect(find.text('before-upgrade'), findsNothing);
+      expect(find.text('Web'), findsNothing);
+      expect(find.text('Guest unavailable'), findsOneWidget);
+    },
+  );
 
   testWidgets('task details open on demand and redact on profile switch', (
     tester,
@@ -1393,7 +1505,7 @@ void main() {
       expect(guard.maxLines, isNull);
       expect(guard.overflow, isNull);
       expect(tester.takeException(), isNull);
-      for (final tab in ['Metrics', 'I/O', 'Overview']) {
+      for (final tab in ['Metrics', 'I/O', 'Recovery', 'Overview']) {
         await tester.ensureVisible(find.text(tab));
         await tester.pumpAndSettle();
         await tester.tap(find.text(tab));

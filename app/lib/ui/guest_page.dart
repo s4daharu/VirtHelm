@@ -28,6 +28,10 @@ class _GuestPageState extends State<GuestPage> {
   GuestMetricTimeframe metricTimeframe = GuestMetricTimeframe.hour;
   GuestMetricSeries? metricSeries;
   String? metricError;
+  bool loadingSnapshots = false;
+  GuestSnapshotInventory? snapshotInventory;
+  String? snapshotError;
+  DateTime? snapshotsLoadedAt;
 
   bool get _currentSession =>
       widget.controller.active?.id == widget.profileId &&
@@ -95,6 +99,98 @@ class _GuestPageState extends State<GuestPage> {
       metricSeries = null;
       metricError = null;
     });
+  }
+
+  Future<void> loadSnapshots() async {
+    final guest = currentGuest();
+    if (loadingSnapshots || !_currentSession || guest == null) return;
+    setState(() {
+      loadingSnapshots = true;
+      snapshotError = null;
+    });
+    try {
+      final result = await widget.controller.inspectGuestSnapshots(
+        profileId: widget.profileId,
+        generation: widget.generation,
+        guest: guest,
+      );
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        snapshotInventory = result;
+        snapshotsLoadedAt = result == null ? null : DateTime.now();
+        if (result == null) {
+          snapshotError =
+              'Snapshot inventory is no longer current. Refresh and reopen this guest.';
+        }
+      });
+    } on PveFailure catch (error) {
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        snapshotInventory = null;
+        snapshotsLoadedAt = null;
+        snapshotError = error.message;
+      });
+    } catch (_) {
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        snapshotInventory = null;
+        snapshotsLoadedAt = null;
+        snapshotError = 'Could not load guest snapshots.';
+      });
+    } finally {
+      if (mounted && _currentSession) {
+        setState(() => loadingSnapshots = false);
+      }
+    }
+  }
+
+  List<RecentServerTask> _backupTasks(Guest? guest) {
+    if (guest == null || !_currentSession) return const <RecentServerTask>[];
+    final vmid = guest.vmid.toString();
+    final matches = widget.controller.serverTasks
+        .where(
+          (task) =>
+              task.operation.toLowerCase() == 'vzdump' &&
+              task.resourceId == vmid,
+        )
+        .toList(growable: false);
+    matches.sort((a, b) {
+      final aTime =
+          a.endedAt ??
+          a.startedAt ??
+          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+      final bTime =
+          b.endedAt ??
+          b.startedAt ??
+          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+      return bTime.compareTo(aTime);
+    });
+    return matches.take(8).toList(growable: false);
+  }
+
+  String _snapshotSubtitle(GuestSnapshot snapshot) {
+    final lines = <String>[];
+    if (snapshot.isCurrent) {
+      lines.add('Current configuration reported by Proxmox.');
+    } else if (snapshot.createdAt != null) {
+      lines.add('Created ${formatAge(snapshot.createdAt!)}');
+    } else {
+      lines.add('Creation time unavailable');
+    }
+    if (snapshot.parent != null) lines.add('Parent: ${snapshot.parent}');
+    if (snapshot.includesMemory == true) lines.add('Includes VM memory state');
+    if (snapshot.description != null) lines.add(snapshot.description!);
+    return lines.join('\n');
+  }
+
+  String _backupTaskSubtitle(RecentServerTask task) {
+    final when = task.endedAt ?? task.startedAt;
+    final parts = <String>[task.node];
+    if (when != null) parts.add(formatAge(when));
+    if (task.exitStatus != null && task.exitStatus!.trim().isNotEmpty) {
+      parts.add('Exit: ${task.exitStatus}');
+    }
+    return parts.join(' • ');
   }
 
   Future<void> execute(Guest guest, GuestAction action) async {
@@ -397,9 +493,9 @@ class _GuestPageState extends State<GuestPage> {
       ),
       const SizedBox(height: 14),
       Text(
-        'Console, snapshots, migrations, and configuration editing require '
-        'additional validated authentication and API workflows. They are not '
-        'part of this preview build.',
+        'Console, snapshot changes, migrations, and configuration editing '
+        'require additional validated authentication and API workflows. '
+        'Read-only recovery visibility is available in the Recovery tab.',
         style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
       ),
     ],
@@ -540,6 +636,117 @@ class _GuestPageState extends State<GuestPage> {
     ],
   );
 
+  Widget _recoveryTab(Guest? guest) {
+    final snapshots =
+        snapshotInventory?.snapshots ?? const <GuestSnapshot>[];
+    final recoveryPoints = snapshots.where((item) => !item.isCurrent).length;
+    final backupTasks = _backupTasks(guest);
+    final scheme = Theme.of(context).colorScheme;
+    return _tabList(
+      key: const Key('guest-recovery-list'),
+      children: [
+        Text('Recovery visibility', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 6),
+        Text(
+          'Snapshots are not backups. Snapshot inventory is read-only and '
+          'loaded only when requested. Create, rollback, and delete actions '
+          'are intentionally unavailable.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.tonalIcon(
+            key: const Key('guest-load-snapshots'),
+            onPressed: guest == null || loadingSnapshots ? null : loadSnapshots,
+            icon: loadingSnapshots
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.restore_rounded),
+            label: Text(
+              snapshotInventory == null ? 'Load snapshots' : 'Refresh snapshots',
+            ),
+          ),
+        ),
+        if (snapshotError != null) ...[
+          const SizedBox(height: 10),
+          Text(snapshotError!, style: TextStyle(color: scheme.error)),
+        ],
+        if (snapshotInventory != null) ...[
+          const SizedBox(height: 10),
+          Text(
+            '$recoveryPoints snapshot${recoveryPoints == 1 ? '' : 's'}'
+            '${snapshotInventory!.malformedRecords > 0 ? ' • ${snapshotInventory!.malformedRecords} malformed ignored' : ''}'
+            '${snapshotInventory!.truncated ? ' • response truncated locally' : ''}'
+            '${snapshotsLoadedAt != null ? ' • loaded ${formatAge(snapshotsLoadedAt!)}' : ''}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          if (snapshots.isEmpty)
+            const Card(
+              child: ListTile(
+                leading: Icon(Icons.restore_page_outlined),
+                title: Text('No snapshots reported'),
+                subtitle: Text(
+                  'Proxmox did not return any snapshot entries for this guest.',
+                ),
+              ),
+            ),
+          for (final snapshot in snapshots)
+            Card(
+              child: ListTile(
+                leading: Icon(
+                  snapshot.isCurrent
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.restore_page_rounded,
+                ),
+                title: Text(snapshot.isCurrent ? 'Current state' : snapshot.name),
+                subtitle: Text(_snapshotSubtitle(snapshot)),
+              ),
+            ),
+        ],
+        const SizedBox(height: 22),
+        Text('Recent backup tasks', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 6),
+        Text(
+          'Recent Proxmox vzdump task outcomes for this VMID only. A successful '
+          'task does not prove an archive exists, is verified, or is restorable.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        if (widget.controller.serverTaskMessage != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Recent task history is incomplete: '
+            '${widget.controller.serverTaskMessage}',
+            style: TextStyle(color: scheme.error),
+          ),
+        ],
+        const SizedBox(height: 8),
+        if (backupTasks.isEmpty)
+          const Card(
+            child: ListTile(
+              leading: Icon(Icons.backup_outlined),
+              title: Text('No recent backup task visible'),
+              subtitle: Text(
+                'The current recent-task window does not contain a vzdump task '
+                'for this guest.',
+              ),
+            ),
+          ),
+        for (final task in backupTasks)
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.backup_outlined),
+              title: Text('Backup task • ${task.stateLabel}'),
+              subtitle: Text(_backupTaskSubtitle(task)),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _actionBar(
     Guest? guest,
     bool allowed,
@@ -679,7 +886,7 @@ class _GuestPageState extends State<GuestPage> {
           !operationBlocked;
       final guardReason = _guardReason(guest, operationBlocked);
       return DefaultTabController(
-        length: 3,
+        length: 4,
         child: Scaffold(
           appBar: AppBar(
             title: Text(guest?.name ?? widget.guest.name),
@@ -697,6 +904,7 @@ class _GuestPageState extends State<GuestPage> {
                 Tab(key: Key('guest-overview-tab'), text: 'Overview'),
                 Tab(key: Key('guest-metrics-tab'), text: 'Metrics'),
                 Tab(key: Key('guest-io-tab'), text: 'I/O'),
+                Tab(key: Key('guest-recovery-tab'), text: 'Recovery'),
               ],
             ),
           ),
@@ -705,6 +913,7 @@ class _GuestPageState extends State<GuestPage> {
               _overviewTab(guest, scheme),
               _metricsTab(),
               _ioTab(guest),
+              _recoveryTab(guest),
             ],
           ),
           bottomNavigationBar: _actionBar(guest, allowed, guardReason, scheme),

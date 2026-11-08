@@ -668,6 +668,73 @@ String? _guestPool(Object? value) {
   return raw;
 }
 
+String? _snapshotIdentityText(Object? value) {
+  final text = asText(value)?.trim();
+  if (text == null ||
+      text.isEmpty ||
+      text.length > 200 ||
+      RegExp(r'[\x00-\x1F\x7F]').hasMatch(text)) {
+    return null;
+  }
+  return text;
+}
+
+String? _snapshotDescription(Object? value) {
+  final raw = asText(value);
+  if (raw == null) return null;
+  final cleaned = raw
+      .replaceAll(RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]'), '')
+      .trim();
+  if (cleaned.isEmpty) return null;
+  return cleaned.length <= 500 ? cleaned : '${cleaned.substring(0, 500)}…';
+}
+
+/// Read-only guest snapshot metadata. The PVE "current" pseudo-entry is kept
+/// separate from real snapshots so the UI never presents it as a restore point.
+class GuestSnapshot {
+  const GuestSnapshot({
+    required this.name,
+    this.parent,
+    this.description,
+    this.createdAt,
+    this.includesMemory,
+  });
+
+  final String name;
+  final String? parent;
+  final String? description;
+  final DateTime? createdAt;
+  final bool? includesMemory;
+
+  bool get isCurrent => name == 'current';
+
+  factory GuestSnapshot.fromApi(Map<String, dynamic> json) {
+    final name = _snapshotIdentityText(json['name']);
+    if (name == null) {
+      throw const FormatException('Snapshot record is missing a valid name.');
+    }
+    return GuestSnapshot(
+      name: name,
+      parent: _snapshotIdentityText(json['parent']),
+      description: _snapshotDescription(json['description']),
+      createdAt: asUnixSeconds(json['snaptime']),
+      includesMemory: asFlag(json['vmstate']),
+    );
+  }
+}
+
+class GuestSnapshotInventory {
+  const GuestSnapshotInventory({
+    required this.snapshots,
+    this.malformedRecords = 0,
+    this.truncated = false,
+  });
+
+  final List<GuestSnapshot> snapshots;
+  final int malformedRecords;
+  final bool truncated;
+}
+
 class Guest {
   const Guest({
     required this.node,

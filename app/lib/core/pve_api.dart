@@ -15,6 +15,7 @@ abstract class PveGateway {
   Future<String> submit(Guest guest, GuestAction action);
   Future<ServerTaskStatus> taskStatus(TrackedTask task);
   Future<TaskLogResult> taskLog(String node, String upid, {int start = 0});
+  Future<GuestSnapshotInventory> guestSnapshots(Guest guest);
   Future<GuestMetricSeries> guestMetrics(
     Guest guest,
     GuestMetricTimeframe timeframe,
@@ -469,6 +470,45 @@ class DioPveGateway implements PveGateway {
     return TaskLogResult(
       entries: List<TaskLogEntry>.unmodifiable(entries),
       malformedRecords: malformed,
+    );
+  }
+
+  @override
+  Future<GuestSnapshotInventory> guestSnapshots(Guest guest) async {
+    final raw = await _request('${_guestPath(guest)}/snapshot');
+    if (raw is! List) {
+      throw const PveFailure('Unexpected guest snapshot response.');
+    }
+
+    const snapshotLimit = 500;
+    final snapshots = <GuestSnapshot>[];
+    var malformed = 0;
+    for (final row in raw.take(snapshotLimit)) {
+      if (row is! Map) {
+        malformed++;
+        continue;
+      }
+      try {
+        snapshots.add(GuestSnapshot.fromApi(Map<String, dynamic>.from(row)));
+      } on FormatException {
+        malformed++;
+      } on TypeError {
+        malformed++;
+      }
+    }
+    snapshots.sort((a, b) {
+      if (a.isCurrent != b.isCurrent) return a.isCurrent ? -1 : 1;
+      final aTime = a.createdAt;
+      final bTime = b.createdAt;
+      if (aTime != null && bTime != null) return bTime.compareTo(aTime);
+      if (aTime != null) return -1;
+      if (bTime != null) return 1;
+      return a.name.compareTo(b.name);
+    });
+    return GuestSnapshotInventory(
+      snapshots: List<GuestSnapshot>.unmodifiable(snapshots),
+      malformedRecords: malformed,
+      truncated: raw.length > snapshotLimit,
     );
   }
 

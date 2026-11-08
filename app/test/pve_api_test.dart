@@ -285,6 +285,51 @@ void main() {
     expect(series.truncated, isFalse);
   });
 
+  test('guest snapshot inventory uses bounded read-only parsing', () async {
+    final dio = Dio();
+    late RequestOptions request;
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          request = options;
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'data': [
+                  {'name': 'current', 'description': 'Current config'},
+                  {
+                    'name': 'before-upgrade',
+                    'snaptime': 1700000060,
+                    'parent': 'baseline',
+                    'description': 'Before package update',
+                    'vmstate': 1,
+                  },
+                  'bad',
+                  {'name': '', 'snaptime': 1700000000},
+                ],
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(profile, credentials, http: dio);
+    addTearDown(gateway.close);
+
+    final result = await gateway.guestSnapshots(guest);
+    expect(request.method, 'GET');
+    expect(request.path, '/nodes/pve1/qemu/101/snapshot');
+    expect(result.snapshots.length, 2);
+    expect(result.snapshots.first.isCurrent, isTrue);
+    expect(result.snapshots.last.name, 'before-upgrade');
+    expect(result.snapshots.last.parent, 'baseline');
+    expect(result.snapshots.last.includesMemory, isTrue);
+    expect(result.malformedRecords, 2);
+    expect(result.truncated, isFalse);
+  });
+
   test('node RRD history uses bounded GET parameters and parsing', () async {
     final dio = Dio();
     late RequestOptions request;
