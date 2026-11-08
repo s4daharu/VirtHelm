@@ -241,7 +241,7 @@ String fractionRangeSummary(List<double> values) {
       'Range ${formatPercent(minimum)}–${formatPercent(maximum)}';
 }
 
-/// Simple sparkline with a mandatory textual summary for accessibility.
+/// Simple sparkline with visible axes and an accessible data-table alternative.
 class SparklineCard extends StatelessWidget {
   const SparklineCard({
     super.key,
@@ -249,16 +249,79 @@ class SparklineCard extends StatelessWidget {
     required this.icon,
     required this.values,
     required this.summary,
+    this.timestamps,
     this.secondaryText,
     this.color,
-  });
+    this.axisLabel = 'Usage (%)',
+    this.timeframeLabel,
+  }) : assert(timestamps == null || timestamps.length == values.length);
 
   final String title;
   final IconData icon;
   final List<double> values;
   final String summary;
+  final List<DateTime>? timestamps;
   final String? secondaryText;
   final Color? color;
+  final String axisLabel;
+  final String? timeframeLabel;
+
+  String _timestampLabel(DateTime timestamp) {
+    final value = timestamp.toUtc();
+    String two(int part) => part.toString().padLeft(2, '0');
+    return '${value.year}-${two(value.month)}-${two(value.day)} '
+        '${two(value.hour)}:${two(value.minute)} UTC';
+  }
+
+  Future<void> _showDataTable(BuildContext context) async {
+    final sampleTimes = timestamps;
+    if (sampleTimes == null || sampleTimes.length != values.length) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(sheetContext).height * 0.72,
+          child: Column(
+            children: [
+              ListTile(
+                title: Text(
+                  '$title data',
+                  style: Theme.of(sheetContext).textTheme.titleLarge,
+                ),
+                subtitle: Text(
+                  '${values.length} samples • $axisLabel'
+                  '${timeframeLabel == null ? '' : ' • $timeframeLabel'}',
+                ),
+                trailing: IconButton(
+                  tooltip: 'Close data table',
+                  onPressed: () => Navigator.of(sheetContext).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView.separated(
+                  key: ValueKey('sparkline-data-$title'),
+                  itemCount: values.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (_, index) => Semantics(
+                    label:
+                        '${_timestampLabel(sampleTimes[index])}, '
+                        '${formatPercent(values[index])}',
+                    child: ListTile(
+                      title: Text(formatPercent(values[index])),
+                      subtitle: Text(_timestampLabel(sampleTimes[index])),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -273,6 +336,8 @@ class SparklineCard extends StatelessWidget {
     }
     final scheme = Theme.of(context).colorScheme;
     final accent = color ?? scheme.primary;
+    final tableAvailable =
+        timestamps != null && timestamps!.length == values.length;
     return Card(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
@@ -300,24 +365,81 @@ class SparklineCard extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              children: [
+                Text(
+                  axisLabel,
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+                Text(
+                  'Time • ${timeframeLabel ?? 'requested range'}',
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             Semantics(
               label:
                   '$title. $summary. '
                   '${secondaryText == null ? '' : '$secondaryText. '}'
-                  '${values.length} samples.',
+                  '${values.length} samples. Vertical axis 0 to 100 percent. '
+                  'Horizontal axis is time.',
               child: ExcludeSemantics(
-                child: RepaintBoundary(
-                  child: SizedBox(
-                    height: 112,
-                    width: double.infinity,
-                    child: CustomPaint(
-                      painter: SparklinePainter(values: values, color: accent),
-                    ),
+                child: SizedBox(
+                  height: 112,
+                  width: double.infinity,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        width: 42,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            for (final label in const ['100%', '50%', '0%'])
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  label,
+                                  style: Theme.of(context).textTheme.labelSmall,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: RepaintBoundary(
+                          child: CustomPaint(
+                            painter: SparklinePainter(
+                              values: values,
+                              color: accent,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
+            if (tableAvailable) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: ValueKey('sparkline-table-$title'),
+                  onPressed: () => _showDataTable(context),
+                  icon: const Icon(Icons.table_rows_outlined),
+                  label: const Text('View data table'),
+                ),
+              ),
+            ],
           ],
         ),
       ),
