@@ -204,21 +204,18 @@ void main() {
   );
 
   test('guest configuration exposes only reviewed bounded fields', () {
-    final qemu = GuestConfiguration.fromApi(
-      {
-        'cores': 4,
-        'memory': 4096,
-        'cpu': 'x86-64-v2-AES',
-        'scsi0': 'local-lvm:vm-101-disk-0,size=64G',
-        'net0': 'virtio=AA:BB:CC:DD:EE:FF,bridge=vmbr0',
-        'ipconfig0': 'ip=10.0.0.10/24,gw=10.0.0.1',
-        'cipassword': 'super-secret',
-        'sshkeys': 'ssh-ed25519 AAAA-private-context',
-        'args': '-fw_cfg secret=do-not-show',
-        'description': 'operator private note',
-      },
-      kind: 'qemu',
-    );
+    final qemu = GuestConfiguration.fromApi({
+      'cores': 4,
+      'memory': 4096,
+      'cpu': 'x86-64-v2-AES',
+      'scsi0': 'local-lvm:vm-101-disk-0,size=64G',
+      'net0': 'virtio=AA:BB:CC:DD:EE:FF,bridge=vmbr0',
+      'ipconfig0': 'ip=10.0.0.10/24,gw=10.0.0.1',
+      'cipassword': 'super-secret',
+      'sshkeys': 'ssh-ed25519 AAAA-private-context',
+      'args': '-fw_cfg secret=do-not-show',
+      'description': 'operator private note',
+    }, kind: 'qemu');
     final visible = [
       ...qemu.compute,
       ...qemu.platform,
@@ -237,19 +234,16 @@ void main() {
     expect(visible, isNot(contains('do-not-show')));
     expect(visible, isNot(contains('operator private note')));
 
-    final lxc = GuestConfiguration.fromApi(
-      {
-        'cores': 2,
-        'memory': 2048,
-        'swap': 512,
-        'hostname': 'ct-web',
-        'rootfs': 'local-lvm:vm-202-disk-0,size=8G',
-        'mp0': 'local:subvol-202-disk-1,mp=/srv',
-        'net0': 'name=eth0,bridge=vmbr0,ip=dhcp',
-        'password': 'hidden',
-      },
-      kind: 'lxc',
-    );
+    final lxc = GuestConfiguration.fromApi({
+      'cores': 2,
+      'memory': 2048,
+      'swap': 512,
+      'hostname': 'ct-web',
+      'rootfs': 'local-lvm:vm-202-disk-0,size=8G',
+      'mp0': 'local:subvol-202-disk-1,mp=/srv',
+      'net0': 'name=eth0,bridge=vmbr0,ip=dhcp',
+      'password': 'hidden',
+    }, kind: 'lxc');
     expect(lxc.visibleFieldCount, 7);
     expect(lxc.withheldFields, 1);
     expect(

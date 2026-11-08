@@ -652,45 +652,44 @@ class _GuestPageState extends State<GuestPage> {
     String title,
     IconData icon,
     List<GuestConfigurationField> fields,
-  ) =>
-      Card(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  ) => Card(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Icon(icon, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              for (final field in fields)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        field.label,
-                        style: Theme.of(context).textTheme.labelMedium,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(field.value),
-                    ],
-                  ),
+              Icon(icon, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
+              ),
             ],
           ),
-        ),
-      );
+          const SizedBox(height: 8),
+          for (final field in fields)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    field.label,
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(field.value),
+                ],
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
 
   Widget _configurationTab(Guest? guest) {
     final visibleConfiguration = guest == null ? null : configuration;
@@ -849,8 +848,7 @@ class _GuestPageState extends State<GuestPage> {
 
   Widget _recoveryTab(Guest? guest) {
     final visibleSnapshots = guest == null ? null : snapshotInventory;
-    final snapshots =
-        visibleSnapshots?.snapshots ?? const <GuestSnapshot>[];
+    final snapshots = visibleSnapshots?.snapshots ?? const <GuestSnapshot>[];
     final recoveryPoints = snapshots.where((item) => !item.isCurrent).length;
     final backupTasks = _backupTasks(guest);
     final scheme = Theme.of(context).colorScheme;
@@ -1124,10 +1122,7 @@ class _GuestPageState extends State<GuestPage> {
               tabAlignment: TabAlignment.start,
               tabs: [
                 Tab(key: Key('guest-overview-tab'), text: 'Overview'),
-                Tab(
-                  key: Key('guest-configuration-tab'),
-                  text: 'Configuration',
-                ),
+                Tab(key: Key('guest-configuration-tab'), text: 'Configuration'),
                 Tab(key: Key('guest-metrics-tab'), text: 'Metrics'),
                 Tab(key: Key('guest-io-tab'), text: 'I/O'),
                 Tab(key: Key('guest-recovery-tab'), text: 'Recovery'),

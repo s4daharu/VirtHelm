@@ -90,14 +90,11 @@ class _Gateway implements PveGateway {
   int guestConfigurationCalls = 0;
   Completer<GuestConfiguration>? guestConfigurationGate;
   PveFailure? guestConfigurationFailure;
-  GuestConfiguration guestConfigurationResult = GuestConfiguration.fromApi(
-    {
-      'cores': 4,
-      'memory': 4096,
-      'scsi0': 'local-lvm:vm-101-disk-0,size=64G',
-    },
-    kind: 'qemu',
-  );
+  GuestConfiguration guestConfigurationResult = GuestConfiguration.fromApi({
+    'cores': 4,
+    'memory': 4096,
+    'scsi0': 'local-lvm:vm-101-disk-0,size=64G',
+  }, kind: 'qemu');
   int guestMetricCalls = 0;
   final List<GuestMetricTimeframe> guestMetricTimeframes = [];
   Completer<GuestMetricSeries>? guestMetricGate;

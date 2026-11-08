@@ -132,18 +132,15 @@ class _GuestConfigurationController extends AppController {
     required Guest guest,
   }) async {
     requestedVmids.add(guest.vmid);
-    return GuestConfiguration.fromApi(
-      {
-        'cores': 4,
-        'memory': 4096,
-        'cpu': 'x86-64-v2-AES',
-        'scsi0': 'local-lvm:vm-101-disk-0,size=64G',
-        'net0': 'virtio=AA:BB:CC:DD:EE:FF,bridge=vmbr0',
-        'cipassword': 'must-not-render',
-        'args': 'secret=must-not-render',
-      },
-      kind: guest.kind,
-    );
+    return GuestConfiguration.fromApi({
+      'cores': 4,
+      'memory': 4096,
+      'cpu': 'x86-64-v2-AES',
+      'scsi0': 'local-lvm:vm-101-disk-0,size=64G',
+      'net0': 'virtio=AA:BB:CC:DD:EE:FF,bridge=vmbr0',
+      'cipassword': 'must-not-render',
+      'args': 'secret=must-not-render',
+    }, kind: guest.kind);
   }
 }
 
@@ -1611,7 +1608,13 @@ void main() {
       expect(guard.maxLines, isNull);
       expect(guard.overflow, isNull);
       expect(tester.takeException(), isNull);
-      for (final tab in ['Configuration', 'Metrics', 'I/O', 'Recovery', 'Overview']) {
+      for (final tab in [
+        'Configuration',
+        'Metrics',
+        'I/O',
+        'Recovery',
+        'Overview',
+      ]) {
         await tester.ensureVisible(find.text(tab));
         await tester.pumpAndSettle();
         await tester.tap(find.text(tab));

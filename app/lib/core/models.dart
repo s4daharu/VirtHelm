@@ -806,11 +806,7 @@ class GuestConfiguration {
     var malformed = 0;
     var truncated = false;
 
-    void add(
-      String key,
-      String label,
-      List<GuestConfigurationField> target,
-    ) {
+    void add(String key, String label, List<GuestConfigurationField> target) {
       if (!json.containsKey(key)) return;
       consumed.add(key);
       final value = _configurationValue(json[key]);
@@ -818,9 +814,7 @@ class GuestConfiguration {
         malformed++;
         return;
       }
-      target.add(
-        GuestConfigurationField(key: key, label: label, value: value),
-      );
+      target.add(GuestConfigurationField(key: key, label: label, value: value));
     }
 
     add('cores', 'CPU cores', compute);
@@ -856,34 +850,32 @@ class GuestConfiguration {
     final storagePattern = kind == 'qemu'
         ? RegExp(r'^(?:ide|sata|scsi|virtio|efidisk|tpmstate|unused)\d+$')
         : RegExp(r'^(?:mp|unused)\d+$');
-    final storageKeys = json.keys
-        .where(
-          (key) =>
-              storagePattern.hasMatch(key) ||
-              (kind == 'lxc' && key == 'rootfs'),
-        )
-        .toList()
-      ..sort();
+    final storageKeys =
+        json.keys
+            .where(
+              (key) =>
+                  storagePattern.hasMatch(key) ||
+                  (kind == 'lxc' && key == 'rootfs'),
+            )
+            .toList()
+          ..sort();
     if (storageKeys.length > 32) truncated = true;
     for (final key in storageKeys.take(32)) {
       add(key, key == 'rootfs' ? 'Root filesystem' : key, storage);
     }
 
-    final networkKeys = json.keys
-        .where(
-          (key) =>
-              RegExp(r'^net\d+$').hasMatch(key) ||
-              (kind == 'qemu' && RegExp(r'^ipconfig\d+$').hasMatch(key)),
-        )
-        .toList()
-      ..sort();
+    final networkKeys =
+        json.keys
+            .where(
+              (key) =>
+                  RegExp(r'^net\d+$').hasMatch(key) ||
+                  (kind == 'qemu' && RegExp(r'^ipconfig\d+$').hasMatch(key)),
+            )
+            .toList()
+          ..sort();
     if (networkKeys.length > 32) truncated = true;
     for (final key in networkKeys.take(32)) {
-      add(
-        key,
-        key.startsWith('ipconfig') ? 'Cloud-init $key' : key,
-        network,
-      );
+      add(key, key.startsWith('ipconfig') ? 'Cloud-init $key' : key, network);
     }
 
     return GuestConfiguration(
