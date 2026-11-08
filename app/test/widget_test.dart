@@ -1901,12 +1901,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.themePreference, AppThemePreference.dark);
 
-    await tester.ensureVisible(find.byKey(const Key('high-contrast-preference')));
+    await tester.ensureVisible(
+      find.byKey(const Key('high-contrast-preference')),
+    );
     await tester.tap(find.byKey(const Key('high-contrast-preference')));
     await tester.pumpAndSettle();
     expect(repository.highContrast, isTrue);
 
-    await tester.ensureVisible(find.byKey(const Key('reduce-motion-preference')));
+    await tester.ensureVisible(
+      find.byKey(const Key('reduce-motion-preference')),
+    );
     await tester.tap(find.byKey(const Key('reduce-motion-preference')));
     await tester.pumpAndSettle();
     expect(repository.reduceMotion, isTrue);
