@@ -12,7 +12,7 @@
   "framework": "Flutter",
   "primary_pve": "9.2",
   "regression_pve": "8.4",
-  "source_type": "documentation + audited Flutter Android M1/M2 implementation preview",
+  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview",
   "github_repository_url": "https://github.com/s4daharu/VirtHelm",
   "documentation_uploaded_and_verified": true,
   "docs_initial_remote_commit": "4fdfcd704aced213508f798533fd6370573ac284",
@@ -37,7 +37,7 @@
   "m1_validation": "Automated branch CI has passed source checks, analyzer, tests and Android debug APK build for the M1 safety implementation; live PVE/device release validation remains open.",
   "flutter_build_success": true,
   "ci_flutter_version": "3.44.4",
-  "android_build_evidence": "Latest completed full successful main CI is ef1208c26546fee42485170173aecd5f5e61ed1f, which also produced signed prerelease v0.1.27-build-242. The launcher commit passed generated-runner validation, formatting, analyzer and Flutter tests but docs caught display-version drift. The audit repair commits correct that issue and are subject to fresh main CI.",
+  "android_build_evidence": "Full Docs and Android checks and signed prerelease publication passed for audited baseline a8f9443c58ac2d92ac438610dfe1f193e09e58dc. The read-only guest recovery milestone is subject to the same current-head CI/release gates; live PVE/device release validation remains open.",
   "m1_safety_followup": "Implemented: per-guest single-flight, profile/snapshot revalidation, bounded task verification, ambiguous-outcome lockout, auth-revocation fail-closed handling and race regression tests.",
   "m2_read_cockpit": {
     "features": [
@@ -128,12 +128,13 @@
       "The Android launcher-branding commit bumped pubspec to 0.1.28 without updating the display-only app_info constant; check_source caught the drift on main CI. This audit fixes the version sync and strengthens source checks for persistent launcher resources.",
       "README/app README/PROJECT_STATUS current-state text still described ALERT-006 duration/hysteresis, connection management, and AMOLED/high-contrast work as pending after those milestones had merged. Current status text is corrected without rewriting historical milestone documents.",
       "The generated Android runner remains ignored by design; reviewed SVG/adaptive-icon resources live under scripts/android and harden_android.py installs them deterministically. Source and delivery smoke checks now both guard that path.",
-      "A final current-state sweep found older milestone status fields still marked ci_pending despite later full main CI success, plus README wording that treated release signing itself as unimplemented even though signed prereleases are already published. Those claims are normalized to distinguish proven CI/prerelease signing from still-open production/device certification."
+      "A final current-state sweep found older milestone status fields still marked ci_pending despite later full main CI success, plus README wording that treated release signing itself as unimplemented even though signed prereleases are already published. Those claims are normalized to distinguish proven CI/prerelease signing from still-open production/device certification.",
+      "M3 read-only recovery visibility adds exact-session QEMU/LXC snapshot inventory plus guest-scoped recent vzdump task outcomes. Snapshot data is transient, no snapshot/backup mutation endpoint is exposed, and a successful backup task is never presented as archive verification or restoreability."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 172,
+    "current_flutter_tests_defined": 175,
     "current_delivery_tests_defined": 14,
-    "current_ci_policy": "The current commit must pass Docs and Android checks; test counts alone are not a release claim.",
+    "current_ci_policy": "Every current commit must pass Docs and Android checks; test counts alone are not a release claim. Audited baseline a8f9443 passed both checks and signed prerelease publication.",
     "p0_scope_complete": false,
     "p0_gaps": [
       "Full persistent offline guest/node detail cache is not implemented; only optional last-known aggregate counts are cached",
@@ -395,11 +396,22 @@
       "limitations": "Physical Android TalkBack, contrast/touch-target inspection, remove-animation behavior and screenshots/goldens remain open. Android wallpaper dynamic color is optional/deferred; biometrics, notifications, widgets and shortcuts remain later work."
     },
     "android_launcher_branding": {
-      "status": "implemented_source_level_current_main_ci_required",
+      "status": "implemented_source_level_ci_passed_live_validation_pending",
       "scope": "Reviewed VirtHelm SVG master plus Android adaptive foreground/background resources are stored outside the ignored runner under scripts/android; harden_android.py installs them after every Flutter runner generation and adds the round-icon manifest reference.",
       "safety": "Branding-only native resource change. No API, credential, TLS, network, persistence or mutation behavior changes.",
-      "verification": "The launcher commit passed generated-runner validation, Dart formatting, analyzer and the full Flutter suite; its docs job exposed only display-version drift. The first audit repair commit e3a3538e38c9354a94c0ad228c3a9c08389da42a then passed docs/source/premium/delivery checks before being superseded by this final stale-claim cleanup. Current main CI remains authoritative.",
+      "verification": "Generated-runner validation, formatting, analyzer, Flutter tests, Docs and Android checks passed on audited baseline a8f9443c58ac2d92ac438610dfe1f193e09e58dc; signed prerelease publication also succeeded. Physical-device branding review remains open.",
       "report": "docs/77-whole-repository-cross-check-2026-11-08.md"
     }
+  },
+  "m3_safe_operator_read_recovery": {
+    "status": "implemented_source_level_ci_gate_required",
+    "features": [
+      "on-demand read-only QEMU/LXC snapshot inventory with parent, creation time, description and VM-memory metadata when provided",
+      "guest-scoped recent Proxmox vzdump task outcomes derived from the existing bounded recent task history"
+    ],
+    "safety": "Exact active profile, connection generation and guest node/type/VMID are revalidated around the snapshot read. Snapshot reads are GET-only and on demand; no snapshot or backup mutation endpoint is exposed. Backup-task success is not presented as archive verification or restoreability.",
+    "verification": "Model/gateway/controller/widget regressions are defined, including GET path/parsing, stale-session rejection, guest scoping and large-text tab coverage. Current-head Docs/Android CI remains authoritative.",
+    "limitations": "Live PVE 9.2/8.4 snapshot schemas and ACL behavior plus physical Android validation remain open. Backup archive discovery, schedules, one-off backup execution, verification/confidence, restore, and all snapshot mutations remain unimplemented.",
+    "report": "docs/78-implementation-guest-recovery-readonly.md"
   }
 }

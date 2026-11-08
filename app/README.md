@@ -25,6 +25,8 @@ The committed `pubspec.lock` is enforced. The bootstrap generates the Android ru
 - Guest status/type/node filters, deterministic favorites/name/VMID/CPU/memory sorting, and up to 12 profile-scoped named saved views, without extra API requests.
 - Read-only per-node storage and recent server task history with partial permission/error reporting, plus scoped on-demand task status and bounded log details for tracked/history tasks.
 - Explicit on-demand 1h/24h/7d guest/node CPU-memory and per-storage used/total RRD history; metric samples stay transient and session-scoped.
+- On-demand read-only QEMU/LXC snapshot inventory, exact-profile/session/guest scoped and never persisted; snapshot creation, rollback, and deletion are not exposed.
+- Guest-scoped recent `vzdump` task outcomes from the existing recent-task window, explicitly not treated as proof that a backup archive exists, was verified, or is restorable.
 - Foreground-only ALERT-001 incident inbox for explicit node-state problems, failed recent server tasks and failed/unknown session tasks; incomplete task reads retain prior failures instead of falsely resolving them.
 - Profile-scoped ALERT-002/003 foreground CPU and storage threshold rules persisted as non-secret local metadata; missing/stale samples do not falsely resolve a prior firing.
 - ALERT-006 adds 1–10 consecutive usable foreground samples before firing and 0–20 percentage points of clear hysteresis, with backward-compatible saved-rule defaults.
@@ -40,6 +42,6 @@ The committed `pubspec.lock` is enforced. The bootstrap generates the Android ru
 ## Not yet release-complete
 No real PVE 8.4/9.2 lab matrix or production-certified APK is claimed. Physical-device certificate/backup/Keystore behavior, accessibility/font scaling, 200-guest performance, dependency/security review and production device/signing verification remain gates. CI has published signed prerelease APKs, but prerelease signing is not production certification. Full premium M2 scope such as cross-resource capacity analytics, alert acknowledgement/history, quiet hours/cooldown, Android notifications/background checks, persistent offline detail cache and richer topology/group views remains unimplemented. Bounded guest/node/storage charts, the foreground incident inbox, foreground CPU/storage thresholds, tag/pool filters, profile-scoped favorites and saved views are implemented at source level.
 
-No ticket/MFA, console, snapshots/backups, migration/provisioning, PBS/PDM, host/HA/Ceph/SDN mutation, subscriptions or payments are included.
+No ticket/MFA, console, snapshot mutations, backup execution/archive verification/restore, migration/provisioning, PBS/PDM, host/HA/Ceph/SDN mutation, subscriptions or payments are included.
 
 Use a dedicated least-privilege PVE API token and trusted HTTPS over LAN/VPN. API-token access does not provide console authentication. Disabling certificate verification permits server impersonation and token theft even on a LAN; it is not recommended for production. Edit a connection and save it with the switch off to restore certificate verification. See [TLS option](../docs/40-profile-tls-option.md). Native TLS regression tests generate disposable certificates using OpenSSL; install it before running `flutter test`.

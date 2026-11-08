@@ -70,7 +70,8 @@ required = [
    'docs/74-premerge-ui-cross-check-2026-11-07.md',
    'docs/75-connection-management-onboarding.md',
    'docs/76-accessibility-theme-completion.md',
-   'docs/77-whole-repository-cross-check-2026-11-08.md']
+   'docs/77-whole-repository-cross-check-2026-11-08.md',
+   'docs/78-implementation-guest-recovery-readonly.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)
@@ -137,6 +138,14 @@ task_inspection = controller.split('Future<TaskInspection?> inspectTask', 1)[1].
 assert 'deviceNetworkState == DeviceNetworkState.unavailable' in task_inspection
 assert '_recordAuthenticatedReadLoss' in controller
 assert 'Performance history' in files['app/lib/ui/guest_page.dart']
+assert 'class GuestSnapshot' in files['app/lib/core/models.dart']
+assert 'class GuestSnapshotInventory' in files['app/lib/core/models.dart']
+assert 'Future<GuestSnapshotInventory> guestSnapshots' in files['app/lib/core/pve_api.dart']
+assert "'${_guestPath(guest)}/snapshot'" in files['app/lib/core/pve_api.dart']
+assert 'inspectGuestSnapshots' in files['app/lib/core/app_controller.dart']
+assert "Key('guest-recovery-tab')" in files['app/lib/ui/guest_page.dart']
+assert 'Snapshots are not backups' in files['app/lib/ui/guest_page.dart']
+assert 'does not prove an archive exists' in files['app/lib/ui/guest_page.dart']
 assert 'NodeMetricTimeframe' in files['app/lib/core/models.dart']
 assert 'Future<NodeMetricSeries> nodeMetrics' in files['app/lib/core/pve_api.dart']
 assert "'/nodes/${_segment(normalizedNode)}/rrddata'" in files['app/lib/core/pve_api.dart']
