@@ -737,82 +737,81 @@ void main() {
     },
   );
 
-  testWidgets(
-    'guest access hints are on-demand and session redacted',
-    (tester) async {
-      SharedPreferences.setMockInitialValues({});
-      final prefs = await SharedPreferences.getInstance();
-      final controller = _GuestPermissionController(
-        ProfileRepository(prefs, _EmptyVault()),
-      );
-      addTearDown(controller.dispose);
-      controller.active = const ConnectionProfile(
-        id: 'a',
-        name: 'A',
-        endpoint: 'https://a.example',
-      );
-      controller.inventory = Inventory.fromResources([
-        {
-          'type': 'qemu',
-          'node': 'pve1',
-          'vmid': 101,
-          'name': 'Web',
-          'status': 'running',
-        },
-      ]);
-      final guest = controller.inventory!.guests.single;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: GuestPage(
-            controller: controller,
-            guest: guest,
-            profileId: 'a',
-            generation: controller.connectionGeneration,
-          ),
+  testWidgets('guest access hints are on-demand and session redacted', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = _GuestPermissionController(
+      ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'a',
+      name: 'A',
+      endpoint: 'https://a.example',
+    );
+    controller.inventory = Inventory.fromResources([
+      {
+        'type': 'qemu',
+        'node': 'pve1',
+        'vmid': 101,
+        'name': 'Web',
+        'status': 'running',
+      },
+    ]);
+    final guest = controller.inventory!.guests.single;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GuestPage(
+          controller: controller,
+          guest: guest,
+          profileId: 'a',
+          generation: controller.connectionGeneration,
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('guest-access-tab')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('guest-access-list')), findsOneWidget);
-      expect(controller.requestedVmids, isEmpty);
-      expect(find.text('Power controls'), findsNothing);
+    await tester.tap(find.byKey(const Key('guest-access-tab')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('guest-access-list')), findsOneWidget);
+    expect(controller.requestedVmids, isEmpty);
+    expect(find.text('Power controls'), findsNothing);
 
-      await tester.tap(find.byKey(const Key('guest-load-permissions')));
-      await tester.pumpAndSettle();
-      expect(controller.requestedVmids, [101]);
-      expect(find.text('Power controls'), findsOneWidget);
-      expect(find.text('VM.PowerMgmt'), findsOneWidget);
-      expect(find.textContaining('1 malformed ignored'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('guest-load-permissions')));
+    await tester.pumpAndSettle();
+    expect(controller.requestedVmids, [101]);
+    expect(find.text('Power controls'), findsOneWidget);
+    expect(find.text('VM.PowerMgmt'), findsOneWidget);
+    expect(find.textContaining('1 malformed ignored'), findsOneWidget);
 
-      final accessScroll = find.descendant(
-        of: find.byKey(const Key('guest-access-list')),
-        matching: find.byType(Scrollable),
-      );
-      await tester.scrollUntilVisible(
-        find.text('Configure disks'),
-        200,
-        scrollable: accessScroll,
-      );
-      expect(find.text('Configure disks'), findsOneWidget);
+    final accessScroll = find.descendant(
+      of: find.byKey(const Key('guest-access-list')),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(
+      find.text('Configure disks'),
+      200,
+      scrollable: accessScroll,
+    );
+    expect(find.text('Configure disks'), findsOneWidget);
 
-      controller.inventory = Inventory.fromResources([]);
-      controller.notifyListeners();
-      await tester.pump();
-      expect(find.text('Power controls'), findsNothing);
+    controller.inventory = Inventory.fromResources([]);
+    controller.notifyListeners();
+    await tester.pump();
+    expect(find.text('Power controls'), findsNothing);
 
-      controller.active = const ConnectionProfile(
-        id: 'b',
-        name: 'B',
-        endpoint: 'https://b.example',
-      );
-      controller.notifyListeners();
-      await tester.pump();
-      expect(find.text('Web'), findsNothing);
-      expect(find.text('Guest unavailable'), findsOneWidget);
-    },
-  );
+    controller.active = const ConnectionProfile(
+      id: 'b',
+      name: 'B',
+      endpoint: 'https://b.example',
+    );
+    controller.notifyListeners();
+    await tester.pump();
+    expect(find.text('Web'), findsNothing);
+    expect(find.text('Guest unavailable'), findsOneWidget);
+  });
 
   testWidgets(
     'guest recovery tab loads snapshots and scopes recent backup tasks',
