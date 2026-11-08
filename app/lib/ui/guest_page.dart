@@ -787,7 +787,9 @@ class _GuestPageState extends State<GuestPage> {
     };
     final otherCount = visible == null
         ? 0
-        : visible.privileges.where((item) => !knownPrivileges.contains(item)).length;
+        : visible.privileges
+              .where((item) => !knownPrivileges.contains(item))
+              .length;
 
     return _tabList(
       key: const Key('guest-access-list'),
@@ -807,7 +809,9 @@ class _GuestPageState extends State<GuestPage> {
           alignment: Alignment.centerLeft,
           child: FilledButton.tonalIcon(
             key: const Key('guest-load-permissions'),
-            onPressed: guest == null || loadingPermissions ? null : loadPermissions,
+            onPressed: guest == null || loadingPermissions
+                ? null
+                : loadPermissions,
             icon: loadingPermissions
                 ? const SizedBox.square(
                     dimension: 18,
@@ -815,7 +819,9 @@ class _GuestPageState extends State<GuestPage> {
                   )
                 : const Icon(Icons.admin_panel_settings_outlined),
             label: Text(
-              visible == null ? 'Load permission hints' : 'Refresh permission hints',
+              visible == null
+                  ? 'Load permission hints'
+                  : 'Refresh permission hints',
             ),
           ),
         ),
@@ -834,7 +840,10 @@ class _GuestPageState extends State<GuestPage> {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 8),
-          Text('Current operator capabilities', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            'Current operator capabilities',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           _permissionTile(
             snapshot: visible,
             privilege: 'VM.Audit',
@@ -878,7 +887,10 @@ class _GuestPageState extends State<GuestPage> {
             icon: Icons.drive_file_move_outline,
           ),
           const SizedBox(height: 8),
-          Text('Configuration privileges', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            'Configuration privileges',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           _permissionTile(
             snapshot: visible,
             privilege: 'VM.Config.CPU',
