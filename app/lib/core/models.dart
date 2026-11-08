@@ -750,7 +750,7 @@ bool _validPermissionPropagationFlag(Object? value) {
 
 /// Transient effective permissions for one exact PVE guest ACL path.
 ///
-/// Presence of a privilege means PVE reported it as effective at /vms/<vmid>.
+/// Presence of a privilege means PVE reported it as effective at `/vms/<vmid>`.
 /// The returned propagation flag is validated but intentionally not interpreted:
 /// a non-propagating privilege is still effective at the exact requested path.
 class GuestPermissionSnapshot {
