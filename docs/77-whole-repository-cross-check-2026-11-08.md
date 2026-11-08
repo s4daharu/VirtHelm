@@ -33,6 +33,7 @@ Targeted source review confirmed:
 3. **Current documentation had stale feature-state claims.** Both READMEs still listed alert duration/hysteresis as unimplemented even though ALERT-006 is implemented. `PROJECT_STATUS.json` also retained “future”/“CI pending” language for connection management and AMOLED/high-contrast completion. Current-state text is corrected; historical milestone documents remain historical.
 4. **The current audit pointer was stale.** `PROJECT_STATUS.json` still treated the November 6 audit as current. It now points to this November 8 cross-check and records the newer CI/release evidence.
 5. **Repository-control wording was too strong for current permissions.** The branches API confirms `main.protected=false`, but this GitHub App cannot read the administration-only protection/ruleset endpoint. Status now records only what is actually verified.
+6. **Older current-state CI/signing labels lagged reality.** Earlier milestone entries still said `ci_pending` even though the later `ef1208...` main run revalidated the whole repository and published a signed prerelease. Current status now records CI as passed while keeping live/device certification open, and README wording distinguishes working prerelease signing from production certification.
 
 No new core mutation, credential-storage, TLS, retry, task-verification, or session-isolation defect was found in this pass.
 
@@ -41,7 +42,8 @@ No new core mutation, credential-storage, TLS, retry, task-verification, or sess
 - Connection-management main commit `401cfffe51efcc9abc9f9e16093dbf633a48c30e`: Docs and Android checks completed successfully.
 - Accessibility/theme main commit `ef1208c26546fee42485170173aecd5f5e61ed1f`: Docs and Android checks completed successfully; signed prerelease `v0.1.27-build-242` was published with ARM64, ARMv7, and SHA256SUMS assets.
 - Launcher commit `027e15dc44960cce2deb3fde130d2b39655e2c70`: generated runner check, Dart formatting, `flutter analyze --fatal-infos`, and `flutter test --coverage` passed. The docs job failed only at the display-version synchronization assertion identified above. Its debug APK build was still in progress while this audit was prepared, so it is not claimed as successful evidence here.
-- The audit/fix commit itself must pass fresh main-branch CI before it is treated as the new compile gate.
+- First audit repair commit `e3a3538e38c9354a94c0ad228c3a9c08389da42a`: documentation, premium, source and delivery checks passed before this final stale-claim cleanup superseded it; its Flutter job was still running at supersession.
+- The final audit/fix commit must pass fresh main-branch CI before it is treated as the new compile gate.
 
 ## Current intentional gaps
 

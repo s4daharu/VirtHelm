@@ -37,7 +37,7 @@
   "m1_validation": "Automated branch CI has passed source checks, analyzer, tests and Android debug APK build for the M1 safety implementation; live PVE/device release validation remains open.",
   "flutter_build_success": true,
   "ci_flutter_version": "3.44.4",
-  "android_build_evidence": "Main CI passed full Docs and Android checks plus signed prerelease publication for ef1208c26546fee42485170173aecd5f5e61ed1f. The subsequent launcher commit reached generated-runner validation, formatting, analyzer and Flutter tests but its docs job caught display-version drift; this audit repairs that inconsistency and requires fresh main CI.",
+  "android_build_evidence": "Latest completed full successful main CI is ef1208c26546fee42485170173aecd5f5e61ed1f, which also produced signed prerelease v0.1.27-build-242. The launcher commit passed generated-runner validation, formatting, analyzer and Flutter tests but docs caught display-version drift. The audit repair commits correct that issue and are subject to fresh main CI.",
   "m1_safety_followup": "Implemented: per-guest single-flight, profile/snapshot revalidation, bounded task verification, ambiguous-outcome lockout, auth-revocation fail-closed handling and race regression tests.",
   "m2_read_cockpit": {
     "features": [
@@ -127,7 +127,8 @@
       "ALERT-006 adds backward-compatible consecutive-sample duration and clear hysteresis to foreground threshold rules; missing samples reset pending confirmation but never resolve an active firing, and no background polling/notification delivery is added.",
       "The Android launcher-branding commit bumped pubspec to 0.1.28 without updating the display-only app_info constant; check_source caught the drift on main CI. This audit fixes the version sync and strengthens source checks for persistent launcher resources.",
       "README/app README/PROJECT_STATUS current-state text still described ALERT-006 duration/hysteresis, connection management, and AMOLED/high-contrast work as pending after those milestones had merged. Current status text is corrected without rewriting historical milestone documents.",
-      "The generated Android runner remains ignored by design; reviewed SVG/adaptive-icon resources live under scripts/android and harden_android.py installs them deterministically. Source and delivery smoke checks now both guard that path."
+      "The generated Android runner remains ignored by design; reviewed SVG/adaptive-icon resources live under scripts/android and harden_android.py installs them deterministically. Source and delivery smoke checks now both guard that path.",
+      "A final current-state sweep found older milestone status fields still marked ci_pending despite later full main CI success, plus README wording that treated release signing itself as unimplemented even though signed prereleases are already published. Those claims are normalized to distinguish proven CI/prerelease signing from still-open production/device certification."
     ],
     "full_premium_scope_complete": false,
     "current_flutter_tests_defined": 172,
@@ -272,7 +273,7 @@
       "report": "docs/62-whole-repository-cross-check-2026-11-06.md"
     },
     "storage_rrd_history": {
-      "status": "implemented_source_level_ci_pending_live_validation_pending",
+      "status": "implemented_ci_passed_live_validation_pending",
       "behavior": "Home storage rows open a profile/generation/exact-storage-scoped detail route with current capacity and explicit 1h/24h/7d Proxmox RRD AVERAGE used/total history. Timeframe selection alone performs no request and history is not persisted.",
       "safety": "GET-only exact visible node/storage lookup with active profile ID and connection-generation checks before and after I/O; explicit Android default-network loss blocks new reads; observed 401 marks live inventory unsafe until clean authenticated refresh; profile switches/reconnects or storage disappearance discard results and redact the route.",
       "parsing": "At most 1,500 response rows are considered; timestamped non-negative used bytes and positive total bytes are retained, percentages require used <= total, malformed rows are counted, and charts include latest/range/sample text alternatives.",
@@ -280,7 +281,7 @@
       "report": "docs/63-implementation-storage-rrd-history.md"
     },
     "incident_inbox": {
-      "status": "implemented_source_level_ci_pending_live_validation_pending",
+      "status": "implemented_ci_passed_live_validation_pending",
       "feature_id": "ALERT-001",
       "behavior": "A fifth Incidents tab shows a badge and locally filters critical/warning signals derived from explicit node offline/unknown states, failed recent server tasks, and failed/unknown session tasks. Node/task incidents drill into existing session-scoped detail routes.",
       "conservative_refresh": "Inventory failures retain the previous node snapshot. Partial task-history reads retain up to 60 previously observed failed-task incidents until a later complete task read; full task-history failures leave prior task data unchanged. Unknown is never presented as healthy.",
@@ -290,7 +291,7 @@
       "report": "docs/64-implementation-alert-incident-inbox.md"
     },
     "foreground_threshold_alert_rules": {
-      "status": "implemented_source_level_ci_pending_live_validation_pending",
+      "status": "implemented_ci_passed_live_validation_pending",
       "feature_ids": [
         "ALERT-002",
         "ALERT-003"
@@ -303,7 +304,7 @@
       "report": "docs/65-implementation-foreground-threshold-alert-rules.md"
     },
     "alert_rule_duration_hysteresis": {
-      "status": "implemented_source_level_ci_pending_live_validation_pending",
+      "status": "implemented_ci_passed_live_validation_pending",
       "feature_id": "ALERT-006",
       "behavior": "Profile-scoped foreground threshold rules may require 1-10 consecutive usable live samples before firing and 0-20 percentage points of clear hysteresis. The UI exposes 1-10 samples and 0-20 percentage points.",
       "conservative_semantics": "Missing/unusable samples reset pending confirmation, but an active firing remains unresolved until a usable sample reaches the lower clear threshold. Reconnect/profile changes clear runtime pending/firing state.",
@@ -313,7 +314,7 @@
     },
     "ui_foundation_followup": "docs/67-ui-overhaul-foundation.md",
     "ui_overhaul_foundation": {
-      "status": "implemented_source_level_ci_pending_live_validation_pending",
+      "status": "implemented_ci_passed_live_validation_pending",
       "scope": "Shared Material 3 theme tokens and components, semantic status badges with icons/TalkBack labels, empty-state recovery actions, pull-to-refresh on guest/node/storage details, home foreground-incident summary, monospace task-log presentation and an app-info version match guard.",
       "rebuild_boundary": "MaterialApp no longer rebuilds on every controller notification; theme changes use a dedicated notifier and inventory/task/incident updates rebuild only the active shell subtree.",
       "safety": "Presentation-only. No API endpoint, credential, persistence, TLS, POST retry, freshness guard or mutation behavior changes; task logs remain bounded, on-demand and non-persistent.",
@@ -322,7 +323,7 @@
     },
     "screen_polish_followup": "docs/68-screen-polish-followup.md",
     "screen_polish": {
-      "status": "implemented_source_level_ci_pending_live_validation_pending",
+      "status": "implemented_ci_passed_live_validation_pending",
       "scope": "Home metric-card hierarchy, incident severity summary and recovery actions, guest/task clear-filter actions, empty-state refresh actions, task-detail refresh action, connection autofill/keyboard hints, an About/licenses surface and sparkline grid/area styling.",
       "safety": "Presentation and local widget-state only. No endpoint, credential, persistence, TLS, POST retry, freshness guard or mutation behavior changes. Refresh actions reuse the existing foreground refresh path.",
       "verification": "flutter analyze --fatal-infos, 160 Flutter tests and formatting/source/documentation checks pass locally. Physical Android TalkBack/touch-target/contrast/200%-text and performance validation remain open.",
@@ -330,7 +331,7 @@
     },
     "guest_detail_tabs_followup": "docs/69-guest-detail-tabs-actions.md",
     "guest_detail_tabs": {
-      "status": "implemented_source_level_ci_pending_live_validation_pending",
+      "status": "implemented_ci_passed_live_validation_pending",
       "scope": "Guest detail now separates identity/live utilization, performance history and I/O counters into three tabs, with a persistent bottom primary action and overflow menu for the remaining power actions.",
       "safety": "The existing execute path, typed-risk confirmation, profile/generation checks, fresh-inventory requirements, single-flight reservation and unknown-outcome lockout are unchanged. No API, credential, persistence, retry or background behavior is added.",
       "verification": "flutter analyze --fatal-infos, 161 Flutter tests, formatting and source/documentation checks pass locally. The new regression covers all three tabs at 320dp/200% text scale without layout overflow. Physical Android TalkBack/touch-target/performance validation remains open.",
@@ -338,7 +339,7 @@
     },
     "node_storage_detail_tabs_followup": "docs/70-node-storage-detail-tabs.md",
     "node_storage_detail_tabs": {
-      "status": "implemented_source_level_ci_pending_live_validation_pending",
+      "status": "implemented_ci_passed_live_validation_pending",
       "scope": "Node detail separates current utilization from RRD metrics, and storage detail separates capacity/content overview from capacity history, using the same tabbed read-only detail pattern as guest detail.",
       "safety": "Read-only. RRD history remains explicit, GET-only, bounded, transient and profile/generation scoped. Timeframe selection alone performs no request. Missing-resource and session-change redaction is preserved.",
       "verification": "flutter analyze --fatal-infos, 161 Flutter tests, formatting and source/documentation checks pass locally. Node/storage history regressions select the metrics/capacity tabs explicitly and still verify request timing, summaries, sample counts and profile-switch redaction.",
@@ -346,7 +347,7 @@
     },
     "guest_filter_sheet_followup": "docs/71-guest-filter-sheet.md",
     "guest_filter_sheet": {
-      "status": "implemented_source_level_ci_pending_live_validation_pending",
+      "status": "implemented_ci_passed_live_validation_pending",
       "scope": "Guests now use search plus a filter-count button, a compact quick-status row, removable active-filter chips and a bottom sheet for type/node/tag/pool/sort. Saved views retain the same criteria.",
       "safety": "Presentation and local widget state only. No API, credential, persistence or mutation behavior is added. Filter changes cannot authorize guest writes and still reset on profile switch.",
       "verification": "flutter analyze --fatal-infos, 161 Flutter tests, formatting and source/documentation checks pass locally. Guest browse/filter/sort and saved-view regressions exercise the sheet and active chips; the 320dp/200%-text shell regression still passes.",
@@ -354,7 +355,7 @@
     },
     "task_summary_compact_rows_followup": "docs/72-task-summary-compact-rows.md",
     "task_summary_compact_rows": {
-      "status": "implemented_source_level_ci_pending_live_validation_pending",
+      "status": "implemented_ci_passed_live_validation_pending",
       "scope": "Tasks now shows a running/succeeded/failed/unknown summary card, compact fully tappable server-task rows and lazy sliver lists for session and recent tasks. The per-card View details button was removed in favour of the whole-row target.",
       "safety": "Read-only presentation only. Task details remain on-demand, bounded GETs with profile/generation checks and no log persistence. No task mutation, polling, API or transport behavior changes.",
       "verification": "flutter analyze --fatal-infos, 161 Flutter tests, formatting and source/documentation checks pass locally. Task history/filter and task-detail regressions use the whole-row target; the 320dp/200%-text shell regression still passes.",
@@ -362,7 +363,7 @@
     },
     "threshold_rule_editor_followup": "docs/73-threshold-rule-editor.md",
     "threshold_rule_editor": {
-      "status": "implemented_source_level_ci_pending_live_validation_pending",
+      "status": "implemented_ci_passed_live_validation_pending",
       "scope": "Threshold rules now use a full-screen add/edit editor with a searchable grouped Nodes/Guests/Storage target picker, threshold and hysteresis sliders, 1-10 consecutive samples, severity choice and a plain-language summary. Rule cards open the same editor prefilled.",
       "safety": "Rules remain profile-scoped non-secret local metadata with foreground-only evaluation. Returned editor results are discarded if the profile or connection generation changed. No background worker, notification delivery, API, credential or persistence behavior is added.",
       "verification": "flutter analyze --fatal-infos, 162 Flutter tests, formatting and source/documentation checks pass locally. Added an edit regression that changes severity through the searchable grouped target picker; the original add-rule regression still passes.",
@@ -370,9 +371,9 @@
     },
     "ui_cross_check_followup": "docs/74-premerge-ui-cross-check-2026-11-07.md",
     "ui_cross_check": {
-      "status": "cross_checked_local_checks_passed_pinned_ci_and_device_gates_pending",
+      "status": "cross_checked_ci_passed_device_gates_pending",
       "scope": "Pre-merge audit of the UI-overhaul branch compared with main: app bar freshness, guest filter predicate/chips, guest bottom-bar theme fallback, storage capacity layout, alert-rule target-picker insets and large-text actions, alert-rule UI limit documentation, and earlier-slice remaining-work text.",
-      "checks": "git diff/lockfile integrity, docs/source/premium checks, 14 delivery tests, Dart formatting, flutter analyze --fatal-infos, 162 Flutter tests, and generated Android runner hardening. The local debug APK build was attempted but stopped after Gradle stalled on an external artifact download; pinned-toolchain CI remains the compile gate.",
+      "checks": "The original pre-merge local checks passed; subsequent main-push CI on ef1208c26546fee42485170173aecd5f5e61ed1f reran the repository formatting, analyzer, Flutter tests and Android debug build successfully. Physical-device and live-PVE gates remain separate.",
       "safety": "No PVE endpoint, gateway transport, credential, persistence, TLS, POST-retry or mutation behavior changed. Existing profile/generation and freshness guards remain in place.",
       "limitations": "Physical Android TalkBack/contrast/200%-text/touch-target/performance and live PVE 9.2/8.4 fixtures remain open. The local SDK is newer than the pinned CI SDK, so exact-head CI is authoritative."
     },
@@ -394,10 +395,10 @@
       "limitations": "Physical Android TalkBack, contrast/touch-target inspection, remove-animation behavior and screenshots/goldens remain open. Android wallpaper dynamic color is optional/deferred; biometrics, notifications, widgets and shortcuts remain later work."
     },
     "android_launcher_branding": {
-      "status": "implemented_source_level_ci_repair_pending",
+      "status": "implemented_source_level_current_main_ci_required",
       "scope": "Reviewed VirtHelm SVG master plus Android adaptive foreground/background resources are stored outside the ignored runner under scripts/android; harden_android.py installs them after every Flutter runner generation and adds the round-icon manifest reference.",
       "safety": "Branding-only native resource change. No API, credential, TLS, network, persistence or mutation behavior changes.",
-      "verification": "On 027e15dc44960cce2deb3fde130d2b39655e2c70 generated-runner validation, Dart formatting, flutter analyze and the full Flutter test suite passed; the docs job failed only because the pubspec version bump was not mirrored in app_info.dart. This audit fixes that drift and adds source-level branding assertions; fresh main CI remains authoritative.",
+      "verification": "The launcher commit passed generated-runner validation, Dart formatting, analyzer and the full Flutter suite; its docs job exposed only display-version drift. The first audit repair commit e3a3538e38c9354a94c0ad228c3a9c08389da42a then passed docs/source/premium/delivery checks before being superseded by this final stale-claim cleanup. Current main CI remains authoritative.",
       "report": "docs/77-whole-repository-cross-check-2026-11-08.md"
     }
   }
