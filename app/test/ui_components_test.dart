@@ -64,10 +64,7 @@ void main() {
     final amoled = virthelmTheme(Brightness.dark, amoled: true);
     expect(amoled.scaffoldBackgroundColor, Colors.black);
 
-    final highContrast = virthelmTheme(
-      Brightness.light,
-      highContrast: true,
-    );
+    final highContrast = virthelmTheme(Brightness.light, highContrast: true);
     final cardShape = highContrast.cardTheme.shape as RoundedRectangleBorder;
     expect(cardShape.side.color, highContrast.colorScheme.outline);
   });
@@ -105,5 +102,4 @@ void main() {
     expect(find.text('CPU average data'), findsOneWidget);
     expect(find.textContaining('UTC'), findsNWidgets(2));
   });
-
 }
