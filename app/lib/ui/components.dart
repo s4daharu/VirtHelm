@@ -370,10 +370,7 @@ class SparklineCard extends StatelessWidget {
               spacing: 12,
               runSpacing: 4,
               children: [
-                Text(
-                  axisLabel,
-                  style: Theme.of(context).textTheme.labelSmall,
-                ),
+                Text(axisLabel, style: Theme.of(context).textTheme.labelSmall),
                 Text(
                   'Time • ${timeframeLabel ?? 'requested range'}',
                   style: Theme.of(context).textTheme.labelSmall,
