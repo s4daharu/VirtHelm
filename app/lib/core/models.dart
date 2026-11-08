@@ -735,6 +735,169 @@ class GuestSnapshotInventory {
   final bool truncated;
 }
 
+String? _configurationValue(Object? value) {
+  String? raw;
+  if (value is String) {
+    raw = value;
+  } else if (value is num || value is bool) {
+    raw = value.toString();
+  } else {
+    return null;
+  }
+  final cleaned = raw
+      .replaceAll(RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]'), '')
+      .trim();
+  if (cleaned.isEmpty) return null;
+  return cleaned.length <= 300 ? cleaned : '${cleaned.substring(0, 300)}…';
+}
+
+class GuestConfigurationField {
+  const GuestConfigurationField({
+    required this.key,
+    required this.label,
+    required this.value,
+  });
+
+  final String key;
+  final String label;
+  final String value;
+}
+
+/// Transient, read-only subset of a PVE guest config.
+///
+/// Only explicitly reviewed fields are surfaced. Free-form or sensitive fields
+/// such as passwords, SSH keys, arbitrary args, hooks and unknown future keys
+/// are intentionally not copied into this model.
+class GuestConfiguration {
+  const GuestConfiguration({
+    required this.compute,
+    required this.platform,
+    required this.storage,
+    required this.network,
+    required this.withheldFields,
+    required this.malformedFields,
+    required this.truncated,
+  });
+
+  final List<GuestConfigurationField> compute;
+  final List<GuestConfigurationField> platform;
+  final List<GuestConfigurationField> storage;
+  final List<GuestConfigurationField> network;
+  final int withheldFields;
+  final int malformedFields;
+  final bool truncated;
+
+  int get visibleFieldCount =>
+      compute.length + platform.length + storage.length + network.length;
+
+  factory GuestConfiguration.fromApi(
+    Map<String, dynamic> json, {
+    required String kind,
+  }) {
+    if (kind != 'qemu' && kind != 'lxc') {
+      throw const FormatException('Unsupported guest configuration kind.');
+    }
+
+    final compute = <GuestConfigurationField>[];
+    final platform = <GuestConfigurationField>[];
+    final storage = <GuestConfigurationField>[];
+    final network = <GuestConfigurationField>[];
+    final consumed = <String>{};
+    var malformed = 0;
+    var truncated = false;
+
+    void add(
+      String key,
+      String label,
+      List<GuestConfigurationField> target,
+    ) {
+      if (!json.containsKey(key)) return;
+      consumed.add(key);
+      final value = _configurationValue(json[key]);
+      if (value == null) {
+        malformed++;
+        return;
+      }
+      target.add(
+        GuestConfigurationField(key: key, label: label, value: value),
+      );
+    }
+
+    add('cores', 'CPU cores', compute);
+    add('memory', 'Memory (MiB)', compute);
+    add('onboot', 'Start at boot', platform);
+    add('protection', 'Protected', platform);
+    add('startup', 'Startup order/delay', platform);
+
+    if (kind == 'qemu') {
+      add('sockets', 'CPU sockets', compute);
+      add('vcpus', 'Virtual CPUs', compute);
+      add('balloon', 'Balloon minimum (MiB)', compute);
+      add('cpu', 'CPU type', platform);
+      add('bios', 'Firmware', platform);
+      add('machine', 'Machine type', platform);
+      add('ostype', 'Guest OS type', platform);
+      add('agent', 'QEMU guest agent', platform);
+      add('scsihw', 'SCSI controller', platform);
+      add('numa', 'NUMA', platform);
+      add('boot', 'Boot order', platform);
+      add('hotplug', 'Hotplug', platform);
+    } else {
+      add('hostname', 'Hostname', platform);
+      add('swap', 'Swap (MiB)', compute);
+      add('arch', 'Architecture', platform);
+      add('ostype', 'Container OS type', platform);
+      add('unprivileged', 'Unprivileged container', platform);
+      add('features', 'Container features', platform);
+      add('console', 'Console', platform);
+      add('tty', 'TTY count', platform);
+    }
+
+    final storagePattern = kind == 'qemu'
+        ? RegExp(r'^(?:ide|sata|scsi|virtio|efidisk|tpmstate|unused)\d+$')
+        : RegExp(r'^(?:mp|unused)\d+$');
+    final storageKeys = json.keys
+        .where(
+          (key) =>
+              storagePattern.hasMatch(key) ||
+              (kind == 'lxc' && key == 'rootfs'),
+        )
+        .toList()
+      ..sort();
+    if (storageKeys.length > 32) truncated = true;
+    for (final key in storageKeys.take(32)) {
+      add(key, key == 'rootfs' ? 'Root filesystem' : key, storage);
+    }
+
+    final networkKeys = json.keys
+        .where(
+          (key) =>
+              RegExp(r'^net\d+$').hasMatch(key) ||
+              (kind == 'qemu' && RegExp(r'^ipconfig\d+$').hasMatch(key)),
+        )
+        .toList()
+      ..sort();
+    if (networkKeys.length > 32) truncated = true;
+    for (final key in networkKeys.take(32)) {
+      add(
+        key,
+        key.startsWith('ipconfig') ? 'Cloud-init $key' : key,
+        network,
+      );
+    }
+
+    return GuestConfiguration(
+      compute: List<GuestConfigurationField>.unmodifiable(compute),
+      platform: List<GuestConfigurationField>.unmodifiable(platform),
+      storage: List<GuestConfigurationField>.unmodifiable(storage),
+      network: List<GuestConfigurationField>.unmodifiable(network),
+      withheldFields: json.length - consumed.length,
+      malformedFields: malformed,
+      truncated: truncated,
+    );
+  }
+}
+
 class Guest {
   const Guest({
     required this.node,

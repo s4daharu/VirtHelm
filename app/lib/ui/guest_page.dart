@@ -32,6 +32,10 @@ class _GuestPageState extends State<GuestPage> {
   GuestSnapshotInventory? snapshotInventory;
   String? snapshotError;
   DateTime? snapshotsLoadedAt;
+  bool loadingConfiguration = false;
+  GuestConfiguration? configuration;
+  String? configurationError;
+  DateTime? configurationLoadedAt;
 
   bool get _currentSession =>
       widget.controller.active?.id == widget.profileId &&
@@ -99,6 +103,49 @@ class _GuestPageState extends State<GuestPage> {
       metricSeries = null;
       metricError = null;
     });
+  }
+
+  Future<void> loadConfiguration() async {
+    final guest = currentGuest();
+    if (loadingConfiguration || !_currentSession || guest == null) return;
+    setState(() {
+      loadingConfiguration = true;
+      configurationError = null;
+    });
+    try {
+      final result = await widget.controller.inspectGuestConfiguration(
+        profileId: widget.profileId,
+        generation: widget.generation,
+        guest: guest,
+      );
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        configuration = result;
+        configurationLoadedAt = result == null ? null : DateTime.now();
+        if (result == null) {
+          configurationError =
+              'Guest configuration is no longer current. Refresh and reopen this guest.';
+        }
+      });
+    } on PveFailure catch (error) {
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        configuration = null;
+        configurationLoadedAt = null;
+        configurationError = error.message;
+      });
+    } catch (_) {
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        configuration = null;
+        configurationLoadedAt = null;
+        configurationError = 'Could not load guest configuration.';
+      });
+    } finally {
+      if (mounted && _currentSession) {
+        setState(() => loadingConfiguration = false);
+      }
+    }
   }
 
   Future<void> loadSnapshots() async {
@@ -493,9 +540,9 @@ class _GuestPageState extends State<GuestPage> {
       ),
       const SizedBox(height: 14),
       Text(
-        'Console, snapshot changes, migrations, and configuration editing '
-        'require additional validated authentication and API workflows. '
-        'Read-only recovery visibility is available in the Recovery tab.',
+        'Read-only reviewed configuration fields are available in the '
+        'Configuration tab. Console, snapshot changes, migrations, and '
+        'configuration editing remain gated behind additional validated workflows.',
         style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
       ),
     ],
@@ -601,6 +648,170 @@ class _GuestPageState extends State<GuestPage> {
     );
   }
 
+  Widget _configurationSection(
+    String title,
+    IconData icon,
+    List<GuestConfigurationField> fields,
+  ) =>
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              for (final field in fields)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        field.label,
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(field.value),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+
+  Widget _configurationTab(Guest? guest) {
+    final visibleConfiguration = guest == null ? null : configuration;
+    final scheme = Theme.of(context).colorScheme;
+    final sections = <Widget>[];
+    if (visibleConfiguration != null) {
+      if (visibleConfiguration.compute.isNotEmpty) {
+        sections.add(
+          _configurationSection(
+            'Compute',
+            Icons.memory_rounded,
+            visibleConfiguration.compute,
+          ),
+        );
+      }
+      if (visibleConfiguration.platform.isNotEmpty) {
+        sections.add(
+          _configurationSection(
+            'Platform & boot',
+            Icons.settings_suggest_outlined,
+            visibleConfiguration.platform,
+          ),
+        );
+      }
+      if (visibleConfiguration.storage.isNotEmpty) {
+        sections.add(
+          _configurationSection(
+            'Storage',
+            Icons.storage_rounded,
+            visibleConfiguration.storage,
+          ),
+        );
+      }
+      if (visibleConfiguration.network.isNotEmpty) {
+        sections.add(
+          _configurationSection(
+            'Network',
+            Icons.hub_outlined,
+            visibleConfiguration.network,
+          ),
+        );
+      }
+    }
+
+    return _tabList(
+      key: const Key('guest-configuration-list'),
+      children: [
+        Text(
+          'Guest configuration',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Loaded only when requested and never persisted. VirtHelm displays '
+          'only reviewed allowlisted fields; passwords, SSH keys, arbitrary '
+          'arguments, hooks, descriptions, and unknown keys are not rendered.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.tonalIcon(
+            key: const Key('guest-load-configuration'),
+            onPressed: guest == null || loadingConfiguration
+                ? null
+                : loadConfiguration,
+            icon: loadingConfiguration
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.tune_rounded),
+            label: Text(
+              visibleConfiguration == null
+                  ? 'Load configuration'
+                  : 'Refresh configuration',
+            ),
+          ),
+        ),
+        if (guest != null && configurationError != null) ...[
+          const SizedBox(height: 10),
+          Text(configurationError!, style: TextStyle(color: scheme.error)),
+        ],
+        if (visibleConfiguration != null) ...[
+          const SizedBox(height: 10),
+          Text(
+            '${visibleConfiguration.visibleFieldCount} reviewed fields'
+            '${visibleConfiguration.withheldFields > 0 ? ' • ${visibleConfiguration.withheldFields} withheld/unsupported' : ''}'
+            '${visibleConfiguration.malformedFields > 0 ? ' • ${visibleConfiguration.malformedFields} malformed ignored' : ''}'
+            '${visibleConfiguration.truncated ? ' • device lists truncated locally' : ''}'
+            '${configurationLoadedAt != null ? ' • loaded ${formatAge(configurationLoadedAt!)}' : ''}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          if (visibleConfiguration.visibleFieldCount == 0) ...[
+            const SizedBox(height: 8),
+            const Card(
+              child: ListTile(
+                leading: Icon(Icons.visibility_off_outlined),
+                title: Text('No reviewed fields available'),
+                subtitle: Text(
+                  'The server response contained no configuration fields '
+                  'currently approved for display.',
+                ),
+              ),
+            ),
+          ],
+          for (final section in sections) ...[
+            const SizedBox(height: 8),
+            section,
+          ],
+        ],
+        const SizedBox(height: 14),
+        Text(
+          'Configuration editing, create/clone, and migration remain disabled '
+          'until their M4 mutation contracts and live-lab safety evidence exist.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+
   Widget _ioTab(Guest? guest) => _tabList(
     key: const Key('guest-io-list'),
     children: [
@@ -637,7 +848,9 @@ class _GuestPageState extends State<GuestPage> {
   );
 
   Widget _recoveryTab(Guest? guest) {
-    final snapshots = snapshotInventory?.snapshots ?? const <GuestSnapshot>[];
+    final visibleSnapshots = guest == null ? null : snapshotInventory;
+    final snapshots =
+        visibleSnapshots?.snapshots ?? const <GuestSnapshot>[];
     final recoveryPoints = snapshots.where((item) => !item.isCurrent).length;
     final backupTasks = _backupTasks(guest);
     final scheme = Theme.of(context).colorScheme;
@@ -674,16 +887,16 @@ class _GuestPageState extends State<GuestPage> {
             ),
           ),
         ),
-        if (snapshotError != null) ...[
+        if (guest != null && snapshotError != null) ...[
           const SizedBox(height: 10),
           Text(snapshotError!, style: TextStyle(color: scheme.error)),
         ],
-        if (snapshotInventory != null) ...[
+        if (visibleSnapshots != null) ...[
           const SizedBox(height: 10),
           Text(
             '$recoveryPoints snapshot${recoveryPoints == 1 ? '' : 's'}'
-            '${snapshotInventory!.malformedRecords > 0 ? ' • ${snapshotInventory!.malformedRecords} malformed ignored' : ''}'
-            '${snapshotInventory!.truncated ? ' • response truncated locally' : ''}'
+            '${visibleSnapshots.malformedRecords > 0 ? ' • ${visibleSnapshots.malformedRecords} malformed ignored' : ''}'
+            '${visibleSnapshots.truncated ? ' • response truncated locally' : ''}'
             '${snapshotsLoadedAt != null ? ' • loaded ${formatAge(snapshotsLoadedAt!)}' : ''}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
@@ -895,7 +1108,7 @@ class _GuestPageState extends State<GuestPage> {
           !operationBlocked;
       final guardReason = _guardReason(guest, operationBlocked);
       return DefaultTabController(
-        length: 4,
+        length: 5,
         child: Scaffold(
           appBar: AppBar(
             title: Text(guest?.name ?? widget.guest.name),
@@ -911,6 +1124,10 @@ class _GuestPageState extends State<GuestPage> {
               tabAlignment: TabAlignment.start,
               tabs: [
                 Tab(key: Key('guest-overview-tab'), text: 'Overview'),
+                Tab(
+                  key: Key('guest-configuration-tab'),
+                  text: 'Configuration',
+                ),
                 Tab(key: Key('guest-metrics-tab'), text: 'Metrics'),
                 Tab(key: Key('guest-io-tab'), text: 'I/O'),
                 Tab(key: Key('guest-recovery-tab'), text: 'Recovery'),
@@ -920,6 +1137,7 @@ class _GuestPageState extends State<GuestPage> {
           body: TabBarView(
             children: [
               _overviewTab(guest, scheme),
+              _configurationTab(guest),
               _metricsTab(),
               _ioTab(guest),
               _recoveryTab(guest),

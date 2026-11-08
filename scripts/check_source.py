@@ -71,7 +71,8 @@ required = [
    'docs/75-connection-management-onboarding.md',
    'docs/76-accessibility-theme-completion.md',
    'docs/77-whole-repository-cross-check-2026-11-08.md',
-   'docs/78-implementation-guest-recovery-readonly.md']
+   'docs/78-implementation-guest-recovery-readonly.md',
+   'docs/79-implementation-guest-configuration-read.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)
@@ -146,6 +147,13 @@ assert 'inspectGuestSnapshots' in files['app/lib/core/app_controller.dart']
 assert "Key('guest-recovery-tab')" in files['app/lib/ui/guest_page.dart']
 assert 'Snapshots are not backups' in files['app/lib/ui/guest_page.dart']
 assert 'does not prove an archive exists' in files['app/lib/ui/guest_page.dart']
+assert 'class GuestConfiguration' in files['app/lib/core/models.dart']
+assert 'Future<GuestConfiguration> guestConfiguration' in files['app/lib/core/pve_api.dart']
+assert "'${_guestPath(guest)}/config'" in files['app/lib/core/pve_api.dart']
+assert 'inspectGuestConfiguration' in files['app/lib/core/app_controller.dart']
+assert "Key('guest-configuration-tab')" in files['app/lib/ui/guest_page.dart']
+assert 'only reviewed allowlisted fields' in files['app/lib/ui/guest_page.dart']
+assert 'Configuration editing, create/clone, and migration remain disabled' in files['app/lib/ui/guest_page.dart']
 assert 'NodeMetricTimeframe' in files['app/lib/core/models.dart']
 assert 'Future<NodeMetricSeries> nodeMetrics' in files['app/lib/core/pve_api.dart']
 assert "'/nodes/${_segment(normalizedNode)}/rrddata'" in files['app/lib/core/pve_api.dart']

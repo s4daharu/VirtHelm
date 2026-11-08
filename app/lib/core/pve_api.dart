@@ -16,6 +16,7 @@ abstract class PveGateway {
   Future<ServerTaskStatus> taskStatus(TrackedTask task);
   Future<TaskLogResult> taskLog(String node, String upid, {int start = 0});
   Future<GuestSnapshotInventory> guestSnapshots(Guest guest);
+  Future<GuestConfiguration> guestConfiguration(Guest guest);
   Future<GuestMetricSeries> guestMetrics(
     Guest guest,
     GuestMetricTimeframe timeframe,
@@ -510,6 +511,24 @@ class DioPveGateway implements PveGateway {
       malformedRecords: malformed,
       truncated: raw.length > snapshotLimit,
     );
+  }
+
+  @override
+  Future<GuestConfiguration> guestConfiguration(Guest guest) async {
+    final raw = await _request('${_guestPath(guest)}/config');
+    if (raw is! Map) {
+      throw const PveFailure('Unexpected guest configuration response.');
+    }
+    try {
+      return GuestConfiguration.fromApi(
+        Map<String, dynamic>.from(raw),
+        kind: guest.kind,
+      );
+    } on FormatException {
+      throw const PveFailure('Unexpected guest configuration response.');
+    } on TypeError {
+      throw const PveFailure('Unexpected guest configuration response.');
+    }
   }
 
   @override

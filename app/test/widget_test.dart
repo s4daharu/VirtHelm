@@ -119,6 +119,34 @@ class _GuestSnapshotController extends AppController {
   }
 }
 
+class _GuestConfigurationController extends AppController {
+  _GuestConfigurationController(ProfileRepository repository)
+    : super(repository: repository);
+
+  final List<int> requestedVmids = [];
+
+  @override
+  Future<GuestConfiguration?> inspectGuestConfiguration({
+    required String profileId,
+    required int generation,
+    required Guest guest,
+  }) async {
+    requestedVmids.add(guest.vmid);
+    return GuestConfiguration.fromApi(
+      {
+        'cores': 4,
+        'memory': 4096,
+        'cpu': 'x86-64-v2-AES',
+        'scsi0': 'local-lvm:vm-101-disk-0,size=64G',
+        'net0': 'virtio=AA:BB:CC:DD:EE:FF,bridge=vmbr0',
+        'cipassword': 'must-not-render',
+        'args': 'secret=must-not-render',
+      },
+      kind: guest.kind,
+    );
+  }
+}
+
 class _NodeMetricController extends AppController {
   _NodeMetricController(ProfileRepository repository)
     : super(repository: repository);
@@ -602,6 +630,76 @@ void main() {
   });
 
   testWidgets(
+    'guest configuration is on-demand allowlisted and session redacted',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = _GuestConfigurationController(
+        ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      controller.active = const ConnectionProfile(
+        id: 'a',
+        name: 'A',
+        endpoint: 'https://a.example',
+      );
+      controller.inventory = Inventory.fromResources([
+        {
+          'type': 'qemu',
+          'node': 'pve1',
+          'vmid': 101,
+          'name': 'Web',
+          'status': 'running',
+        },
+      ]);
+      final guest = controller.inventory!.guests.single;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: GuestPage(
+            controller: controller,
+            guest: guest,
+            profileId: 'a',
+            generation: controller.connectionGeneration,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('guest-configuration-tab')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('guest-configuration-list')), findsOneWidget);
+      expect(controller.requestedVmids, isEmpty);
+      expect(find.text('CPU cores'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('guest-load-configuration')));
+      await tester.pumpAndSettle();
+      expect(controller.requestedVmids, [101]);
+      expect(find.text('CPU cores'), findsOneWidget);
+      expect(find.text('4'), findsOneWidget);
+      expect(find.text('Storage'), findsOneWidget);
+      expect(find.text('Network'), findsOneWidget);
+      expect(find.textContaining('2 withheld/unsupported'), findsOneWidget);
+      expect(find.textContaining('must-not-render'), findsNothing);
+
+      controller.inventory = Inventory.fromResources([]);
+      controller.notifyListeners();
+      await tester.pump();
+      expect(find.text('CPU cores'), findsNothing);
+      expect(find.text('local-lvm:vm-101-disk-0,size=64G'), findsNothing);
+
+      controller.active = const ConnectionProfile(
+        id: 'b',
+        name: 'B',
+        endpoint: 'https://b.example',
+      );
+      controller.notifyListeners();
+      await tester.pump();
+      expect(find.text('Web'), findsNothing);
+      expect(find.text('Guest unavailable'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'guest recovery tab loads snapshots and scopes recent backup tasks',
     (tester) async {
       SharedPreferences.setMockInitialValues({});
@@ -673,6 +771,11 @@ void main() {
       expect(find.text('before-upgrade'), findsOneWidget);
       expect(find.textContaining('1 malformed ignored'), findsOneWidget);
       expect(find.textContaining('Includes VM memory state'), findsOneWidget);
+
+      controller.inventory = Inventory.fromResources([]);
+      controller.notifyListeners();
+      await tester.pump();
+      expect(find.text('before-upgrade'), findsNothing);
 
       controller.active = const ConnectionProfile(
         id: 'b',
@@ -1508,7 +1611,7 @@ void main() {
       expect(guard.maxLines, isNull);
       expect(guard.overflow, isNull);
       expect(tester.takeException(), isNull);
-      for (final tab in ['Metrics', 'I/O', 'Recovery', 'Overview']) {
+      for (final tab in ['Configuration', 'Metrics', 'I/O', 'Recovery', 'Overview']) {
         await tester.ensureVisible(find.text(tab));
         await tester.pumpAndSettle();
         await tester.tap(find.text(tab));

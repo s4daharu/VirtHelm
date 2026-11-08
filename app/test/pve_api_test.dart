@@ -330,6 +330,49 @@ void main() {
     expect(result.truncated, isFalse);
   });
 
+  test('guest configuration GET returns only allowlisted fields', () async {
+    final dio = Dio();
+    late RequestOptions request;
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          request = options;
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'data': {
+                  'cores': 4,
+                  'memory': 4096,
+                  'scsi0': 'local-lvm:vm-101-disk-0,size=64G',
+                  'net0': 'virtio=AA:BB:CC:DD:EE:FF,bridge=vmbr0',
+                  'cipassword': 'server-secret',
+                  'args': '-fw_cfg password=server-secret',
+                },
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(profile, credentials, http: dio);
+    addTearDown(gateway.close);
+
+    final result = await gateway.guestConfiguration(guest);
+    expect(request.method, 'GET');
+    expect(request.path, '/nodes/pve1/qemu/101/config');
+    expect(result.visibleFieldCount, 4);
+    expect(result.withheldFields, 2);
+    final visible = [
+      ...result.compute,
+      ...result.platform,
+      ...result.storage,
+      ...result.network,
+    ].map((field) => field.value).join(' ');
+    expect(visible, isNot(contains('server-secret')));
+  });
+
   test('node RRD history uses bounded GET parameters and parsing', () async {
     final dio = Dio();
     late RequestOptions request;
