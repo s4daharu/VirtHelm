@@ -72,7 +72,8 @@ required = [
    'docs/76-accessibility-theme-completion.md',
    'docs/77-whole-repository-cross-check-2026-11-08.md',
    'docs/78-implementation-guest-recovery-readonly.md',
-   'docs/79-implementation-guest-configuration-read.md']
+   'docs/79-implementation-guest-configuration-read.md',
+   'docs/80-implementation-guest-permission-hints.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)
@@ -154,6 +155,13 @@ assert 'inspectGuestConfiguration' in files['app/lib/core/app_controller.dart']
 assert "Key('guest-configuration-tab')" in files['app/lib/ui/guest_page.dart']
 assert 'only reviewed allowlisted fields' in files['app/lib/ui/guest_page.dart']
 assert 'Configuration editing, create/clone, and migration remain disabled' in files['app/lib/ui/guest_page.dart']
+assert 'class GuestPermissionSnapshot' in files['app/lib/core/models.dart']
+assert 'abstract class GuestPermissionGateway' in files['app/lib/core/pve_api.dart']
+assert "'/access/permissions'" in files['app/lib/core/pve_api.dart']
+assert "queryParameters: {'path': '/vms/${guest.vmid}'}" in files['app/lib/core/pve_api.dart']
+assert 'inspectGuestPermissions' in files['app/lib/core/app_controller.dart']
+assert "Key('guest-access-tab')" in files['app/lib/ui/guest_page.dart']
+assert 'capability hints only' in files['app/lib/ui/guest_page.dart']
 assert 'NodeMetricTimeframe' in files['app/lib/core/models.dart']
 assert 'Future<NodeMetricSeries> nodeMetrics' in files['app/lib/core/pve_api.dart']
 assert "'/nodes/${_segment(normalizedNode)}/rrddata'" in files['app/lib/core/pve_api.dart']
