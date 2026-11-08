@@ -673,10 +673,25 @@ void main() {
       expect(controller.requestedVmids, [101]);
       expect(find.text('CPU cores'), findsOneWidget);
       expect(find.text('4'), findsOneWidget);
-      expect(find.text('Storage'), findsOneWidget);
-      expect(find.text('Network'), findsOneWidget);
       expect(find.textContaining('2 withheld/unsupported'), findsOneWidget);
       expect(find.textContaining('must-not-render'), findsNothing);
+
+      final configurationScroll = find.descendant(
+        of: find.byKey(const Key('guest-configuration-list')),
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.text('Storage'),
+        200,
+        scrollable: configurationScroll,
+      );
+      expect(find.text('Storage'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Network'),
+        200,
+        scrollable: configurationScroll,
+      );
+      expect(find.text('Network'), findsOneWidget);
 
       controller.inventory = Inventory.fromResources([]);
       controller.notifyListeners();
