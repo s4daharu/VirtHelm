@@ -238,6 +238,7 @@ class AppController extends ChangeNotifier {
     required Guest guest,
   }) async {
     final gateway = _gateway;
+    final permissionGateway = gateway is GuestPermissionGateway ? gateway : null;
     bool current() =>
         !_disposed && generation == _generation && active?.id == profileId;
     Guest? currentGuest() {
@@ -252,7 +253,7 @@ class AppController extends ChangeNotifier {
     }
 
     if (!current() ||
-        gateway is! GuestPermissionGateway ||
+        permissionGateway == null ||
         deviceNetworkState == DeviceNetworkState.unavailable) {
       return null;
     }
@@ -260,7 +261,7 @@ class AppController extends ChangeNotifier {
     if (target == null) return null;
 
     try {
-      final result = await gateway.guestPermissions(target);
+      final result = await permissionGateway.guestPermissions(target);
       if (!current() || currentGuest() == null) return null;
       return result;
     } on PveFailure catch (error) {
