@@ -14,6 +14,7 @@
 | Method | Endpoint (relative to `/api2/json`) | Feature | Expected concept | Status |
 |---|---|---|---|---|
 | GET | `/version` | connect test | `version`, `release` fields | Officially documented, live fixture pending |
+| GET | `/access/permissions` with `path=/vms/{vmid}` | exact guest permission hints | map of ACL path -> effective privilege -> propagation flag | Upstream access-control source confirmed; live 8.4/9.2 fixture pending |
 | GET | `/cluster/resources` | global overview | list of nodes/guests/storage; optional `type` filter | Candidate contract; validate details |
 | GET | `/nodes` | node list | node state/identifier | Candidate contract; validate details |
 | GET | `/nodes/{node}/status` | node detail | CPU, memory, uptime, etc. | Candidate contract; validate details |
@@ -40,6 +41,8 @@
 Guest, node and storage performance history use only `hour`, `day`, and `week` timeframes with `cf=AVERAGE` in the source implementation. Node history currently retains CPU and memory ratios only. Storage history retains non-negative used bytes and positive total bytes, and computes a usage ratio only when used does not exceed total. Broader RRD fields remain deferred until versioned fixtures establish units and missing-point behavior. Samples are treated as provisional until sanitized PVE 9.2/8.4 fixtures confirm field availability, units, ACL behavior, timestamp resolution, and missing-point semantics.
 
 Guest resource entries may also expose optional `tags` and `pool` discovery metadata. Upstream source history confirms guest tags on `/cluster/resources`; this client treats both fields as display/filter metadata only and still requires sanitized PVE 8.4/9.2 fixtures for exact availability, ACL, case-sensitivity and pool-shape behavior. Missing or malformed optional metadata is unavailable rather than a malformed guest identity.\n\nGuest resource entries may include optional `netin`, `netout`, `diskread`, and `diskwrite` cumulative byte counters. They are **not** current bytes/second; missing or malformed fields are unavailable rather than zero. Source-level parsing/display is covered by synthetic tests, while exact PVE 8.4/9.2 fixtures and lifecycle reset semantics still require validation.
+
+For guest permission hints, VirtHelm requests only the authenticated token's own exact `/vms/{vmid}` path. Upstream access-control source explicitly allows a user/token to dump its own effective permissions. Presence of a privilege at the exact path is treated as the grant; the returned boolean/0/1 value is a propagation flag and is not used as an allow/deny value. The result remains a presentation hint only and never replaces operation-specific server authorization or live mutation preflight. Live 8.4/9.2 token/ACL fixtures are still required.
 
 `Candidate contract` means endpoint family is known from the PVE API/source ecosystem but exact methods, optional params and return schemas were **not independently live-tested** for both 8.4 and 9.2 when this package was prepared. Treat this table as a work queue, not a frozen/generated OpenAPI schema. API viewer on installed target PVE is definitive for that server.
 
