@@ -1993,6 +1993,7 @@ class _SettingsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView(
+    key: const Key('settings-list'),
     padding: const EdgeInsets.all(18),
     children: [
       Text('Connections', style: Theme.of(context).textTheme.titleLarge),
