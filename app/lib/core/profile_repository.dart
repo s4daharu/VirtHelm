@@ -49,6 +49,8 @@ class ProfileRepository {
   static const _themeKey = 'ui_theme_v1';
   static const _refreshKey = 'ui_refresh_v1';
   static const _nodeMetricsKey = 'ui_node_metrics_v1';
+  static const _highContrastKey = 'ui_high_contrast_v1';
+  static const _reduceMotionKey = 'ui_reduce_motion_v1';
   static const _offlineEnabledPrefix = 'offline_counts_enabled_v1:';
   static const _offlineCountsPrefix = 'offline_counts_v1:';
   Future<void> _writes = Future<void>.value();
@@ -118,6 +120,16 @@ class ProfileRepository {
     return raw is bool ? raw : true;
   }
 
+  bool get highContrast {
+    final raw = _prefs.get(_highContrastKey);
+    return raw is bool ? raw : false;
+  }
+
+  bool get reduceMotion {
+    final raw = _prefs.get(_reduceMotionKey);
+    return raw is bool ? raw : false;
+  }
+
   Future<void> setThemePreference(AppThemePreference value) =>
       _mutate(() async {
         if (!await _prefs.setString(_themeKey, value.name)) {
@@ -135,6 +147,18 @@ class ProfileRepository {
   Future<void> setShowNodeMetrics(bool value) => _mutate(() async {
     if (!await _prefs.setBool(_nodeMetricsKey, value)) {
       throw StateError('Could not save display preference.');
+    }
+  });
+
+  Future<void> setHighContrast(bool value) => _mutate(() async {
+    if (!await _prefs.setBool(_highContrastKey, value)) {
+      throw StateError('Could not save contrast preference.');
+    }
+  });
+
+  Future<void> setReduceMotion(bool value) => _mutate(() async {
+    if (!await _prefs.setBool(_reduceMotionKey, value)) {
+      throw StateError('Could not save motion preference.');
     }
   });
 
