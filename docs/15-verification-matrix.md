@@ -5,6 +5,7 @@ Evidence status codes: **DOC** = official source substantiates the concept; **AU
 | Claim / behavior | Current evidence | Remaining evidence |
 |---|---|---|
 | PVE HTTPS/API-token protocol and token-console limitation | DOC + AUTO header/transport tests | PVE 8.4/9.2 auth/ACL lab |
+| Exact-guest effective permission hints via `/access/permissions?path=/vms/{vmid}` | DOC upstream access-control contract + AUTO parser/gateway/controller/widget tests | sanitized PVE 8.4/9.2 token privilege-separation/ACL fixtures and physical Android accessibility/network lifecycle |
 | HTTPS-only origin, redirect rejection, explicit TLS failure | AUTO | physical-device valid/wrong-name/expired/private-CA tests |
 | Profile credential isolation and secure-storage metadata separation | AUTO | Android Keystore backup/restore/device-loss tests |
 | Guest detail/confirmation redaction on profile switch and same-profile reconnect | AUTO widget regression and generation guards | physical Android route/dialog race and screen privacy testing |
