@@ -239,7 +239,9 @@ class AppController extends ChangeNotifier {
   }) async {
     final gateway = _gateway;
     final GuestPermissionGateway? permissionGateway =
-        gateway is GuestPermissionGateway ? gateway : null;
+        gateway is GuestPermissionGateway
+        ? gateway as GuestPermissionGateway
+        : null;
     bool current() =>
         !_disposed && generation == _generation && active?.id == profileId;
     Guest? currentGuest() {
