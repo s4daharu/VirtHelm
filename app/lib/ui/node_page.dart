@@ -228,15 +228,18 @@ class _NodePageState extends State<NodePage> {
   );
 
   Widget _metricsTab() {
+    final points = metricSeries?.points ?? const <NodeMetricPoint>[];
+    final cpuPoints = points
+        .where((point) => point.cpuFraction != null)
+        .toList(growable: false);
+    final memoryPoints = points
+        .where((point) => point.memoryFraction != null)
+        .toList(growable: false);
     final cpuHistory = normalizedSamples(
-      (metricSeries?.points ?? const <NodeMetricPoint>[]).map(
-        (point) => point.cpuFraction,
-      ),
+      cpuPoints.map((point) => point.cpuFraction),
     );
     final memoryHistory = normalizedSamples(
-      (metricSeries?.points ?? const <NodeMetricPoint>[]).map(
-        (point) => point.memoryFraction,
-      ),
+      memoryPoints.map((point) => point.memoryFraction),
     );
     return _tabList(
       key: const Key('node-metrics-list'),
@@ -304,14 +307,20 @@ class _NodePageState extends State<NodePage> {
             title: 'CPU average',
             icon: Icons.memory_rounded,
             values: cpuHistory,
+            timestamps: cpuPoints.map((point) => point.timestamp).toList(),
             summary: fractionRangeSummary(cpuHistory),
+            axisLabel: 'CPU usage (%)',
+            timeframeLabel: metricTimeframe.label,
           ),
           const SizedBox(height: 8),
           SparklineCard(
             title: 'Memory average',
             icon: Icons.storage_rounded,
             values: memoryHistory,
+            timestamps: memoryPoints.map((point) => point.timestamp).toList(),
             summary: fractionRangeSummary(memoryHistory),
+            axisLabel: 'Memory usage (%)',
+            timeframeLabel: metricTimeframe.label,
           ),
         ],
       ],

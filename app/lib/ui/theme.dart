@@ -48,25 +48,54 @@ class VirtHelmStatusColors extends ThemeExtension<VirtHelmStatusColors> {
   }
 }
 
-VirtHelmStatusColors _statusColors(ColorScheme scheme, bool dark) =>
-    VirtHelmStatusColors(
-      positive: dark ? const Color(0xFF52D6B4) : const Color(0xFF087A64),
-      warning: dark ? const Color(0xFFF3B26F) : const Color(0xFF9A5A12),
-      error: scheme.error,
-      neutral: scheme.onSurfaceVariant,
-    );
+VirtHelmStatusColors _statusColors(
+  ColorScheme scheme,
+  bool dark, {
+  bool highContrast = false,
+}) => VirtHelmStatusColors(
+  positive: highContrast
+      ? (dark ? const Color(0xFF77F2CE) : const Color(0xFF00634F))
+      : (dark ? const Color(0xFF52D6B4) : const Color(0xFF087A64)),
+  warning: highContrast
+      ? (dark ? const Color(0xFFFFC67A) : const Color(0xFF784000))
+      : (dark ? const Color(0xFFF3B26F) : const Color(0xFF9A5A12)),
+  error: scheme.error,
+  neutral: scheme.onSurfaceVariant,
+);
 
-ThemeData virthelmTheme(Brightness brightness) {
+ThemeData virthelmTheme(
+  Brightness brightness, {
+  bool amoled = false,
+  bool highContrast = false,
+}) {
   final dark = brightness == Brightness.dark;
-  final scheme = ColorScheme.fromSeed(
+  final generatedScheme = ColorScheme.fromSeed(
     seedColor: _seedColor,
     brightness: brightness,
     dynamicSchemeVariant: DynamicSchemeVariant.tonalSpot,
   );
-  final surface = dark ? const Color(0xFF0C1417) : const Color(0xFFF4F8F8);
-  final cardColor = dark ? const Color(0xFF162125) : Colors.white;
-  final navColor = dark ? const Color(0xFF111B1E) : Colors.white;
-  final border = scheme.outlineVariant.withValues(alpha: dark ? 0.32 : 0.55);
+  final scheme = amoled && dark
+      ? generatedScheme.copyWith(
+          surface: Colors.black,
+          surfaceContainerLowest: Colors.black,
+          surfaceContainerLow: const Color(0xFF050707),
+          surfaceContainer: const Color(0xFF080B0C),
+          surfaceContainerHigh: const Color(0xFF0D1112),
+          surfaceContainerHighest: const Color(0xFF141A1B),
+        )
+      : generatedScheme;
+  final surface = amoled && dark
+      ? Colors.black
+      : (dark ? const Color(0xFF0C1417) : const Color(0xFFF4F8F8));
+  final cardColor = amoled && dark
+      ? const Color(0xFF050707)
+      : (dark ? const Color(0xFF162125) : Colors.white);
+  final navColor = amoled && dark
+      ? Colors.black
+      : (dark ? const Color(0xFF111B1E) : Colors.white);
+  final border = highContrast
+      ? scheme.outline
+      : scheme.outlineVariant.withValues(alpha: dark ? 0.32 : 0.55);
   final base = ThemeData(brightness: brightness, useMaterial3: true);
   final textTheme = base.textTheme.copyWith(
     headlineSmall: base.textTheme.headlineSmall?.copyWith(
@@ -102,7 +131,9 @@ ThemeData virthelmTheme(Brightness brightness) {
     colorScheme: scheme,
     scaffoldBackgroundColor: surface,
     textTheme: textTheme,
-    extensions: <ThemeExtension<dynamic>>[_statusColors(scheme, dark)],
+    extensions: <ThemeExtension<dynamic>>[
+      _statusColors(scheme, dark, highContrast: highContrast),
+    ],
     appBarTheme: AppBarTheme(
       backgroundColor: surface,
       surfaceTintColor: Colors.transparent,
@@ -166,7 +197,7 @@ ThemeData virthelmTheme(Brightness brightness) {
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        minimumSize: const Size(48, 44),
+        minimumSize: const Size(48, 48),
         textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
       ),
     ),

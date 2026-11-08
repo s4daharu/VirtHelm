@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:virthelm/ui/components.dart';
 import 'package:virthelm/ui/theme.dart';
 
 void main() {
@@ -57,5 +58,48 @@ void main() {
     expect(find.text('Not connected'), findsOneWidget);
     await tester.tap(find.text('Retry'));
     expect(tapped, isTrue);
+  });
+
+  test('AMOLED and high-contrast themes use explicit surface treatment', () {
+    final amoled = virthelmTheme(Brightness.dark, amoled: true);
+    expect(amoled.scaffoldBackgroundColor, Colors.black);
+
+    final highContrast = virthelmTheme(Brightness.light, highContrast: true);
+    final cardShape = highContrast.cardTheme.shape as RoundedRectangleBorder;
+    expect(cardShape.side.color, highContrast.colorScheme.outline);
+  });
+
+  testWidgets('sparklines expose axes and an accessible data table', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: virthelmTheme(Brightness.light),
+        home: Scaffold(
+          body: SparklineCard(
+            title: 'CPU average',
+            icon: Icons.memory_rounded,
+            values: const [0.25, 0.5],
+            timestamps: [
+              DateTime.utc(2026, 11, 8, 10),
+              DateTime.utc(2026, 11, 8, 11),
+            ],
+            summary: 'Latest 50.0%',
+            axisLabel: 'CPU usage (%)',
+            timeframeLabel: '1 hour',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('100%'), findsOneWidget);
+    expect(find.text('50%'), findsOneWidget);
+    expect(find.text('0%'), findsOneWidget);
+    expect(find.text('CPU usage (%)'), findsOneWidget);
+    expect(find.text('Time • 1 hour'), findsOneWidget);
+    await tester.tap(find.text('View data table'));
+    await tester.pumpAndSettle();
+    expect(find.text('CPU average data'), findsOneWidget);
+    expect(find.textContaining('UTC'), findsNWidgets(2));
   });
 }

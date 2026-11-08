@@ -1,5 +1,5 @@
 // Non-secret, device-local UI preferences. No server data or credentials.
-enum AppThemePreference { system, light, dark }
+enum AppThemePreference { system, light, dark, amoled }
 
 enum AutoRefreshPreference {
   off,

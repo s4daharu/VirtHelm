@@ -33,6 +33,8 @@ class VirtHelmApp extends StatefulWidget {
 class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
   late final AppController controller;
   late final ValueNotifier<AppThemePreference> _themePreference;
+  late final ValueNotifier<bool> _highContrast;
+  late final ValueNotifier<bool> _reduceMotion;
   late final StreamSubscription<DeviceNetworkState> _networkSubscription;
 
   @override
@@ -41,7 +43,9 @@ class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     controller = AppController(repository: widget.repository);
     _themePreference = ValueNotifier(controller.themePreference);
-    controller.addListener(_syncThemePreference);
+    _highContrast = ValueNotifier(controller.highContrast);
+    _reduceMotion = ValueNotifier(controller.reduceMotion);
+    controller.addListener(_syncVisualPreferences);
     _networkSubscription = deviceNetworkChanges().listen(
       controller.setDeviceNetworkState,
       onError: (Object _) =>
@@ -52,9 +56,15 @@ class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
 
   // Keep the MaterialApp rebuild scoped to rare theme changes. Inventory,
   // task and incident notifications rebuild only the active shell subtree.
-  void _syncThemePreference() {
+  void _syncVisualPreferences() {
     if (_themePreference.value != controller.themePreference) {
       _themePreference.value = controller.themePreference;
+    }
+    if (_highContrast.value != controller.highContrast) {
+      _highContrast.value = controller.highContrast;
+    }
+    if (_reduceMotion.value != controller.reduceMotion) {
+      _reduceMotion.value = controller.reduceMotion;
     }
   }
 
@@ -66,8 +76,10 @@ class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    controller.removeListener(_syncThemePreference);
+    controller.removeListener(_syncVisualPreferences);
     _themePreference.dispose();
+    _highContrast.dispose();
+    _reduceMotion.dispose();
     unawaited(_networkSubscription.cancel());
     controller.dispose();
     super.dispose();
@@ -87,23 +99,59 @@ class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      ValueListenableBuilder<AppThemePreference>(
-        valueListenable: _themePreference,
-        builder: (context, themePreference, _) => MaterialApp(
-          title: 'VirtHelm',
-          debugShowCheckedModeBanner: false,
-          theme: virthelmTheme(Brightness.light),
-          darkTheme: virthelmTheme(Brightness.dark),
-          themeMode: switch (themePreference) {
-            AppThemePreference.system => ThemeMode.system,
-            AppThemePreference.light => ThemeMode.light,
-            AppThemePreference.dark => ThemeMode.dark,
-          },
-          home: AnimatedBuilder(
-            animation: controller,
-            builder: (context, _) => _home(),
-          ),
-        ),
-      );
+  Widget build(
+    BuildContext context,
+  ) => ValueListenableBuilder<AppThemePreference>(
+    valueListenable: _themePreference,
+    builder: (context, themePreference, _) => ValueListenableBuilder<bool>(
+      valueListenable: _highContrast,
+      builder: (context, highContrast, _) => ValueListenableBuilder<bool>(
+        valueListenable: _reduceMotion,
+        builder: (context, reduceMotion, _) {
+          final amoled = themePreference == AppThemePreference.amoled;
+          return MaterialApp(
+            title: 'VirtHelm',
+            debugShowCheckedModeBanner: false,
+            theme: virthelmTheme(Brightness.light, highContrast: highContrast),
+            darkTheme: virthelmTheme(
+              Brightness.dark,
+              amoled: amoled,
+              highContrast: highContrast,
+            ),
+            highContrastTheme: virthelmTheme(
+              Brightness.light,
+              highContrast: true,
+            ),
+            highContrastDarkTheme: virthelmTheme(
+              Brightness.dark,
+              amoled: amoled,
+              highContrast: true,
+            ),
+            themeAnimationDuration: reduceMotion
+                ? Duration.zero
+                : const Duration(milliseconds: 200),
+            themeMode: switch (themePreference) {
+              AppThemePreference.system => ThemeMode.system,
+              AppThemePreference.light => ThemeMode.light,
+              AppThemePreference.dark => ThemeMode.dark,
+              AppThemePreference.amoled => ThemeMode.dark,
+            },
+            builder: (context, child) {
+              final media = MediaQuery.of(context);
+              return MediaQuery(
+                data: media.copyWith(
+                  disableAnimations: media.disableAnimations || reduceMotion,
+                ),
+                child: child!,
+              );
+            },
+            home: AnimatedBuilder(
+              animation: controller,
+              builder: (context, _) => _home(),
+            ),
+          );
+        },
+      ),
+    ),
+  );
 }

@@ -59,6 +59,8 @@ class AppController extends ChangeNotifier {
   AppThemePreference themePreference = AppThemePreference.system;
   AutoRefreshPreference autoRefreshPreference = AutoRefreshPreference.off;
   bool showNodeMetrics = true;
+  bool highContrast = false;
+  bool reduceMotion = false;
   DeviceNetworkState deviceNetworkState = DeviceNetworkState.unknown;
 
   PveGateway? _gateway;
@@ -387,6 +389,8 @@ class AppController extends ChangeNotifier {
       themePreference = repository.themePreference;
       autoRefreshPreference = repository.autoRefreshPreference;
       showNodeMetrics = repository.showNodeMetrics;
+      highContrast = repository.highContrast;
+      reduceMotion = repository.reduceMotion;
       profiles = repository.readProfiles();
       final selected = repository.activeId;
       if (selected != null) {
@@ -429,6 +433,22 @@ class AppController extends ChangeNotifier {
     await repository.setShowNodeMetrics(value);
     if (_disposed) return;
     showNodeMetrics = value;
+    _notify();
+  }
+
+  Future<void> setHighContrast(bool value) async {
+    if (_disposed) return;
+    await repository.setHighContrast(value);
+    if (_disposed) return;
+    highContrast = value;
+    _notify();
+  }
+
+  Future<void> setReduceMotion(bool value) async {
+    if (_disposed) return;
+    await repository.setReduceMotion(value);
+    if (_disposed) return;
+    reduceMotion = value;
     _notify();
   }
 

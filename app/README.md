@@ -32,7 +32,8 @@ The committed `pubspec.lock` is enforced. The bootstrap generates the Android ru
 - Fresh clean-inventory guard, live status preflight, exactly one POST, per-guest single-flight lock, no write auto-retry.
 - UPID polling with terminal exit-status verification, bounded TTL, unknown-outcome lockout, and post-task reconciliation.
 - Authentication revocation, stale/profile-switch/deletion races, malformed inventory and gateway contract regression tests.
-- Device/light/dark theme preference, optional foreground-only GET refresh (manual, 30/60/120 seconds), and node-metric display preference saved without credential-vault writes.
+- Device/light/dark/AMOLED theme preference, optional high-contrast and reduced-motion settings, optional foreground-only GET refresh (manual, 30/60/120 seconds), and node-metric display preference saved without credential-vault writes.
+- Guest/node/storage RRD charts include visible percentage/time axes plus an on-demand timestamped sample table; chart alternatives remain read-only and transient.
 - CI format/analyzer/coverage tests and Android debug APK compile verification.
 
 ## Not yet release-complete

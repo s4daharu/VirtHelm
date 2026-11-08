@@ -17,6 +17,7 @@ import 'package:virthelm/ui/node_page.dart';
 import 'package:virthelm/ui/shell.dart';
 import 'package:virthelm/ui/storage_page.dart';
 import 'package:virthelm/ui/task_details_page.dart';
+import 'package:virthelm/ui/theme.dart';
 
 class _EmptyVault implements CredentialVault {
   @override
@@ -370,11 +371,13 @@ void main() {
     await tester.tap(find.text('Load history'));
     await tester.pumpAndSettle();
     expect(controller.requestedTimeframes, [NodeMetricTimeframe.hour]);
+    await tester.ensureVisible(find.textContaining('1 malformed ignored'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('1 malformed ignored'), findsOneWidget);
     await tester.ensureVisible(find.textContaining('Latest 40.0%'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Latest 40.0%'), findsOneWidget);
     expect(find.textContaining('Range 20.0%–40.0%'), findsOneWidget);
-    expect(find.textContaining('1 malformed ignored'), findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.text('24 hours'),
@@ -1835,6 +1838,29 @@ void main() {
     );
   });
 
+  testWidgets('app applies AMOLED, contrast and reduced motion before setup', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final repository = ProfileRepository(prefs, _EmptyVault());
+    await repository.setThemePreference(AppThemePreference.amoled);
+    await repository.setHighContrast(true);
+    await repository.setReduceMotion(true);
+
+    await tester.pumpWidget(VirtHelmApp(repository: repository));
+    await tester.pumpAndSettle();
+
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(app.themeMode, ThemeMode.dark);
+    expect(app.darkTheme?.scaffoldBackgroundColor, Colors.black);
+    expect(app.themeAnimationDuration, Duration.zero);
+    expect(
+      MediaQuery.of(tester.element(find.byType(ConnectPage))).disableAnimations,
+      isTrue,
+    );
+  });
+
   testWidgets('local settings persist and hide optional node metrics', (
     tester,
   ) async {
@@ -1877,6 +1903,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.themePreference, AppThemePreference.dark);
 
+    await tester.ensureVisible(
+      find.byKey(const Key('high-contrast-preference')),
+    );
+    await tester.tap(find.byKey(const Key('high-contrast-preference')));
+    await tester.pumpAndSettle();
+    expect(repository.highContrast, isTrue);
+
+    await tester.ensureVisible(
+      find.byKey(const Key('reduce-motion-preference')),
+    );
+    await tester.tap(find.byKey(const Key('reduce-motion-preference')));
+    await tester.pumpAndSettle();
+    expect(repository.reduceMotion, isTrue);
+
     await tester.ensureVisible(find.byKey(const Key('refresh-preference')));
     await tester.tap(find.byKey(const Key('refresh-preference')));
     await tester.pumpAndSettle();
@@ -1898,6 +1938,70 @@ void main() {
     expect(find.textContaining('CPU 10.0%'), findsNothing);
     expect(find.text('pve1'), findsOneWidget);
   });
+
+  testWidgets(
+    'settings fit 360 393 and 412dp at 200 percent text in light and dark',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = AppController(
+        repository: ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      controller.active = const ConnectionProfile(
+        id: 'lab',
+        name: 'Lab',
+        endpoint: 'https://pve.local:8006',
+      );
+      controller.inventory = Inventory.fromResources([
+        {'type': 'node', 'node': 'pve1', 'status': 'online'},
+      ]);
+
+      for (final width in const [360.0, 393.0, 412.0]) {
+        for (final brightness in const [Brightness.light, Brightness.dark]) {
+          tester.view.physicalSize = Size(width, 800);
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: virthelmTheme(brightness, highContrast: true),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(2)),
+                child: child!,
+              ),
+              home: ShellPage(
+                key: ValueKey('settings-$width-$brightness'),
+                controller: controller,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final navigation = tester.widget<NavigationBar>(
+            find.byType(NavigationBar),
+          );
+          navigation.onDestinationSelected?.call(4);
+          await tester.pumpAndSettle();
+          await tester.scrollUntilVisible(
+            find.byKey(const Key('high-contrast-preference')),
+            180,
+            scrollable: find.descendant(
+              of: find.byKey(const Key('settings-list')),
+              matching: find.byType(Scrollable),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: '$width dp / $brightness',
+          );
+        }
+      }
+    },
+  );
 
   testWidgets('Home labels cached counts without exposing a guest list', (
     tester,
