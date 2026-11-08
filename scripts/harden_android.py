@@ -2,6 +2,7 @@
 """Fail closed if the generated Android runner cannot be hardened."""
 from pathlib import Path
 import re
+import shutil
 
 root = Path(__file__).resolve().parents[1]
 manifest = root / 'app/android/app/src/main/AndroidManifest.xml'
@@ -26,6 +27,7 @@ for name, value in (
     ('android:allowBackup', 'false'),
     ('android:usesCleartextTraffic', 'false'),
     ('android:label', 'VirtHelm'),
+    ('android:roundIcon', '@mipmap/ic_launcher_round'),
 ):
     if re.search(fr'{name}="[^"]*"', node):
         node = re.sub(fr'{name}="[^"]*"', f'{name}="{value}"', node)
@@ -67,6 +69,20 @@ if ('package com.s4daharu.virthelm' not in activity_text or
     raise SystemExit('Generated MainActivity changed; review before replacement.')
 activity.write_text(template.read_text(encoding='utf-8'), encoding='utf-8')
 
+# Keep launcher branding outside the ignored Android runner, then install it
+# deterministically after every Flutter runner generation.
+launcher_resources = root / 'scripts/android/launcher'
+runner_resources = root / 'app/android/app/src/main/res'
+if not launcher_resources.is_dir():
+    raise SystemExit('Reviewed launcher resources missing; refusing unbranded runner.')
+runner_resources.mkdir(parents=True, exist_ok=True)
+for source in launcher_resources.rglob('*'):
+    if not source.is_file():
+        continue
+    destination = runner_resources / source.relative_to(launcher_resources)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, destination)
+
 # Flutter's template requests an 8G heap, which can thrash an 8 GB host.
 # Preserve unrelated settings while enforcing the project's build resource caps.
 properties = root / 'app/android/gradle.properties'
@@ -82,5 +98,6 @@ lines.extend(f'{key}={value}' for key, value in caps.items())
 properties.write_text('\n'.join(lines) + '\n', encoding='utf-8')
 print(
     'Hardened Android runner: network permissions enabled, backups/cleartext disabled, '
-    'minSdk 26, no debug release signing, capped Gradle/Kotlin resources'
+    'minSdk 26, branded adaptive launcher icon, no debug release signing, capped '
+    'Gradle/Kotlin resources'
 )

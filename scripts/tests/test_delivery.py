@@ -46,6 +46,8 @@ class DeliveryTests(unittest.TestCase):
         template = self.root / 'scripts/android/MainActivity.kt'
         template.parent.mkdir(parents=True)
         shutil.copy2(ROOT / 'scripts/android/MainActivity.kt', template)
+        launcher = self.root / 'scripts/android/launcher'
+        shutil.copytree(ROOT / 'scripts/android/launcher', launcher)
         gradle = self.root / 'app/android/app/build.gradle.kts'
         (self.root / 'app/android/gradle.properties').write_text(
             'org.gradle.jvmargs=-Xmx8G\nandroid.useAndroidX=true\n')
@@ -72,6 +74,17 @@ android {
         self.assertIn('android.useAndroidX=true', properties)
         self.assertIn('ACCESS_NETWORK_STATE', manifest.read_text())
         self.assertIn('registerDefaultNetworkCallback', activity.read_text())
+        icon = self.root / 'app/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml'
+        foreground = self.root / 'app/android/app/src/main/res/drawable/virthelm_icon_foreground.xml'
+        self.assertEqual(
+            icon.read_text(),
+            (ROOT / 'scripts/android/launcher/mipmap-anydpi-v26/ic_launcher.xml').read_text(),
+        )
+        self.assertEqual(
+            foreground.read_text(),
+            (ROOT / 'scripts/android/launcher/drawable/virthelm_icon_foreground.xml').read_text(),
+        )
+        self.assertIn('android:roundIcon="@mipmap/ic_launcher_round"', manifest.read_text())
 
         script = release_script('Configure generated runner for release signing')
         self.run_checked(['bash', '-euo', 'pipefail', '-c', script], cwd=self.root / 'app')
