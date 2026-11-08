@@ -28,6 +28,7 @@ The committed `pubspec.lock` is enforced. The bootstrap generates the Android ru
 - On-demand read-only QEMU/LXC snapshot inventory, exact-profile/session/guest scoped and never persisted; snapshot creation, rollback, and deletion are not exposed.
 - Guest-scoped recent `vzdump` task outcomes from the existing recent-task window, explicitly not treated as proof that a backup archive exists, was verified, or is restorable.
 - On-demand QEMU/LXC configuration inspection using an explicit reviewed allowlist; passwords, SSH keys, arbitrary args/hooks/descriptions and unknown future keys are never copied into the display model.
+- On-demand exact-guest effective permission hints from `/access/permissions`, kept transient and presentation-only; they never replace Proxmox ACL enforcement or VirtHelm's live mutation preflight.
 - Foreground-only ALERT-001 incident inbox for explicit node-state problems, failed recent server tasks and failed/unknown session tasks; incomplete task reads retain prior failures instead of falsely resolving them.
 - Profile-scoped ALERT-002/003 foreground CPU and storage threshold rules persisted as non-secret local metadata; missing/stale samples do not falsely resolve a prior firing.
 - ALERT-006 adds 1–10 consecutive usable foreground samples before firing and 0–20 percentage points of clear hysteresis, with backward-compatible saved-rule defaults.
