@@ -72,7 +72,7 @@ class _FailNextStoreVault extends _Vault {
   }
 }
 
-class _Gateway implements PveGateway {
+class _Gateway implements PveGateway, GuestPermissionGateway {
   int submissions = 0;
   int inventoryCalls = 0;
   int taskStatusCalls = 0;
@@ -95,6 +95,11 @@ class _Gateway implements PveGateway {
     'memory': 4096,
     'scsi0': 'local-lvm:vm-101-disk-0,size=64G',
   }, kind: 'qemu');
+  int guestPermissionCalls = 0;
+  PveFailure? guestPermissionFailure;
+  GuestPermissionSnapshot guestPermissionResult = const GuestPermissionSnapshot(
+    privileges: {'VM.Audit', 'VM.PowerMgmt', 'VM.Snapshot'},
+  );
   int guestMetricCalls = 0;
   final List<GuestMetricTimeframe> guestMetricTimeframes = [];
   Completer<GuestMetricSeries>? guestMetricGate;
@@ -283,6 +288,13 @@ class _Gateway implements PveGateway {
     if (guestConfigurationGate != null) return guestConfigurationGate!.future;
     if (guestConfigurationFailure != null) throw guestConfigurationFailure!;
     return guestConfigurationResult;
+  }
+
+  @override
+  Future<GuestPermissionSnapshot> guestPermissions(Guest guest) async {
+    guestPermissionCalls++;
+    if (guestPermissionFailure != null) throw guestPermissionFailure!;
+    return guestPermissionResult;
   }
 
   @override
@@ -550,6 +562,44 @@ void main() {
       );
       expect(stale, isNull);
       expect(gateway.guestConfigurationCalls, 1);
+    },
+  );
+
+  test(
+    'guest permission inspection is read-only and session isolated',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway(),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!test',
+        secret: 'test',
+      );
+
+      final guest = ctl.inventory!.guests.single;
+      final generation = ctl.connectionGeneration;
+      final result = await ctl.inspectGuestPermissions(
+        profileId: ctl.active!.id,
+        generation: generation,
+        guest: guest,
+      );
+      expect(result?.has('VM.PowerMgmt'), isTrue);
+      expect(gateway.guestPermissionCalls, 1);
+      expect(gateway.submissions, 0);
+
+      final stale = await ctl.inspectGuestPermissions(
+        profileId: ctl.active!.id,
+        generation: generation - 1,
+        guest: guest,
+      );
+      expect(stale, isNull);
+      expect(gateway.guestPermissionCalls, 1);
     },
   );
 

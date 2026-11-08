@@ -232,6 +232,49 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<GuestPermissionSnapshot?> inspectGuestPermissions({
+    required String profileId,
+    required int generation,
+    required Guest guest,
+  }) async {
+    final gateway = _gateway;
+    final GuestPermissionGateway? permissionGateway =
+        gateway is GuestPermissionGateway
+        ? gateway as GuestPermissionGateway
+        : null;
+    bool current() =>
+        !_disposed && generation == _generation && active?.id == profileId;
+    Guest? currentGuest() {
+      final matches = inventory?.guests.where(
+        (item) =>
+            item.node == guest.node &&
+            item.kind == guest.kind &&
+            item.vmid == guest.vmid,
+      );
+      if (matches == null || matches.length != 1) return null;
+      return matches.single;
+    }
+
+    if (!current() ||
+        permissionGateway == null ||
+        deviceNetworkState == DeviceNetworkState.unavailable) {
+      return null;
+    }
+    final target = currentGuest();
+    if (target == null) return null;
+
+    try {
+      final result = await permissionGateway.guestPermissions(target);
+      if (!current() || currentGuest() == null) return null;
+      return result;
+    } on PveFailure catch (error) {
+      if (error.status == 401 && current()) {
+        await _recordAuthenticatedReadLoss(generation, error.message);
+      }
+      rethrow;
+    }
+  }
+
   Future<GuestMetricSeries?> inspectGuestMetrics({
     required String profileId,
     required int generation,

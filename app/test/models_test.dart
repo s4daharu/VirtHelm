@@ -252,6 +252,28 @@ void main() {
     );
   });
 
+  test('guest permission parsing keeps exact-path non-propagating grants', () {
+    final permissions = GuestPermissionSnapshot.fromApi({
+      '/vms/101': {
+        'VM.Audit': 1,
+        'VM.PowerMgmt': 0,
+        'VM.Clone': true,
+        'VM.Backup': 'false',
+        'bad privilege': 1,
+        'VM.BadFlag': {'unexpected': true},
+      },
+      '/vms/999': {'VM.Migrate': 1},
+    }, vmid: 101);
+
+    expect(permissions.has('VM.Audit'), isTrue);
+    expect(permissions.has('VM.PowerMgmt'), isTrue);
+    expect(permissions.has('VM.Clone'), isTrue);
+    expect(permissions.has('VM.Backup'), isTrue);
+    expect(permissions.has('VM.Migrate'), isFalse);
+    expect(permissions.malformedPrivileges, 2);
+    expect(permissions.truncated, isFalse);
+  });
+
   test('node RRD samples reject invalid values without inventing metrics', () {
     final valid = NodeMetricPoint.fromApi({
       'time': 1700000000,
