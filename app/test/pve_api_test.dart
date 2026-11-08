@@ -373,6 +373,43 @@ void main() {
     expect(visible, isNot(contains('server-secret')));
   });
 
+  test('guest permission hints use exact self-permission GET path', () async {
+    final dio = Dio();
+    late RequestOptions request;
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          request = options;
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'data': {
+                  '/vms/101': {
+                    'VM.Audit': 1,
+                    'VM.PowerMgmt': 0,
+                    'VM.Snapshot': 1,
+                  },
+                },
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(profile, credentials, http: dio);
+    addTearDown(gateway.close);
+
+    final result = await gateway.guestPermissions(guest);
+    expect(request.method, 'GET');
+    expect(request.path, '/access/permissions');
+    expect(request.queryParameters['path'], '/vms/101');
+    expect(result.has('VM.Audit'), isTrue);
+    expect(result.has('VM.PowerMgmt'), isTrue);
+    expect(result.has('VM.Snapshot'), isTrue);
+  });
+
   test('node RRD history uses bounded GET parameters and parsing', () async {
     final dio = Dio();
     late RequestOptions request;
