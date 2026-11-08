@@ -735,6 +735,72 @@ class GuestSnapshotInventory {
   final bool truncated;
 }
 
+bool _validPermissionPropagationFlag(Object? value) {
+  if (value is bool) return true;
+  if (value is num) return value == 0 || value == 1;
+  if (value is String) {
+    final normalized = value.trim().toLowerCase();
+    return normalized == '0' ||
+        normalized == '1' ||
+        normalized == 'false' ||
+        normalized == 'true';
+  }
+  return false;
+}
+
+/// Transient effective permissions for one exact PVE guest ACL path.
+///
+/// Presence of a privilege means PVE reported it as effective at /vms/<vmid>.
+/// The returned propagation flag is validated but intentionally not interpreted:
+/// a non-propagating privilege is still effective at the exact requested path.
+class GuestPermissionSnapshot {
+  const GuestPermissionSnapshot({
+    required this.privileges,
+    this.malformedPrivileges = 0,
+    this.truncated = false,
+  });
+
+  final Set<String> privileges;
+  final int malformedPrivileges;
+  final bool truncated;
+
+  bool has(String privilege) => privileges.contains(privilege);
+
+  factory GuestPermissionSnapshot.fromApi(
+    Map<String, dynamic> json, {
+    required int vmid,
+  }) {
+    final raw = json['/vms/$vmid'];
+    if (raw == null) {
+      return const GuestPermissionSnapshot(privileges: <String>{});
+    }
+    if (raw is! Map) {
+      throw const FormatException('Guest permission map is malformed.');
+    }
+
+    const privilegeLimit = 128;
+    final valid = <String>[];
+    var malformed = 0;
+    final privilegePattern = RegExp(r'^[A-Za-z][A-Za-z0-9.]{0,79}$');
+    for (final entry in raw.entries) {
+      final key = entry.key;
+      if (key is! String ||
+          !privilegePattern.hasMatch(key) ||
+          !_validPermissionPropagationFlag(entry.value)) {
+        malformed++;
+        continue;
+      }
+      valid.add(key);
+    }
+    valid.sort();
+    return GuestPermissionSnapshot(
+      privileges: Set<String>.unmodifiable(valid.take(privilegeLimit)),
+      malformedPrivileges: malformed,
+      truncated: valid.length > privilegeLimit,
+    );
+  }
+}
+
 String? _configurationValue(Object? value) {
   String? raw;
   if (value is String) {
