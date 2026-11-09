@@ -18,6 +18,7 @@ required = [
   'app/lib/ui/guest_page.dart','app/lib/ui/node_page.dart','app/lib/ui/storage_page.dart',
   'app/lib/ui/alert_rules_page.dart','app/lib/ui/incident_center_tab.dart',
   'app/lib/ui/task_details_page.dart','app/lib/ui/template_clone_page.dart',
+  'app/lib/ui/qemu_create_page.dart',
   'app/test/models_test.dart',
   'app/test/controller_test.dart','app/test/pve_api_test.dart',
   'app/test/widget_test.dart','app/test/pve_tls_test.dart',
@@ -75,7 +76,8 @@ required = [
    'docs/79-implementation-guest-configuration-read.md',
    'docs/80-implementation-guest-permission-hints.md',
    'docs/81-implementation-template-discovery.md',
-   'docs/82-implementation-template-clone.md']
+   'docs/82-implementation-template-clone.md',
+   'docs/83-implementation-qemu-create.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)
@@ -156,7 +158,7 @@ assert "'${_guestPath(guest)}/config'" in files['app/lib/core/pve_api.dart']
 assert 'inspectGuestConfiguration' in files['app/lib/core/app_controller.dart']
 assert "Key('guest-configuration-tab')" in files['app/lib/ui/guest_page.dart']
 assert 'only reviewed allowlisted fields' in files['app/lib/ui/guest_page.dart']
-assert 'Configuration editing, create-from-scratch, and migration remain' in files['app/lib/ui/guest_page.dart']
+assert 'Configuration editing and migration remain disabled.' in files['app/lib/ui/guest_page.dart']
 assert 'class GuestPermissionSnapshot' in files['app/lib/core/models.dart']
 assert 'abstract class GuestPermissionGateway' in files['app/lib/core/pve_api.dart']
 assert "'/access/permissions'" in files['app/lib/core/pve_api.dart']
@@ -209,6 +211,16 @@ assert "Key('guest-clone-template')" in files['app/lib/ui/guest_page.dart']
 assert "Key('clone-confirm-vmid')" in files['app/lib/ui/template_clone_page.dart']
 assert 'Datastore.AllocateSpace' in files['docs/82-implementation-template-clone.md']
 assert 'SDN.Use' in files['docs/82-implementation-template-clone.md']
+assert 'class QemuCreateRequest' in files['app/lib/core/models.dart']
+assert 'abstract class GuestCreateGateway' in files['app/lib/core/pve_api.dart']
+assert 'Future<String> createQemu' in files['app/lib/core/pve_api.dart']
+assert 'runQemuCreate' in files['app/lib/core/app_controller.dart']
+assert 'suggestQemuCreateVmid' in files['app/lib/core/app_controller.dart']
+assert "Key('guest-create-qemu')" in files['app/lib/ui/shell.dart']
+assert "Key('qemu-create-confirm-vmid')" in files['app/lib/ui/qemu_create_page.dart']
+assert 'No disk, NIC, storage, ISO, start, HA, pool or restore fields' in files['app/lib/ui/qemu_create_page.dart']
+assert 'VM.Config.CPU' in files['docs/83-implementation-qemu-create.md']
+assert 'Datastore.AllocateSpace' in files['docs/83-implementation-qemu-create.md']
 assert '_guestTags' in files['app/lib/core/models.dart']
 assert 'final List<String> tags' in files['app/lib/core/models.dart']
 assert 'String? tag' in files['app/lib/core/guest_list_filter.dart']

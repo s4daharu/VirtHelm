@@ -17,6 +17,7 @@ import 'connections_page.dart';
 import 'guest_page.dart';
 import 'incident_center_tab.dart';
 import 'node_page.dart';
+import 'qemu_create_page.dart';
 import 'storage_page.dart';
 import 'theme.dart';
 import 'task_details_page.dart';
@@ -1045,6 +1046,36 @@ class _GuestsTabState extends State<_GuestsTab> {
     });
   }
 
+  Future<void> _openQemuCreate(BuildContext context) async {
+    final scopedProfileId = widget.controller.active?.id;
+    if (scopedProfileId == null || !widget.controller.isInventoryWriteSafe) {
+      return;
+    }
+    final generation = widget.controller.connectionGeneration;
+    final submitted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => QemuCreatePage(
+          controller: widget.controller,
+          profileId: scopedProfileId,
+          generation: generation,
+        ),
+      ),
+    );
+    if (!context.mounted ||
+        submitted != true ||
+        widget.controller.active?.id != scopedProfileId ||
+        widget.controller.connectionGeneration != generation) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'QEMU create task submitted. Check Tasks for its final result.',
+        ),
+      ),
+    );
+  }
+
   Future<void> _saveCurrentView(BuildContext context) async {
     final scopedProfileId = profileId;
     if (scopedProfileId == null) return;
@@ -1156,6 +1187,11 @@ class _GuestsTabState extends State<_GuestsTab> {
             .toSet()
             .toList()
           ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final canCreateQemu =
+        profileId != null &&
+        controller.isInventoryWriteSafe &&
+        !controller.refreshing &&
+        (inv?.nodes.any((node) => node.status == 'online') ?? false);
     final guests = visibleGuests(
       allGuests,
       isFavorite: controller.isGuestFavorite,
@@ -1214,6 +1250,15 @@ class _GuestsTabState extends State<_GuestsTab> {
                   padding: const EdgeInsets.symmetric(horizontal: 18),
                   child: Row(
                     children: [
+                      ActionChip(
+                        key: const Key('guest-create-qemu'),
+                        avatar: const Icon(Icons.add_box_outlined, size: 18),
+                        label: const Text('Create VM'),
+                        onPressed: canCreateQemu
+                            ? () => _openQemuCreate(context)
+                            : null,
+                      ),
+                      const SizedBox(width: 8),
                       ActionChip(
                         avatar: const Icon(
                           Icons.bookmark_add_outlined,

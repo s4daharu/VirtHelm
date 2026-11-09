@@ -1122,6 +1122,20 @@ extension GuestActionLabel on GuestAction {
       (this == GuestAction.start ? guest.isStopped : guest.isRunning);
 }
 
+String? _guestProvisioningNameError(String name) {
+  final normalized = name.trim();
+  if (normalized.isEmpty || normalized.length > 63) {
+    return 'Name must be 1 to 63 characters.';
+  }
+  final validName = RegExp(
+    r'^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$',
+  ).hasMatch(normalized);
+  if (!validName) {
+    return 'Name may contain letters, numbers, and hyphens, and cannot start or end with a hyphen.';
+  }
+  return null;
+}
+
 class GuestCloneRequest {
   const GuestCloneRequest({required this.newVmid, required this.name});
 
@@ -1132,23 +1146,61 @@ class GuestCloneRequest {
     if (newVmid < 100 || newVmid > 999999999) {
       return 'VMID must be between 100 and 999999999.';
     }
-    final normalized = name.trim();
-    if (normalized.isEmpty || normalized.length > 63) {
-      return 'Name must be 1 to 63 characters.';
-    }
-    final validName = RegExp(
-      r'^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$',
-    ).hasMatch(normalized);
-    if (!validName) {
-      return 'Name may contain letters, numbers, and hyphens, and cannot start or end with a hyphen.';
-    }
-    return null;
+    return _guestProvisioningNameError(name);
   }
 
   bool get isValid => validationError == null;
 
   GuestCloneRequest normalized() =>
       GuestCloneRequest(newVmid: newVmid, name: name.trim());
+}
+
+class QemuCreateRequest {
+  const QemuCreateRequest({
+    required this.node,
+    required this.vmid,
+    required this.name,
+    required this.cores,
+    required this.memoryMiB,
+    this.onBoot = false,
+  });
+
+  final String node;
+  final int vmid;
+  final String name;
+  final int cores;
+  final int memoryMiB;
+  final bool onBoot;
+
+  String? get validationError {
+    final normalizedNode = node.trim();
+    if (normalizedNode.isEmpty || normalizedNode.length > 64) {
+      return 'Select a valid destination node.';
+    }
+    if (vmid < 100 || vmid > 999999999) {
+      return 'VMID must be between 100 and 999999999.';
+    }
+    final nameError = _guestProvisioningNameError(name);
+    if (nameError != null) return nameError;
+    if (cores < 1 || cores > 64) {
+      return 'CPU cores must be between 1 and 64.';
+    }
+    if (memoryMiB < 128 || memoryMiB > 262144) {
+      return 'Memory must be between 128 MiB and 262144 MiB.';
+    }
+    return null;
+  }
+
+  bool get isValid => validationError == null;
+
+  QemuCreateRequest normalized() => QemuCreateRequest(
+    node: node.trim(),
+    vmid: vmid,
+    name: name.trim(),
+    cores: cores,
+    memoryMiB: memoryMiB,
+    onBoot: onBoot,
+  );
 }
 
 enum OperationOutcome { running, succeeded, failed, unknown }

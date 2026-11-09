@@ -317,9 +317,10 @@ class _TemplateClonePageState extends State<TemplateClonePage> {
             ),
             const SizedBox(height: 6),
             const Text(
-              'This reviewed first provisioning slice creates a full clone from '
-              'the selected template. Linked clones, cross-node targets, explicit '
-              'storage placement, create-from-scratch, and migration remain gated.',
+              'This reviewed provisioning slice creates a full clone from the '
+              'selected template. Linked clones, cross-node targets, explicit '
+              'storage placement, LXC creation, richer QEMU storage/network/media '
+              'provisioning, and migration remain gated.',
             ),
             const SizedBox(height: 18),
             TextField(

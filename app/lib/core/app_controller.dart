@@ -275,6 +275,40 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<int?> suggestQemuCreateVmid({
+    required String profileId,
+    required int generation,
+  }) async {
+    final gateway = _gateway;
+    final GuestCreateGateway? createGateway = gateway is GuestCreateGateway
+        ? gateway as GuestCreateGateway
+        : null;
+    bool current() =>
+        !_disposed && generation == _generation && active?.id == profileId;
+
+    if (!current() ||
+        createGateway == null ||
+        deviceNetworkState == DeviceNetworkState.unavailable ||
+        !isInventoryWriteSafe) {
+      return null;
+    }
+
+    try {
+      final result = await createGateway.nextFreeVmid();
+      if (!current() ||
+          !isInventoryWriteSafe ||
+          inventory!.guests.any((guest) => guest.vmid == result)) {
+        return null;
+      }
+      return result;
+    } on PveFailure catch (error) {
+      if (error.status == 401 && current()) {
+        await _recordAuthenticatedReadLoss(generation, error.message);
+      }
+      rethrow;
+    }
+  }
+
   Future<int?> suggestTemplateCloneVmid({
     required String profileId,
     required int generation,
@@ -429,7 +463,17 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  String _guestKey(Guest guest) => '${guest.kind}:${guest.node}:${guest.vmid}';
+  String _provisioningKey(String kind, String node, int vmid) =>
+      '$kind:$node:$vmid';
+
+  String _guestKey(Guest guest) =>
+      _provisioningKey(guest.kind, guest.node, guest.vmid);
+
+  bool isProvisioningTargetBlocked(String kind, String node, int vmid) {
+    final key = _provisioningKey(kind, node, vmid);
+    return _pendingGuestOperations.contains(key) ||
+        _uncertainGuestOperations.contains(key);
+  }
 
   bool isGuestFavorite(Guest guest) =>
       favoriteGuests.contains(_guestKey(guest));
@@ -1254,6 +1298,181 @@ class AppController extends ChangeNotifier {
 
   bool get isInventoryWriteSafe =>
       isInventoryFresh && inventory!.malformedGuestRecords == 0;
+
+  Future<void> runQemuCreate(
+    QemuCreateRequest request, {
+    required String profileId,
+  }) async {
+    final gateway = _gateway;
+    final GuestCreateGateway? createGateway = gateway is GuestCreateGateway
+        ? gateway as GuestCreateGateway
+        : null;
+    final generation = _generation;
+    final normalized = request.normalized();
+    final validationError = normalized.validationError;
+    if (validationError != null) {
+      throw PveFailure(validationError);
+    }
+    if (_disposed || active?.id != profileId) {
+      throw const PveFailure(
+        'Connection changed; return to Guests before creating a VM.',
+      );
+    }
+    if (!_foreground ||
+        gateway == null ||
+        createGateway == null ||
+        !isInventoryWriteSafe ||
+        refreshing ||
+        deviceNetworkState == DeviceNetworkState.unavailable) {
+      throw const PveFailure(
+        'Refresh a clean live inventory before creating a VM.',
+      );
+    }
+
+    final snapshot = inventory!;
+    final nodes = snapshot.nodes
+        .where((node) => node.name == normalized.node)
+        .toList();
+    if (nodes.length != 1 || nodes.single.status != 'online') {
+      throw const PveFailure(
+        'Destination node is no longer confirmed online. Refresh and review again.',
+      );
+    }
+    if (snapshot.guests.any((guest) => guest.vmid == normalized.vmid)) {
+      throw const PveFailure(
+        'Destination VMID is already present in the current inventory.',
+      );
+    }
+
+    final key = _provisioningKey('qemu', normalized.node, normalized.vmid);
+    if (_uncertainGuestOperations.contains(key)) {
+      throw const PveFailure(
+        'An earlier create has an unknown outcome. Verify server task history '
+        'and inventory before reconnecting and trying again.',
+        mayHaveExecuted: true,
+      );
+    }
+    if (_pendingGuestOperations.contains(key)) {
+      throw const PveFailure(
+        'A create operation is already pending for this VMID. Check Tasks.',
+      );
+    }
+
+    _pendingGuestOperations.add(key);
+    _notify();
+    var postAttempted = false;
+    try {
+      final live = await gateway.inventory();
+      if (generation != _generation ||
+          active?.id != profileId ||
+          _disposed ||
+          !_foreground ||
+          deviceNetworkState == DeviceNetworkState.unavailable) {
+        throw const PveFailure('Connection changed; VM create canceled.');
+      }
+      if (!identical(snapshot, inventory) ||
+          refreshing ||
+          !isInventoryWriteSafe) {
+        throw const PveFailure(
+          'Inventory changed during create verification. Refresh and review again.',
+        );
+      }
+      if (live.malformedGuestRecords != 0) {
+        throw const PveFailure(
+          'Live inventory verification is incomplete. VM create was not submitted.',
+        );
+      }
+      final liveNodes = live.nodes
+          .where((node) => node.name == normalized.node)
+          .toList();
+      if (liveNodes.length != 1 || liveNodes.single.status != 'online') {
+        throw const PveFailure(
+          'Destination node is no longer online. VM create was not submitted.',
+        );
+      }
+      if (live.guests.any((guest) => guest.vmid == normalized.vmid)) {
+        throw const PveFailure(
+          'Destination VMID became occupied. Choose another VMID.',
+        );
+      }
+
+      final permissions = await createGateway.permissionsForVmid(
+        normalized.vmid,
+      );
+      const requiredPrivileges = {
+        'VM.Allocate',
+        'VM.Config.CPU',
+        'VM.Config.Memory',
+        'VM.Config.Options',
+      };
+      final missing =
+          requiredPrivileges
+              .where((privilege) => !permissions.has(privilege))
+              .toList()
+            ..sort();
+      if (missing.isNotEmpty) {
+        throw PveFailure(
+          'The active token does not report required destination privileges: '
+          '${missing.join(', ')}.',
+          status: 403,
+        );
+      }
+
+      await createGateway.assertVmidAvailable(normalized.vmid);
+      if (generation != _generation ||
+          active?.id != profileId ||
+          _disposed ||
+          !_foreground ||
+          deviceNetworkState == DeviceNetworkState.unavailable ||
+          !identical(snapshot, inventory) ||
+          refreshing ||
+          !isInventoryWriteSafe) {
+        throw const PveFailure(
+          'Connection or inventory changed during create verification.',
+        );
+      }
+
+      postAttempted = true;
+      final upid = await createGateway.createQemu(normalized);
+      if (generation != _generation || active?.id != profileId || _disposed) {
+        throw const PveFailure(
+          'Connection changed after create submission. Check server task history.',
+          mayHaveExecuted: true,
+        );
+      }
+      _taskTargets[upid] = key;
+      tasks.insert(
+        0,
+        TrackedTask(
+          upid: upid,
+          node: normalized.node,
+          title:
+              'Create QEMU ${normalized.name} (${normalized.vmid}) on ${normalized.node}',
+          startedAt: DateTime.now(),
+          outcome: OperationOutcome.running,
+        ),
+      );
+      _notify();
+      if (_foreground) _startPolling();
+    } catch (error) {
+      if (generation == _generation &&
+          error is PveFailure &&
+          error.status == 401) {
+        message = error.message;
+        unawaited(_clearOfflineAfterAuth(generation));
+      }
+      if (generation == _generation &&
+          (error is PveFailure ? error.mayHaveExecuted : postAttempted)) {
+        _uncertainGuestOperations.add(key);
+      }
+      rethrow;
+    } finally {
+      if (generation == _generation && !_taskTargets.containsValue(key)) {
+        _pendingGuestOperations.remove(key);
+      }
+      if (generation == _generation) _notify();
+    }
+  }
 
   Future<void> runTemplateClone(
     Guest source,
