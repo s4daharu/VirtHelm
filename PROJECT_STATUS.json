@@ -486,5 +486,18 @@
     "verification": "Pinned Flutter 3.44.4 local validation passed 258 synthetic Flutter tests (229 declarations), 14 Python delivery tests, format/analyzer and documentation/premium/source/hardening checks. Original merged main 44d9802 passed checks run 42617692428. Final follow-up PR/main CI remains authoritative; live PVE 8.4/9.2 create/ACL/quorum fixtures and physical Android validation remain open.",
     "report": "docs/83-implementation-qemu-create.md",
     "branch_audit_report": "docs/84-qemu-create-branch-cross-check-2026-11-09.md"
+  },
+  "m4_lxc_create_workflow": {
+    "status": "implemented_source_level_reviewed_live_gates_open",
+    "feature_id": "GUEST-013 / GUEST-05 partial / M4 provisioning",
+    "version": "0.1.38",
+    "behavior": "Guests exposes a guarded unprivileged LXC creation wizard for an online node using discovered existing vztmpl content and active rootdir-capable storage. The bounded request uses Proxmox's default 4 GiB rootfs allocation and leaves the container stopped.",
+    "contract": "GET /nodes/{node}/storage plus GET /nodes/{node}/storage/{storage}/content?content=vztmpl for bounded choices; GET /access/permissions on destination/storage paths; GET /cluster/nextid for VMID validation; one POST /nodes/{node}/lxc with vmid/hostname/cores/memory/onboot/ostemplate/storage/unprivileged=1 returning a vzcreate UPID.",
+    "safety": "Explicit originating profile/generation, foreground/default-network availability, fresh clean unchanged inventory, exact online destination-node revalidation, live clean template/rootdir rediscovery, destination VMID absence plus server-side collision recheck, destination VM and storage privilege hints, synchronous cluster-wide VMID reservation shared with QEMU create/clone/power guards, one POST without retry, strict target-matched vzcreate UPID polling, uncertain-outcome lockout, and clean post-task inventory reconciliation.",
+    "privileges": "Destination hints: VM.Allocate + VM.Config.CPU + VM.Config.Memory + VM.Config.Network + VM.Config.Options. Rootfs storage: Datastore.AllocateSpace. Template storage: Datastore.Audit or Datastore.AllocateSpace. Privileged containers requiring Sys.Modify are deliberately not exposed.",
+    "payload_boundary": "No password, SSH public keys, netN, explicit rootfs sizing, privileged mode, start, pool, HA, restore, feature, hook or mount fields are sent.",
+    "deferred": "Privileged/custom-rootfs/networked LXC provisioning, credentials/SSH keys, pools/HA/start/restore, richer QEMU provisioning, linked/cross-node/explicit-storage clone, migration, configuration editing, snapshot mutation, backup execution/restore and destructive guest deletion.",
+    "verification": "Synthetic model/API/controller/source regressions added; full pinned Flutter/analyzer/Android CI and live PVE 8.4/9.2 mutation fixtures remain authoritative gates.",
+    "report": "docs/85-implementation-lxc-create.md"
   }
 }
