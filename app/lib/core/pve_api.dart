@@ -10,6 +10,13 @@ abstract class GuestPermissionGateway {
   Future<GuestPermissionSnapshot> guestPermissions(Guest guest);
 }
 
+abstract class GuestCloneGateway {
+  Future<int> nextFreeVmid();
+  Future<void> assertVmidAvailable(int vmid);
+  Future<GuestPermissionSnapshot> permissionsForVmid(int vmid);
+  Future<String> cloneTemplate(Guest source, GuestCloneRequest request);
+}
+
 abstract class PveGateway {
   Future<String> version();
   Future<Inventory> inventory();
@@ -41,7 +48,8 @@ typedef GatewayFactory =
 
 /// A new Dio instance is created for each profile; credentials are origin-scoped.
 /// Redirects are rejected so Authorization is never forwarded to another host.
-class DioPveGateway implements PveGateway, GuestPermissionGateway {
+class DioPveGateway
+    implements PveGateway, GuestPermissionGateway, GuestCloneGateway {
   DioPveGateway(
     ConnectionProfile profile,
     ApiCredentials credentials, {
@@ -155,9 +163,18 @@ class DioPveGateway implements PveGateway, GuestPermissionGateway {
     String path, {
     required bool mutation,
     Map<String, dynamic>? queryParameters,
+    Map<String, dynamic>? mutationData,
   }) async {
     if (_closed) throw const PveFailure('Connection closed.');
-    if (mutation) return _http.post<dynamic>(path);
+    if (mutation) {
+      return _http.post<dynamic>(
+        path,
+        data: mutationData,
+        options: mutationData == null
+            ? null
+            : Options(contentType: Headers.formUrlEncodedContentType),
+      );
+    }
 
     // At most three GET attempts, with a bounded exponential backoff + jitter.
     // A closed profile gateway must not issue a delayed follow-up request.
@@ -182,12 +199,14 @@ class DioPveGateway implements PveGateway, GuestPermissionGateway {
     String path, {
     bool mutation = false,
     Map<String, dynamic>? queryParameters,
+    Map<String, dynamic>? mutationData,
   }) async {
     try {
       final response = await _sendRequest(
         path,
         mutation: mutation,
         queryParameters: queryParameters,
+        mutationData: mutationData,
       );
       final raw = response.data;
       if (raw is! Map || !raw.containsKey('data')) {
@@ -536,10 +555,17 @@ class DioPveGateway implements PveGateway, GuestPermissionGateway {
   }
 
   @override
-  Future<GuestPermissionSnapshot> guestPermissions(Guest guest) async {
+  Future<GuestPermissionSnapshot> guestPermissions(Guest guest) =>
+      permissionsForVmid(guest.vmid);
+
+  @override
+  Future<GuestPermissionSnapshot> permissionsForVmid(int vmid) async {
+    if (vmid < 100 || vmid > 999999999) {
+      throw const FormatException('Invalid destination VMID.');
+    }
     final raw = await _request(
       '/access/permissions',
-      queryParameters: {'path': '/vms/${guest.vmid}'},
+      queryParameters: {'path': '/vms/$vmid'},
     );
     if (raw is! Map) {
       throw const PveFailure('Unexpected guest permission response.');
@@ -547,13 +573,72 @@ class DioPveGateway implements PveGateway, GuestPermissionGateway {
     try {
       return GuestPermissionSnapshot.fromApi(
         Map<String, dynamic>.from(raw),
-        vmid: guest.vmid,
+        vmid: vmid,
       );
     } on FormatException {
       throw const PveFailure('Unexpected guest permission response.');
     } on TypeError {
       throw const PveFailure('Unexpected guest permission response.');
     }
+  }
+
+  @override
+  Future<int> nextFreeVmid() async {
+    final raw = await _request('/cluster/nextid');
+    final value = raw is int ? raw : int.tryParse(raw?.toString() ?? '');
+    if (value == null || value < 100 || value > 999999999) {
+      throw const PveFailure('Unexpected next-VMID response.');
+    }
+    return value;
+  }
+
+  @override
+  Future<void> assertVmidAvailable(int vmid) async {
+    if (vmid < 100 || vmid > 999999999) {
+      throw const FormatException('Invalid destination VMID.');
+    }
+    final raw = await _request(
+      '/cluster/nextid',
+      queryParameters: {'vmid': vmid},
+    );
+    final value = raw is int ? raw : int.tryParse(raw?.toString() ?? '');
+    if (value != vmid) {
+      throw const PveFailure(
+        'Destination VMID could not be confirmed as available.',
+      );
+    }
+  }
+
+  @override
+  Future<String> cloneTemplate(
+    Guest source,
+    GuestCloneRequest request,
+  ) async {
+    if (!source.isTemplate) {
+      throw const FormatException('Clone source must be a template.');
+    }
+    final normalized = request.normalized();
+    final validationError = normalized.validationError;
+    if (validationError != null) {
+      throw FormatException(validationError);
+    }
+    final nameField = source.kind == 'lxc' ? 'hostname' : 'name';
+    final value = await _request(
+      '${_guestPath(source)}/clone',
+      mutation: true,
+      mutationData: {
+        'newid': normalized.newVmid,
+        'full': 1,
+        nameField: normalized.name,
+      },
+    );
+    if (value is! String || !value.startsWith('UPID:')) {
+      throw const PveFailure(
+        'Server returned an unexpected clone task identifier. Check task history.',
+        mayHaveExecuted: true,
+      );
+    }
+    return value;
   }
 
   @override
