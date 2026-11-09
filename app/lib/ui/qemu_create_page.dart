@@ -317,6 +317,7 @@ class _QemuCreatePageState extends State<QemuCreatePage> {
       return Scaffold(
         appBar: AppBar(title: const Text('Create QEMU VM')),
         body: ListView(
+          key: const Key('qemu-create-list'),
           padding: const EdgeInsets.fromLTRB(18, 16, 18, 28),
           children: [
             Text(
