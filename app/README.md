@@ -22,7 +22,8 @@ The committed `pubspec.lock` is enforced. The bootstrap generates the Android ru
 - Multiple isolated profiles with validated edit/switch/delete flows; edits preserve profile-local favorites/saved views and never forward credentials across redirects.
 - Last successfully observed PVE server version is retained as non-secret profile metadata, refreshed on activation, and labelled as last-observed in the UI.
 - Cluster nodes and QEMU/LXC inventory with search, freshness, CPU/memory/disk/uptime.
-- Guest status/type/node filters, deterministic favorites/name/VMID/CPU/memory sorting, and up to 12 profile-scoped named saved views, without extra API requests.
+- QEMU/LXC templates are classified from the existing live cluster inventory, exposed through an explicit Templates filter and saved views, and never authorize power actions.
+- Guest status/type/node/template filters, deterministic favorites/name/VMID/CPU/memory sorting, and up to 12 profile-scoped named saved views, without extra API requests.
 - Read-only per-node storage and recent server task history with partial permission/error reporting, plus scoped on-demand task status and bounded log details for tracked/history tasks.
 - Explicit on-demand 1h/24h/7d guest/node CPU-memory and per-storage used/total RRD history; metric samples stay transient and session-scoped.
 - On-demand read-only QEMU/LXC snapshot inventory, exact-profile/session/guest scoped and never persisted; snapshot creation, rollback, and deletion are not exposed.

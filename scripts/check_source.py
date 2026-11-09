@@ -73,7 +73,8 @@ required = [
    'docs/77-whole-repository-cross-check-2026-11-08.md',
    'docs/78-implementation-guest-recovery-readonly.md',
    'docs/79-implementation-guest-configuration-read.md',
-   'docs/80-implementation-guest-permission-hints.md']
+   'docs/80-implementation-guest-permission-hints.md',
+   'docs/81-implementation-template-discovery.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)
@@ -192,6 +193,11 @@ assert 'reconcileRules' in files['app/lib/core/incident_center.dart']
 assert "Key('threshold-rule-consecutive-samples')" in files['app/lib/ui/alert_rules_page.dart']
 assert "Key('threshold-rule-hysteresis-slider')" in files['app/lib/ui/alert_rules_page.dart']
 assert "Key('manage-threshold-rules')" in files['app/lib/ui/incident_center_tab.dart']
+assert 'final bool isTemplate' in files['app/lib/core/models.dart']
+assert "asFlag(json['template']) == true" in files['app/lib/core/models.dart']
+assert "'templates' => guest.isTemplate" in files['app/lib/core/guest_list_filter.dart']
+assert "('templates', 'Templates')" in files['app/lib/ui/shell.dart']
+assert 'Templates are read-only.' in files['app/lib/core/app_controller.dart']
 assert '_guestTags' in files['app/lib/core/models.dart']
 assert 'final List<String> tags' in files['app/lib/core/models.dart']
 assert 'String? tag' in files['app/lib/core/guest_list_filter.dart']

@@ -1248,6 +1248,11 @@ class AppController extends ChangeNotifier {
         'Guest inventory changed. Refresh and review the target again.',
       );
     }
+    if (guest.isTemplate) {
+      throw const PveFailure(
+        'Templates are read-only. Clone and create workflows are not enabled yet.',
+      );
+    }
     if (!action.allowedFor(guest)) {
       throw const PveFailure(
         'This action is not available for the current guest state.',

@@ -153,6 +153,39 @@ void main() {
     );
   });
 
+  test('template filter is distinct from stopped workloads', () {
+    const template = Guest(
+      node: 'pve3',
+      vmid: 900,
+      kind: 'qemu',
+      name: 'Ubuntu template',
+      status: 'stopped',
+      isTemplate: true,
+    );
+    final inventory = [...guests, template];
+
+    expect(
+      visibleGuests(
+        inventory,
+        isFavorite: favorite,
+        status: 'templates',
+      ).map(identity),
+      ['qemu/pve3/900'],
+    );
+    expect(
+      visibleGuests(
+        inventory,
+        isFavorite: favorite,
+        status: 'stopped',
+      ).map(identity),
+      ['lxc/pve1/102'],
+    );
+    expect(
+      visibleGuests(inventory, isFavorite: favorite, status: 'all'),
+      hasLength(6),
+    );
+  });
+
   test('numeric VMID and metric sorts are stable with absent telemetry', () {
     expect(
       visibleGuests(

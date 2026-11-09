@@ -25,13 +25,17 @@ class OfflineOverview {
     onlineNodes: inventory.nodes
         .where((node) => node.status == 'online')
         .length,
-    totalGuests: inventory.guests.length,
-    runningGuests: inventory.guests.where((guest) => guest.isRunning).length,
-    stoppedGuests: inventory.guests.where((guest) => guest.isStopped).length,
+    totalGuests: inventory.guests.where((guest) => !guest.isTemplate).length,
+    runningGuests: inventory.guests
+        .where((guest) => !guest.isTemplate && guest.isRunning)
+        .length,
+    stoppedGuests: inventory.guests
+        .where((guest) => !guest.isTemplate && guest.isStopped)
+        .length,
   );
 
   Map<String, int> toJson() => {
-    'v': 1,
+    'v': 2,
     'timestampMs': fetchedAt.millisecondsSinceEpoch,
     'totalNodes': totalNodes,
     'onlineNodes': onlineNodes,
@@ -41,7 +45,7 @@ class OfflineOverview {
   };
 
   static OfflineOverview? fromJson(Object? raw, {DateTime? now}) {
-    if (raw is! Map<String, dynamic> || raw.length != 7 || raw['v'] != 1) {
+    if (raw is! Map<String, dynamic> || raw.length != 7 || raw['v'] != 2) {
       return null;
     }
     final timestamp = raw['timestampMs'];

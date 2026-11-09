@@ -1431,6 +1431,59 @@ void main() {
     expect(find.textContaining('Could not save or open'), findsOneWidget);
   });
 
+  testWidgets('template discovery is explicit and power actions stay disabled', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = AppController(
+      repository: ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'lab',
+      name: 'Lab',
+      endpoint: 'https://pve.local',
+    );
+    controller.inventory = Inventory.fromResources([
+      {'type': 'node', 'node': 'pve1', 'status': 'online'},
+      {
+        'type': 'qemu',
+        'node': 'pve1',
+        'vmid': 900,
+        'name': 'Ubuntu template',
+        'status': 'stopped',
+        'template': 1,
+      },
+    ]);
+
+    await tester.pumpWidget(
+      MaterialApp(home: ShellPage(controller: controller)),
+    );
+    await tester.tap(find.text('Guests'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Templates'), findsOneWidget);
+    expect(find.textContaining('TEMPLATE • QEMU • 900 • pve1'), findsOneWidget);
+    await tester.tap(find.text('Templates'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 templates'), findsOneWidget);
+
+    await tester.tap(find.text('Ubuntu template'));
+    await tester.pumpAndSettle();
+    expect(find.text('Template'), findsOneWidget);
+    expect(
+      find.text(
+        'Template is read-only. Power actions are unavailable; clone and create workflows remain gated.',
+      ),
+      findsOneWidget,
+    );
+    final primary = tester.widget<FilledButton>(
+      find.byKey(const Key('guest-primary-action')),
+    );
+    expect(primary.onPressed, isNull);
+  });
+
   testWidgets(
     'guest navigation captures the profile before building the route',
     (tester) async {

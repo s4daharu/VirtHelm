@@ -1601,6 +1601,43 @@ void main() {
     expect(ctl.tasks.single.outcome, OperationOutcome.running);
   });
 
+  test('template inventory can never authorize a power mutation', () async {
+    final prefs = await SharedPreferences.getInstance();
+    late _Gateway gateway;
+    final ctl = AppController(
+      repository: ProfileRepository(prefs, _Vault()),
+      gatewayFactory: (profile, credentials) =>
+          gateway = _Gateway()
+            ..inventoryResources = [
+              {'type': 'node', 'node': 'pve1', 'status': 'online'},
+              {
+                'type': 'qemu',
+                'vmid': 900,
+                'node': 'pve1',
+                'name': 'Ubuntu template',
+                'status': 'stopped',
+                'template': 1,
+              },
+            ],
+    );
+    addTearDown(ctl.dispose);
+    await ctl.initialize();
+    await ctl.connect(
+      name: 'Lab',
+      address: 'https://pve.local',
+      tokenId: 'me@pve!app',
+      secret: 's3cr3t',
+    );
+
+    final template = ctl.inventory!.guests.single;
+    expect(template.isTemplate, isTrue);
+    await expectLater(
+      ctl.runAction(template, GuestAction.start, profileId: ctl.active!.id),
+      throwsA(isA<PveFailure>()),
+    );
+    expect(gateway.submissions, 0);
+  });
+
   test('stale or changed guest state blocks dangerous mutation', () async {
     final prefs = await SharedPreferences.getInstance();
     final repo = ProfileRepository(prefs, _Vault());

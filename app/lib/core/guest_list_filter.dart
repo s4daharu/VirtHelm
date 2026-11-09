@@ -43,8 +43,9 @@ List<Guest> visibleGuests(
     if (pool != null && guest.pool != pool) return false;
     return switch (status) {
       'favorites' => isFavorite(guest),
-      'running' => guest.isRunning,
-      'stopped' => guest.isStopped,
+      'running' => !guest.isTemplate && guest.isRunning,
+      'stopped' => !guest.isTemplate && guest.isStopped,
+      'templates' => guest.isTemplate,
       _ => true,
     };
   }).toList();
