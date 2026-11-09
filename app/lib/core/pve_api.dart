@@ -610,10 +610,7 @@ class DioPveGateway
   }
 
   @override
-  Future<String> cloneTemplate(
-    Guest source,
-    GuestCloneRequest request,
-  ) async {
+  Future<String> cloneTemplate(Guest source, GuestCloneRequest request) async {
     if (!source.isTemplate) {
       throw const FormatException('Clone source must be a template.');
     }
