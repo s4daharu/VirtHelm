@@ -72,7 +72,7 @@ class _FailNextStoreVault extends _Vault {
   }
 }
 
-class _Gateway implements PveGateway, GuestPermissionGateway {
+class _Gateway implements PveGateway, GuestPermissionGateway, GuestCloneGateway {
   int submissions = 0;
   int inventoryCalls = 0;
   int taskStatusCalls = 0;
@@ -100,6 +100,13 @@ class _Gateway implements PveGateway, GuestPermissionGateway {
   GuestPermissionSnapshot guestPermissionResult = const GuestPermissionSnapshot(
     privileges: {'VM.Audit', 'VM.PowerMgmt', 'VM.Snapshot'},
   );
+  int nextCloneVmid = 901;
+  final List<int> clonePermissionVmids = [];
+  final List<int> assertedCloneVmids = [];
+  final Map<int, GuestPermissionSnapshot> clonePermissionResults = {};
+  int cloneSubmissions = 0;
+  PveFailure? cloneAvailabilityFailure;
+  PveFailure? cloneSubmissionFailure;
   int guestMetricCalls = 0;
   final List<GuestMetricTimeframe> guestMetricTimeframes = [];
   Completer<GuestMetricSeries>? guestMetricGate;
@@ -295,6 +302,32 @@ class _Gateway implements PveGateway, GuestPermissionGateway {
     guestPermissionCalls++;
     if (guestPermissionFailure != null) throw guestPermissionFailure!;
     return guestPermissionResult;
+  }
+
+  @override
+  Future<int> nextFreeVmid() async => nextCloneVmid;
+
+  @override
+  Future<void> assertVmidAvailable(int vmid) async {
+    assertedCloneVmids.add(vmid);
+    if (cloneAvailabilityFailure != null) throw cloneAvailabilityFailure!;
+  }
+
+  @override
+  Future<GuestPermissionSnapshot> permissionsForVmid(int vmid) async {
+    clonePermissionVmids.add(vmid);
+    return clonePermissionResults[vmid] ??
+        const GuestPermissionSnapshot(privileges: <String>{});
+  }
+
+  @override
+  Future<String> cloneTemplate(
+    Guest source,
+    GuestCloneRequest request,
+  ) async {
+    cloneSubmissions++;
+    if (cloneSubmissionFailure != null) throw cloneSubmissionFailure!;
+    return 'UPID:pve1:1234:123:abc:qmclone:${source.vmid}:operator@pve:';
   }
 
   @override
@@ -2770,4 +2803,113 @@ void main() {
       expect(gateway.submissions, 0);
     },
   );
+
+  test('template clone preflights capabilities and submits exactly once', () async {
+    final prefs = await SharedPreferences.getInstance();
+    late _Gateway gateway;
+    final ctl = AppController(
+      repository: ProfileRepository(prefs, _Vault()),
+      gatewayFactory: (profile, credentials) => gateway = _Gateway()
+        ..inventoryResources = [
+          {'type': 'node', 'node': 'pve1', 'status': 'online'},
+          {
+            'type': 'qemu',
+            'vmid': 900,
+            'node': 'pve1',
+            'name': 'ubuntu-template',
+            'status': 'stopped',
+            'template': 1,
+          },
+        ]
+        ..clonePermissionResults[900] =
+            const GuestPermissionSnapshot(privileges: {'VM.Clone'})
+        ..clonePermissionResults[901] =
+            const GuestPermissionSnapshot(privileges: {'VM.Allocate'}),
+    );
+    addTearDown(ctl.dispose);
+    await ctl.initialize();
+    await ctl.connect(
+      name: 'Lab',
+      address: 'https://pve.local',
+      tokenId: 'me@pve!app',
+      secret: 's3cr3t',
+    );
+
+    final source = ctl.inventory!.guests.single;
+    expect(source.isTemplate, isTrue);
+    expect(
+      await ctl.suggestTemplateCloneVmid(
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+        source: source,
+      ),
+      901,
+    );
+
+    await ctl.runTemplateClone(
+      source,
+      const GuestCloneRequest(newVmid: 901, name: 'ubuntu-copy'),
+      profileId: ctl.active!.id,
+    );
+
+    expect(gateway.clonePermissionVmids, [900, 901]);
+    expect(gateway.assertedCloneVmids, [901]);
+    expect(gateway.cloneSubmissions, 1);
+    expect(ctl.tasks, hasLength(1));
+    expect(ctl.tasks.single.title, contains('ubuntu-copy (901)'));
+    expect(ctl.tasks.single.outcome, OperationOutcome.running);
+    expect(ctl.isGuestActionBlocked(source), isTrue);
+  });
+
+  test('template clone stops before POST when destination allocation is absent', () async {
+    final prefs = await SharedPreferences.getInstance();
+    late _Gateway gateway;
+    final ctl = AppController(
+      repository: ProfileRepository(prefs, _Vault()),
+      gatewayFactory: (profile, credentials) => gateway = _Gateway()
+        ..inventoryResources = [
+          {'type': 'node', 'node': 'pve1', 'status': 'online'},
+          {
+            'type': 'lxc',
+            'vmid': 900,
+            'node': 'pve1',
+            'name': 'debian-template',
+            'status': 'stopped',
+            'template': 1,
+          },
+        ]
+        ..clonePermissionResults[900] =
+            const GuestPermissionSnapshot(privileges: {'VM.Clone'}),
+    );
+    addTearDown(ctl.dispose);
+    await ctl.initialize();
+    await ctl.connect(
+      name: 'Lab',
+      address: 'https://pve.local',
+      tokenId: 'me@pve!app',
+      secret: 's3cr3t',
+    );
+
+    final source = ctl.inventory!.guests.single;
+    await expectLater(
+      ctl.runTemplateClone(
+        source,
+        const GuestCloneRequest(newVmid: 901, name: 'debian-copy'),
+        profileId: ctl.active!.id,
+      ),
+      throwsA(
+        isA<PveFailure>().having(
+          (failure) => failure.status,
+          'status',
+          403,
+        ),
+      ),
+    );
+
+    expect(gateway.clonePermissionVmids, [900, 901]);
+    expect(gateway.assertedCloneVmids, isEmpty);
+    expect(gateway.cloneSubmissions, 0);
+    expect(ctl.isGuestActionBlocked(source), isFalse);
+  });
+
 }
