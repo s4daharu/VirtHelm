@@ -1,11 +1,12 @@
 method,path,feature,stage,auth,verification
 GET,/version,connection,P0,api_token,needs_live_8.4_9.2
 GET,/cluster/resources,inventory,P0,api_token,needs_live_8.4_9.2
-GET,/cluster/nextid,clone_vmid_preflight,P2,api_token,source_reviewed_needs_live_8.4_9.2
+GET,/cluster/nextid,provisioning_vmid_preflight,P2,api_token,source_reviewed_needs_live_8.4_9.2
 GET,/nodes,nodes,P0,api_token,needs_live_8.4_9.2
 GET,/nodes/{node}/status,node_detail,P0,api_token,needs_live_8.4_9.2
 GET,/nodes/{node}/qemu,qemu_list,P0,api_token,needs_live_8.4_9.2
 GET,/nodes/{node}/qemu/{vmid}/status/current,qemu_detail,P0,api_token,needs_live_8.4_9.2
+POST,/nodes/{node}/qemu,qemu_empty_create,P2,api_token,source_reviewed_needs_live_8.4_9.2
 POST,/nodes/{node}/qemu/{vmid}/status/start,qemu_start,P0,api_token,needs_live_8.4_9.2
 POST,/nodes/{node}/qemu/{vmid}/status/shutdown,qemu_shutdown,P0,api_token,needs_live_8.4_9.2
 POST,/nodes/{node}/qemu/{vmid}/status/stop,qemu_force_stop,P0,api_token,needs_live_8.4_9.2
