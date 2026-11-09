@@ -1252,10 +1252,7 @@ class _GuestsTabState extends State<_GuestsTab> {
                     children: [
                       ActionChip(
                         key: const Key('guest-create-qemu'),
-                        avatar: const Icon(
-                          Icons.add_box_outlined,
-                          size: 18,
-                        ),
+                        avatar: const Icon(Icons.add_box_outlined, size: 18),
                         label: const Text('Create VM'),
                         onPressed: canCreateQemu
                             ? () => _openQemuCreate(context)
