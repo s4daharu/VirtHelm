@@ -51,9 +51,22 @@ class _TemplateClonePageState extends State<TemplateClonePage> {
   void initState() {
     super.initState();
     _vmidController = TextEditingController();
-    final baseName = widget.source.name.trim();
-    final suggestedName = baseName.length <= 58 ? '${baseName}-copy' : '';
-    _nameController = TextEditingController(text: suggestedName);
+    var baseName = widget.source.name
+        .trim()
+        .replaceAll(RegExp(r'[^A-Za-z0-9-]+'), '-')
+        .replaceAll(RegExp(r'-+'), '-');
+    while (baseName.startsWith('-')) {
+      baseName = baseName.substring(1);
+    }
+    while (baseName.endsWith('-')) {
+      baseName = baseName.substring(0, baseName.length - 1);
+    }
+    if (baseName.isEmpty) baseName = 'template';
+    if (baseName.length > 58) baseName = baseName.substring(0, 58);
+    while (baseName.endsWith('-')) {
+      baseName = baseName.substring(0, baseName.length - 1);
+    }
+    _nameController = TextEditingController(text: '${baseName}-copy');
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadSuggestedVmid());
   }
 
