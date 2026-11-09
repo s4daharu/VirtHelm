@@ -755,7 +755,7 @@ class DioPveGateway
           Map<String, dynamic>.from(entry),
           node: normalizedNode,
         );
-        if (storage.enabled == false || storage.active == false) continue;
+        if (storage.enabled != true || storage.active != true) continue;
         if (storage.contentTypes.contains('rootdir')) {
           rootfsStorages.add(storage.id);
         }
