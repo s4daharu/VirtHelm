@@ -52,6 +52,18 @@ void main() {
     expect(decoded.id, view.id);
   });
 
+  test('saved views preserve the templates status filter', () {
+    final view = SavedGuestView.create(
+      name: 'Templates',
+      status: 'templates',
+      sort: GuestSort.name,
+    );
+    final decoded = SavedGuestView.fromJson(view.toJson());
+
+    expect(decoded.status, 'templates');
+    expect(decoded.sort, GuestSort.name);
+  });
+
   test('legacy saved views remain compatible without tag or pool fields', () {
     final legacy = SavedGuestView.fromJson({
       'id': 'legacy',
