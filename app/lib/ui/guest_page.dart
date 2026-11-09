@@ -386,7 +386,9 @@ class _GuestPageState extends State<GuestPage> {
     if (!mounted || !_currentSession || submitted != true) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Clone task submitted. Check Tasks for its final result.'),
+        content: Text(
+          'Clone task submitted. Check Tasks for its final result.',
+        ),
       ),
     );
   }
@@ -1363,9 +1365,7 @@ class _GuestPageState extends State<GuestPage> {
             Theme.of(context).cardTheme.color ??
             Theme.of(context).colorScheme.surface,
         border: Border(
-          top: BorderSide(
-            color: scheme.outlineVariant.withValues(alpha: 0.45),
-          ),
+          top: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.45)),
         ),
       ),
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
