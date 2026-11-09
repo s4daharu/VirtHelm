@@ -446,7 +446,7 @@
     "status": "implemented_source_level_ci_pending",
     "feature_id": "GUEST-014",
     "behavior": "QEMU/LXC templates are classified from the existing authenticated cluster inventory, labelled explicitly, browsable through a Templates filter and compatible with existing profile-scoped saved views.",
-    "accounting": "Templates are excluded from running/stopped runtime workload filters and Home/offline guest counts so a stopped template is not reported as a stopped runnable workload.",
+    "accounting": "Templates are excluded from running/stopped runtime workload filters and Home/offline guest counts so a stopped template is not reported as a stopped runnable workload. Offline aggregate-count records advance to schema v2, invalidating older template-inclusive v1 snapshots.",
     "safety": "GuestAction policy and the AppController independently reject templates before live status preflight or POST submission; the UI disables power controls. No clone/create/template-conversion or other mutation endpoint is introduced.",
     "dependency": "Provides the read-only template-discovery prerequisite for a future reviewed create/clone wizard without claiming that template visibility proves storage, VMID, ACL or destination readiness.",
     "verification": "Model, pure-filter, saved-view, controller and widget regressions are defined, plus source-smoke guards. Current-head Docs/Android CI remains authoritative.",
