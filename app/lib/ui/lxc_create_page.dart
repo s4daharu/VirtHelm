@@ -216,11 +216,11 @@ class _LxcCreatePageState extends State<LxcCreatePage> {
                 'Container: ${request.hostname} (${request.vmid})\n'
                 'Template: ${request.templateVolid}\n'
                 'Rootfs storage: ${request.rootfsStorage}\n'
-                'CPU: ${request.cores} Â· Memory: ${request.memoryMiB} MiB',
+                'CPU: ${request.cores} - Memory: ${request.memoryMiB} MiB',
               ),
               const SizedBox(height: 12),
               const Text(
-                'Creates an unprivileged container with Proxmoxâs default 4 GiB '
+                'Creates an unprivileged container with Proxmox's default 4 GiB '
                 'rootfs. No password, SSH key, NIC, pool, HA, restore input or '
                 'start-after-create option is sent.',
               ),
@@ -321,7 +321,7 @@ class _LxcCreatePageState extends State<LxcCreatePage> {
               onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
                 labelText: 'VMID',
-                helperText: '100â999999999',
+                helperText: '100-999999999',
               ),
             ),
             const SizedBox(height: 12),
@@ -350,7 +350,7 @@ class _LxcCreatePageState extends State<LxcCreatePage> {
                   for (final template in _options?.templates ?? const <LxcTemplate>[])
                     DropdownMenuEntry(
                       value: template.volid,
-                      label: '${template.displayName} Â· ${template.storage}',
+                      label: '${template.displayName} - ${template.storage}',
                     ),
                 ],
                 onSelected: (value) => setState(() => _template = value),
@@ -407,7 +407,7 @@ class _LxcCreatePageState extends State<LxcCreatePage> {
               onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
                 labelText: 'Memory (MiB)',
-                helperText: '128â262144 MiB',
+                helperText: '128-262144 MiB',
               ),
             ),
             SwitchListTile(
@@ -449,7 +449,7 @@ class _LxcCreatePageState extends State<LxcCreatePage> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.fact_check_outlined),
-              label: Text(_submitting ? 'Submittingâ¦' : 'Review and create'),
+              label: Text(_submitting ? 'Submitting...' : 'Review and create'),
             ),
           ],
         ),
