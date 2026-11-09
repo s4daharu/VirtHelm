@@ -1237,7 +1237,7 @@ class _GuestPageState extends State<GuestPage> {
         ],
         const SizedBox(height: 14),
         Text(
-          'Configuration editing and migration remain disabled. Empty QEMU VM '
+          'Configuration editing remains disabled. Guarded same-cluster migration is available from the action bar. Empty QEMU VM '
           'creation and template cloning are available only through their '
           'separately guarded provisioning workflows; storage/network/media '
           'configuration and LXC creation remain gated.',
