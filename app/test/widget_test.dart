@@ -1475,10 +1475,7 @@ void main() {
       expect(find.byKey(const Key('qemu-create-memory')), findsOneWidget);
       expect(find.byKey(const Key('qemu-create-onboot')), findsOneWidget);
       expect(find.text('Safety boundary'), findsOneWidget);
-      expect(
-        find.textContaining('does not allocate a disk'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('does not allocate a disk'), findsOneWidget);
     },
   );
 
