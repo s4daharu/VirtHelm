@@ -52,6 +52,14 @@ void main() {
         'name': 'secret-vm-name',
         'status': 'running',
       },
+      {
+        'type': 'qemu',
+        'vmid': 900,
+        'node': 'private-node',
+        'name': 'private-template-name',
+        'status': 'stopped',
+        'template': 1,
+      },
     ], fetchedAt: now.subtract(const Duration(hours: 2)));
     final original = OfflineOverview.fromInventory(inventory);
     final record = original.toJson();
@@ -59,6 +67,8 @@ void main() {
     expect(serialized, isNot(contains('private-node')));
     expect(serialized, isNot(contains('secret-vm-name')));
     expect(serialized, isNot(contains('101')));
+    expect(serialized, isNot(contains('private-template-name')));
+    expect(record['v'], 2);
     final decoded = OfflineOverview.fromJson(jsonDecode(serialized), now: now);
     expect(decoded?.totalNodes, 1);
     expect(decoded?.totalGuests, 1);
@@ -86,7 +96,7 @@ void main() {
       OfflineOverview.fromJson({...record, 'runningGuests': 2}, now: now),
       isNull,
     );
-    expect(OfflineOverview.fromJson({...record, 'v': 2}, now: now), isNull);
+    expect(OfflineOverview.fromJson({...record, 'v': 1}, now: now), isNull);
     expect(
       OfflineOverview.fromJson({...record, 'hostname': 'private'}, now: now),
       isNull,
