@@ -3013,6 +3013,256 @@ void main() {
   );
 
   test(
+    'guest migration preflights VM.Migrate and submits exactly once',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway()
+          ..inventoryResources = [
+            {'type': 'node', 'node': 'pve1', 'status': 'online'},
+            {'type': 'node', 'node': 'pve2', 'status': 'online'},
+            {
+              'type': 'qemu',
+              'vmid': 101,
+              'node': 'pve1',
+              'name': 'Web',
+              'status': 'running',
+            },
+          ]
+          ..guestPermissionResult = const GuestPermissionSnapshot(
+            privileges: {'VM.Migrate'},
+          )
+          ..migrationPreflightResult = const GuestMigrationPreflight(
+            running: true,
+            allowedNodes: ['pve2'],
+          ),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 'synthetic',
+      );
+
+      final source = ctl.inventory!.guests.single;
+      await ctl.runGuestMigration(
+        source,
+        const GuestMigrationRequest(targetNode: 'pve2'),
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+      );
+
+      expect(gateway.guestPermissionCalls, 1);
+      expect(gateway.migrationPreflightCalls, 1);
+      expect(gateway.migrationSubmissions, 1);
+      expect(gateway.lastMigratedGuest?.vmid, 101);
+      expect(gateway.lastMigrationRequest?.targetNode, 'pve2');
+      expect(ctl.tasks, hasLength(1));
+      expect(ctl.tasks.single.title, contains('pve1 → pve2'));
+      expect(ctl.tasks.single.outcome, OperationOutcome.running);
+      expect(ctl.isGuestActionBlocked(source), isTrue);
+      expect(ctl.isProvisioningTargetBlocked('qemu', 'pve2', 101), isTrue);
+    },
+  );
+
+  test(
+    'guest migration rejects missing VM.Migrate before server preflight',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway()
+          ..inventoryResources = [
+            {'type': 'node', 'node': 'pve1', 'status': 'online'},
+            {'type': 'node', 'node': 'pve2', 'status': 'online'},
+            {
+              'type': 'qemu',
+              'vmid': 101,
+              'node': 'pve1',
+              'name': 'Web',
+              'status': 'running',
+            },
+          ],
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 'synthetic',
+      );
+
+      final source = ctl.inventory!.guests.single;
+      await expectLater(
+        ctl.runGuestMigration(
+          source,
+          const GuestMigrationRequest(targetNode: 'pve2'),
+          profileId: ctl.active!.id,
+          generation: ctl.connectionGeneration,
+        ),
+        throwsA(
+          isA<PveFailure>().having((error) => error.status, 'status', 403),
+        ),
+      );
+
+      expect(gateway.guestPermissionCalls, 1);
+      expect(gateway.migrationPreflightCalls, 0);
+      expect(gateway.migrationSubmissions, 0);
+      expect(ctl.isGuestActionBlocked(source), isFalse);
+    },
+  );
+
+  test(
+    'QEMU migration rejects local disks or host resources before POST',
+    () async {
+      for (final preflight in [
+        const GuestMigrationPreflight(
+          running: true,
+          allowedNodes: ['pve2'],
+          localDiskCount: 1,
+        ),
+        const GuestMigrationPreflight(
+          running: true,
+          allowedNodes: ['pve2'],
+          localResources: ['hostpci0'],
+        ),
+      ]) {
+        final prefs = await SharedPreferences.getInstance();
+        late _Gateway gateway;
+        final ctl = AppController(
+          repository: ProfileRepository(prefs, _Vault()),
+          gatewayFactory: (profile, credentials) => gateway = _Gateway()
+            ..inventoryResources = [
+              {'type': 'node', 'node': 'pve1', 'status': 'online'},
+              {'type': 'node', 'node': 'pve2', 'status': 'online'},
+              {
+                'type': 'qemu',
+                'vmid': 101,
+                'node': 'pve1',
+                'name': 'Web',
+                'status': 'running',
+              },
+            ]
+            ..guestPermissionResult = const GuestPermissionSnapshot(
+              privileges: {'VM.Migrate'},
+            )
+            ..migrationPreflightResult = preflight,
+        );
+        await ctl.initialize();
+        await ctl.connect(
+          name: 'Lab',
+          address: 'https://pve.local',
+          tokenId: 'me@pve!app',
+          secret: 'synthetic',
+        );
+        final source = ctl.inventory!.guests.single;
+
+        await expectLater(
+          ctl.runGuestMigration(
+            source,
+            const GuestMigrationRequest(targetNode: 'pve2'),
+            profileId: ctl.active!.id,
+            generation: ctl.connectionGeneration,
+          ),
+          throwsA(
+            isA<PveFailure>().having(
+              (error) => error.message,
+              'message',
+              contains('shared storage'),
+            ),
+          ),
+        );
+
+        expect(gateway.migrationPreflightCalls, 1);
+        expect(gateway.migrationSubmissions, 0);
+        expect(ctl.isGuestActionBlocked(source), isFalse);
+        ctl.dispose();
+      }
+    },
+  );
+
+  test(
+    'ambiguous migration POST remains locked and cannot be retried',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway()
+          ..inventoryResources = [
+            {'type': 'node', 'node': 'pve1', 'status': 'online'},
+            {'type': 'node', 'node': 'pve2', 'status': 'online'},
+            {
+              'type': 'lxc',
+              'vmid': 202,
+              'node': 'pve1',
+              'name': 'API',
+              'status': 'running',
+            },
+          ]
+          ..guestPermissionResult = const GuestPermissionSnapshot(
+            privileges: {'VM.Migrate'},
+          )
+          ..migrationPreflightResult = const GuestMigrationPreflight(
+            running: true,
+            allowedNodes: ['pve2'],
+          )
+          ..migrationSubmissionFailure = const PveFailure(
+            'Response lost',
+            mayHaveExecuted: true,
+          ),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 'synthetic',
+      );
+
+      final source = ctl.inventory!.guests.single;
+      await expectLater(
+        ctl.runGuestMigration(
+          source,
+          const GuestMigrationRequest(targetNode: 'pve2'),
+          profileId: ctl.active!.id,
+          generation: ctl.connectionGeneration,
+        ),
+        throwsA(
+          isA<PveFailure>().having(
+            (error) => error.mayHaveExecuted,
+            'unknown outcome',
+            isTrue,
+          ),
+        ),
+      );
+      expect(gateway.migrationSubmissions, 1);
+      expect(ctl.isGuestActionBlocked(source), isTrue);
+
+      await ctl.refresh();
+      final refreshed = ctl.inventory!.guests.single;
+      await expectLater(
+        ctl.runGuestMigration(
+          refreshed,
+          const GuestMigrationRequest(targetNode: 'pve2'),
+          profileId: ctl.active!.id,
+          generation: ctl.connectionGeneration,
+        ),
+        throwsA(isA<PveFailure>()),
+      );
+      expect(gateway.migrationSubmissions, 1);
+      expect(ctl.isGuestActionBlocked(refreshed), isTrue);
+    },
+  );
+
+  test(
     'LXC create revalidates template, storage ACLs and submits exactly once',
     () async {
       final prefs = await SharedPreferences.getInstance();
