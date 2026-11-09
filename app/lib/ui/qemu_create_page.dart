@@ -303,6 +303,7 @@ class _QemuCreatePageState extends State<QemuCreatePage> {
             request.node,
             request.vmid,
           );
+      final validationError = _validationError();
       final canReview =
           !_submitting &&
           !blocked &&
@@ -310,7 +311,7 @@ class _QemuCreatePageState extends State<QemuCreatePage> {
           onlineNodes.contains(selectedNode) &&
           !widget.controller.refreshing &&
           widget.controller.isInventoryWriteSafe &&
-          _validationError() == null;
+          validationError == null;
 
       return Scaffold(
         appBar: AppBar(title: const Text('Create QEMU VM')),
@@ -471,10 +472,10 @@ class _QemuCreatePageState extends State<QemuCreatePage> {
                 ),
               ),
             ],
-            if (_validationError() case final error?) ...[
+            if (validationError != null) ...[
               const SizedBox(height: 12),
               Text(
-                error,
+                validationError,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ],
