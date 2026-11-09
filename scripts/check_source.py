@@ -241,7 +241,7 @@ assert 'Datastore.AllocateSpace' in files['docs/85-implementation-lxc-create.md'
 assert 'VM.Config.Network' in files['docs/85-implementation-lxc-create.md']
 assert 'class GuestMigrationRequest' in files['app/lib/core/models.dart']
 assert 'abstract class GuestMigrationGateway' in files['app/lib/core/pve_api.dart']
-assert "'restart': 1" in files['app/lib/core/pve_api.dart']
+assert "data['restart'] = 1" in files['app/lib/core/pve_api.dart']
 assert 'runGuestMigration' in files['app/lib/core/app_controller.dart']
 assert 'VM.Migrate' in files['app/lib/core/app_controller.dart']
 assert "Key('guest-migrate')" in files['app/lib/ui/guest_page.dart']
