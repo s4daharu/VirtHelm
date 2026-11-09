@@ -12,6 +12,8 @@ POST,/nodes/{node}/qemu/{vmid}/status/shutdown,qemu_shutdown,P0,api_token,needs_
 POST,/nodes/{node}/qemu/{vmid}/status/stop,qemu_force_stop,P0,api_token,needs_live_8.4_9.2
 POST,/nodes/{node}/qemu/{vmid}/status/reboot,qemu_reboot,P0,api_token,needs_live_8.4_9.2
 POST,/nodes/{node}/qemu/{vmid}/clone,qemu_template_full_clone,P2,api_token,source_reviewed_needs_live_8.4_9.2
+GET,/nodes/{node}/qemu/{vmid}/migrate,qemu_migration_preflight,P2,api_token,source_reviewed_needs_live_8.4_9.2
+POST,/nodes/{node}/qemu/{vmid}/migrate,qemu_guarded_migration,P2,api_token,source_reviewed_needs_live_8.4_9.2
 GET,/nodes/{node}/lxc,lxc_list,P0,api_token,needs_live_8.4_9.2
 POST,/nodes/{node}/lxc,lxc_unprivileged_create,P2,api_token,source_reviewed_needs_live_8.4_9.2
 GET,/nodes/{node}/lxc/{vmid}/status/current,lxc_detail,P0,api_token,needs_live_8.4_9.2
@@ -20,6 +22,8 @@ POST,/nodes/{node}/lxc/{vmid}/status/shutdown,lxc_shutdown,P0,api_token,needs_li
 POST,/nodes/{node}/lxc/{vmid}/status/stop,lxc_force_stop,P0,api_token,needs_live_8.4_9.2
 POST,/nodes/{node}/lxc/{vmid}/status/reboot,lxc_reboot,P0,api_token,needs_live_8.4_9.2
 POST,/nodes/{node}/lxc/{vmid}/clone,lxc_template_full_clone,P2,api_token,source_reviewed_needs_live_8.4_9.2
+GET,/nodes/{node}/lxc/{vmid}/migrate,lxc_migration_preflight,P2,api_token,source_reviewed_needs_live_8.4_9.2
+POST,/nodes/{node}/lxc/{vmid}/migrate,lxc_guarded_migration,P2,api_token,source_reviewed_needs_live_8.4_9.2
 GET,/nodes/{node}/tasks,tasks,P0,api_token,needs_live_8.4_9.2
 GET,/nodes/{node}/tasks/{upid}/status,task_status,P0,api_token,needs_live_8.4_9.2
 GET,/nodes/{node}/tasks/{upid}/log,task_log,P1,api_token,needs_live_8.4_9.2
