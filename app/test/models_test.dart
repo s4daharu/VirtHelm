@@ -537,6 +537,31 @@ void main() {
     );
   });
 
+  test('template marker is parsed and blocks every power action', () {
+    final template = Guest.fromResource({
+      'type': 'qemu',
+      'node': 'pve1',
+      'vmid': 900,
+      'name': 'Ubuntu template',
+      'status': 'stopped',
+      'template': 1,
+    });
+    expect(template.isTemplate, isTrue);
+    for (final action in GuestAction.values) {
+      expect(action.allowedFor(template), isFalse);
+    }
+
+    final regular = Guest.fromResource({
+      'type': 'lxc',
+      'node': 'pve1',
+      'vmid': 901,
+      'status': 'stopped',
+      'template': '0',
+    });
+    expect(regular.isTemplate, isFalse);
+    expect(GuestAction.start.allowedFor(regular), isTrue);
+  });
+
   test('action policy prevents start on running and stop on stopped', () {
     const guest = Guest(
       node: 'pve1',
