@@ -77,6 +77,7 @@ class _Gateway
         PveGateway,
         GuestPermissionGateway,
         GuestCloneGateway,
+        GuestMigrationGateway,
         GuestCreateGateway,
         LxcCreateGateway {
   int submissions = 0;
@@ -113,6 +114,19 @@ class _Gateway
   int cloneSubmissions = 0;
   PveFailure? cloneAvailabilityFailure;
   PveFailure? cloneSubmissionFailure;
+  int migrationPreflightCalls = 0;
+  int migrationSubmissions = 0;
+  GuestMigrationPreflight migrationPreflightResult =
+      const GuestMigrationPreflight(
+        running: true,
+        allowedNodes: ['pve2'],
+      );
+  PveFailure? migrationPreflightFailure;
+  PveFailure? migrationSubmissionFailure;
+  GuestMigrationRequest? lastMigrationRequest;
+  Guest? lastMigratedGuest;
+  Completer<GuestMigrationPreflight>? migrationPreflightGate;
+  Completer<String>? migrationGate;
   int qemuCreateSubmissions = 0;
   QemuCreateRequest? lastQemuCreateRequest;
   PveFailure? qemuCreateSubmissionFailure;
@@ -355,6 +369,33 @@ class _Gateway
     cloneSubmissions++;
     if (cloneSubmissionFailure != null) throw cloneSubmissionFailure!;
     return 'UPID:pve1:1234:123:abc:qmclone:${source.vmid}:operator@pve:';
+  }
+
+  @override
+  Future<GuestMigrationPreflight> migrationPreflight(
+    Guest guest,
+    String targetNode,
+  ) async {
+    migrationPreflightCalls++;
+    if (migrationPreflightFailure != null) throw migrationPreflightFailure!;
+    if (migrationPreflightGate != null) return migrationPreflightGate!.future;
+    return migrationPreflightResult;
+  }
+
+  @override
+  Future<String> migrateGuest(
+    Guest guest,
+    GuestMigrationRequest request,
+  ) async {
+    migrationSubmissions++;
+    lastMigratedGuest = guest;
+    lastMigrationRequest = request;
+    if (migrationSubmissionFailure != null) {
+      throw migrationSubmissionFailure!;
+    }
+    if (migrationGate != null) return migrationGate!.future;
+    final worker = guest.kind == 'qemu' ? 'qmigrate' : 'vzmigrate';
+    return 'UPID:${guest.node}:1234:123:abc:$worker:${guest.vmid}:operator@pve:';
   }
 
   @override
