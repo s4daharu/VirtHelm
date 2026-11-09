@@ -1477,7 +1477,7 @@ class AppController extends ChangeNotifier {
     }
     if (guest.isTemplate) {
       throw const PveFailure(
-        'Templates are read-only. Clone and create workflows are not enabled yet.',
+        'Templates cannot use power actions. Use the guarded clone workflow for supported template cloning.',
       );
     }
     if (!action.allowedFor(guest)) {
