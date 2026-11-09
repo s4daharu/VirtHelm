@@ -52,7 +52,11 @@ dependency lockfile and synthetic credential-free fixtures:
   higher execution count. The create controller has **86/86 executable lines**
   covered; line coverage is not exhaustive behavioral or live-server proof.
 - Generated Android runner hardening checks: **pass**.
-- Local debug APK compilation: pending at the time of this record's preparation.
+- Local debug APK compilation: **pass**, using Flutter 3.44.4 / Java 17 after
+  `scripts/bootstrap_android.sh`. `flutter build apk --debug --no-pub` ran under
+  `ionice -c3 nice -n 19 taskset -c 0-2`, with capped Gradle/Kotlin settings;
+  `./gradlew --stop` reported no remaining daemons. The APK remains local and
+  is not a release/certification claim.
 
 CI must also pass on the final follow-up commit before merge. No live PVE
 mutation or physical-device run is claimed.
