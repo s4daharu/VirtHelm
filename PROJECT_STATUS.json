@@ -455,7 +455,7 @@
     "report": "docs/81-implementation-template-discovery.md"
   },
   "m4_template_clone_workflow": {
-    "status": "implemented_source_level_ci_pending",
+    "status": "implemented_source_level_ci_passed_live_validation_pending",
     "feature_id": "GUEST-015 partial / M4 provisioning",
     "version": "0.1.35",
     "behavior": "Templates expose a full same-node clone wizard using a suggested or operator-entered destination VMID, conservative name/hostname validation, typed VMID confirmation, full=1 and Proxmox default storage placement.",
@@ -463,7 +463,13 @@
     "safety": "Exact active profile/generation/template identity, fresh clean inventory, second live inventory check, destination collision recheck, source VM.Clone and destination VM.Allocate hints, synchronous single-flight reservation, exactly one POST, no mutation retry, UPID polling, unknown-outcome lockout and post-task inventory reconciliation.",
     "authorization_boundary": "Datastore.AllocateSpace and SDN.Use may also be required by Proxmox. This first slice does not claim those ACLs are fully preflighted; server 403 remains authoritative and is never replayed.",
     "deferred": "Linked clone, cross-node target, explicit storage/pool selection, create-from-scratch, migration, template conversion, snapshot mutation, backup execution/restore and destructive guest deletion.",
-    "verification": "Model/gateway/controller/widget regressions and source-smoke guards are defined. PR/main CI remains authoritative; live PVE 8.4/9.2 and physical Android validation remain open.",
-    "report": "docs/82-implementation-template-clone.md"
+    "verification": "PR #36 exact-head CI run 42559102380 passed docs/source checks, Dart formatting, flutter analyze --fatal-infos, the complete Flutter test suite, and Android debug APK compilation. Live PVE 8.4/9.2 and physical Android validation remain open.",
+    "report": "docs/82-implementation-template-clone.md",
+    "pr_ci": {
+      "pull_request": 36,
+      "head_sha": "3298aab16e8fa3b0f6277b0d7a4f1238919c0483",
+      "workflow_run": 42559102380,
+      "result": "success"
+    }
   }
 }
