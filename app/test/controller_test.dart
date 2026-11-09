@@ -2993,10 +2993,7 @@ void main() {
       expect(ctl.tasks, hasLength(1));
       expect(ctl.tasks.single.title, contains('Create QEMU app-vm (901)'));
       expect(ctl.tasks.single.node, 'pve1');
-      expect(
-        ctl.isProvisioningTargetBlocked('qemu', 'pve1', 901),
-        isTrue,
-      );
+      expect(ctl.isProvisioningTargetBlocked('qemu', 'pve1', 901), isTrue);
     },
   );
 
@@ -3012,11 +3009,7 @@ void main() {
             {'type': 'node', 'node': 'pve1', 'status': 'online'},
           ]
           ..clonePermissionResults[901] = const GuestPermissionSnapshot(
-            privileges: {
-              'VM.Allocate',
-              'VM.Config.CPU',
-              'VM.Config.Options',
-            },
+            privileges: {'VM.Allocate', 'VM.Config.CPU', 'VM.Config.Options'},
           ),
       );
       addTearDown(ctl.dispose);
@@ -3053,11 +3046,7 @@ void main() {
       expect(gateway.clonePermissionVmids, [901]);
       expect(gateway.assertedCloneVmids, isEmpty);
       expect(gateway.qemuCreateSubmissions, 0);
-      expect(
-        ctl.isProvisioningTargetBlocked('qemu', 'pve1', 901),
-        isFalse,
-      );
+      expect(ctl.isProvisioningTargetBlocked('qemu', 'pve1', 901), isFalse);
     },
   );
-
 }
