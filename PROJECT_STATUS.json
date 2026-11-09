@@ -12,7 +12,7 @@
   "framework": "Flutter",
   "primary_pve": "9.2",
   "regression_pve": "8.4",
-  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations",
+  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone operational slice",
   "github_repository_url": "https://github.com/s4daharu/VirtHelm",
   "documentation_uploaded_and_verified": true,
   "docs_initial_remote_commit": "4fdfcd704aced213508f798533fd6370573ac284",
@@ -133,10 +133,11 @@
       "GUEST-04 read-only guest configuration inspection uses an explicit reviewed allowlist and never copies password/SSH-key/arbitrary-args/hooks/descriptions or unknown future config keys into the UI model. Reads are exact-profile/generation/node/type/VMID scoped and transient; configuration editing remains unavailable.",
       "Guest Recovery now hides previously loaded snapshot metadata if a later live inventory refresh no longer contains the exact guest identity, preventing stale route data from remaining visible after a move/removal.",
       "M4 capability discovery now includes on-demand exact-guest effective permission hints from /access/permissions. Results are transient presentation hints only and do not alter existing mutation authorization or enable gated M4 writes.",
-      "GUEST-014 template discovery now parses the existing cluster-inventory template marker, separates templates from runnable workload counts/filters, supports profile-scoped saved template views, and rejects every existing power action at both model and controller boundaries before any mutation request."
+      "GUEST-014 template discovery now parses the existing cluster-inventory template marker, separates templates from runnable workload counts/filters, supports profile-scoped saved template views, and rejects every existing power action at both model and controller boundaries before any mutation request.",
+      "GUEST-015 partial adds a constrained full same-node QEMU/LXC template clone: source VM.Clone + destination VM.Allocate hints, free-VMID recheck, typed VMID confirmation, exactly one POST, UPID tracking and uncertain-outcome lockout. Storage/network authorization remains Proxmox-authoritative and live PVE/device gates remain open."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 188,
+    "current_flutter_tests_defined": 193,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; test counts alone are not a release claim. Audited baseline a8f9443 passed both checks and signed prerelease publication.",
     "p0_scope_complete": false,
@@ -424,12 +425,12 @@
     "behavior": "On-demand GET of the exact QEMU/LXC guest config with reviewed compute/platform/storage/network fields only; no raw config dump and no persistence.",
     "privacy": "Passwords, SSH keys, arbitrary args, hooks, descriptions and unknown future keys are intentionally withheld from the display model. Values shown are control-character sanitized and capped.",
     "safety": "Active profile ID, connection generation and exact guest node/type/VMID are checked before and after the read; explicit Android network loss blocks new reads; observed 401 invalidates authenticated live state.",
-    "dependency": "Establishes the read-only prerequisite for future create/clone/migration design without enabling any M4 mutation.",
-    "limitations": "Live PVE 8.4/9.2 config schemas and ACLs remain unverified. Configuration editing, create/clone/migration, ticket/MFA, console, snapshot/backup execution and restore remain gated.",
+    "dependency": "Provides the reviewed read-only configuration prerequisite for later provisioning design; the separate template-clone workflow now consumes template/ACL/inventory inputs without editing source configuration.",
+    "limitations": "Live PVE 8.4/9.2 config schemas and ACLs remain unverified. Configuration editing, create-from-scratch, migration, ticket/MFA, console, snapshot/backup execution and restore remain gated.",
     "report": "docs/79-implementation-guest-configuration-read.md"
   },
   "m4_permission_hints_foundation": {
-    "status": "implemented_source_level_ci_pending",
+    "status": "implemented_source_level_ci_passed_live_validation_pending",
     "feature_ids": [
       "HOME-009 partial",
       "SEC-001 partial",
@@ -438,19 +439,31 @@
     "behavior": "On-demand GET /access/permissions scoped to the authenticated token's exact /vms/{vmid} ACL path, with reviewed guest-relevant VM privilege hints in a transient Access tab.",
     "safety": "Profile ID, connection generation and exact guest identity are revalidated around the read; Android network loss blocks new reads and observed 401 invalidates authenticated live state. Permission hints do not authorize or unlock mutations.",
     "privacy": "Only the exact requested guest ACL path is queried. Unknown valid privileges are counted rather than individually rendered; results are never persisted or exported.",
-    "dependency": "Provides capability/ACL visibility for future M4 snapshot/backup/create/clone/migration design without enabling those operations.",
-    "limitations": "Live PVE 8.4/9.2 permissions/token privilege-separation fixtures and physical Android validation remain open. A privilege hint alone is not proof that all operation-specific requirements are satisfied.",
+    "dependency": "Provides transient capability hints now consumed by the guarded template-clone preflight; hints never replace Proxmox authorization and remain insufficient by themselves for storage/network permission proof.",
+    "limitations": "Live PVE 8.4/9.2 permissions/token privilege-separation fixtures and physical Android validation remain open. The clone workflow checks source VM.Clone and destination VM.Allocate only; Proxmox remains final authority for datastore/network requirements.",
     "report": "docs/80-implementation-guest-permission-hints.md"
   },
   "m4_template_discovery_foundation": {
-    "status": "implemented_source_level_ci_pending",
+    "status": "implemented_source_level_ci_passed_live_validation_pending",
     "feature_id": "GUEST-014",
     "behavior": "QEMU/LXC templates are classified from the existing authenticated cluster inventory, labelled explicitly, browsable through a Templates filter and compatible with existing profile-scoped saved views.",
     "accounting": "Templates are excluded from running/stopped runtime workload filters and Home/offline guest counts so a stopped template is not reported as a stopped runnable workload. Offline aggregate-count records advance to schema v2, invalidating older template-inclusive v1 snapshots.",
-    "safety": "GuestAction policy and the AppController independently reject templates before live status preflight or POST submission; the UI disables power controls. No clone/create/template-conversion or other mutation endpoint is introduced.",
-    "dependency": "Provides the read-only template-discovery prerequisite for a future reviewed create/clone wizard without claiming that template visibility proves storage, VMID, ACL or destination readiness.",
+    "safety": "GuestAction policy and the AppController still reject templates for all power operations. Template cloning is available only through the separate guarded full same-node clone workflow with its own R3-style confirmation/preflight; create/template-conversion remain gated.",
+    "dependency": "Provides the template identity consumed by docs/82 guarded clone workflow; template visibility alone still does not prove storage, VMID, ACL or destination readiness.",
     "verification": "Model, pure-filter, saved-view, controller and widget regressions are defined, plus source-smoke guards. Current-head Docs/Android CI remains authoritative.",
-    "limitations": "Live PVE 8.4/9.2 QEMU/LXC template-marker and restricted-token fixtures plus physical Android accessibility/scale validation remain open. Clone/create remains an R3 gated workflow.",
+    "limitations": "Live PVE 8.4/9.2 QEMU/LXC template-marker and restricted-token fixtures plus physical Android accessibility/scale validation remain open. Linked/cross-node/explicit-storage clone, create-from-scratch and migration remain gated.",
     "report": "docs/81-implementation-template-discovery.md"
+  },
+  "m4_template_clone_workflow": {
+    "status": "implemented_source_level_ci_pending",
+    "feature_id": "GUEST-015 partial / M4 provisioning",
+    "version": "0.1.35",
+    "behavior": "Templates expose a full same-node clone wizard using a suggested or operator-entered destination VMID, conservative name/hostname validation, typed VMID confirmation, full=1 and Proxmox default storage placement.",
+    "contract": "GET /cluster/nextid for suggestion/collision validation; GET /access/permissions on source and destination VMID paths; one POST /nodes/{node}/{qemu|lxc}/{vmid}/clone returning a UPID.",
+    "safety": "Exact active profile/generation/template identity, fresh clean inventory, second live inventory check, destination collision recheck, source VM.Clone and destination VM.Allocate hints, synchronous single-flight reservation, exactly one POST, no mutation retry, UPID polling, unknown-outcome lockout and post-task inventory reconciliation.",
+    "authorization_boundary": "Datastore.AllocateSpace and SDN.Use may also be required by Proxmox. This first slice does not claim those ACLs are fully preflighted; server 403 remains authoritative and is never replayed.",
+    "deferred": "Linked clone, cross-node target, explicit storage/pool selection, create-from-scratch, migration, template conversion, snapshot mutation, backup execution/restore and destructive guest deletion.",
+    "verification": "Model/gateway/controller/widget regressions and source-smoke guards are defined. PR/main CI remains authoritative; live PVE 8.4/9.2 and physical Android validation remain open.",
+    "report": "docs/82-implementation-template-clone.md"
   }
 }
