@@ -1606,22 +1606,19 @@ void main() {
     late _Gateway gateway;
     final ctl = AppController(
       repository: ProfileRepository(prefs, _Vault()),
-      gatewayFactory: (profile, credentials) => gateway = _Gateway()
-        ..inventoryResources = [
-          {
-            'type': 'node',
-            'node': 'pve1',
-            'status': 'online',
-          },
-          {
-            'type': 'qemu',
-            'vmid': 900,
-            'node': 'pve1',
-            'name': 'Ubuntu template',
-            'status': 'stopped',
-            'template': 1,
-          },
-        ],
+      gatewayFactory: (profile, credentials) =>
+          gateway = _Gateway()
+            ..inventoryResources = [
+              {'type': 'node', 'node': 'pve1', 'status': 'online'},
+              {
+                'type': 'qemu',
+                'vmid': 900,
+                'node': 'pve1',
+                'name': 'Ubuntu template',
+                'status': 'stopped',
+                'template': 1,
+              },
+            ],
     );
     addTearDown(ctl.dispose);
     await ctl.initialize();
