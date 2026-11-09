@@ -1432,6 +1432,57 @@ void main() {
   });
 
   testWidgets(
+    'Guests exposes the constrained QEMU create wizard from live inventory',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = AppController(
+        repository: ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      controller.active = const ConnectionProfile(
+        id: 'lab',
+        name: 'Lab',
+        endpoint: 'https://pve.local',
+      );
+      controller.inventory = Inventory.fromResources([
+        {'type': 'node', 'node': 'pve1', 'status': 'online'},
+        {
+          'type': 'qemu',
+          'node': 'pve1',
+          'vmid': 101,
+          'name': 'Existing VM',
+          'status': 'stopped',
+        },
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(home: ShellPage(controller: controller)),
+      );
+      await tester.tap(find.text('Guests'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('guest-create-qemu')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('guest-create-qemu')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Create QEMU VM'), findsOneWidget);
+      expect(find.text('Empty VM shell'), findsOneWidget);
+      expect(find.byKey(const Key('qemu-create-node')), findsOneWidget);
+      expect(find.byKey(const Key('qemu-create-vmid')), findsOneWidget);
+      expect(find.byKey(const Key('qemu-create-name')), findsOneWidget);
+      expect(find.byKey(const Key('qemu-create-cores')), findsOneWidget);
+      expect(find.byKey(const Key('qemu-create-memory')), findsOneWidget);
+      expect(find.byKey(const Key('qemu-create-onboot')), findsOneWidget);
+      expect(find.text('Safety boundary'), findsOneWidget);
+      expect(
+        find.textContaining('does not allocate a disk'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
     'template discovery exposes guarded clone instead of power actions',
     (tester) async {
       SharedPreferences.setMockInitialValues({});
