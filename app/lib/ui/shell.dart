@@ -1061,7 +1061,7 @@ class _GuestsTabState extends State<_GuestsTab> {
         ),
       ),
     );
-    if (!mounted ||
+    if (!context.mounted ||
         submitted != true ||
         widget.controller.active?.id != scopedProfileId ||
         widget.controller.connectionGeneration != generation) {
