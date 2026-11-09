@@ -285,12 +285,16 @@ class _OverviewTab extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final profileId = controller.active?.id;
     final generation = controller.connectionGeneration;
+    final countGuests =
+        inv?.guests.where((g) => !g.isTemplate).length ??
+        cached?.totalGuests ??
+        0;
     final countRunning =
-        inv?.guests.where((g) => g.isRunning).length ??
+        inv?.guests.where((g) => !g.isTemplate && g.isRunning).length ??
         cached?.runningGuests ??
         0;
     final countStopped =
-        inv?.guests.where((g) => g.isStopped).length ??
+        inv?.guests.where((g) => !g.isTemplate && g.isStopped).length ??
         cached?.stoppedGuests ??
         0;
     final nodeOnline =
@@ -440,9 +444,7 @@ class _OverviewTab extends StatelessWidget {
               ),
               _MetricCard(
                 title: 'Guests total',
-                value: hasCounts
-                    ? '${inv?.guests.length ?? cached!.totalGuests}'
-                    : '—',
+                value: hasCounts ? '$countGuests' : '—',
                 icon: Icons.computer_outlined,
                 color: const Color(0xFF6498F8),
               ),
@@ -861,6 +863,7 @@ class _GuestTile extends StatelessWidget {
         ),
         title: Text(guest.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(
+          '${guest.isTemplate ? 'TEMPLATE • ' : ''}'
           '${guest.kind.toUpperCase()} • ${guest.vmid} • ${guest.node}'
           '${guest.pool == null ? '' : '\nPool: ${guest.pool}'}'
           '${guest.tags.isEmpty ? '' : '\nTags: ${guest.tags.join(', ')}'}',
@@ -1246,6 +1249,7 @@ class _GuestsTabState extends State<_GuestsTab> {
                         ('favorites', 'Favorites'),
                         ('running', 'Running'),
                         ('stopped', 'Stopped'),
+                        ('templates', 'Templates'),
                       ]) ...[
                         FilterChip(
                           label: Text(option.$2),
@@ -1309,7 +1313,9 @@ class _GuestsTabState extends State<_GuestsTab> {
                     runSpacing: 8,
                     children: [
                       Text(
-                        '${guests.length} workloads',
+                        filter == 'templates'
+                            ? '${guests.length} templates'
+                            : '${guests.length} workloads',
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                       Text(
