@@ -1079,9 +1079,10 @@ class _GuestPageState extends State<GuestPage> {
         ],
         const SizedBox(height: 14),
         Text(
-          'Configuration editing, create-from-scratch, and migration remain '
-          'disabled. Template cloning is available only through the separately '
-          'guarded full same-node clone workflow.',
+          'Configuration editing and migration remain disabled. Empty QEMU VM '
+          'creation and template cloning are available only through their '
+          'separately guarded provisioning workflows; storage/network/media '
+          'configuration and LXC creation remain gated.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
