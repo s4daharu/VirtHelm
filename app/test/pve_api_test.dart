@@ -1489,53 +1489,55 @@ void main() {
     }
   });
 
-  test('QEMU create POST is never retried after an ambiguous server failure', () async {
-    final dio = Dio();
-    var posts = 0;
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          posts++;
-          handler.reject(
-            DioException(
-              requestOptions: options,
-              type: DioExceptionType.badResponse,
-              response: Response<dynamic>(
+  test(
+    'QEMU create POST is never retried after an ambiguous server failure',
+    () async {
+      final dio = Dio();
+      var posts = 0;
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            posts++;
+            handler.reject(
+              DioException(
                 requestOptions: options,
-                statusCode: 503,
+                type: DioExceptionType.badResponse,
+                response: Response<dynamic>(
+                  requestOptions: options,
+                  statusCode: 503,
+                ),
               ),
-            ),
-          );
-        },
-      ),
-    );
-    final gateway = DioPveGateway(
-      profile,
-      credentials,
-      http: dio,
-      retryWait: (_) async => fail('QEMU create POST must not be retried.'),
-    );
-    addTearDown(gateway.close);
-
-    await expectLater(
-      gateway.createQemu(
-        const QemuCreateRequest(
-          node: 'pve1',
-          vmid: 901,
-          name: 'app-vm',
-          cores: 2,
-          memoryMiB: 2048,
+            );
+          },
         ),
-      ),
-      throwsA(
-        isA<PveFailure>().having(
-          (failure) => failure.mayHaveExecuted,
-          'mayHaveExecuted',
-          isTrue,
-        ),
-      ),
-    );
-    expect(posts, 1);
-  });
+      );
+      final gateway = DioPveGateway(
+        profile,
+        credentials,
+        http: dio,
+        retryWait: (_) async => fail('QEMU create POST must not be retried.'),
+      );
+      addTearDown(gateway.close);
 
+      await expectLater(
+        gateway.createQemu(
+          const QemuCreateRequest(
+            node: 'pve1',
+            vmid: 901,
+            name: 'app-vm',
+            cores: 2,
+            memoryMiB: 2048,
+          ),
+        ),
+        throwsA(
+          isA<PveFailure>().having(
+            (failure) => failure.mayHaveExecuted,
+            'mayHaveExecuted',
+            isTrue,
+          ),
+        ),
+      );
+      expect(posts, 1);
+    },
+  );
 }
