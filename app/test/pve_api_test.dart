@@ -1429,4 +1429,113 @@ void main() {
       expect(body['full'], 1);
     },
   );
+
+  test('QEMU create API sends only the reviewed shell fields', () async {
+    final dio = Dio();
+    late RequestOptions request;
+    var posts = 0;
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          request = options;
+          posts++;
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {'data': 'UPID:pve1:1:2:3:qmcreate:901:user@pve:'},
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(profile, credentials, http: dio);
+    addTearDown(gateway.close);
+
+    final upid = await gateway.createQemu(
+      const QemuCreateRequest(
+        node: 'pve1',
+        vmid: 901,
+        name: 'app-vm',
+        cores: 4,
+        memoryMiB: 4096,
+        onBoot: true,
+      ),
+    );
+
+    expect(upid, startsWith('UPID:'));
+    expect(posts, 1);
+    expect(request.method, 'POST');
+    expect(request.uri.path, '/api2/json/nodes/pve1/qemu');
+    final body = Map<String, dynamic>.from(request.data as Map);
+    expect(body, {
+      'vmid': 901,
+      'name': 'app-vm',
+      'cores': 4,
+      'memory': 4096,
+      'onboot': 1,
+    });
+    for (final forbidden in [
+      'storage',
+      'scsi0',
+      'ide2',
+      'net0',
+      'start',
+      'pool',
+      'ha-managed',
+      'archive',
+    ]) {
+      expect(body.containsKey(forbidden), isFalse, reason: forbidden);
+    }
+  });
+
+  test('QEMU create POST is never retried after an ambiguous server failure', () async {
+    final dio = Dio();
+    var posts = 0;
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          posts++;
+          handler.reject(
+            DioException(
+              requestOptions: options,
+              type: DioExceptionType.badResponse,
+              response: Response<dynamic>(
+                requestOptions: options,
+                statusCode: 503,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(
+      profile,
+      credentials,
+      http: dio,
+      retryWait: (_) async => fail('QEMU create POST must not be retried.'),
+    );
+    addTearDown(gateway.close);
+
+    await expectLater(
+      gateway.createQemu(
+        const QemuCreateRequest(
+          node: 'pve1',
+          vmid: 901,
+          name: 'app-vm',
+          cores: 2,
+          memoryMiB: 2048,
+        ),
+      ),
+      throwsA(
+        isA<PveFailure>().having(
+          (failure) => failure.mayHaveExecuted,
+          'mayHaveExecuted',
+          isTrue,
+        ),
+      ),
+    );
+    expect(posts, 1);
+  });
+
 }
