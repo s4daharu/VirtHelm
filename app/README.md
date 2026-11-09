@@ -22,7 +22,7 @@ The committed `pubspec.lock` is enforced. The bootstrap generates the Android ru
 - Multiple isolated profiles with validated edit/switch/delete flows; edits preserve profile-local favorites/saved views and never forward credentials across redirects.
 - Last successfully observed PVE server version is retained as non-secret profile metadata, refreshed on activation, and labelled as last-observed in the UI.
 - Cluster nodes and QEMU/LXC inventory with search, freshness, CPU/memory/disk/uptime.
-- QEMU/LXC templates are classified from the existing live cluster inventory, exposed through an explicit Templates filter and saved views, and never authorize power actions.
+- QEMU/LXC templates are classified from the existing live cluster inventory, exposed through an explicit Templates filter and saved views, never authorize power actions, and can enter the guarded full same-node clone wizard.
 - Guest status/type/node/template filters, deterministic favorites/name/VMID/CPU/memory sorting, and up to 12 profile-scoped named saved views, without extra API requests.
 - Read-only per-node storage and recent server task history with partial permission/error reporting, plus scoped on-demand task status and bounded log details for tracked/history tasks.
 - Explicit on-demand 1h/24h/7d guest/node CPU-memory and per-storage used/total RRD history; metric samples stay transient and session-scoped.
@@ -35,7 +35,8 @@ The committed `pubspec.lock` is enforced. The bootstrap generates the Android ru
 - ALERT-006 adds 1–10 consecutive usable foreground samples before firing and 0–20 percentage points of clear hysteresis, with backward-compatible saved-rule defaults.
 - Transient GET failures use up to three total attempts with bounded jittered backoff; TLS/auth/redirect failures and all mutation POSTs are never automatically retried.
 - Start/shutdown/reboot/force-stop confirmation with exact profile/node/type/VMID target.
-- Fresh clean-inventory guard, live status preflight, exactly one POST, per-guest single-flight lock, no write auto-retry.
+- Fresh clean-inventory guard, live status/identity preflight, exactly one POST, per-guest/template single-flight lock, no write auto-retry.
+- Full same-node template clone with suggested/collision-checked destination VMID, typed VMID confirmation, source VM.Clone and destination VM.Allocate hints, full=1, default Proxmox storage placement, and UPID reconciliation. Datastore/SDN authorization remains server-authoritative.
 - UPID polling with terminal exit-status verification, bounded TTL, unknown-outcome lockout, and post-task reconciliation.
 - Authentication revocation, stale/profile-switch/deletion races, malformed inventory and gateway contract regression tests.
 - Device/light/dark/AMOLED theme preference, optional high-contrast and reduced-motion settings, optional foreground-only GET refresh (manual, 30/60/120 seconds), and node-metric display preference saved without credential-vault writes.
@@ -45,6 +46,6 @@ The committed `pubspec.lock` is enforced. The bootstrap generates the Android ru
 ## Not yet release-complete
 No real PVE 8.4/9.2 lab matrix or production-certified APK is claimed. Physical-device certificate/backup/Keystore behavior, accessibility/font scaling, 200-guest performance, dependency/security review and production device/signing verification remain gates. CI has published signed prerelease APKs, but prerelease signing is not production certification. Full premium M2 scope such as cross-resource capacity analytics, alert acknowledgement/history, quiet hours/cooldown, Android notifications/background checks, persistent offline detail cache and richer topology/group views remains unimplemented. Bounded guest/node/storage charts, the foreground incident inbox, foreground CPU/storage thresholds, tag/pool filters, profile-scoped favorites and saved views are implemented at source level.
 
-No ticket/MFA, console, configuration editing, snapshot mutations, backup execution/archive verification/restore, create/clone/migration, PBS/PDM, host/HA/Ceph/SDN mutation, subscriptions or payments are included.
+No ticket/MFA, console, configuration editing, snapshot mutations, backup execution/archive verification/restore, create-from-scratch, linked/cross-node or explicit-storage clone variants, migration, PBS/PDM, host/HA/Ceph/SDN mutation, subscriptions or payments are included.
 
 Use a dedicated least-privilege PVE API token and trusted HTTPS over LAN/VPN. API-token access does not provide console authentication. Disabling certificate verification permits server impersonation and token theft even on a LAN; it is not recommended for production. Edit a connection and save it with the switch off to restore certificate verification. See [TLS option](../docs/40-profile-tls-option.md). Native TLS regression tests generate disposable certificates using OpenSSL; install it before running `flutter test`.
