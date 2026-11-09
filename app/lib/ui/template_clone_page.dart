@@ -66,7 +66,7 @@ class _TemplateClonePageState extends State<TemplateClonePage> {
     while (baseName.endsWith('-')) {
       baseName = baseName.substring(0, baseName.length - 1);
     }
-    _nameController = TextEditingController(text: '${baseName}-copy');
+    _nameController = TextEditingController(text: '$baseName-copy');
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadSuggestedVmid());
   }
 
