@@ -2913,6 +2913,4 @@ void main() {
       expect(gateway.cloneSubmissions, 0);
       expect(ctl.isGuestActionBlocked(source), isFalse);
     },
-  );
-
-}
+  );}
