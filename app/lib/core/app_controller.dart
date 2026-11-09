@@ -310,7 +310,6 @@ class AppController extends ChangeNotifier {
     }
   }
 
-
   Future<int?> suggestLxcCreateVmid({
     required String profileId,
     required int generation,
@@ -1567,7 +1566,6 @@ class AppController extends ChangeNotifier {
     }
   }
 
-
   Future<void> runLxcCreate(
     LxcCreateRequest request, {
     required String profileId,
@@ -1645,7 +1643,9 @@ class AppController extends ChangeNotifier {
     try {
       final live = await gateway.inventory();
       if (!stillCurrent()) {
-        throw const PveFailure('Connection changed; container create canceled.');
+        throw const PveFailure(
+          'Connection changed; container create canceled.',
+        );
       }
       if (live.malformedGuestRecords != 0) {
         throw const PveFailure(
