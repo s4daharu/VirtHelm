@@ -611,8 +611,8 @@ class _GuestPageState extends State<GuestPage> {
       const SizedBox(height: 22),
       Text(
         guest?.isTemplate == true
-            ? 'This is a read-only template discovered from the current cluster inventory. '
-                  'Power actions are disabled; future clone/create workflows require their own validated preflight.'
+            ? 'This is a template discovered from the current cluster inventory. '
+                  'Power actions are disabled; the reviewed clone wizard is available below while create-from-scratch remains gated.'
             : 'Power actions are available below. Each operation is checked '
                   'against fresh server state and tracked as a task.',
         style: TextStyle(color: scheme.onSurfaceVariant),
@@ -1077,8 +1077,9 @@ class _GuestPageState extends State<GuestPage> {
         ],
         const SizedBox(height: 14),
         Text(
-          'Configuration editing, create/clone, and migration remain disabled '
-          'until their M4 mutation contracts and live-lab safety evidence exist.',
+          'Configuration editing, create-from-scratch, and migration remain '
+          'disabled. Template cloning is available only through the separately '
+          'guarded full same-node clone workflow.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
