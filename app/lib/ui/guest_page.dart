@@ -396,14 +396,11 @@ class _GuestPageState extends State<GuestPage> {
   List<Node> _migrationTargets(Guest guest) {
     final inv = widget.controller.inventory;
     if (inv == null) return const <Node>[];
-    final targets = inv.nodes
-        .where(
-          (node) =>
-              node.name != guest.node &&
-              node.status == 'online',
-        )
-        .toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
+    final targets =
+        inv.nodes
+            .where((node) => node.name != guest.node && node.status == 'online')
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
     return targets;
   }
 
@@ -456,8 +453,7 @@ class _GuestPageState extends State<GuestPage> {
       barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) {
-          final matches =
-              confirmation.text.trim() == source.vmid.toString();
+          final matches = confirmation.text.trim() == source.vmid.toString();
           return AlertDialog(
             title: Text('Migrate ${source.name}?'),
             content: SingleChildScrollView(
