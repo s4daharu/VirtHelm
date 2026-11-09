@@ -135,10 +135,11 @@
       "M4 capability discovery now includes on-demand exact-guest effective permission hints from /access/permissions. Results are transient presentation hints only and do not alter existing mutation authorization or enable gated M4 writes.",
       "GUEST-014 template discovery now parses the existing cluster-inventory template marker, separates templates from runnable workload counts/filters, supports profile-scoped saved template views, and rejects every existing power action at both model and controller boundaries before any mutation request.",
       "GUEST-015 partial adds a constrained full same-node QEMU/LXC template clone: source VM.Clone + destination VM.Allocate hints, free-VMID recheck, typed VMID confirmation, exactly one POST, UPID tracking and uncertain-outcome lockout. Storage/network authorization remains Proxmox-authoritative and live PVE/device gates remain open.",
-      "GUEST-05 partial adds guarded empty QEMU VM creation with online-node revalidation, destination VMID collision checks, VM.Allocate + VM.Config.CPU/Memory/Options hints, a five-field payload, typed VMID confirmation, exactly one POST, UPID tracking and uncertain-outcome lockout. Disk/network/media/storage and LXC creation remain gated."
+      "GUEST-05 partial adds guarded empty QEMU VM creation with online-node revalidation, destination VMID collision checks, VM.Allocate + VM.Config.CPU/Memory/Options hints, a five-field payload, typed VMID confirmation, exactly one POST, UPID tracking and uncertain-outcome lockout. Disk/network/media/storage enrichment remains gated.",
+      "GUEST-013 adds guarded unprivileged LXC creation from live-discovered vztmpl content and active rootdir storage, with VM/storage ACL hints, cluster-wide VMID reservation, typed confirmation, exactly one vzcreate POST, strict UPID tracking and uncertain-outcome lockout. Privileged/custom-rootfs/networked/richer provisioning remains gated."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 229,
+    "current_flutter_tests_defined": 234,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; test counts alone are not a release claim. Audited baseline a8f9443 passed both checks and signed prerelease publication.",
     "p0_scope_complete": false,
