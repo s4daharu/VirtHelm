@@ -602,4 +602,65 @@ void main() {
       expect(request.validationError, isNotNull);
     }
   });
+
+  test('QEMU create request validates constrained shell inputs', () {
+    const valid = QemuCreateRequest(
+      node: ' pve1 ',
+      vmid: 901,
+      name: ' app-vm ',
+      cores: 4,
+      memoryMiB: 4096,
+      onBoot: true,
+    );
+    expect(valid.isValid, isTrue);
+    final normalized = valid.normalized();
+    expect(normalized.node, 'pve1');
+    expect(normalized.name, 'app-vm');
+    expect(normalized.vmid, 901);
+    expect(normalized.cores, 4);
+    expect(normalized.memoryMiB, 4096);
+    expect(normalized.onBoot, isTrue);
+
+    for (final request in [
+      const QemuCreateRequest(
+        node: '',
+        vmid: 901,
+        name: 'valid',
+        cores: 2,
+        memoryMiB: 2048,
+      ),
+      const QemuCreateRequest(
+        node: 'pve1',
+        vmid: 99,
+        name: 'valid',
+        cores: 2,
+        memoryMiB: 2048,
+      ),
+      const QemuCreateRequest(
+        node: 'pve1',
+        vmid: 901,
+        name: 'bad name',
+        cores: 2,
+        memoryMiB: 2048,
+      ),
+      const QemuCreateRequest(
+        node: 'pve1',
+        vmid: 901,
+        name: 'valid',
+        cores: 0,
+        memoryMiB: 2048,
+      ),
+      const QemuCreateRequest(
+        node: 'pve1',
+        vmid: 901,
+        name: 'valid',
+        cores: 2,
+        memoryMiB: 127,
+      ),
+    ]) {
+      expect(request.isValid, isFalse);
+      expect(request.validationError, isNotNull);
+    }
+  });
+
 }
