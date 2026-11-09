@@ -1431,7 +1431,7 @@ void main() {
     expect(find.textContaining('Could not save or open'), findsOneWidget);
   });
 
-  testWidgets('template discovery is explicit and power actions stay disabled', (
+  testWidgets('template discovery exposes guarded clone instead of power actions', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -1474,14 +1474,23 @@ void main() {
     expect(find.text('Template'), findsOneWidget);
     expect(
       find.text(
-        'Template is read-only. Power actions are unavailable; clone and create workflows remain gated.',
+        'Template power actions are unavailable. Use the reviewed clone wizard for a full same-node clone.',
       ),
       findsOneWidget,
     );
-    final primary = tester.widget<FilledButton>(
-      find.byKey(const Key('guest-primary-action')),
+    expect(find.byKey(const Key('guest-primary-action')), findsNothing);
+    final clone = tester.widget<FilledButton>(
+      find.byKey(const Key('guest-clone-template')),
     );
-    expect(primary.onPressed, isNull);
+    expect(clone.onPressed, isNotNull);
+
+    await tester.tap(find.byKey(const Key('guest-clone-template')));
+    await tester.pumpAndSettle();
+    expect(find.text('Clone template'), findsOneWidget);
+    expect(find.text('Full same-node clone'), findsOneWidget);
+    expect(find.byKey(const Key('clone-vmid-field')), findsOneWidget);
+    expect(find.byKey(const Key('clone-name-field')), findsOneWidget);
+    expect(find.text('Safety preflight'), findsOneWidget);
   });
 
   testWidgets(
