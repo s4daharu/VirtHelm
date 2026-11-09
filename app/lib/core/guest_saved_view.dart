@@ -162,7 +162,13 @@ String? _optionalDimension(Object? value, String label) {
 }
 
 void _validateStatus(String value) {
-  if (!const {'all', 'favorites', 'running', 'stopped'}.contains(value)) {
+  if (!const {
+    'all',
+    'favorites',
+    'running',
+    'stopped',
+    'templates',
+  }.contains(value)) {
     throw const FormatException('Saved view has an unsupported status filter.');
   }
 }
