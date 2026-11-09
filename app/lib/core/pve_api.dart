@@ -17,6 +17,13 @@ abstract class GuestCloneGateway {
   Future<String> cloneTemplate(Guest source, GuestCloneRequest request);
 }
 
+abstract class GuestCreateGateway {
+  Future<int> nextFreeVmid();
+  Future<void> assertVmidAvailable(int vmid);
+  Future<GuestPermissionSnapshot> permissionsForVmid(int vmid);
+  Future<String> createQemu(QemuCreateRequest request);
+}
+
 abstract class PveGateway {
   Future<String> version();
   Future<Inventory> inventory();
@@ -49,7 +56,11 @@ typedef GatewayFactory =
 /// A new Dio instance is created for each profile; credentials are origin-scoped.
 /// Redirects are rejected so Authorization is never forwarded to another host.
 class DioPveGateway
-    implements PveGateway, GuestPermissionGateway, GuestCloneGateway {
+    implements
+        PveGateway,
+        GuestPermissionGateway,
+        GuestCloneGateway,
+        GuestCreateGateway {
   DioPveGateway(
     ConnectionProfile profile,
     ApiCredentials credentials, {
@@ -632,6 +643,34 @@ class DioPveGateway
     if (value is! String || !value.startsWith('UPID:')) {
       throw const PveFailure(
         'Server returned an unexpected clone task identifier. Check task history.',
+        mayHaveExecuted: true,
+      );
+    }
+    return value;
+  }
+
+
+  @override
+  Future<String> createQemu(QemuCreateRequest request) async {
+    final normalized = request.normalized();
+    final validationError = normalized.validationError;
+    if (validationError != null) {
+      throw FormatException(validationError);
+    }
+    final value = await _request(
+      '/nodes/${Uri.encodeComponent(normalized.node)}/qemu',
+      mutation: true,
+      mutationData: {
+        'vmid': normalized.vmid,
+        'name': normalized.name,
+        'cores': normalized.cores,
+        'memory': normalized.memoryMiB,
+        'onboot': normalized.onBoot ? 1 : 0,
+      },
+    );
+    if (value is! String || !value.startsWith('UPID:')) {
+      throw const PveFailure(
+        'Server returned an unexpected create task identifier. Check task history.',
         mayHaveExecuted: true,
       );
     }
