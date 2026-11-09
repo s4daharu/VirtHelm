@@ -560,8 +560,8 @@ class DioPveGateway
 
   @override
   Future<GuestPermissionSnapshot> permissionsForVmid(int vmid) async {
-    if (vmid < 100 || vmid > 999999999) {
-      throw const FormatException('Invalid destination VMID.');
+    if (vmid < 1 || vmid > 999999999) {
+      throw const FormatException('Invalid VMID.');
     }
     final raw = await _request(
       '/access/permissions',
