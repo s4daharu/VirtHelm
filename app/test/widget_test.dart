@@ -1473,10 +1473,7 @@ void main() {
       expect(find.byKey(const Key('qemu-create-name')), findsOneWidget);
       expect(find.byKey(const Key('qemu-create-cores')), findsOneWidget);
       expect(find.byKey(const Key('qemu-create-memory')), findsOneWidget);
-      expect(
-        find.textContaining('Storage, networking, media'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('Storage, networking, media'), findsOneWidget);
       final createScroll = find
           .descendant(
             of: find.byKey(const Key('qemu-create-list')),
