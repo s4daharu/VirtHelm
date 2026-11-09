@@ -19,8 +19,9 @@ required = [
   'app/lib/ui/alert_rules_page.dart','app/lib/ui/incident_center_tab.dart',
   'app/lib/ui/task_details_page.dart','app/lib/ui/template_clone_page.dart',
   'app/lib/ui/qemu_create_page.dart',
+  'app/lib/ui/lxc_create_page.dart',
   'app/lib/ui/provisioning_confirmation_dialog.dart',
-  'app/test/provisioning_page_test.dart',
+  'app/test/provisioning_page_test.dart','app/test/lxc_create_test.dart',
   'app/test/models_test.dart',
   'app/test/controller_test.dart','app/test/pve_api_test.dart',
   'app/test/widget_test.dart','app/test/pve_tls_test.dart',
@@ -80,7 +81,8 @@ required = [
    'docs/81-implementation-template-discovery.md',
    'docs/82-implementation-template-clone.md',
    'docs/83-implementation-qemu-create.md',
-   'docs/84-qemu-create-branch-cross-check-2026-11-09.md']
+   'docs/84-qemu-create-branch-cross-check-2026-11-09.md',
+   'docs/85-implementation-lxc-create.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)
@@ -216,11 +218,16 @@ assert 'Datastore.AllocateSpace' in files['docs/82-implementation-template-clone
 assert 'SDN.Use' in files['docs/82-implementation-template-clone.md']
 assert 'class QemuCreateRequest' in files['app/lib/core/models.dart']
 assert 'abstract class GuestCreateGateway' in files['app/lib/core/pve_api.dart']
+assert 'abstract class LxcCreateGateway' in files['app/lib/core/pve_api.dart']
+assert "parts[5] != 'vzcreate'" in files['app/lib/core/pve_api.dart']
+assert "'unprivileged': 1" in files['app/lib/core/pve_api.dart']
 assert 'Future<String> createQemu' in files['app/lib/core/pve_api.dart']
 assert 'runQemuCreate' in files['app/lib/core/app_controller.dart']
 assert 'suggestQemuCreateVmid' in files['app/lib/core/app_controller.dart']
 assert "Key('guest-create-qemu')" in files['app/lib/ui/shell.dart']
 assert "keyPrefix: 'qemu-create'" in files['app/lib/ui/qemu_create_page.dart']
+assert "keyPrefix: 'lxc-create'" in files['app/lib/ui/lxc_create_page.dart']
+assert 'default 4 GiB' in files['app/lib/ui/lxc_create_page.dart']
 assert "Key('${widget.keyPrefix}-confirm-vmid')" in files['app/lib/ui/provisioning_confirmation_dialog.dart']
 assert 'Confirmation expired' in files['app/lib/ui/provisioning_confirmation_dialog.dart']
 assert 'animation: widget.controller' in files['app/lib/ui/provisioning_confirmation_dialog.dart']
@@ -228,6 +235,8 @@ assert "'provision:$vmid'" in files['app/lib/core/app_controller.dart']
 assert 'No disk, NIC, storage, ISO, start, HA, pool or restore fields' in files['app/lib/ui/qemu_create_page.dart']
 assert 'VM.Config.CPU' in files['docs/83-implementation-qemu-create.md']
 assert 'Datastore.AllocateSpace' in files['docs/83-implementation-qemu-create.md']
+assert 'Datastore.AllocateSpace' in files['docs/85-implementation-lxc-create.md']
+assert 'VM.Config.Network' in files['docs/85-implementation-lxc-create.md']
 assert '_guestTags' in files['app/lib/core/models.dart']
 assert 'final List<String> tags' in files['app/lib/core/models.dart']
 assert 'String? tag' in files['app/lib/core/guest_list_filter.dart']

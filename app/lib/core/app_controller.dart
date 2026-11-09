@@ -310,6 +310,78 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<int?> suggestLxcCreateVmid({
+    required String profileId,
+    required int generation,
+  }) async {
+    final gateway = _gateway;
+    final LxcCreateGateway? createGateway = gateway is LxcCreateGateway
+        ? gateway as LxcCreateGateway
+        : null;
+    bool current() =>
+        !_disposed && generation == _generation && active?.id == profileId;
+
+    if (!current() ||
+        createGateway == null ||
+        deviceNetworkState == DeviceNetworkState.unavailable ||
+        !isInventoryWriteSafe) {
+      return null;
+    }
+
+    try {
+      final result = await createGateway.nextFreeVmid();
+      if (!current() ||
+          !isInventoryWriteSafe ||
+          inventory!.guests.any((guest) => guest.vmid == result)) {
+        return null;
+      }
+      return result;
+    } on PveFailure catch (error) {
+      if (error.status == 401 && current()) {
+        await _recordAuthenticatedReadLoss(generation, error.message);
+      }
+      rethrow;
+    }
+  }
+
+  Future<LxcCreateOptions?> inspectLxcCreateOptions({
+    required String profileId,
+    required int generation,
+    required String node,
+  }) async {
+    final gateway = _gateway;
+    final LxcCreateGateway? createGateway = gateway is LxcCreateGateway
+        ? gateway as LxcCreateGateway
+        : null;
+    bool current() =>
+        !_disposed && generation == _generation && active?.id == profileId;
+    bool nodeOnline() {
+      final matches = inventory?.nodes.where((item) => item.name == node);
+      return matches != null &&
+          matches.length == 1 &&
+          matches.single.status == 'online';
+    }
+
+    if (!current() ||
+        createGateway == null ||
+        deviceNetworkState == DeviceNetworkState.unavailable ||
+        !isInventoryWriteSafe ||
+        !nodeOnline()) {
+      return null;
+    }
+
+    try {
+      final result = await createGateway.lxcCreateOptions(node);
+      if (!current() || !isInventoryWriteSafe || !nodeOnline()) return null;
+      return result;
+    } on PveFailure catch (error) {
+      if (error.status == 401 && current()) {
+        await _recordAuthenticatedReadLoss(generation, error.message);
+      }
+      rethrow;
+    }
+  }
+
   Future<int?> suggestTemplateCloneVmid({
     required String profileId,
     required int generation,
@@ -1467,6 +1539,227 @@ class AppController extends ChangeNotifier {
           node: normalized.node,
           title:
               'Create QEMU ${normalized.name} (${normalized.vmid}) on ${normalized.node}',
+          startedAt: DateTime.now(),
+          outcome: OperationOutcome.running,
+        ),
+      );
+      _notify();
+      if (_foreground) _startPolling();
+    } catch (error) {
+      if (generation == _generation &&
+          error is PveFailure &&
+          error.status == 401) {
+        message = error.message;
+        unawaited(_clearOfflineAfterAuth(generation));
+      }
+      if (generation == _generation &&
+          (error is PveFailure ? error.mayHaveExecuted : postAttempted)) {
+        _uncertainGuestOperations.addAll(keys);
+      }
+      rethrow;
+    } finally {
+      if (generation == _generation &&
+          !_taskTargets.values.any((targets) => targets.contains(key))) {
+        _pendingGuestOperations.removeAll(keys);
+      }
+      if (generation == _generation) _notify();
+    }
+  }
+
+  Future<void> runLxcCreate(
+    LxcCreateRequest request, {
+    required String profileId,
+    required int generation,
+  }) async {
+    final gateway = _gateway;
+    final LxcCreateGateway? createGateway = gateway is LxcCreateGateway
+        ? gateway as LxcCreateGateway
+        : null;
+    final normalized = request.normalized();
+    final validationError = normalized.validationError;
+    if (validationError != null) {
+      throw PveFailure(validationError);
+    }
+    if (_disposed || active?.id != profileId || generation != _generation) {
+      throw const PveFailure(
+        'Connection changed; return to Guests before creating a container.',
+      );
+    }
+    if (!_foreground ||
+        gateway == null ||
+        createGateway == null ||
+        !isInventoryWriteSafe ||
+        refreshing ||
+        deviceNetworkState == DeviceNetworkState.unavailable) {
+      throw const PveFailure(
+        'Refresh a clean live inventory before creating a container.',
+      );
+    }
+
+    final snapshot = inventory!;
+    final nodes = snapshot.nodes
+        .where((node) => node.name == normalized.node)
+        .toList();
+    if (nodes.length != 1 || nodes.single.status != 'online') {
+      throw const PveFailure(
+        'Destination node is no longer confirmed online. Refresh and review again.',
+      );
+    }
+    if (snapshot.guests.any((guest) => guest.vmid == normalized.vmid)) {
+      throw const PveFailure(
+        'Destination VMID is already present in the current inventory.',
+      );
+    }
+
+    final key = _provisioningKey('lxc', normalized.node, normalized.vmid);
+    final destinationKey = _provisioningVmidKey(normalized.vmid);
+    final keys = {key, destinationKey};
+    if (keys.any(_uncertainGuestOperations.contains)) {
+      throw const PveFailure(
+        'An earlier create has an unknown outcome. Verify server task history '
+        'and inventory before reconnecting and trying again.',
+        mayHaveExecuted: true,
+      );
+    }
+    if (keys.any(_pendingGuestOperations.contains)) {
+      throw const PveFailure(
+        'A create operation is already pending for this VMID. Check Tasks.',
+      );
+    }
+
+    bool stillCurrent() =>
+        generation == _generation &&
+        active?.id == profileId &&
+        !_disposed &&
+        _foreground &&
+        deviceNetworkState != DeviceNetworkState.unavailable &&
+        identical(snapshot, inventory) &&
+        !refreshing &&
+        isInventoryWriteSafe;
+
+    _pendingGuestOperations.addAll(keys);
+    _notify();
+    var postAttempted = false;
+    try {
+      final live = await gateway.inventory();
+      if (!stillCurrent()) {
+        throw const PveFailure(
+          'Connection changed; container create canceled.',
+        );
+      }
+      if (live.malformedGuestRecords != 0) {
+        throw const PveFailure(
+          'Live inventory verification is incomplete. Container create was not submitted.',
+        );
+      }
+      final liveNodes = live.nodes
+          .where((node) => node.name == normalized.node)
+          .toList();
+      if (liveNodes.length != 1 || liveNodes.single.status != 'online') {
+        throw const PveFailure(
+          'Destination node is no longer online. Container create was not submitted.',
+        );
+      }
+      if (live.guests.any((guest) => guest.vmid == normalized.vmid)) {
+        throw const PveFailure(
+          'Destination VMID became occupied. Choose another VMID.',
+        );
+      }
+
+      final options = await createGateway.lxcCreateOptions(normalized.node);
+      if (!stillCurrent()) {
+        throw const PveFailure(
+          'Connection or inventory changed during container verification.',
+        );
+      }
+      if (options.incomplete || !options.supports(normalized)) {
+        throw const PveFailure(
+          'Container template or root filesystem storage could not be cleanly revalidated. Refresh and review again.',
+        );
+      }
+
+      final destinationPermissions = await createGateway.permissionsForVmid(
+        normalized.vmid,
+      );
+      if (!stillCurrent()) {
+        throw const PveFailure(
+          'Connection or inventory changed during container verification.',
+        );
+      }
+      const requiredPrivileges = {
+        'VM.Allocate',
+        'VM.Config.CPU',
+        'VM.Config.Memory',
+        'VM.Config.Network',
+        'VM.Config.Options',
+      };
+      final missing =
+          requiredPrivileges
+              .where((privilege) => !destinationPermissions.has(privilege))
+              .toList()
+            ..sort();
+      if (missing.isNotEmpty) {
+        throw PveFailure(
+          'The active token does not report required destination privileges: '
+          '${missing.join(', ')}.',
+          status: 403,
+        );
+      }
+
+      final rootfsPermissions = await createGateway.permissionsForPath(
+        '/storage/${normalized.rootfsStorage}',
+      );
+      if (!stillCurrent()) {
+        throw const PveFailure(
+          'Connection or inventory changed during container verification.',
+        );
+      }
+      if (!rootfsPermissions.has('Datastore.AllocateSpace')) {
+        throw const PveFailure(
+          'The active token does not report Datastore.AllocateSpace on the root filesystem storage.',
+          status: 403,
+        );
+      }
+
+      final templatePermissions = await createGateway.permissionsForPath(
+        '/storage/${normalized.templateStorage}',
+      );
+      if (!stillCurrent()) {
+        throw const PveFailure(
+          'Connection or inventory changed during container verification.',
+        );
+      }
+      if (!templatePermissions.has('Datastore.Audit') &&
+          !templatePermissions.has('Datastore.AllocateSpace')) {
+        throw const PveFailure(
+          'The active token cannot read the selected container template storage.',
+          status: 403,
+        );
+      }
+
+      await createGateway.assertVmidAvailable(normalized.vmid);
+      if (!stillCurrent()) {
+        throw const PveFailure(
+          'Connection or inventory changed during container verification.',
+        );
+      }
+
+      postAttempted = true;
+      final upid = await createGateway.createLxc(normalized);
+      if (generation != _generation || active?.id != profileId || _disposed) {
+        throw const PveFailure(
+          'Connection changed after container create submission. Check server task history.',
+          mayHaveExecuted: true,
+        );
+      }
+      _taskTargets[upid] = keys;
+      tasks.insert(
+        0,
+        TrackedTask(
+          upid: upid,
+          node: normalized.node,
+          title:
+              'Create LXC ${normalized.hostname} (${normalized.vmid}) on ${normalized.node}',
           startedAt: DateTime.now(),
           outcome: OperationOutcome.running,
         ),

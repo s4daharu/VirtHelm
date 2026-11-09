@@ -135,10 +135,11 @@
       "M4 capability discovery now includes on-demand exact-guest effective permission hints from /access/permissions. Results are transient presentation hints only and do not alter existing mutation authorization or enable gated M4 writes.",
       "GUEST-014 template discovery now parses the existing cluster-inventory template marker, separates templates from runnable workload counts/filters, supports profile-scoped saved template views, and rejects every existing power action at both model and controller boundaries before any mutation request.",
       "GUEST-015 partial adds a constrained full same-node QEMU/LXC template clone: source VM.Clone + destination VM.Allocate hints, free-VMID recheck, typed VMID confirmation, exactly one POST, UPID tracking and uncertain-outcome lockout. Storage/network authorization remains Proxmox-authoritative and live PVE/device gates remain open.",
-      "GUEST-05 partial adds guarded empty QEMU VM creation with online-node revalidation, destination VMID collision checks, VM.Allocate + VM.Config.CPU/Memory/Options hints, a five-field payload, typed VMID confirmation, exactly one POST, UPID tracking and uncertain-outcome lockout. Disk/network/media/storage and LXC creation remain gated."
+      "GUEST-05 partial adds guarded empty QEMU VM creation with online-node revalidation, destination VMID collision checks, VM.Allocate + VM.Config.CPU/Memory/Options hints, a five-field payload, typed VMID confirmation, exactly one POST, UPID tracking and uncertain-outcome lockout. Disk/network/media/storage enrichment remains gated.",
+      "GUEST-013 adds guarded unprivileged LXC creation from live-discovered vztmpl content and active rootdir storage, with VM/storage ACL hints, cluster-wide VMID reservation, typed confirmation, exactly one vzcreate POST, strict UPID tracking and uncertain-outcome lockout. Privileged/custom-rootfs/networked/richer provisioning remains gated."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 229,
+    "current_flutter_tests_defined": 234,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; test counts alone are not a release claim. Audited baseline a8f9443 passed both checks and signed prerelease publication.",
     "p0_scope_complete": false,
@@ -486,5 +487,18 @@
     "verification": "Pinned Flutter 3.44.4 local validation passed 258 synthetic Flutter tests (229 declarations), 14 Python delivery tests, format/analyzer and documentation/premium/source/hardening checks. Original merged main 44d9802 passed checks run 42617692428. Final follow-up PR/main CI remains authoritative; live PVE 8.4/9.2 create/ACL/quorum fixtures and physical Android validation remain open.",
     "report": "docs/83-implementation-qemu-create.md",
     "branch_audit_report": "docs/84-qemu-create-branch-cross-check-2026-11-09.md"
+  },
+  "m4_lxc_create_workflow": {
+    "status": "implemented_source_level_reviewed_live_gates_open",
+    "feature_id": "GUEST-013 / GUEST-05 partial / M4 provisioning",
+    "version": "0.1.38",
+    "behavior": "Guests exposes a guarded unprivileged LXC creation wizard for an online node using discovered existing vztmpl content and active rootdir-capable storage. The bounded request uses Proxmox's default 4 GiB rootfs allocation and leaves the container stopped.",
+    "contract": "GET /nodes/{node}/storage plus GET /nodes/{node}/storage/{storage}/content?content=vztmpl for bounded choices; GET /access/permissions on destination/storage paths; GET /cluster/nextid for VMID validation; one POST /nodes/{node}/lxc with vmid/hostname/cores/memory/onboot/ostemplate/storage/unprivileged=1 returning a vzcreate UPID.",
+    "safety": "Explicit originating profile/generation, foreground/default-network availability, fresh clean unchanged inventory, exact online destination-node revalidation, live clean template/rootdir rediscovery, destination VMID absence plus server-side collision recheck, destination VM and storage privilege hints, synchronous cluster-wide VMID reservation shared with QEMU create/clone/power guards, one POST without retry, strict target-matched vzcreate UPID polling, uncertain-outcome lockout, and clean post-task inventory reconciliation.",
+    "privileges": "Destination hints: VM.Allocate + VM.Config.CPU + VM.Config.Memory + VM.Config.Network + VM.Config.Options. Rootfs storage: Datastore.AllocateSpace. Template storage: Datastore.Audit or Datastore.AllocateSpace. Privileged containers requiring Sys.Modify are deliberately not exposed.",
+    "payload_boundary": "No password, SSH public keys, netN, explicit rootfs sizing, privileged mode, start, pool, HA, restore, feature, hook or mount fields are sent.",
+    "deferred": "Privileged/custom-rootfs/networked LXC provisioning, credentials/SSH keys, pools/HA/start/restore, richer QEMU provisioning, linked/cross-node/explicit-storage clone, migration, configuration editing, snapshot mutation, backup execution/restore and destructive guest deletion.",
+    "verification": "Synthetic model/API/controller/source regressions added; full pinned Flutter/analyzer/Android CI and live PVE 8.4/9.2 mutation fixtures remain authoritative gates.",
+    "report": "docs/85-implementation-lxc-create.md"
   }
 }

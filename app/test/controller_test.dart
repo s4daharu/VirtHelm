@@ -77,7 +77,8 @@ class _Gateway
         PveGateway,
         GuestPermissionGateway,
         GuestCloneGateway,
-        GuestCreateGateway {
+        GuestCreateGateway,
+        LxcCreateGateway {
   int submissions = 0;
   int inventoryCalls = 0;
   int taskStatusCalls = 0;
@@ -115,6 +116,19 @@ class _Gateway
   int qemuCreateSubmissions = 0;
   QemuCreateRequest? lastQemuCreateRequest;
   PveFailure? qemuCreateSubmissionFailure;
+  int lxcCreateSubmissions = 0;
+  LxcCreateRequest? lastLxcCreateRequest;
+  final Map<String, GuestPermissionSnapshot> pathPermissionResults = {};
+  LxcCreateOptions lxcCreateOptionsResult = const LxcCreateOptions(
+    rootfsStorages: ['local-lvm'],
+    templates: [
+      LxcTemplate(
+        node: 'pve1',
+        storage: 'local',
+        volid: 'local:vztmpl/debian-13.tar.zst',
+      ),
+    ],
+  );
   Completer<int>? nextVmidGate;
   Completer<GuestPermissionSnapshot>? provisioningPermissionGate;
   Completer<void>? availabilityGate;
@@ -352,6 +366,22 @@ class _Gateway
     }
     if (createGate != null) return createGate!.future;
     return 'UPID:${request.node}:1234:123:abc:qmcreate:${request.vmid}:operator@pve:';
+  }
+
+  @override
+  Future<GuestPermissionSnapshot> permissionsForPath(String path) async =>
+      pathPermissionResults[path] ??
+      const GuestPermissionSnapshot(privileges: <String>{});
+
+  @override
+  Future<LxcCreateOptions> lxcCreateOptions(String node) async =>
+      lxcCreateOptionsResult;
+
+  @override
+  Future<String> createLxc(LxcCreateRequest request) async {
+    lxcCreateSubmissions++;
+    lastLxcCreateRequest = request;
+    return 'UPID:${request.node}:1234:123:abc:vzcreate:${request.vmid}:operator@pve:';
   }
 
   @override
@@ -2938,6 +2968,74 @@ void main() {
       expect(gateway.assertedCloneVmids, isEmpty);
       expect(gateway.cloneSubmissions, 0);
       expect(ctl.isGuestActionBlocked(source), isFalse);
+    },
+  );
+
+  test(
+    'LXC create revalidates template, storage ACLs and submits exactly once',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway()
+          ..inventoryResources = [
+            {'type': 'node', 'node': 'pve1', 'status': 'online'},
+          ]
+          ..clonePermissionResults[901] = const GuestPermissionSnapshot(
+            privileges: {
+              'VM.Allocate',
+              'VM.Config.CPU',
+              'VM.Config.Memory',
+              'VM.Config.Network',
+              'VM.Config.Options',
+            },
+          )
+          ..pathPermissionResults['/storage/local-lvm'] =
+              const GuestPermissionSnapshot(
+                privileges: {'Datastore.AllocateSpace'},
+              )
+          ..pathPermissionResults['/storage/local'] =
+              const GuestPermissionSnapshot(privileges: {'Datastore.Audit'}),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 's3cr3t',
+      );
+
+      const request = LxcCreateRequest(
+        node: 'pve1',
+        vmid: 901,
+        hostname: 'app-ct',
+        cores: 2,
+        memoryMiB: 512,
+        templateVolid: 'local:vztmpl/debian-13.tar.zst',
+        rootfsStorage: 'local-lvm',
+      );
+      final options = await ctl.inspectLxcCreateOptions(
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+        node: 'pve1',
+      );
+      expect(options?.supports(request), isTrue);
+
+      await ctl.runLxcCreate(
+        request,
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+      );
+
+      expect(gateway.clonePermissionVmids, [901]);
+      expect(gateway.assertedCloneVmids, [901]);
+      expect(gateway.lxcCreateSubmissions, 1);
+      expect(gateway.lastLxcCreateRequest?.hostname, 'app-ct');
+      expect(ctl.tasks.single.title, contains('Create LXC app-ct (901)'));
+      expect(ctl.isProvisioningTargetBlocked('lxc', 'pve1', 901), isTrue);
+      expect(ctl.isProvisioningTargetBlocked('qemu', 'pve2', 901), isTrue);
     },
   );
 

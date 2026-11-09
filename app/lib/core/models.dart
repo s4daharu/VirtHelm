@@ -769,13 +769,22 @@ class GuestPermissionSnapshot {
   factory GuestPermissionSnapshot.fromApi(
     Map<String, dynamic> json, {
     required int vmid,
+  }) => GuestPermissionSnapshot.fromApiPath(json, path: '/vms/$vmid');
+
+  factory GuestPermissionSnapshot.fromApiPath(
+    Map<String, dynamic> json, {
+    required String path,
   }) {
-    final raw = json['/vms/$vmid'];
+    final normalizedPath = path.trim();
+    if (normalizedPath.isEmpty || !normalizedPath.startsWith('/')) {
+      throw const FormatException('Permission path is invalid.');
+    }
+    final raw = json[normalizedPath];
     if (raw == null) {
       return const GuestPermissionSnapshot(privileges: <String>{});
     }
     if (raw is! Map) {
-      throw const FormatException('Guest permission map is malformed.');
+      throw const FormatException('Permission map is malformed.');
     }
 
     const privilegeLimit = 128;
@@ -1203,6 +1212,151 @@ class QemuCreateRequest {
     name: name.trim(),
     cores: cores,
     memoryMiB: memoryMiB,
+    onBoot: onBoot,
+  );
+}
+
+class LxcTemplate {
+  const LxcTemplate({
+    required this.node,
+    required this.storage,
+    required this.volid,
+    this.format,
+    this.sizeBytes,
+  });
+
+  final String node;
+  final String storage;
+  final String volid;
+  final String? format;
+  final int? sizeBytes;
+
+  String get displayName {
+    final slash = volid.lastIndexOf('/');
+    return slash >= 0 && slash + 1 < volid.length
+        ? volid.substring(slash + 1)
+        : volid;
+  }
+
+  factory LxcTemplate.fromApi(
+    Map<String, dynamic> json, {
+    required String node,
+    required String storage,
+  }) {
+    final volid = asText(json['volid']);
+    final prefix = '$storage:vztmpl/';
+    if (volid == null || !volid.startsWith(prefix) || volid.length > 255) {
+      throw const FormatException('Container template volume is invalid.');
+    }
+    final size = asInteger(json['size']) ?? asInteger(json['approximate-size']);
+    if (size != null && size < 0) {
+      throw const FormatException('Container template size is invalid.');
+    }
+    return LxcTemplate(
+      node: node,
+      storage: storage,
+      volid: volid,
+      format: asText(json['format']),
+      sizeBytes: size,
+    );
+  }
+}
+
+class LxcCreateOptions {
+  const LxcCreateOptions({
+    required this.rootfsStorages,
+    required this.templates,
+    this.incomplete = false,
+  });
+
+  final List<String> rootfsStorages;
+  final List<LxcTemplate> templates;
+  final bool incomplete;
+
+  bool supports(LxcCreateRequest request) =>
+      rootfsStorages.contains(request.rootfsStorage) &&
+      templates.any(
+        (template) =>
+            template.node == request.node &&
+            template.volid == request.templateVolid,
+      );
+}
+
+class LxcCreateRequest {
+  const LxcCreateRequest({
+    required this.node,
+    required this.vmid,
+    required this.hostname,
+    required this.cores,
+    required this.memoryMiB,
+    required this.templateVolid,
+    required this.rootfsStorage,
+    this.onBoot = false,
+  });
+
+  final String node;
+  final int vmid;
+  final String hostname;
+  final int cores;
+  final int memoryMiB;
+  final String templateVolid;
+  final String rootfsStorage;
+  final bool onBoot;
+
+  String get templateStorage {
+    final separator = templateVolid.indexOf(':');
+    return separator <= 0 ? '' : templateVolid.substring(0, separator);
+  }
+
+  String? get validationError {
+    final normalizedNode = node.trim();
+    if (normalizedNode.isEmpty ||
+        normalizedNode.length > 64 ||
+        !RegExp(
+          r'^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$',
+        ).hasMatch(normalizedNode)) {
+      return 'Select a valid destination node.';
+    }
+    if (vmid < 100 || vmid > 999999999) {
+      return 'VMID must be between 100 and 999999999.';
+    }
+    final hostnameError = _guestProvisioningNameError(hostname);
+    if (hostnameError != null) return hostnameError;
+    if (cores < 1 || cores > 64) {
+      return 'CPU cores must be between 1 and 64.';
+    }
+    if (memoryMiB < 128 || memoryMiB > 262144) {
+      return 'Memory must be between 128 MiB and 262144 MiB.';
+    }
+    final normalizedStorage = rootfsStorage.trim();
+    if (normalizedStorage.isEmpty ||
+        normalizedStorage.length > 64 ||
+        !RegExp(
+          r'^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$',
+        ).hasMatch(normalizedStorage)) {
+      return 'Select a valid root filesystem storage.';
+    }
+    final normalizedTemplate = templateVolid.trim();
+    if (normalizedTemplate.isEmpty ||
+        normalizedTemplate.length > 255 ||
+        !RegExp(
+          r'^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}:vztmpl/\S+$',
+        ).hasMatch(normalizedTemplate)) {
+      return 'Select a valid container template.';
+    }
+    return null;
+  }
+
+  bool get isValid => validationError == null;
+
+  LxcCreateRequest normalized() => LxcCreateRequest(
+    node: node.trim(),
+    vmid: vmid,
+    hostname: hostname.trim(),
+    cores: cores,
+    memoryMiB: memoryMiB,
+    templateVolid: templateVolid.trim(),
+    rootfsStorage: rootfsStorage.trim(),
     onBoot: onBoot,
   );
 }
