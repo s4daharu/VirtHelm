@@ -184,7 +184,9 @@ class _TemplateClonePageState extends State<TemplateClonePage> {
                           controller: typedController,
                           autofocus: true,
                           keyboardType: TextInputType.number,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
                           onChanged: (_) => setDialogState(() {}),
                           decoration: const InputDecoration(
                             labelText: 'Confirm destination VMID',
@@ -222,7 +224,9 @@ class _TemplateClonePageState extends State<TemplateClonePage> {
     if (source == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Template is no longer current. Refresh and reopen it.'),
+          content: Text(
+            'Template is no longer current. Refresh and reopen it.',
+          ),
         ),
       );
       return;
