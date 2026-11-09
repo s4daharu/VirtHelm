@@ -1331,15 +1331,17 @@ class LxcCreateRequest {
     final normalizedStorage = rootfsStorage.trim();
     if (normalizedStorage.isEmpty ||
         normalizedStorage.length > 64 ||
-        !RegExp(r'^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$')
-            .hasMatch(normalizedStorage)) {
+        !RegExp(
+          r'^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$',
+        ).hasMatch(normalizedStorage)) {
       return 'Select a valid root filesystem storage.';
     }
     final normalizedTemplate = templateVolid.trim();
     if (normalizedTemplate.isEmpty ||
         normalizedTemplate.length > 255 ||
-        !RegExp(r'^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}:vztmpl/\S+$')
-            .hasMatch(normalizedTemplate)) {
+        !RegExp(
+          r'^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}:vztmpl/\S+$',
+        ).hasMatch(normalizedTemplate)) {
       return 'Select a valid container template.';
     }
     return null;
