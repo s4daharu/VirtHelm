@@ -118,8 +118,9 @@ class _LxcCreatePageState extends State<LxcCreatePage> {
         if (options == null) {
           _error = 'Template and storage choices are unavailable.';
         } else {
-          _template =
-              options.templates.isEmpty ? null : options.templates.first.volid;
+          _template = options.templates.isEmpty
+              ? null
+              : options.templates.first.volid;
           _storage = options.rootfsStorages.isEmpty
               ? null
               : options.rootfsStorages.first;
@@ -347,7 +348,8 @@ class _LxcCreatePageState extends State<LxcCreatePage> {
                 label: const Text('OS template'),
                 expandedInsets: EdgeInsets.zero,
                 dropdownMenuEntries: [
-                  for (final template in _options?.templates ?? const <LxcTemplate>[])
+                  for (final template
+                      in _options?.templates ?? const <LxcTemplate>[])
                     DropdownMenuEntry(
                       value: template.volid,
                       label: '${template.displayName} - ${template.storage}',
@@ -359,12 +361,14 @@ class _LxcCreatePageState extends State<LxcCreatePage> {
               DropdownMenu<String>(
                 key: ValueKey('lxc-create-rootfs-${_node ?? 'none'}'),
                 initialSelection: _storage,
-                enabled: !_submitting &&
+                enabled:
+                    !_submitting &&
                     (_options?.rootfsStorages.isNotEmpty ?? false),
                 label: const Text('Root filesystem storage'),
                 expandedInsets: EdgeInsets.zero,
                 dropdownMenuEntries: [
-                  for (final storage in _options?.rootfsStorages ?? const <String>[])
+                  for (final storage
+                      in _options?.rootfsStorages ?? const <String>[])
                     DropdownMenuEntry(value: storage, label: storage),
                 ],
                 onSelected: (value) => setState(() => _storage = value),
