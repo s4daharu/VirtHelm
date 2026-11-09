@@ -1977,6 +1977,235 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<void> runGuestMigration(
+    Guest source,
+    GuestMigrationRequest request, {
+    required String profileId,
+    required int generation,
+  }) async {
+    final gateway = _gateway;
+    final GuestMigrationGateway? migrationGateway =
+        gateway is GuestMigrationGateway
+        ? gateway as GuestMigrationGateway
+        : null;
+    final normalized = request.normalized();
+    final validationError = normalized.validationError;
+    if (validationError != null) {
+      throw PveFailure(validationError);
+    }
+    if (_disposed ||
+        generation != _generation ||
+        active?.id != profileId) {
+      throw const PveFailure(
+        'Connection changed; return to the guest before migrating.',
+      );
+    }
+    if (source.isTemplate) {
+      throw const PveFailure(
+        'Templates cannot be migrated. Clone the template instead.',
+      );
+    }
+    if (!source.isRunning && !source.isStopped) {
+      throw const PveFailure(
+        'Guest state must be running or stopped before migration.',
+      );
+    }
+    if (normalized.targetNode == source.node) {
+      throw const PveFailure(
+        'Choose a destination node different from the source node.',
+      );
+    }
+    if (!_foreground ||
+        gateway == null ||
+        migrationGateway == null ||
+        !isInventoryWriteSafe ||
+        refreshing ||
+        deviceNetworkState == DeviceNetworkState.unavailable) {
+      throw const PveFailure(
+        'Refresh a clean live inventory before migrating a guest.',
+      );
+    }
+
+    final snapshot = inventory!;
+    final sourceMatches = snapshot.guests
+        .where(
+          (item) =>
+              item.kind == source.kind &&
+              item.vmid == source.vmid &&
+              item.node == source.node,
+        )
+        .toList();
+    if (sourceMatches.length != 1 ||
+        !identical(sourceMatches.single, source) ||
+        sourceMatches.single.isTemplate) {
+      throw const PveFailure(
+        'Guest inventory changed. Refresh and review the source again.',
+      );
+    }
+    final targetMatches = snapshot.nodes
+        .where((node) => node.name == normalized.targetNode)
+        .toList();
+    if (targetMatches.length != 1 || targetMatches.single.status != 'online') {
+      throw const PveFailure(
+        'Destination node is not uniquely available and online.',
+      );
+    }
+
+    final key = _guestKey(source);
+    final vmidKey = _provisioningVmidKey(source.vmid);
+    final keys = {key, vmidKey};
+    if (keys.any(_uncertainGuestOperations.contains)) {
+      throw const PveFailure(
+        'An earlier operation for this guest has an unknown outcome. '
+        'Verify server task history and inventory before reconnecting and trying again.',
+        mayHaveExecuted: true,
+      );
+    }
+    if (keys.any(_pendingGuestOperations.contains)) {
+      throw const PveFailure(
+        'An operation is already pending for this guest. Check Tasks.',
+      );
+    }
+
+    bool stillCurrent() =>
+        generation == _generation &&
+        active?.id == profileId &&
+        !_disposed &&
+        _foreground &&
+        deviceNetworkState != DeviceNetworkState.unavailable &&
+        identical(snapshot, inventory) &&
+        !refreshing &&
+        isInventoryWriteSafe;
+
+    _pendingGuestOperations.addAll(keys);
+    _notify();
+    var postAttempted = false;
+    try {
+      final live = await gateway.inventory();
+      if (!stillCurrent()) {
+        throw const PveFailure('Connection changed; migration canceled.');
+      }
+      if (live.malformedGuestRecords != 0) {
+        throw const PveFailure(
+          'Live inventory verification is incomplete. Migration was not submitted.',
+        );
+      }
+
+      final liveSources = live.guests
+          .where(
+            (item) =>
+                item.kind == source.kind &&
+                item.vmid == source.vmid &&
+                item.node == source.node,
+          )
+          .toList();
+      if (liveSources.length != 1 || liveSources.single.isTemplate) {
+        throw const PveFailure(
+          'The source guest moved or disappeared during verification.',
+        );
+      }
+      final liveSource = liveSources.single;
+      if (liveSource.status != source.status) {
+        throw const PveFailure(
+          'Guest state changed during migration verification. Refresh and review again.',
+        );
+      }
+
+      final liveTargets = live.nodes
+          .where((node) => node.name == normalized.targetNode)
+          .toList();
+      if (liveTargets.length != 1 || liveTargets.single.status != 'online') {
+        throw const PveFailure(
+          'Destination node is no longer online. Migration was not submitted.',
+        );
+      }
+
+      final permissions = await migrationGateway.guestPermissions(liveSource);
+      if (!stillCurrent()) {
+        throw const PveFailure(
+          'Connection or inventory changed during migration verification.',
+        );
+      }
+      if (!permissions.has('VM.Migrate')) {
+        throw const PveFailure(
+          'The active token does not report VM.Migrate on this guest.',
+          status: 403,
+        );
+      }
+
+      final preflight = await migrationGateway.migrationPreflight(
+        liveSource,
+        normalized.targetNode,
+      );
+      if (!stillCurrent()) {
+        throw const PveFailure(
+          'Connection or inventory changed during migration verification.',
+        );
+      }
+      if (preflight.incomplete ||
+          preflight.running != liveSource.isRunning ||
+          !preflight.allowsTarget(normalized.targetNode)) {
+        throw const PveFailure(
+          'Server migration preflight did not cleanly allow the selected destination.',
+        );
+      }
+      if (liveSource.kind == 'qemu' &&
+          (preflight.localDiskCount != 0 ||
+              preflight.localResources.isNotEmpty)) {
+        throw const PveFailure(
+          'This guarded QEMU migration slice requires shared storage and no local host resources. '
+          'Local-disk/resource migration options remain gated.',
+        );
+      }
+
+      postAttempted = true;
+      final upid = await migrationGateway.migrateGuest(
+        liveSource,
+        normalized,
+      );
+      if (generation != _generation || active?.id != profileId || _disposed) {
+        throw const PveFailure(
+          'Connection changed after migration submission. Check server task history.',
+          mayHaveExecuted: true,
+        );
+      }
+      _taskTargets[upid] = keys;
+      tasks.insert(
+        0,
+        TrackedTask(
+          upid: upid,
+          node: source.node,
+          title:
+              'Migrate ${source.name} (${source.vmid}) '
+              '${source.node} → ${normalized.targetNode}',
+          startedAt: DateTime.now(),
+          outcome: OperationOutcome.running,
+        ),
+      );
+      _notify();
+      if (_foreground) _startPolling();
+    } catch (error) {
+      if (generation == _generation &&
+          error is PveFailure &&
+          error.status == 401) {
+        message = error.message;
+        unawaited(_clearOfflineAfterAuth(generation));
+      }
+      if (generation == _generation &&
+          (error is PveFailure ? error.mayHaveExecuted : postAttempted)) {
+        _uncertainGuestOperations.addAll(keys);
+      }
+      rethrow;
+    } finally {
+      if (generation == _generation &&
+          !_taskTargets.values.any((targets) => targets.contains(key))) {
+        _pendingGuestOperations.removeAll(keys);
+        _pendingGuestOperations.remove(vmidKey);
+      }
+      if (generation == _generation) _notify();
+    }
+  }
+
   Future<void> runAction(
     Guest guest,
     GuestAction action, {
