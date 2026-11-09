@@ -1723,7 +1723,7 @@ class AppController extends ChangeNotifier {
 
       final templatePermissions = await createGateway.permissionsForPath(
         '/storage/${normalized.templateStorage}',
-     );
+      );
       if (!stillCurrent()) {
         throw const PveFailure(
           'Connection or inventory changed during container verification.',
@@ -1740,7 +1740,7 @@ class AppController extends ChangeNotifier {
       await createGateway.assertVmidAvailable(normalized.vmid);
       if (!stillCurrent()) {
         throw const PveFailure(
-         'Connection or inventory changed during container verification.',
+          'Connection or inventory changed during container verification.',
         );
       }
 
@@ -1763,7 +1763,7 @@ class AppController extends ChangeNotifier {
           startedAt: DateTime.now(),
           outcome: OperationOutcome.running,
         ),
-      ),
+      );
       _notify();
       if (_foreground) _startPolling();
     } catch (error) {
@@ -1780,7 +1780,7 @@ class AppController extends ChangeNotifier {
       rethrow;
     } finally {
       if (generation == _generation &&
-          !_taskTargets.values.any((targets) => targets.contains(key)) {
+          !_taskTargets.values.any((targets) => targets.contains(key))) {
         _pendingGuestOperations.removeAll(keys);
       }
       if (generation == _generation) _notify();
