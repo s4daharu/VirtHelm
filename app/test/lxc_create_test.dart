@@ -72,6 +72,11 @@ void main() {
                   'enabled': 1,
                   'content': 'rootdir,vztmpl',
                 },
+                {
+                  'storage': 'unknown-state',
+                  'type': 'dir',
+                  'content': 'rootdir,vztmpl',
+                },
               ],
             };
           } else if (options.path.endsWith('/nodes/pve1/storage/local/content')) {
