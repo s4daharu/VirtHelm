@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/app_controller.dart';
 import '../core/models.dart';
 import 'components.dart';
+import 'template_clone_page.dart';
 import 'theme.dart';
 
 class GuestPage extends StatefulWidget {
@@ -370,6 +371,28 @@ class _GuestPageState extends State<GuestPage> {
     }
   }
 
+  Future<void> _openTemplateClone(Guest source) async {
+    if (!_currentSession || submitting) return;
+    final submitted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => TemplateClonePage(
+          controller: widget.controller,
+          source: source,
+          profileId: widget.profileId,
+          generation: widget.generation,
+        ),
+      ),
+    );
+    if (!mounted || !_currentSession || submitted != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Clone task submitted. Check Tasks for its final result.',
+        ),
+      ),
+    );
+  }
+
   GuestAction _primaryAction(Guest? guest) {
     if (guest == null) return GuestAction.start;
     return guest.isStopped ? GuestAction.start : GuestAction.shutdown;
@@ -387,7 +410,7 @@ class _GuestPageState extends State<GuestPage> {
       return 'Guest is not present in the current inventory.';
     }
     if (guest.isTemplate) {
-      return 'Template is read-only. Power actions are unavailable; clone and create workflows remain gated.';
+      return 'Template power actions are unavailable. Use the reviewed clone wizard for a full same-node clone.';
     }
     if (operationBlocked) {
       return 'An operation is pending or its outcome is uncertain. Check server Tasks before another action.';
@@ -590,8 +613,8 @@ class _GuestPageState extends State<GuestPage> {
       const SizedBox(height: 22),
       Text(
         guest?.isTemplate == true
-            ? 'This is a read-only template discovered from the current cluster inventory. '
-                  'Power actions are disabled; future clone/create workflows require their own validated preflight.'
+            ? 'This is a template discovered from the current cluster inventory. '
+                  'Power actions are disabled; the reviewed clone wizard is available below while create-from-scratch remains gated.'
             : 'Power actions are available below. Each operation is checked '
                   'against fresh server state and tracked as a task.',
         style: TextStyle(color: scheme.onSurfaceVariant),
@@ -1056,8 +1079,9 @@ class _GuestPageState extends State<GuestPage> {
         ],
         const SizedBox(height: 14),
         Text(
-          'Configuration editing, create/clone, and migration remain disabled '
-          'until their M4 mutation contracts and live-lab safety evidence exist.',
+          'Configuration editing, create-from-scratch, and migration remain '
+          'disabled. Template cloning is available only through the separately '
+          'guarded full same-node clone workflow.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
@@ -1328,6 +1352,49 @@ class _GuestPageState extends State<GuestPage> {
     );
   }
 
+  Widget _templateCloneBar(
+    Guest guest,
+    bool allowed,
+    String? guardReason,
+    ColorScheme scheme,
+  ) => SafeArea(
+    top: false,
+    child: Container(
+      decoration: BoxDecoration(
+        color:
+            Theme.of(context).cardTheme.color ??
+            Theme.of(context).colorScheme.surface,
+        border: Border(
+          top: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.45)),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (guardReason != null) ...[
+            Text(
+              guardReason,
+              style: TextStyle(
+                color: allowed ? scheme.onSurfaceVariant : scheme.error,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          FilledButton.icon(
+            key: const Key('guest-clone-template'),
+            onPressed: allowed ? () => _openTemplateClone(guest) : null,
+            icon: const Icon(Icons.copy_all_rounded),
+            label: const Text('Clone template'),
+          ),
+        ],
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.controller,
@@ -1351,9 +1418,16 @@ class _GuestPageState extends State<GuestPage> {
       final scheme = Theme.of(context).colorScheme;
       final operationBlocked =
           guest != null && widget.controller.isGuestActionBlocked(guest);
-      final allowed =
+      final powerAllowed =
           guest != null &&
           !guest.isTemplate &&
+          widget.controller.isInventoryWriteSafe &&
+          !widget.controller.refreshing &&
+          !submitting &&
+          !operationBlocked;
+      final cloneAllowed =
+          guest != null &&
+          guest.isTemplate &&
           widget.controller.isInventoryWriteSafe &&
           !widget.controller.refreshing &&
           !submitting &&
@@ -1394,7 +1468,9 @@ class _GuestPageState extends State<GuestPage> {
               _recoveryTab(guest),
             ],
           ),
-          bottomNavigationBar: _actionBar(guest, allowed, guardReason, scheme),
+          bottomNavigationBar: guest?.isTemplate == true
+              ? _templateCloneBar(guest!, cloneAllowed, guardReason, scheme)
+              : _actionBar(guest, powerAllowed, guardReason, scheme),
         ),
       );
     },

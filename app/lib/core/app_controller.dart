@@ -275,6 +275,48 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<int?> suggestTemplateCloneVmid({
+    required String profileId,
+    required int generation,
+    required Guest source,
+  }) async {
+    final gateway = _gateway;
+    final GuestCloneGateway? cloneGateway = gateway is GuestCloneGateway
+        ? gateway as GuestCloneGateway
+        : null;
+    bool current() =>
+        !_disposed && generation == _generation && active?.id == profileId;
+    Guest? currentSource() {
+      final matches = inventory?.guests.where(
+        (item) =>
+            item.node == source.node &&
+            item.kind == source.kind &&
+            item.vmid == source.vmid &&
+            item.isTemplate,
+      );
+      if (matches == null || matches.length != 1) return null;
+      return matches.single;
+    }
+
+    if (!current() ||
+        cloneGateway == null ||
+        deviceNetworkState == DeviceNetworkState.unavailable ||
+        currentSource() == null) {
+      return null;
+    }
+
+    try {
+      final result = await cloneGateway.nextFreeVmid();
+      if (!current() || currentSource() == null) return null;
+      return result;
+    } on PveFailure catch (error) {
+      if (error.status == 401 && current()) {
+        await _recordAuthenticatedReadLoss(generation, error.message);
+      }
+      rethrow;
+    }
+  }
+
   Future<GuestMetricSeries?> inspectGuestMetrics({
     required String profileId,
     required int generation,
@@ -1213,6 +1255,193 @@ class AppController extends ChangeNotifier {
   bool get isInventoryWriteSafe =>
       isInventoryFresh && inventory!.malformedGuestRecords == 0;
 
+  Future<void> runTemplateClone(
+    Guest source,
+    GuestCloneRequest request, {
+    required String profileId,
+  }) async {
+    final gateway = _gateway;
+    final GuestCloneGateway? cloneGateway = gateway is GuestCloneGateway
+        ? gateway as GuestCloneGateway
+        : null;
+    final generation = _generation;
+    final normalized = request.normalized();
+    final validationError = normalized.validationError;
+    if (validationError != null) {
+      throw PveFailure(validationError);
+    }
+    if (_disposed || active?.id != profileId) {
+      throw const PveFailure(
+        'Connection changed; return to the template before cloning.',
+      );
+    }
+    if (!_foreground ||
+        gateway == null ||
+        cloneGateway == null ||
+        !isInventoryWriteSafe ||
+        refreshing ||
+        deviceNetworkState == DeviceNetworkState.unavailable) {
+      throw const PveFailure(
+        'Refresh a clean live inventory before cloning a template.',
+      );
+    }
+
+    final snapshot = inventory!;
+    final sourceMatches = snapshot.guests
+        .where(
+          (item) =>
+              item.kind == source.kind &&
+              item.vmid == source.vmid &&
+              item.node == source.node,
+        )
+        .toList();
+    if (sourceMatches.length != 1 ||
+        !identical(sourceMatches.single, source) ||
+        !source.isTemplate) {
+      throw const PveFailure(
+        'Template inventory changed. Refresh and review the source again.',
+      );
+    }
+    if (snapshot.guests.any((item) => item.vmid == normalized.newVmid)) {
+      throw const PveFailure(
+        'Destination VMID is already present in the current inventory.',
+      );
+    }
+
+    final key = _guestKey(source);
+    if (_uncertainGuestOperations.contains(key)) {
+      throw const PveFailure(
+        'An earlier clone has an unknown outcome. Verify server task history '
+        'and inventory before reconnecting and trying again.',
+        mayHaveExecuted: true,
+      );
+    }
+    if (_pendingGuestOperations.contains(key)) {
+      throw const PveFailure(
+        'An operation is already pending for this template. Check Tasks.',
+      );
+    }
+
+    _pendingGuestOperations.add(key);
+    _notify();
+    var postAttempted = false;
+    try {
+      final live = await gateway.inventory();
+      if (generation != _generation ||
+          active?.id != profileId ||
+          _disposed ||
+          !_foreground ||
+          deviceNetworkState == DeviceNetworkState.unavailable) {
+        throw const PveFailure('Connection changed; clone canceled.');
+      }
+      if (!identical(snapshot, inventory) ||
+          refreshing ||
+          !isInventoryWriteSafe) {
+        throw const PveFailure(
+          'Inventory changed during clone verification. Refresh and review again.',
+        );
+      }
+      if (live.malformedGuestRecords != 0) {
+        throw const PveFailure(
+          'Live inventory verification is incomplete. Clone was not submitted.',
+        );
+      }
+      final liveSources = live.guests
+          .where(
+            (item) =>
+                item.kind == source.kind &&
+                item.vmid == source.vmid &&
+                item.node == source.node,
+          )
+          .toList();
+      if (liveSources.length != 1 || !liveSources.single.isTemplate) {
+        throw const PveFailure(
+          'The source is no longer a confirmed template. Clone was not submitted.',
+        );
+      }
+      if (live.guests.any((item) => item.vmid == normalized.newVmid)) {
+        throw const PveFailure(
+          'Destination VMID became occupied. Choose another VMID.',
+        );
+      }
+
+      final sourcePermissions = await cloneGateway.permissionsForVmid(
+        source.vmid,
+      );
+      if (!sourcePermissions.has('VM.Clone')) {
+        throw const PveFailure(
+          'The active token does not report VM.Clone on this template.',
+          status: 403,
+        );
+      }
+      final destinationPermissions = await cloneGateway.permissionsForVmid(
+        normalized.newVmid,
+      );
+      if (!destinationPermissions.has('VM.Allocate')) {
+        throw const PveFailure(
+          'The active token does not report VM.Allocate for the destination VMID.',
+          status: 403,
+        );
+      }
+
+      // This is a last-moment server-side collision check. A successful GET is
+      // still followed by exactly one clone POST; the POST remains authoritative.
+      await cloneGateway.assertVmidAvailable(normalized.newVmid);
+      if (generation != _generation ||
+          active?.id != profileId ||
+          _disposed ||
+          !_foreground ||
+          deviceNetworkState == DeviceNetworkState.unavailable ||
+          !identical(snapshot, inventory) ||
+          refreshing ||
+          !isInventoryWriteSafe) {
+        throw const PveFailure(
+          'Connection or inventory changed during clone verification.',
+        );
+      }
+
+      postAttempted = true;
+      final upid = await cloneGateway.cloneTemplate(source, normalized);
+      if (generation != _generation || active?.id != profileId || _disposed) {
+        throw const PveFailure(
+          'Connection changed after clone submission. Check server task history.',
+          mayHaveExecuted: true,
+        );
+      }
+      _taskTargets[upid] = key;
+      tasks.insert(
+        0,
+        TrackedTask(
+          upid: upid,
+          node: source.node,
+          title:
+              'Clone ${source.name} (${source.vmid}) → ${normalized.name} (${normalized.newVmid})',
+          startedAt: DateTime.now(),
+          outcome: OperationOutcome.running,
+        ),
+      );
+      _notify();
+      if (_foreground) _startPolling();
+    } catch (error) {
+      if (generation == _generation &&
+          error is PveFailure &&
+          error.status == 401) {
+        message = error.message;
+        unawaited(_clearOfflineAfterAuth(generation));
+      }
+      if (generation == _generation &&
+          (error is PveFailure ? error.mayHaveExecuted : postAttempted)) {
+        _uncertainGuestOperations.add(key);
+      }
+      rethrow;
+    } finally {
+      if (generation == _generation && !_taskTargets.containsValue(key)) {
+        _pendingGuestOperations.remove(key);
+      }
+      if (generation == _generation) _notify();
+    }
+  }
+
   Future<void> runAction(
     Guest guest,
     GuestAction action, {
@@ -1250,7 +1479,7 @@ class AppController extends ChangeNotifier {
     }
     if (guest.isTemplate) {
       throw const PveFailure(
-        'Templates are read-only. Clone and create workflows are not enabled yet.',
+        'Templates cannot use power actions. Use the guarded clone workflow for supported template cloning.',
       );
     }
     if (!action.allowedFor(guest)) {

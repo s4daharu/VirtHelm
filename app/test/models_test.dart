@@ -573,4 +573,33 @@ void main() {
     expect(GuestAction.start.allowedFor(guest), isFalse);
     expect(GuestAction.shutdown.allowedFor(guest), isTrue);
   });
+
+  test('template clone request validates VMID and DNS-safe name', () {
+    expect(
+      const GuestCloneRequest(
+        newVmid: 901,
+        name: ' ubuntu-copy ',
+      ).normalized().name,
+      'ubuntu-copy',
+    );
+    expect(
+      const GuestCloneRequest(newVmid: 901, name: 'ubuntu-copy').isValid,
+      isTrue,
+    );
+    for (final request in [
+      const GuestCloneRequest(newVmid: 99, name: 'valid'),
+      const GuestCloneRequest(newVmid: 1000000000, name: 'valid'),
+      const GuestCloneRequest(newVmid: 901, name: ''),
+      const GuestCloneRequest(newVmid: 901, name: '-bad'),
+      const GuestCloneRequest(newVmid: 901, name: 'bad-'),
+      const GuestCloneRequest(newVmid: 901, name: 'bad name'),
+    ]) {
+      expect(
+        request.isValid,
+        isFalse,
+        reason: '${request.newVmid}/${request.name}',
+      );
+      expect(request.validationError, isNotNull);
+    }
+  });
 }

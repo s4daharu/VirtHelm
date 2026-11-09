@@ -16,6 +16,7 @@
 | GET | `/version` | connect test | `version`, `release` fields | Officially documented, live fixture pending |
 | GET | `/access/permissions` with `path=/vms/{vmid}` | exact guest permission hints | map of ACL path -> effective privilege -> propagation flag | Upstream access-control source confirmed; live 8.4/9.2 fixture pending |
 | GET | `/cluster/resources` | global overview | list of nodes/guests/storage; optional `type` filter | Candidate contract; validate details |
+| GET | `/cluster/nextid` with optional `vmid={newid}` | clone VMID suggestion/collision preflight | next free VMID or explicit free-VMID validation | Upstream clone/preflight contract reviewed; live 8.4/9.2 fixture pending |
 | GET | `/nodes` | node list | node state/identifier | Candidate contract; validate details |
 | GET | `/nodes/{node}/status` | node detail | CPU, memory, uptime, etc. | Candidate contract; validate details |
 | GET | `/nodes/{node}/rrddata` | node performance history | timestamped CPU/memory averages with `timeframe` + `cf` | Source-confirmed read family; live 8.4/9.2 fixtures pending |
@@ -26,12 +27,14 @@
 | POST | `/nodes/{node}/qemu/{vmid}/status/shutdown` | graceful shutdown VM | task/UPID | Candidate contract; validate |
 | POST | `/nodes/{node}/qemu/{vmid}/status/stop` | force stop VM | task/UPID | Candidate contract; validate |
 | POST | `/nodes/{node}/qemu/{vmid}/status/reboot` | guest reboot VM | task/UPID | Candidate contract; validate |
+| POST | `/nodes/{node}/qemu/{vmid}/clone` | guarded full template clone | `newid`, `full=1`, `name`; task/UPID | Upstream QEMU source confirmed; live 8.4/9.2 mutation fixture pending |
 | GET | `/nodes/{node}/lxc` | container inventory | LXC list | Candidate contract; validate |
 | GET | `/nodes/{node}/lxc/{vmid}/status/current` | LXC detail | current status | Candidate contract; validate |
 | POST | `/nodes/{node}/lxc/{vmid}/status/start` | start LXC | task/UPID | Candidate contract; validate |
 | POST | `/nodes/{node}/lxc/{vmid}/status/shutdown` | orderly shutdown LXC | task/UPID | Candidate contract; validate |
 | POST | `/nodes/{node}/lxc/{vmid}/status/stop` | force stop LXC | task/UPID | Candidate contract; validate |
 | POST | `/nodes/{node}/lxc/{vmid}/status/reboot` | reboot LXC | task/UPID | Candidate contract; validate |
+| POST | `/nodes/{node}/lxc/{vmid}/clone` | guarded full template clone | `newid`, `full=1`, `hostname`; task/UPID | Upstream LXC source confirmed; live 8.4/9.2 mutation fixture pending |
 | GET | `/nodes/{node}/tasks` | node tasks | recent task records | Candidate contract; validate |
 | GET | `/nodes/{node}/tasks/{upid}/status` | task completion | running/stopped, exit status | Candidate contract; validate |
 | GET | `/nodes/{node}/tasks/{upid}/log` | task log | lines/events | P1; validate |
@@ -41,6 +44,8 @@
 Guest, node and storage performance history use only `hour`, `day`, and `week` timeframes with `cf=AVERAGE` in the source implementation. Node history currently retains CPU and memory ratios only. Storage history retains non-negative used bytes and positive total bytes, and computes a usage ratio only when used does not exceed total. Broader RRD fields remain deferred until versioned fixtures establish units and missing-point behavior. Samples are treated as provisional until sanitized PVE 9.2/8.4 fixtures confirm field availability, units, ACL behavior, timestamp resolution, and missing-point semantics.
 
 Guest resource entries may also expose optional `tags` and `pool` discovery metadata. Upstream source history confirms guest tags on `/cluster/resources`; this client treats both fields as display/filter metadata only and still requires sanitized PVE 8.4/9.2 fixtures for exact availability, ACL, case-sensitivity and pool-shape behavior. Missing or malformed optional metadata is unavailable rather than a malformed guest identity.\n\nGuest resource entries may include optional `netin`, `netout`, `diskread`, and `diskwrite` cumulative byte counters. They are **not** current bytes/second; missing or malformed fields are unavailable rather than zero. Source-level parsing/display is covered by synthetic tests, while exact PVE 8.4/9.2 fixtures and lifecycle reset semantics still require validation.
+
+For the guarded template-clone slice, current upstream QEMU/LXC source confirms the clone endpoint families and source `VM.Clone` plus destination `VM.Allocate` checks. QEMU additionally documents datastore allocation and SDN-use requirements where applicable. VirtHelm therefore treats its source/destination permission probes as partial preflight only: it sends a full same-node clone with no explicit storage/target/pool override, never retries the POST, and lets Proxmox remain final authority for datastore/network authorization. Live PVE 8.4/9.2 clone fixtures remain required.
 
 For guest permission hints, VirtHelm requests only the authenticated token's own exact `/vms/{vmid}` path. Upstream access-control source explicitly allows a user/token to dump its own effective permissions. Presence of a privilege at the exact path is treated as the grant; the returned boolean/0/1 value is a propagation flag and is not used as an allow/deny value. The result remains a presentation hint only and never replaces operation-specific server authorization or live mutation preflight. Live 8.4/9.2 token/ACL fixtures are still required.
 

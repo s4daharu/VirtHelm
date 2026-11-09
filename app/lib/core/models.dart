@@ -1122,6 +1122,35 @@ extension GuestActionLabel on GuestAction {
       (this == GuestAction.start ? guest.isStopped : guest.isRunning);
 }
 
+class GuestCloneRequest {
+  const GuestCloneRequest({required this.newVmid, required this.name});
+
+  final int newVmid;
+  final String name;
+
+  String? get validationError {
+    if (newVmid < 100 || newVmid > 999999999) {
+      return 'VMID must be between 100 and 999999999.';
+    }
+    final normalized = name.trim();
+    if (normalized.isEmpty || normalized.length > 63) {
+      return 'Name must be 1 to 63 characters.';
+    }
+    final validName = RegExp(
+      r'^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$',
+    ).hasMatch(normalized);
+    if (!validName) {
+      return 'Name may contain letters, numbers, and hyphens, and cannot start or end with a hyphen.';
+    }
+    return null;
+  }
+
+  bool get isValid => validationError == null;
+
+  GuestCloneRequest normalized() =>
+      GuestCloneRequest(newVmid: newVmid, name: name.trim());
+}
+
 enum OperationOutcome { running, succeeded, failed, unknown }
 
 class TrackedTask {
