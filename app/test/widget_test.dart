@@ -1473,16 +1473,21 @@ void main() {
       expect(find.byKey(const Key('qemu-create-name')), findsOneWidget);
       expect(find.byKey(const Key('qemu-create-cores')), findsOneWidget);
       expect(find.byKey(const Key('qemu-create-memory')), findsOneWidget);
+      final createScroll = find.descendant(
+        of: find.byKey(const Key('qemu-create-list')),
+        matching: find.byType(Scrollable),
+      );
+      expect(createScroll, findsOneWidget);
       await tester.scrollUntilVisible(
         find.byKey(const Key('qemu-create-onboot')),
         260,
-        scrollable: find.byType(Scrollable).last,
+        scrollable: createScroll,
       );
       expect(find.byKey(const Key('qemu-create-onboot')), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('Safety boundary'),
         260,
-        scrollable: find.byType(Scrollable).last,
+        scrollable: createScroll,
       );
       expect(find.text('Safety boundary'), findsOneWidget);
       expect(find.textContaining('does not allocate a disk'), findsOneWidget);
