@@ -117,10 +117,7 @@ class _Gateway
   int migrationPreflightCalls = 0;
   int migrationSubmissions = 0;
   GuestMigrationPreflight migrationPreflightResult =
-      const GuestMigrationPreflight(
-        running: true,
-        allowedNodes: ['pve2'],
-      );
+      const GuestMigrationPreflight(running: true, allowedNodes: ['pve2']);
   PveFailure? migrationPreflightFailure;
   PveFailure? migrationSubmissionFailure;
   GuestMigrationRequest? lastMigrationRequest;
@@ -3076,18 +3073,19 @@ void main() {
       late _Gateway gateway;
       final ctl = AppController(
         repository: ProfileRepository(prefs, _Vault()),
-        gatewayFactory: (profile, credentials) => gateway = _Gateway()
-          ..inventoryResources = [
-            {'type': 'node', 'node': 'pve1', 'status': 'online'},
-            {'type': 'node', 'node': 'pve2', 'status': 'online'},
-            {
-              'type': 'qemu',
-              'vmid': 101,
-              'node': 'pve1',
-              'name': 'Web',
-              'status': 'running',
-            },
-          ],
+        gatewayFactory: (profile, credentials) =>
+            gateway = _Gateway()
+              ..inventoryResources = [
+                {'type': 'node', 'node': 'pve1', 'status': 'online'},
+                {'type': 'node', 'node': 'pve2', 'status': 'online'},
+                {
+                  'type': 'qemu',
+                  'vmid': 101,
+                  'node': 'pve1',
+                  'name': 'Web',
+                  'status': 'running',
+                },
+              ],
       );
       addTearDown(ctl.dispose);
       await ctl.initialize();
