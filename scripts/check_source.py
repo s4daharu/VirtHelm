@@ -24,6 +24,7 @@ required = [
   'app/test/provisioning_page_test.dart','app/test/lxc_create_test.dart',
   'app/test/models_test.dart',
   'app/test/controller_test.dart','app/test/pve_api_test.dart',
+  'app/test/guest_migration_test.dart',
   'app/test/widget_test.dart','app/test/pve_tls_test.dart',
   'app/test/incident_center_test.dart','app/test/alert_rules_test.dart',
   'app/test/alert_rules_widget_test.dart',
@@ -82,7 +83,8 @@ required = [
    'docs/82-implementation-template-clone.md',
    'docs/83-implementation-qemu-create.md',
    'docs/84-qemu-create-branch-cross-check-2026-11-09.md',
-   'docs/85-implementation-lxc-create.md']
+   'docs/85-implementation-lxc-create.md',
+   'docs/86-implementation-guest-migration.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)
@@ -163,7 +165,7 @@ assert "'${_guestPath(guest)}/config'" in files['app/lib/core/pve_api.dart']
 assert 'inspectGuestConfiguration' in files['app/lib/core/app_controller.dart']
 assert "Key('guest-configuration-tab')" in files['app/lib/ui/guest_page.dart']
 assert 'only reviewed allowlisted fields' in files['app/lib/ui/guest_page.dart']
-assert 'Configuration editing and migration remain disabled.' in files['app/lib/ui/guest_page.dart']
+assert 'Configuration editing remains disabled.' in files['app/lib/ui/guest_page.dart']
 assert 'class GuestPermissionSnapshot' in files['app/lib/core/models.dart']
 assert 'abstract class GuestPermissionGateway' in files['app/lib/core/pve_api.dart']
 assert "'/access/permissions'" in files['app/lib/core/pve_api.dart']
@@ -237,6 +239,14 @@ assert 'VM.Config.CPU' in files['docs/83-implementation-qemu-create.md']
 assert 'Datastore.AllocateSpace' in files['docs/83-implementation-qemu-create.md']
 assert 'Datastore.AllocateSpace' in files['docs/85-implementation-lxc-create.md']
 assert 'VM.Config.Network' in files['docs/85-implementation-lxc-create.md']
+assert 'class GuestMigrationRequest' in files['app/lib/core/models.dart']
+assert 'abstract class GuestMigrationGateway' in files['app/lib/core/pve_api.dart']
+assert "data['restart'] = 1" in files['app/lib/core/pve_api.dart']
+assert 'runGuestMigration' in files['app/lib/core/app_controller.dart']
+assert 'VM.Migrate' in files['app/lib/core/app_controller.dart']
+assert "Key('guest-migrate')" in files['app/lib/ui/guest_page.dart']
+assert 'typed source VMID confirmation' in files['docs/86-implementation-guest-migration.md']
+assert "test('mismatched migration UPID is treated as an uncertain outcome'" in files['app/test/guest_migration_test.dart']
 assert '_guestTags' in files['app/lib/core/models.dart']
 assert 'final List<String> tags' in files['app/lib/core/models.dart']
 assert 'String? tag' in files['app/lib/core/guest_list_filter.dart']

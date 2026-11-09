@@ -1361,6 +1361,122 @@ class LxcCreateRequest {
   );
 }
 
+class GuestMigrationRequest {
+  const GuestMigrationRequest({required this.targetNode});
+
+  final String targetNode;
+
+  String? get validationError {
+    final normalized = targetNode.trim();
+    if (normalized.isEmpty ||
+        normalized.length > 64 ||
+        !RegExp(
+          r'^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$',
+        ).hasMatch(normalized)) {
+      return 'Select a valid destination node.';
+    }
+    return null;
+  }
+
+  bool get isValid => validationError == null;
+
+  GuestMigrationRequest normalized() =>
+      GuestMigrationRequest(targetNode: targetNode.trim());
+}
+
+class GuestMigrationPreflight {
+  const GuestMigrationPreflight({
+    required this.running,
+    required this.allowedNodes,
+    this.localDiskCount = 0,
+    this.localResources = const <String>[],
+    this.incomplete = false,
+  });
+
+  final bool running;
+  final List<String> allowedNodes;
+  final int localDiskCount;
+  final List<String> localResources;
+  final bool incomplete;
+
+  bool allowsTarget(String node) => allowedNodes.contains(node);
+
+  factory GuestMigrationPreflight.fromApi(
+    Map<String, dynamic> json, {
+    required String kind,
+  }) {
+    if (kind != 'qemu' && kind != 'lxc') {
+      throw const FormatException('Unsupported guest kind.');
+    }
+    final running = asFlag(json['running']);
+    if (running == null) {
+      throw const FormatException('Migration preflight is missing run state.');
+    }
+
+    var incomplete = false;
+    final allowedKey = kind == 'qemu' ? 'allowed_nodes' : 'allowed-nodes';
+    final rawAllowed = json[allowedKey];
+    final allowed = <String>[];
+    if (rawAllowed is! List) {
+      incomplete = true;
+    } else {
+      for (final item in rawAllowed) {
+        final value = asText(item)?.trim();
+        if (value == null ||
+            value.isEmpty ||
+            value.length > 64 ||
+            !RegExp(
+              r'^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$',
+            ).hasMatch(value)) {
+          incomplete = true;
+          continue;
+        }
+        if (!allowed.contains(value)) allowed.add(value);
+      }
+    }
+
+    var localDiskCount = 0;
+    final localResources = <String>[];
+    if (kind == 'qemu') {
+      final rawDisks = json['local_disks'];
+      if (rawDisks is! List) {
+        incomplete = true;
+      } else {
+        for (final item in rawDisks) {
+          if (item is Map) {
+            localDiskCount++;
+          } else {
+            incomplete = true;
+          }
+        }
+      }
+      final rawResources = json['local_resources'];
+      if (rawResources is! List) {
+        incomplete = true;
+      } else {
+        for (final item in rawResources) {
+          final value = asText(item)?.trim();
+          if (value == null || value.isEmpty) {
+            incomplete = true;
+            continue;
+          }
+          localResources.add(value);
+        }
+      }
+    }
+
+    allowed.sort();
+    localResources.sort();
+    return GuestMigrationPreflight(
+      running: running,
+      allowedNodes: List<String>.unmodifiable(allowed),
+      localDiskCount: localDiskCount,
+      localResources: List<String>.unmodifiable(localResources),
+      incomplete: incomplete,
+    );
+  }
+}
+
 enum OperationOutcome { running, succeeded, failed, unknown }
 
 class TrackedTask {

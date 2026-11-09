@@ -17,6 +17,15 @@ abstract class GuestCloneGateway {
   Future<String> cloneTemplate(Guest source, GuestCloneRequest request);
 }
 
+abstract class GuestMigrationGateway {
+  Future<GuestPermissionSnapshot> guestPermissions(Guest guest);
+  Future<GuestMigrationPreflight> migrationPreflight(
+    Guest guest,
+    String targetNode,
+  );
+  Future<String> migrateGuest(Guest guest, GuestMigrationRequest request);
+}
+
 abstract class GuestCreateGateway {
   Future<int> nextFreeVmid();
   Future<void> assertVmidAvailable(int vmid);
@@ -69,6 +78,7 @@ class DioPveGateway
         PveGateway,
         GuestPermissionGateway,
         GuestCloneGateway,
+        GuestMigrationGateway,
         GuestCreateGateway,
         LxcCreateGateway {
   DioPveGateway(
@@ -653,6 +663,99 @@ class DioPveGateway
     if (value is! String || !value.startsWith('UPID:')) {
       throw const PveFailure(
         'Server returned an unexpected clone task identifier. Check task history.',
+        mayHaveExecuted: true,
+      );
+    }
+    return value;
+  }
+
+  @override
+  Future<GuestMigrationPreflight> migrationPreflight(
+    Guest guest,
+    String targetNode,
+  ) async {
+    if (guest.isTemplate) {
+      throw const FormatException('Templates cannot be migrated.');
+    }
+    final request = GuestMigrationRequest(targetNode: targetNode).normalized();
+    final validationError = request.validationError;
+    if (validationError != null) throw FormatException(validationError);
+    if (request.targetNode == guest.node) {
+      throw const FormatException('Destination node must differ from source.');
+    }
+    final raw = await _request(
+      '${_guestPath(guest)}/migrate',
+      queryParameters: {'target': request.targetNode},
+    );
+    if (raw is! Map) {
+      throw const PveFailure('Unexpected migration preflight response.');
+    }
+    try {
+      return GuestMigrationPreflight.fromApi(
+        Map<String, dynamic>.from(raw),
+        kind: guest.kind,
+      );
+    } on FormatException {
+      throw const PveFailure('Unexpected migration preflight response.');
+    } on TypeError {
+      throw const PveFailure('Unexpected migration preflight response.');
+    }
+  }
+
+  @override
+  Future<String> migrateGuest(
+    Guest guest,
+    GuestMigrationRequest request,
+  ) async {
+    if (guest.isTemplate) {
+      throw const FormatException('Templates cannot be migrated.');
+    }
+    if (!guest.isRunning && !guest.isStopped) {
+      throw const FormatException(
+        'Guest state must be running or stopped before migration.',
+      );
+    }
+    final normalized = request.normalized();
+    final validationError = normalized.validationError;
+    if (validationError != null) throw FormatException(validationError);
+    if (normalized.targetNode == guest.node) {
+      throw const FormatException('Destination node must differ from source.');
+    }
+
+    final data = <String, dynamic>{'target': normalized.targetNode};
+    if (guest.kind == 'qemu' && guest.isRunning) {
+      data['online'] = 1;
+    } else if (guest.kind == 'lxc' && guest.isRunning) {
+      // Upstream LXC does not provide live migration; restart migration
+      // performs an orderly stop, move and start on the destination.
+      data['restart'] = 1;
+    }
+
+    final value = await _request(
+      '${_guestPath(guest)}/migrate',
+      mutation: true,
+      mutationData: data,
+    );
+    if (value is! String || !value.startsWith('UPID:')) {
+      throw const PveFailure(
+        'Server returned an unexpected migration task identifier. Check task history.',
+        mayHaveExecuted: true,
+      );
+    }
+
+    final parts = value.split(':');
+    final allowedWorkers = guest.kind == 'qemu'
+        ? const {'qmigrate', 'hamigrate'}
+        : const {'vzmigrate', 'hamigrate'};
+    if (parts.length != 9 ||
+        parts[1] != guest.node ||
+        !parts.skip(2).take(3).every(RegExp(r'^[0-9A-Fa-f]+$').hasMatch) ||
+        !allowedWorkers.contains(parts[5]) ||
+        parts[6] != guest.vmid.toString() ||
+        parts[7].trim().isEmpty ||
+        parts[8].isNotEmpty) {
+      throw const PveFailure(
+        'Server returned a mismatched migration task identifier. Check task history.',
         mayHaveExecuted: true,
       );
     }

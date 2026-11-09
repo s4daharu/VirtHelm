@@ -29,6 +29,8 @@
 | POST | `/nodes/{node}/qemu/{vmid}/status/stop` | force stop VM | task/UPID | Candidate contract; validate |
 | POST | `/nodes/{node}/qemu/{vmid}/status/reboot` | guest reboot VM | task/UPID | Candidate contract; validate |
 | POST | `/nodes/{node}/qemu/{vmid}/clone` | guarded full template clone | `newid`, `full=1`, `name`; task/UPID | Upstream QEMU source confirmed; live 8.4/9.2 mutation fixture pending |
+| GET | `/nodes/{node}/qemu/{vmid}/migrate` with `target={node}` | guarded QEMU migration preflight | running state, allowed targets, local disks/resources and blockers | Upstream QEMU source confirmed; live 8.4/9.2 fixture pending |
+| POST | `/nodes/{node}/qemu/{vmid}/migrate` | guarded same-cluster QEMU migration | `target` and `online=1` only for a running VM; task/UPID | Upstream QEMU source confirmed; live 8.4/9.2 mutation fixture pending |
 | GET | `/nodes/{node}/lxc` | container inventory | LXC list | Candidate contract; validate |
 | GET | `/nodes/{node}/lxc/{vmid}/status/current` | LXC detail | current status | Candidate contract; validate |
 | POST | `/nodes/{node}/lxc/{vmid}/status/start` | start LXC | task/UPID | Candidate contract; validate |
@@ -36,6 +38,8 @@
 | POST | `/nodes/{node}/lxc/{vmid}/status/stop` | force stop LXC | task/UPID | Candidate contract; validate |
 | POST | `/nodes/{node}/lxc/{vmid}/status/reboot` | reboot LXC | task/UPID | Candidate contract; validate |
 | POST | `/nodes/{node}/lxc/{vmid}/clone` | guarded full template clone | `newid`, `full=1`, `hostname`; task/UPID | Upstream LXC source confirmed; live 8.4/9.2 mutation fixture pending |
+| GET | `/nodes/{node}/lxc/{vmid}/migrate` with `target={node}` | guarded LXC migration preflight | running state, allowed targets and HA blockers | Upstream LXC source confirmed; live 8.4/9.2 fixture pending |
+| POST | `/nodes/{node}/lxc/{vmid}/migrate` | guarded same-cluster LXC migration | `target`; running CT adds `restart=1`; task/UPID | Upstream LXC source confirmed; live 8.4/9.2 mutation fixture pending |
 | GET | `/nodes/{node}/tasks` | node tasks | recent task records | Candidate contract; validate |
 | GET | `/nodes/{node}/tasks/{upid}/status` | task completion | running/stopped, exit status | Candidate contract; validate |
 | GET | `/nodes/{node}/tasks/{upid}/log` | task log | lines/events | P1; validate |
@@ -51,6 +55,8 @@ For the guarded empty-QEMU create slice, upstream QEMU source confirms `POST /no
 For the guarded LXC create slice, current upstream LXC/storage source confirms `POST /nodes/{node}/lxc`, required `ostemplate`, active `rootdir` storage, default unprivileged creation, and the `vzcreate` worker. VirtHelm discovers existing `vztmpl` content, sends `unprivileged=1`, and omits an explicit `rootfs`, allowing Proxmox's reviewed default 4 GiB rootfs allocation on the selected storage. Preflight hints require destination `VM.Allocate`, `VM.Config.CPU`, `VM.Config.Memory`, `VM.Config.Network` (hostname), `VM.Config.Options` (onboot), rootfs-storage `Datastore.AllocateSpace`, and readable template storage (`Datastore.Audit` or `Datastore.AllocateSpace`). Privileged mode, custom rootfs sizing, passwords/SSH keys, networking, pool/HA, restore and start-after-create remain gated; live PVE 8.4/9.2 fixtures remain required.
 
 For the guarded template-clone slice, current upstream QEMU/LXC source confirms the clone endpoint families and source `VM.Clone` plus destination `VM.Allocate` checks. QEMU additionally documents datastore allocation and SDN-use requirements where applicable. VirtHelm therefore treats its source/destination permission probes as partial preflight only: it sends a full same-node clone with no explicit storage/target/pool override, never retries the POST, and lets Proxmox remain final authority for datastore/network authorization. Live PVE 8.4/9.2 clone fixtures remain required.
+
+For the guarded migration slice, current upstream QEMU and LXC sources confirm `VM.Migrate` on the exact guest path, a GET precondition check and a POST on `/nodes/{node}/{qemu|lxc}/{vmid}/migrate`. QEMU preflight exposes allowed targets plus local disks/resources; VirtHelm refuses this first slice if either local category is present and therefore sends none of the local-disk, target-storage, force, migration-network or migration-type knobs. A running QEMU VM adds only `online=1`. A running LXC container uses `restart=1` because the reviewed LXC path does not provide live migration; stopped guests send only `target`. Normal workers are `qmigrate`/`vzmigrate`, while HA-managed guests can return `hamigrate`. Every mutation remains exactly-once with uncertain-outcome lockout, and live PVE 8.4/9.2 migration/HA/storage fixtures remain required.
 
 For guest permission hints, VirtHelm requests only the authenticated token's own exact `/vms/{vmid}` path. Upstream access-control source explicitly allows a user/token to dump its own effective permissions. Presence of a privilege at the exact path is treated as the grant; the returned boolean/0/1 value is a propagation flag and is not used as an allow/deny value. The result remains a presentation hint only and never replaces operation-specific server authorization or live mutation preflight. Live 8.4/9.2 token/ACL fixtures are still required.
 
