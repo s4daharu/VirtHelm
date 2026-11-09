@@ -13,7 +13,7 @@ Because this remains based on the existing cluster inventory, profile isolation,
 - QEMU/LXC templates are labelled explicitly in the Guests list and guest detail identity.
 - The Guests page adds a **Templates** quick filter. The filter is compatible with the existing search, type, node, tag, pool and sort controls.
 - Template criteria can be stored in the existing profile-scoped named saved views without introducing a new persistence store.
-- Running/stopped filters and Home/offline workload counts exclude templates, so a stopped template is not presented as a stopped runnable workload.
+- Running/stopped filters and Home/offline workload counts exclude templates, so a stopped template is not presented as a stopped runnable workload. The aggregate offline-count record advances to schema v2 so pre-upgrade v1 caches with template-inclusive totals are discarded instead of mislabelled.
 - Template detail remains useful for existing read-only configuration, permission and related inspection surfaces where the server permits those reads.
 
 ## Mutation safety
