@@ -25,9 +25,13 @@ class OfflineOverview {
     onlineNodes: inventory.nodes
         .where((node) => node.status == 'online')
         .length,
-    totalGuests: inventory.guests.length,
-    runningGuests: inventory.guests.where((guest) => guest.isRunning).length,
-    stoppedGuests: inventory.guests.where((guest) => guest.isStopped).length,
+    totalGuests: inventory.guests.where((guest) => !guest.isTemplate).length,
+    runningGuests: inventory.guests
+        .where((guest) => !guest.isTemplate && guest.isRunning)
+        .length,
+    stoppedGuests: inventory.guests
+        .where((guest) => !guest.isTemplate && guest.isStopped)
+        .length,
   );
 
   Map<String, int> toJson() => {
