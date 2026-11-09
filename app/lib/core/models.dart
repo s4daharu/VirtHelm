@@ -1361,7 +1361,6 @@ class LxcCreateRequest {
   );
 }
 
-
 class GuestMigrationRequest {
   const GuestMigrationRequest({required this.targetNode});
 
@@ -1372,105 +1371,7 @@ class GuestMigrationRequest {
     if (normalized.isEmpty ||
         normalized.length > 64 ||
         !RegExp(
-          r'^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?
-
-class TrackedTask {
-  const TrackedTask({
-    required this.upid,
-    required this.node,
-    required this.title,
-    required this.startedAt,
-    required this.outcome,
-    this.detail,
-  });
-  final String upid;
-  final String node;
-  final String title;
-  final DateTime startedAt;
-  final OperationOutcome outcome;
-  final String? detail;
-
-  TrackedTask withOutcome(OperationOutcome next, {String? detail}) =>
-      TrackedTask(
-        upid: upid,
-        node: node,
-        title: title,
-        startedAt: startedAt,
-        outcome: next,
-        detail: detail,
-      );
-}
-
-class ServerTaskStatus {
-  const ServerTaskStatus({required this.status, this.exitStatus});
-  final String status;
-  final String? exitStatus;
-  bool get isDone => status == 'stopped';
-  bool get succeeded => isDone && exitStatus == 'OK';
-}
-
-// Transport diagnoses describe an observed request failure, not device state.
-enum PveTransportFailure {
-  dnsFailure,
-  networkUnreachable,
-  connectTimeout,
-  responseTimeout,
-  connectionLost,
-}
-
-class PveFailure implements Exception {
-  const PveFailure(
-    this.message, {
-    this.status,
-    this.mayHaveExecuted = false,
-    this.transportFailure,
-  });
-  final String message;
-  final int? status;
-  final bool mayHaveExecuted;
-  final PveTransportFailure? transportFailure;
-
-  @override
-  String toString() => message;
-}
-
-String formatBytes(int? bytes) {
-  if (bytes == null || bytes < 0) return '—';
-  final units = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
-  var value = bytes.toDouble();
-  var index = 0;
-  while (value >= 1024 && index < units.length - 1) {
-    value /= 1024;
-    index++;
-  }
-  return '${index == 0 ? value.toStringAsFixed(0) : value.toStringAsFixed(1)} ${units[index]}';
-}
-
-String formatPercent(double? fraction) {
-  if (fraction == null || !fraction.isFinite || fraction < 0) return '—';
-  final display = fraction.clamp(0.0, 1.0).toDouble();
-  return '${(display * 100).toStringAsFixed(1)}%';
-}
-
-String formatUptime(int? seconds) {
-  if (seconds == null || seconds < 0) return '—';
-  final days = seconds ~/ 86400;
-  final hours = (seconds % 86400) ~/ 3600;
-  final minutes = (seconds % 3600) ~/ 60;
-  if (days > 0) return '${days}d ${hours}h';
-  if (hours > 0) return '${hours}h ${minutes}m';
-  if (minutes > 0) return '${minutes}m';
-  return '${seconds}s';
-}
-
-String formatAge(DateTime time, {DateTime? now}) {
-  final diff = (now ?? DateTime.now()).difference(time);
-  if (diff.isNegative || diff.inSeconds < 60) return 'just now';
-  if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
-  if (diff.inHours < 24) return '${diff.inHours} h ago';
-  return '${diff.inDays} days ago';
-}
-,
+          r'^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$',
         ).hasMatch(normalized)) {
       return 'Select a valid destination node.';
     }
@@ -1525,105 +1426,7 @@ class GuestMigrationPreflight {
             value.isEmpty ||
             value.length > 64 ||
             !RegExp(
-              r'^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?
-
-class TrackedTask {
-  const TrackedTask({
-    required this.upid,
-    required this.node,
-    required this.title,
-    required this.startedAt,
-    required this.outcome,
-    this.detail,
-  });
-  final String upid;
-  final String node;
-  final String title;
-  final DateTime startedAt;
-  final OperationOutcome outcome;
-  final String? detail;
-
-  TrackedTask withOutcome(OperationOutcome next, {String? detail}) =>
-      TrackedTask(
-        upid: upid,
-        node: node,
-        title: title,
-        startedAt: startedAt,
-        outcome: next,
-        detail: detail,
-      );
-}
-
-class ServerTaskStatus {
-  const ServerTaskStatus({required this.status, this.exitStatus});
-  final String status;
-  final String? exitStatus;
-  bool get isDone => status == 'stopped';
-  bool get succeeded => isDone && exitStatus == 'OK';
-}
-
-// Transport diagnoses describe an observed request failure, not device state.
-enum PveTransportFailure {
-  dnsFailure,
-  networkUnreachable,
-  connectTimeout,
-  responseTimeout,
-  connectionLost,
-}
-
-class PveFailure implements Exception {
-  const PveFailure(
-    this.message, {
-    this.status,
-    this.mayHaveExecuted = false,
-    this.transportFailure,
-  });
-  final String message;
-  final int? status;
-  final bool mayHaveExecuted;
-  final PveTransportFailure? transportFailure;
-
-  @override
-  String toString() => message;
-}
-
-String formatBytes(int? bytes) {
-  if (bytes == null || bytes < 0) return '—';
-  final units = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
-  var value = bytes.toDouble();
-  var index = 0;
-  while (value >= 1024 && index < units.length - 1) {
-    value /= 1024;
-    index++;
-  }
-  return '${index == 0 ? value.toStringAsFixed(0) : value.toStringAsFixed(1)} ${units[index]}';
-}
-
-String formatPercent(double? fraction) {
-  if (fraction == null || !fraction.isFinite || fraction < 0) return '—';
-  final display = fraction.clamp(0.0, 1.0).toDouble();
-  return '${(display * 100).toStringAsFixed(1)}%';
-}
-
-String formatUptime(int? seconds) {
-  if (seconds == null || seconds < 0) return '—';
-  final days = seconds ~/ 86400;
-  final hours = (seconds % 86400) ~/ 3600;
-  final minutes = (seconds % 3600) ~/ 60;
-  if (days > 0) return '${days}d ${hours}h';
-  if (hours > 0) return '${hours}h ${minutes}m';
-  if (minutes > 0) return '${minutes}m';
-  return '${seconds}s';
-}
-
-String formatAge(DateTime time, {DateTime? now}) {
-  final diff = (now ?? DateTime.now()).difference(time);
-  if (diff.isNegative || diff.inSeconds < 60) return 'just now';
-  if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
-  if (diff.inHours < 24) return '${diff.inHours} h ago';
-  return '${diff.inDays} days ago';
-}
-,
+              r'^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$',
             ).hasMatch(value)) {
           incomplete = true;
           continue;
