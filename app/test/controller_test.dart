@@ -73,7 +73,11 @@ class _FailNextStoreVault extends _Vault {
 }
 
 class _Gateway
-    implements PveGateway, GuestPermissionGateway, GuestCloneGateway {
+    implements
+        PveGateway,
+        GuestPermissionGateway,
+        GuestCloneGateway,
+        GuestCreateGateway {
   int submissions = 0;
   int inventoryCalls = 0;
   int taskStatusCalls = 0;
@@ -108,6 +112,9 @@ class _Gateway
   int cloneSubmissions = 0;
   PveFailure? cloneAvailabilityFailure;
   PveFailure? cloneSubmissionFailure;
+  int qemuCreateSubmissions = 0;
+  QemuCreateRequest? lastQemuCreateRequest;
+  PveFailure? qemuCreateSubmissionFailure;
   int guestMetricCalls = 0;
   final List<GuestMetricTimeframe> guestMetricTimeframes = [];
   Completer<GuestMetricSeries>? guestMetricGate;
@@ -326,6 +333,16 @@ class _Gateway
     cloneSubmissions++;
     if (cloneSubmissionFailure != null) throw cloneSubmissionFailure!;
     return 'UPID:pve1:1234:123:abc:qmclone:${source.vmid}:operator@pve:';
+  }
+
+  @override
+  Future<String> createQemu(QemuCreateRequest request) async {
+    qemuCreateSubmissions++;
+    lastQemuCreateRequest = request;
+    if (qemuCreateSubmissionFailure != null) {
+      throw qemuCreateSubmissionFailure!;
+    }
+    return 'UPID:${request.node}:1234:123:abc:qmcreate:${request.vmid}:operator@pve:';
   }
 
   @override
@@ -2914,4 +2931,133 @@ void main() {
       expect(ctl.isGuestActionBlocked(source), isFalse);
     },
   );
+
+  test(
+    'QEMU create preflights destination privileges and submits exactly once',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway()
+          ..inventoryResources = [
+            {'type': 'node', 'node': 'pve1', 'status': 'online'},
+            {
+              'type': 'qemu',
+              'vmid': 101,
+              'node': 'pve1',
+              'name': 'existing',
+              'status': 'stopped',
+            },
+          ]
+          ..clonePermissionResults[901] = const GuestPermissionSnapshot(
+            privileges: {
+              'VM.Allocate',
+              'VM.Config.CPU',
+              'VM.Config.Memory',
+              'VM.Config.Options',
+            },
+          ),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 's3cr3t',
+      );
+
+      expect(
+        await ctl.suggestQemuCreateVmid(
+          profileId: ctl.active!.id,
+          generation: ctl.connectionGeneration,
+        ),
+        901,
+      );
+      const request = QemuCreateRequest(
+        node: 'pve1',
+        vmid: 901,
+        name: 'app-vm',
+        cores: 4,
+        memoryMiB: 4096,
+        onBoot: true,
+      );
+
+      await ctl.runQemuCreate(request, profileId: ctl.active!.id);
+
+      expect(gateway.clonePermissionVmids, [901]);
+      expect(gateway.assertedCloneVmids, [901]);
+      expect(gateway.qemuCreateSubmissions, 1);
+      expect(gateway.lastQemuCreateRequest?.name, 'app-vm');
+      expect(ctl.tasks, hasLength(1));
+      expect(ctl.tasks.single.title, contains('Create QEMU app-vm (901)'));
+      expect(ctl.tasks.single.node, 'pve1');
+      expect(
+        ctl.isProvisioningTargetBlocked('qemu', 'pve1', 901),
+        isTrue,
+      );
+    },
+  );
+
+  test(
+    'QEMU create stops before POST when a required destination privilege is absent',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway()
+          ..inventoryResources = [
+            {'type': 'node', 'node': 'pve1', 'status': 'online'},
+          ]
+          ..clonePermissionResults[901] = const GuestPermissionSnapshot(
+            privileges: {
+              'VM.Allocate',
+              'VM.Config.CPU',
+              'VM.Config.Options',
+            },
+          ),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 's3cr3t',
+      );
+
+      await expectLater(
+        ctl.runQemuCreate(
+          const QemuCreateRequest(
+            node: 'pve1',
+            vmid: 901,
+            name: 'app-vm',
+            cores: 2,
+            memoryMiB: 2048,
+          ),
+          profileId: ctl.active!.id,
+        ),
+        throwsA(
+          isA<PveFailure>()
+              .having((failure) => failure.status, 'status', 403)
+              .having(
+                (failure) => failure.message,
+                'message',
+                contains('VM.Config.Memory'),
+              ),
+        ),
+      );
+
+      expect(gateway.clonePermissionVmids, [901]);
+      expect(gateway.assertedCloneVmids, isEmpty);
+      expect(gateway.qemuCreateSubmissions, 0);
+      expect(
+        ctl.isProvisioningTargetBlocked('qemu', 'pve1', 901),
+        isFalse,
+      );
+    },
+  );
+
 }
