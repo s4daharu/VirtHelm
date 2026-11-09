@@ -963,6 +963,7 @@ class Guest {
     required this.kind,
     required this.name,
     required this.status,
+    this.isTemplate = false,
     this.cpu,
     this.mem,
     this.maxMem,
@@ -981,6 +982,7 @@ class Guest {
   final String kind; // qemu or lxc
   final String name;
   final String status;
+  final bool isTemplate;
   final double? cpu; // PVE fractional CPU usage, not percent
   final int? mem;
   final int? maxMem;
@@ -1017,6 +1019,7 @@ class Guest {
           ? rawName
           : '$kind $vmid',
       status: asText(json['status']) ?? 'unknown',
+      isTemplate: asFlag(json['template']) == true,
       cpu: asDouble(json['cpu']),
       mem: asInteger(json['mem']),
       maxMem: asInteger(json['maxmem']),
@@ -1115,7 +1118,8 @@ extension GuestActionLabel on GuestAction {
 
   String get apiAction => name;
   bool allowedFor(Guest guest) =>
-      this == GuestAction.start ? guest.isStopped : guest.isRunning;
+      !guest.isTemplate &&
+      (this == GuestAction.start ? guest.isStopped : guest.isRunning);
 }
 
 enum OperationOutcome { running, succeeded, failed, unknown }
