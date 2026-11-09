@@ -576,7 +576,10 @@ void main() {
 
   test('template clone request validates VMID and DNS-safe name', () {
     expect(
-      const GuestCloneRequest(newVmid: 901, name: ' ubuntu-copy ').normalized().name,
+      const GuestCloneRequest(
+        newVmid: 901,
+        name: ' ubuntu-copy ',
+      ).normalized().name,
       'ubuntu-copy',
     );
     expect(
@@ -599,5 +602,4 @@ void main() {
       expect(request.validationError, isNotNull);
     }
   });
-
 }
