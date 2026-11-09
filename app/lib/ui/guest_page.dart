@@ -386,6 +386,9 @@ class _GuestPageState extends State<GuestPage> {
     if (guest == null) {
       return 'Guest is not present in the current inventory.';
     }
+    if (guest.isTemplate) {
+      return 'Template is read-only. Power actions are unavailable; clone and create workflows remain gated.';
+    }
     if (operationBlocked) {
       return 'An operation is pending or its outcome is uncertain. Check server Tasks before another action.';
     }
@@ -473,6 +476,11 @@ class _GuestPageState extends State<GuestPage> {
                 icon: Icons.dns_outlined,
                 label: 'Node: ${widget.guest.node}',
               ),
+              if (guest?.isTemplate == true)
+                const _InfoPill(
+                  icon: Icons.copy_all_outlined,
+                  label: 'Template',
+                ),
               if (guest?.pool != null)
                 _InfoPill(
                   icon: Icons.folder_outlined,
@@ -581,8 +589,11 @@ class _GuestPageState extends State<GuestPage> {
       ),
       const SizedBox(height: 22),
       Text(
-        'Power actions are available below. Each operation is checked '
-        'against fresh server state and tracked as a task.',
+        guest?.isTemplate == true
+            ? 'This is a read-only template discovered from the current cluster inventory. '
+                  'Power actions are disabled; future clone/create workflows require their own validated preflight.'
+            : 'Power actions are available below. Each operation is checked '
+                  'against fresh server state and tracked as a task.',
         style: TextStyle(color: scheme.onSurfaceVariant),
       ),
       const SizedBox(height: 14),
@@ -1342,6 +1353,7 @@ class _GuestPageState extends State<GuestPage> {
           guest != null && widget.controller.isGuestActionBlocked(guest);
       final allowed =
           guest != null &&
+          !guest.isTemplate &&
           widget.controller.isInventoryWriteSafe &&
           !widget.controller.refreshing &&
           !submitting &&
