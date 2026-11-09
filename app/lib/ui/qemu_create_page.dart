@@ -37,7 +37,8 @@ class _QemuCreatePageState extends State<QemuCreatePage> {
 
   List<String> get _onlineNodes {
     if (!_currentSession) return const [];
-    final values = widget.controller.inventory?.nodes
+    final values =
+        widget.controller.inventory?.nodes
             .where((node) => node.status == 'online')
             .map((node) => node.name)
             .toSet()
