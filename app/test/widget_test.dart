@@ -1473,10 +1473,12 @@ void main() {
       expect(find.byKey(const Key('qemu-create-name')), findsOneWidget);
       expect(find.byKey(const Key('qemu-create-cores')), findsOneWidget);
       expect(find.byKey(const Key('qemu-create-memory')), findsOneWidget);
-      final createScroll = find.descendant(
-        of: find.byKey(const Key('qemu-create-list')),
-        matching: find.byType(Scrollable),
-      );
+      final createScroll = find
+          .descendant(
+            of: find.byKey(const Key('qemu-create-list')),
+            matching: find.byType(Scrollable),
+          )
+          .first;
       expect(createScroll, findsOneWidget);
       await tester.scrollUntilVisible(
         find.byKey(const Key('qemu-create-onboot')),
