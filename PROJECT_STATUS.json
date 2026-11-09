@@ -1,6 +1,6 @@
 {
   "project": "VirtHelm",
-  "as_of": "2026-11-08",
+  "as_of": "2026-11-09",
   "app_code_written": true,
   "flutter_build_executed": true,
   "live_pve_tested": false,
@@ -12,7 +12,7 @@
   "framework": "Flutter",
   "primary_pve": "9.2",
   "regression_pve": "8.4",
-  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission-read foundations",
+  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations",
   "github_repository_url": "https://github.com/s4daharu/VirtHelm",
   "documentation_uploaded_and_verified": true,
   "docs_initial_remote_commit": "4fdfcd704aced213508f798533fd6370573ac284",
@@ -132,10 +132,11 @@
       "M3 read-only recovery visibility adds exact-session QEMU/LXC snapshot inventory plus guest-scoped recent vzdump task outcomes. Snapshot data is transient, no snapshot/backup mutation endpoint is exposed, and a successful backup task is never presented as archive verification or restoreability.",
       "GUEST-04 read-only guest configuration inspection uses an explicit reviewed allowlist and never copies password/SSH-key/arbitrary-args/hooks/descriptions or unknown future config keys into the UI model. Reads are exact-profile/generation/node/type/VMID scoped and transient; configuration editing remains unavailable.",
       "Guest Recovery now hides previously loaded snapshot metadata if a later live inventory refresh no longer contains the exact guest identity, preventing stale route data from remaining visible after a move/removal.",
-      "M4 capability discovery now includes on-demand exact-guest effective permission hints from /access/permissions. Results are transient presentation hints only and do not alter existing mutation authorization or enable gated M4 writes."
+      "M4 capability discovery now includes on-demand exact-guest effective permission hints from /access/permissions. Results are transient presentation hints only and do not alter existing mutation authorization or enable gated M4 writes.",
+      "GUEST-014 template discovery now parses the existing cluster-inventory template marker, separates templates from runnable workload counts/filters, supports profile-scoped saved template views, and rejects every existing power action at both model and controller boundaries before any mutation request."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 183,
+    "current_flutter_tests_defined": 188,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; test counts alone are not a release claim. Audited baseline a8f9443 passed both checks and signed prerelease publication.",
     "p0_scope_complete": false,
@@ -440,5 +441,16 @@
     "dependency": "Provides capability/ACL visibility for future M4 snapshot/backup/create/clone/migration design without enabling those operations.",
     "limitations": "Live PVE 8.4/9.2 permissions/token privilege-separation fixtures and physical Android validation remain open. A privilege hint alone is not proof that all operation-specific requirements are satisfied.",
     "report": "docs/80-implementation-guest-permission-hints.md"
+  },
+  "m4_template_discovery_foundation": {
+    "status": "implemented_source_level_ci_pending",
+    "feature_id": "GUEST-014",
+    "behavior": "QEMU/LXC templates are classified from the existing authenticated cluster inventory, labelled explicitly, browsable through a Templates filter and compatible with existing profile-scoped saved views.",
+    "accounting": "Templates are excluded from running/stopped runtime workload filters and Home/offline guest counts so a stopped template is not reported as a stopped runnable workload.",
+    "safety": "GuestAction policy and the AppController independently reject templates before live status preflight or POST submission; the UI disables power controls. No clone/create/template-conversion or other mutation endpoint is introduced.",
+    "dependency": "Provides the read-only template-discovery prerequisite for a future reviewed create/clone wizard without claiming that template visibility proves storage, VMID, ACL or destination readiness.",
+    "verification": "Model, pure-filter, saved-view, controller and widget regressions are defined, plus source-smoke guards. Current-head Docs/Android CI remains authoritative.",
+    "limitations": "Live PVE 8.4/9.2 QEMU/LXC template-marker and restricted-token fixtures plus physical Android accessibility/scale validation remain open. Clone/create remains an R3 gated workflow.",
+    "report": "docs/81-implementation-template-discovery.md"
   }
 }
