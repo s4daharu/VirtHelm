@@ -1405,10 +1405,11 @@ class AppController extends ChangeNotifier {
         'VM.Config.Memory',
         'VM.Config.Options',
       };
-      final missing = requiredPrivileges
-          .where((privilege) => !permissions.has(privilege))
-          .toList()
-        ..sort();
+      final missing =
+          requiredPrivileges
+              .where((privilege) => !permissions.has(privilege))
+              .toList()
+            ..sort();
       if (missing.isNotEmpty) {
         throw PveFailure(
           'The active token does not report required destination privileges: '
