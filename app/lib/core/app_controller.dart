@@ -1993,9 +1993,7 @@ class AppController extends ChangeNotifier {
     if (validationError != null) {
       throw PveFailure(validationError);
     }
-    if (_disposed ||
-        generation != _generation ||
-        active?.id != profileId) {
+    if (_disposed || generation != _generation || active?.id != profileId) {
       throw const PveFailure(
         'Connection changed; return to the guest before migrating.',
       );
@@ -2159,10 +2157,7 @@ class AppController extends ChangeNotifier {
       }
 
       postAttempted = true;
-      final upid = await migrationGateway.migrateGuest(
-        liveSource,
-        normalized,
-      );
+      final upid = await migrationGateway.migrateGuest(liveSource, normalized);
       if (generation != _generation || active?.id != profileId || _disposed) {
         throw const PveFailure(
           'Connection changed after migration submission. Check server task history.',
