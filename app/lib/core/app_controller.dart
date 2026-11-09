@@ -282,7 +282,7 @@ class AppController extends ChangeNotifier {
   }) async {
     final gateway = _gateway;
     final GuestCloneGateway? cloneGateway = gateway is GuestCloneGateway
-        ? gateway
+        ? gateway as GuestCloneGateway
         : null;
     bool current() =>
         !_disposed && generation == _generation && active?.id == profileId;
@@ -1262,7 +1262,7 @@ class AppController extends ChangeNotifier {
   }) async {
     final gateway = _gateway;
     final GuestCloneGateway? cloneGateway = gateway is GuestCloneGateway
-        ? gateway
+        ? gateway as GuestCloneGateway
         : null;
     final generation = _generation;
     final normalized = request.normalized();
