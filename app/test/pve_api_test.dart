@@ -1540,4 +1540,164 @@ void main() {
       expect(posts, 1);
     },
   );
+
+  test(
+    'QEMU create normalizes fields and rejects invalid inputs before I/O',
+    () async {
+      final dio = Dio();
+      final requests = <RequestOptions>[];
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            requests.add(options);
+            handler.resolve(
+              Response<dynamic>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {'data': 'UPID:pve1:1:2:3:qmcreate:901:user@pve:'},
+              ),
+            );
+          },
+        ),
+      );
+      final gateway = DioPveGateway(profile, credentials, http: dio);
+      addTearDown(gateway.close);
+      await gateway.createQemu(
+        const QemuCreateRequest(
+          node: ' pve1 ',
+          vmid: 901,
+          name: ' trimmed ',
+          cores: 2,
+          memoryMiB: 2048,
+        ),
+      );
+      expect(requests.single.uri.path, '/api2/json/nodes/pve1/qemu');
+      expect((requests.single.data as Map)['name'], 'trimmed');
+      expect((requests.single.data as Map)['onboot'], 0);
+      expect(requests.single.contentType, Headers.formUrlEncodedContentType);
+      for (final node in ['../pve1', '', 'pve1/qemu']) {
+        await expectLater(
+          gateway.createQemu(
+            QemuCreateRequest(
+              node: node,
+              vmid: 901,
+              name: 'valid',
+              cores: 2,
+              memoryMiB: 2048,
+            ),
+          ),
+          throwsFormatException,
+        );
+      }
+      expect(requests, hasLength(1));
+    },
+  );
+
+  test('QEMU create malformed or mismatched UPIDs remain ambiguous', () async {
+    for (final body in [
+      null,
+      'not JSON',
+      <String, dynamic>{},
+      {'data': null},
+      {'data': 'UPID:'},
+      {'data': 'UPID:pve2:1:2:3:qmcreate:901:user@pve:'},
+      {'data': 'UPID:pve1:1:2:3:qmcreate:902:user@pve:'},
+      {'data': 'UPID:pve1:1:2:3:qmstart:901:user@pve:'},
+    ]) {
+      final dio = Dio();
+      var posts = 0;
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            posts++;
+            handler.resolve(
+              Response<dynamic>(
+                requestOptions: options,
+                statusCode: 200,
+                data: body,
+              ),
+            );
+          },
+        ),
+      );
+      final gateway = DioPveGateway(profile, credentials, http: dio);
+      addTearDown(gateway.close);
+      await expectLater(
+        gateway.createQemu(
+          const QemuCreateRequest(
+            node: 'pve1',
+            vmid: 901,
+            name: 'valid',
+            cores: 2,
+            memoryMiB: 2048,
+          ),
+        ),
+        throwsA(
+          isA<PveFailure>().having(
+            (e) => e.mayHaveExecuted,
+            'ambiguous',
+            isTrue,
+          ),
+        ),
+      );
+      expect(posts, 1);
+    }
+  });
+
+  test(
+    'QEMU create never retries auth denials redirects or timeouts',
+    () async {
+      for (final code in [401, 403, 302, 408, null]) {
+        final dio = Dio();
+        var posts = 0;
+        dio.interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (options, handler) {
+              posts++;
+              handler.reject(
+                DioException(
+                  requestOptions: options,
+                  type: code == null
+                      ? DioExceptionType.receiveTimeout
+                      : DioExceptionType.badResponse,
+                  response: code == null
+                      ? null
+                      : Response<dynamic>(
+                          requestOptions: options,
+                          statusCode: code,
+                        ),
+                ),
+              );
+            },
+          ),
+        );
+        final gateway = DioPveGateway(
+          profile,
+          credentials,
+          http: dio,
+          retryWait: (_) async => fail('Create POST must never retry'),
+        );
+        addTearDown(gateway.close);
+        await expectLater(
+          gateway.createQemu(
+            const QemuCreateRequest(
+              node: 'pve1',
+              vmid: 901,
+              name: 'valid',
+              cores: 2,
+              memoryMiB: 2048,
+            ),
+          ),
+          throwsA(
+            isA<PveFailure>().having(
+              (e) => e.mayHaveExecuted,
+              'ambiguous',
+              code == 401 || code == 403 ? isFalse : isTrue,
+            ),
+          ),
+        );
+        expect(posts, 1);
+      }
+    },
+  );
 }

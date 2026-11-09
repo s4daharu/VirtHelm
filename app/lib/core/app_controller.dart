@@ -66,6 +66,7 @@ class AppController extends ChangeNotifier {
   PveGateway? _gateway;
   int _generation = 0;
   int _networkEpoch = 0;
+  int _inventoryRevision = 0;
   Timer? _pollTimer;
   Timer? _autoRefreshTimer;
   int? _pollingGeneration;
@@ -78,7 +79,7 @@ class AppController extends ChangeNotifier {
   // Unknown outcomes remain blocked for this connection session.
   final Set<String> _pendingGuestOperations = {};
   final Set<String> _uncertainGuestOperations = {};
-  final Map<String, String> _taskTargets = {};
+  final Map<String, Set<String>> _taskTargets = {};
   final Set<String> _deletingProfiles = {};
 
   /// Identifies the active connection session, even across reconnects.
@@ -469,10 +470,15 @@ class AppController extends ChangeNotifier {
   String _guestKey(Guest guest) =>
       _provisioningKey(guest.kind, guest.node, guest.vmid);
 
+  // VMIDs share one cluster-wide namespace across nodes and guest types.
+  String _provisioningVmidKey(int vmid) => 'provision:$vmid';
+
   bool isProvisioningTargetBlocked(String kind, String node, int vmid) {
     final key = _provisioningKey(kind, node, vmid);
     return _pendingGuestOperations.contains(key) ||
-        _uncertainGuestOperations.contains(key);
+        _uncertainGuestOperations.contains(key) ||
+        _pendingGuestOperations.contains(_provisioningVmidKey(vmid)) ||
+        _uncertainGuestOperations.contains(_provisioningVmidKey(vmid));
   }
 
   bool isGuestFavorite(Guest guest) =>
@@ -582,9 +588,7 @@ class AppController extends ChangeNotifier {
   }
 
   bool isGuestActionBlocked(Guest guest) {
-    final key = _guestKey(guest);
-    return _pendingGuestOperations.contains(key) ||
-        _uncertainGuestOperations.contains(key);
+    return isProvisioningTargetBlocked(guest.kind, guest.node, guest.vmid);
   }
 
   void _notify() {
@@ -1138,6 +1142,7 @@ class AppController extends ChangeNotifier {
         return;
       }
       inventory = next;
+      _inventoryRevision++;
       cachedOverview = null;
       message = null;
       inventoryWarning = next.malformedGuestRecords == 0
@@ -1302,18 +1307,18 @@ class AppController extends ChangeNotifier {
   Future<void> runQemuCreate(
     QemuCreateRequest request, {
     required String profileId,
+    required int generation,
   }) async {
     final gateway = _gateway;
     final GuestCreateGateway? createGateway = gateway is GuestCreateGateway
         ? gateway as GuestCreateGateway
         : null;
-    final generation = _generation;
     final normalized = request.normalized();
     final validationError = normalized.validationError;
     if (validationError != null) {
       throw PveFailure(validationError);
     }
-    if (_disposed || active?.id != profileId) {
+    if (_disposed || active?.id != profileId || generation != _generation) {
       throw const PveFailure(
         'Connection changed; return to Guests before creating a VM.',
       );
@@ -1345,20 +1350,22 @@ class AppController extends ChangeNotifier {
     }
 
     final key = _provisioningKey('qemu', normalized.node, normalized.vmid);
-    if (_uncertainGuestOperations.contains(key)) {
+    final destinationKey = _provisioningVmidKey(normalized.vmid);
+    final keys = {key, destinationKey};
+    if (keys.any(_uncertainGuestOperations.contains)) {
       throw const PveFailure(
         'An earlier create has an unknown outcome. Verify server task history '
         'and inventory before reconnecting and trying again.',
         mayHaveExecuted: true,
       );
     }
-    if (_pendingGuestOperations.contains(key)) {
+    if (keys.any(_pendingGuestOperations.contains)) {
       throw const PveFailure(
         'A create operation is already pending for this VMID. Check Tasks.',
       );
     }
 
-    _pendingGuestOperations.add(key);
+    _pendingGuestOperations.addAll(keys);
     _notify();
     var postAttempted = false;
     try {
@@ -1399,6 +1406,18 @@ class AppController extends ChangeNotifier {
       final permissions = await createGateway.permissionsForVmid(
         normalized.vmid,
       );
+      if (generation != _generation ||
+          active?.id != profileId ||
+          _disposed ||
+          !_foreground ||
+          deviceNetworkState == DeviceNetworkState.unavailable ||
+          !identical(snapshot, inventory) ||
+          refreshing ||
+          !isInventoryWriteSafe) {
+        throw const PveFailure(
+          'Connection or inventory changed during create verification.',
+        );
+      }
       const requiredPrivileges = {
         'VM.Allocate',
         'VM.Config.CPU',
@@ -1440,7 +1459,7 @@ class AppController extends ChangeNotifier {
           mayHaveExecuted: true,
         );
       }
-      _taskTargets[upid] = key;
+      _taskTargets[upid] = keys;
       tasks.insert(
         0,
         TrackedTask(
@@ -1463,12 +1482,13 @@ class AppController extends ChangeNotifier {
       }
       if (generation == _generation &&
           (error is PveFailure ? error.mayHaveExecuted : postAttempted)) {
-        _uncertainGuestOperations.add(key);
+        _uncertainGuestOperations.addAll(keys);
       }
       rethrow;
     } finally {
-      if (generation == _generation && !_taskTargets.containsValue(key)) {
-        _pendingGuestOperations.remove(key);
+      if (generation == _generation &&
+          !_taskTargets.values.any((targets) => targets.contains(key))) {
+        _pendingGuestOperations.removeAll(keys);
       }
       if (generation == _generation) _notify();
     }
@@ -1528,20 +1548,22 @@ class AppController extends ChangeNotifier {
     }
 
     final key = _guestKey(source);
-    if (_uncertainGuestOperations.contains(key)) {
+    final destinationKey = _provisioningVmidKey(normalized.newVmid);
+    final keys = {key, destinationKey};
+    if (keys.any(_uncertainGuestOperations.contains)) {
       throw const PveFailure(
         'An earlier clone has an unknown outcome. Verify server task history '
         'and inventory before reconnecting and trying again.',
         mayHaveExecuted: true,
       );
     }
-    if (_pendingGuestOperations.contains(key)) {
+    if (keys.any(_pendingGuestOperations.contains)) {
       throw const PveFailure(
-        'An operation is already pending for this template. Check Tasks.',
+        'An operation is already pending for this template or destination VMID. Check Tasks.',
       );
     }
 
-    _pendingGuestOperations.add(key);
+    _pendingGuestOperations.addAll(keys);
     _notify();
     var postAttempted = false;
     try {
@@ -1627,7 +1649,7 @@ class AppController extends ChangeNotifier {
           mayHaveExecuted: true,
         );
       }
-      _taskTargets[upid] = key;
+      _taskTargets[upid] = keys;
       tasks.insert(
         0,
         TrackedTask(
@@ -1650,12 +1672,13 @@ class AppController extends ChangeNotifier {
       }
       if (generation == _generation &&
           (error is PveFailure ? error.mayHaveExecuted : postAttempted)) {
-        _uncertainGuestOperations.add(key);
+        _uncertainGuestOperations.addAll(keys);
       }
       rethrow;
     } finally {
-      if (generation == _generation && !_taskTargets.containsValue(key)) {
-        _pendingGuestOperations.remove(key);
+      if (generation == _generation &&
+          !_taskTargets.values.any((targets) => targets.contains(key))) {
+        _pendingGuestOperations.removeAll(keys);
       }
       if (generation == _generation) _notify();
     }
@@ -1708,14 +1731,17 @@ class AppController extends ChangeNotifier {
     }
 
     final key = _guestKey(guest);
-    if (_uncertainGuestOperations.contains(key)) {
+    final provisioningKey = _provisioningVmidKey(guest.vmid);
+    if (_uncertainGuestOperations.contains(key) ||
+        _uncertainGuestOperations.contains(provisioningKey)) {
       throw const PveFailure(
         'An earlier action has an unknown outcome. Verify the guest and '
         'server task history before reconnecting and trying again.',
         mayHaveExecuted: true,
       );
     }
-    if (_pendingGuestOperations.contains(key)) {
+    if (_pendingGuestOperations.contains(key) ||
+        _pendingGuestOperations.contains(provisioningKey)) {
       throw const PveFailure(
         'An operation is already pending for this guest. Check Tasks.',
       );
@@ -1755,7 +1781,7 @@ class AppController extends ChangeNotifier {
           mayHaveExecuted: true,
         );
       }
-      _taskTargets[upid] = key;
+      _taskTargets[upid] = {key};
       tasks.insert(
         0,
         TrackedTask(
@@ -1783,7 +1809,8 @@ class AppController extends ChangeNotifier {
       }
       rethrow;
     } finally {
-      if (generation == _generation && !_taskTargets.containsValue(key)) {
+      if (generation == _generation &&
+          !_taskTargets.values.any((targets) => targets.contains(key))) {
         _pendingGuestOperations.remove(key);
       }
       if (generation == _generation) _notify();
@@ -1935,10 +1962,10 @@ class AppController extends ChangeNotifier {
                   'Task verification timed out. Verify server task history and guest state before another action.',
             );
           }
-          final target = _taskTargets.remove(pendingTask.upid);
-          if (target != null) {
-            _pendingGuestOperations.remove(target);
-            _uncertainGuestOperations.add(target);
+          final targets = _taskTargets.remove(pendingTask.upid);
+          if (targets != null) {
+            _pendingGuestOperations.removeAll(targets);
+            _uncertainGuestOperations.addAll(targets);
           }
           finished = true;
           _notify();
@@ -1965,15 +1992,15 @@ class AppController extends ChangeNotifier {
             detail:
                 status.exitStatus ?? 'Task ended without a known exit status.',
           );
-          final target = _taskTargets.remove(pendingTask.upid);
-          if (target != null) {
+          final targets = _taskTargets.remove(pendingTask.upid);
+          if (targets != null) {
             if (result == OperationOutcome.unknown) {
-              _uncertainGuestOperations.add(target);
-              _pendingGuestOperations.remove(target);
+              _uncertainGuestOperations.addAll(targets);
+              _pendingGuestOperations.removeAll(targets);
             } else {
               // A terminal UPID is not an authoritative guest-state refresh.
               // Keep writes locked until inventory has reconciled.
-              completedTargets.add(target);
+              completedTargets.addAll(targets);
             }
           }
           finished = true;
@@ -1994,10 +2021,10 @@ class AppController extends ChangeNotifier {
                     'Task verification lost authentication. Check server task history and guest state before another action.',
               );
             }
-            final target = _taskTargets.remove(pendingTask.upid);
-            if (target != null) {
-              _pendingGuestOperations.remove(target);
-              _uncertainGuestOperations.add(target);
+            final targets = _taskTargets.remove(pendingTask.upid);
+            if (targets != null) {
+              _pendingGuestOperations.removeAll(targets);
+              _uncertainGuestOperations.addAll(targets);
             }
             finished = true;
             _notify();
@@ -2014,10 +2041,10 @@ class AppController extends ChangeNotifier {
                     'Task verification is unavailable. Check server task history and guest state before another action.',
               );
             }
-            final target = _taskTargets.remove(pendingTask.upid);
-            if (target != null) {
-              _pendingGuestOperations.remove(target);
-              _uncertainGuestOperations.add(target);
+            final targets = _taskTargets.remove(pendingTask.upid);
+            if (targets != null) {
+              _pendingGuestOperations.removeAll(targets);
+              _uncertainGuestOperations.addAll(targets);
             }
             finished = true;
             _notify();
@@ -2037,15 +2064,16 @@ class AppController extends ChangeNotifier {
       if (_pollingGeneration == generation) _pollingGeneration = null;
     }
     if (finished && generation == _generation) {
+      var reconciled = false;
       if (authenticationFailure == null || completedTargets.isNotEmpty) {
-        await _refreshAfterTask(generation);
+        reconciled = await _refreshAfterTask(generation);
         if (generation != _generation || _disposed) return;
       }
       if (authenticationFailure != null) {
         message = authenticationFailure;
       }
       for (final target in completedTargets) {
-        if (isInventoryFresh) {
+        if (reconciled && isInventoryWriteSafe) {
           _pendingGuestOperations.remove(target);
         } else {
           // Reconciliation failed; an operator must check the server before
@@ -2063,11 +2091,16 @@ class AppController extends ChangeNotifier {
   }
 
   /// Do not reconcile a terminal UPID against a read started before it ended.
-  Future<void> _refreshAfterTask(int generation) async {
+  Future<bool> _refreshAfterTask(int generation) async {
     final previousRefresh = _refreshFuture;
     if (previousRefresh != null) await previousRefresh;
-    if (generation != _generation || _disposed) return;
+    if (generation != _generation || _disposed) return false;
+    final previousRevision = _inventoryRevision;
     await refresh();
+    return generation == _generation &&
+        !_disposed &&
+        _inventoryRevision > previousRevision &&
+        isInventoryWriteSafe;
   }
 
   Future<void> deleteProfile(String id) async {

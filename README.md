@@ -16,6 +16,8 @@ This is still **not** a production release. Real PVE 8.4/9.2 fixtures, ACL matri
 
 ## Build and test
 
+The latest provisioning review is recorded in the [QEMU create branch cross-check](docs/84-qemu-create-branch-cross-check-2026-11-09.md), including fixes and remaining live/device gates.
+
 Use the pinned Flutter **3.44.4** baseline (also recorded in `app/.flutter-version`) and an Android SDK:
 
 ```bash

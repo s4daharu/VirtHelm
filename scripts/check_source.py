@@ -19,6 +19,8 @@ required = [
   'app/lib/ui/alert_rules_page.dart','app/lib/ui/incident_center_tab.dart',
   'app/lib/ui/task_details_page.dart','app/lib/ui/template_clone_page.dart',
   'app/lib/ui/qemu_create_page.dart',
+  'app/lib/ui/provisioning_confirmation_dialog.dart',
+  'app/test/provisioning_page_test.dart',
   'app/test/models_test.dart',
   'app/test/controller_test.dart','app/test/pve_api_test.dart',
   'app/test/widget_test.dart','app/test/pve_tls_test.dart',
@@ -77,7 +79,8 @@ required = [
    'docs/80-implementation-guest-permission-hints.md',
    'docs/81-implementation-template-discovery.md',
    'docs/82-implementation-template-clone.md',
-   'docs/83-implementation-qemu-create.md']
+   'docs/83-implementation-qemu-create.md',
+   'docs/84-qemu-create-branch-cross-check-2026-11-09.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)
@@ -208,7 +211,7 @@ assert "'${_guestPath(source)}/clone'" in files['app/lib/core/pve_api.dart']
 assert 'runTemplateClone' in files['app/lib/core/app_controller.dart']
 assert 'suggestTemplateCloneVmid' in files['app/lib/core/app_controller.dart']
 assert "Key('guest-clone-template')" in files['app/lib/ui/guest_page.dart']
-assert "Key('clone-confirm-vmid')" in files['app/lib/ui/template_clone_page.dart']
+assert "keyPrefix: 'clone'" in files['app/lib/ui/template_clone_page.dart']
 assert 'Datastore.AllocateSpace' in files['docs/82-implementation-template-clone.md']
 assert 'SDN.Use' in files['docs/82-implementation-template-clone.md']
 assert 'class QemuCreateRequest' in files['app/lib/core/models.dart']
@@ -217,7 +220,11 @@ assert 'Future<String> createQemu' in files['app/lib/core/pve_api.dart']
 assert 'runQemuCreate' in files['app/lib/core/app_controller.dart']
 assert 'suggestQemuCreateVmid' in files['app/lib/core/app_controller.dart']
 assert "Key('guest-create-qemu')" in files['app/lib/ui/shell.dart']
-assert "Key('qemu-create-confirm-vmid')" in files['app/lib/ui/qemu_create_page.dart']
+assert "keyPrefix: 'qemu-create'" in files['app/lib/ui/qemu_create_page.dart']
+assert "Key('${widget.keyPrefix}-confirm-vmid')" in files['app/lib/ui/provisioning_confirmation_dialog.dart']
+assert 'Confirmation expired' in files['app/lib/ui/provisioning_confirmation_dialog.dart']
+assert 'animation: widget.controller' in files['app/lib/ui/provisioning_confirmation_dialog.dart']
+assert "'provision:$vmid'" in files['app/lib/core/app_controller.dart']
 assert 'No disk, NIC, storage, ISO, start, HA, pool or restore fields' in files['app/lib/ui/qemu_create_page.dart']
 assert 'VM.Config.CPU' in files['docs/83-implementation-qemu-create.md']
 assert 'Datastore.AllocateSpace' in files['docs/83-implementation-qemu-create.md']

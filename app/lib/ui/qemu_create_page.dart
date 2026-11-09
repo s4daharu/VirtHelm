@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../core/app_controller.dart';
 import '../core/models.dart';
+import 'provisioning_confirmation_dialog.dart';
 
 class QemuCreatePage extends StatefulWidget {
   const QemuCreatePage({
@@ -133,98 +134,50 @@ class _QemuCreatePageState extends State<QemuCreatePage> {
   bool _nodeStillOnline(String node) => _onlineNodes.contains(node);
 
   Future<bool> _confirm(QemuCreateRequest request) async {
-    final typedController = TextEditingController();
-    try {
-      return await showDialog<bool>(
-            context: context,
-            barrierDismissible: false,
-            builder: (dialogContext) => StatefulBuilder(
-              builder: (context, setDialogState) {
-                final matches =
-                    typedController.text.trim() == request.vmid.toString();
-                final insecure =
-                    widget.controller.active?.allowInvalidCertificates == true;
-                return AlertDialog(
-                  title: const Text('Confirm QEMU VM creation'),
-                  content: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Node: ${request.node}\n'
-                          'VM: ${request.name.trim()} (VMID ${request.vmid})\n'
-                          'CPU: ${request.cores} cores\n'
-                          'Memory: ${request.memoryMiB} MiB\n'
-                          'Start at boot: ${request.onBoot ? 'Yes' : 'No'}',
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'This creates an empty, stopped QEMU VM configuration. '
-                          'It does not allocate a disk, attach a network, mount '
-                          'installation media, join a pool, enable HA, or start '
-                          'the VM.',
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Preflight rechecks the online node, clean live '
-                          'inventory, destination VMID, and VM.Allocate + '
-                          'VM.Config.CPU/Memory/Options before one create POST.',
-                        ),
-                        if (insecure) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            'INSECURE: server certificate verification is disabled '
-                            'for this connection.',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 16),
-                        Text(
-                          'Type VMID ${request.vmid} to submit:',
-                          style: Theme.of(context).textTheme.labelLarge,
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          key: const Key('qemu-create-confirm-vmid'),
-                          controller: typedController,
-                          autofocus: true,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                          onChanged: (_) => setDialogState(() {}),
-                          decoration: const InputDecoration(
-                            labelText: 'Confirm destination VMID',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(dialogContext, false),
-                      child: const Text('Cancel'),
-                    ),
-                    FilledButton(
-                      key: const Key('qemu-create-confirm-submit'),
-                      onPressed: matches
-                          ? () => Navigator.pop(dialogContext, true)
-                          : null,
-                      child: const Text('Create VM'),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ) ??
-          false;
-    } finally {
-      typedController.dispose();
-    }
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => ProvisioningConfirmationDialog(
+            controller: widget.controller,
+            isCurrent: () => mounted && _currentSession,
+            canSubmit: () =>
+                widget.controller.isInventoryWriteSafe &&
+                !widget.controller.refreshing &&
+                _nodeStillOnline(request.node) &&
+                !widget.controller.isProvisioningTargetBlocked(
+                  'qemu',
+                  request.node,
+                  request.vmid,
+                ),
+            vmid: request.vmid,
+            title: 'Confirm QEMU VM creation',
+            keyPrefix: 'qemu-create',
+            submitLabel: 'Create VM',
+            details: [
+              Text(
+                'Node: ${request.node}\n'
+                'VM: ${request.name.trim()} (VMID ${request.vmid})\n'
+                'CPU: ${request.cores} cores\n'
+                'Memory: ${request.memoryMiB} MiB\n'
+                'Start at boot: ${request.onBoot ? 'Yes' : 'No'}',
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'This creates an empty, stopped QEMU VM configuration. '
+                'It does not allocate a disk, attach a network, mount '
+                'installation media, join a pool, enable HA, or start '
+                'the VM.',
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Preflight rechecks the online node, clean live '
+                'inventory, destination VMID, and VM.Allocate + '
+                'VM.Config.CPU/Memory/Options before one create POST.',
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   Future<void> _reviewAndSubmit() async {
@@ -255,6 +208,7 @@ class _QemuCreatePageState extends State<QemuCreatePage> {
       await widget.controller.runQemuCreate(
         request,
         profileId: widget.profileId,
+        generation: widget.generation,
       );
       if (!mounted || !_currentSession) return;
       Navigator.pop(context, true);
@@ -467,7 +421,7 @@ class _QemuCreatePageState extends State<QemuCreatePage> {
               const SizedBox(height: 12),
               Text(
                 'A task is pending or an earlier create outcome is uncertain for '
-                'this node and VMID. Check Tasks before another submission.',
+                'this cluster-wide VMID. Check Tasks before another submission.',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.error,
                   fontWeight: FontWeight.w600,

@@ -138,7 +138,7 @@
       "GUEST-05 partial adds guarded empty QEMU VM creation with online-node revalidation, destination VMID collision checks, VM.Allocate + VM.Config.CPU/Memory/Options hints, a five-field payload, typed VMID confirmation, exactly one POST, UPID tracking and uncertain-outcome lockout. Disk/network/media/storage and LXC creation remain gated."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 199,
+    "current_flutter_tests_defined": 229,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; test counts alone are not a release claim. Audited baseline a8f9443 passed both checks and signed prerelease publication.",
     "p0_scope_complete": false,
@@ -474,16 +474,17 @@
     }
   },
   "m4_qemu_create_workflow": {
-    "status": "implemented_source_level_ci_pending",
+    "status": "implemented_source_level_audited_live_gates_open",
     "feature_id": "GUEST-05 partial / M4 provisioning",
-    "version": "0.1.36",
+    "version": "0.1.37",
     "behavior": "Guests exposes a guarded empty QEMU VM creation wizard for an online node, destination VMID, conservative VM name, cores, memory and onboot. The POST creates a stopped VM configuration only.",
     "contract": "GET /cluster/nextid for VMID suggestion/collision validation; GET /access/permissions on the destination /vms/{vmid} path; one POST /nodes/{node}/qemu with vmid/name/cores/memory/onboot returning a UPID.",
-    "safety": "Exact active profile/generation, foreground/default-network availability, fresh clean unchanged inventory, exact online destination-node revalidation, destination VMID absence plus server-side nextid collision recheck, VM.Allocate + VM.Config.CPU/Memory/Options hints, synchronous single-flight reservation, exactly one POST, no mutation retry, UPID polling, uncertain-outcome lockout and post-task inventory reconciliation.",
+    "safety": "Explicit originating profile/generation, foreground/default-network availability, fresh clean unchanged inventory, exact online destination-node revalidation, destination VMID absence plus server-side nextid collision recheck, VM.Allocate + VM.Config.CPU/Memory/Options hints, synchronous cluster-wide destination VMID reservation shared with cloning and power-action guards, one POST without retry, target-matched UPID polling, uncertain-outcome lockout, clean post-task inventory reconciliation and session-reactive typed confirmation with identity redaction.",
     "payload_boundary": "No disk, storage, ISO/media, NIC/bridge, cloud-init, pool, HA, restore/archive or start fields are sent. Therefore this slice does not request Datastore.AllocateSpace, SDN.Use or VM.PowerMgmt.",
     "lxc_boundary": "LXC create remains gated because upstream creation requires ostemplate plus storage/rootfs handling and Datastore.AllocateSpace; privileged containers additionally require Sys.Modify. VirtHelm does not yet expose reviewed vztmpl/rootfs storage discovery.",
     "deferred": "QEMU disk/storage/network/media/cloud-init/pool/HA/start provisioning, LXC create, restore/import, linked/cross-node/explicit-storage clone, migration, configuration editing, snapshot mutation, backup execution/restore and destructive guest deletion.",
-    "verification": "Model/gateway/controller/widget regressions and source-smoke guards are defined. PR/main CI remains authoritative; live PVE 8.4/9.2 create/ACL/quorum fixtures and physical Android validation remain open.",
-    "report": "docs/83-implementation-qemu-create.md"
+    "verification": "Pinned Flutter 3.44.4 local validation passed 258 synthetic Flutter tests (229 declarations), 14 Python delivery tests, format/analyzer and documentation/premium/source/hardening checks. Original merged main 44d9802 passed checks run 42617692428. Final follow-up PR/main CI remains authoritative; live PVE 8.4/9.2 create/ACL/quorum fixtures and physical Android validation remain open.",
+    "report": "docs/83-implementation-qemu-create.md",
+    "branch_audit_report": "docs/84-qemu-create-branch-cross-check-2026-11-09.md"
   }
 }

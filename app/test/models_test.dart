@@ -662,4 +662,54 @@ void main() {
       expect(request.validationError, isNotNull);
     }
   });
+
+  test('QEMU create rejects unsafe node paths and all out-of-range inputs', () {
+    QemuCreateRequest request({
+      String node = 'pve1',
+      int vmid = 901,
+      String name = 'valid',
+      int cores = 2,
+      int memory = 2048,
+    }) => QemuCreateRequest(
+      node: node,
+      vmid: vmid,
+      name: name,
+      cores: cores,
+      memoryMiB: memory,
+    );
+    for (final node in [
+      '.',
+      '..',
+      '../pve1',
+      'pve1/other',
+      'pve 1',
+      'pve1\nqemu',
+      'pve1?x=y',
+      'pve1#fragment',
+      'x' * 65,
+    ]) {
+      expect(request(node: node).isValid, isFalse, reason: node);
+    }
+    for (final value in [
+      request(vmid: 1000000000),
+      request(cores: 65),
+      request(memory: 262145),
+      request(name: 'x' * 64),
+      request(name: '-bad'),
+      request(name: 'bad-'),
+      request(name: ' '),
+    ]) {
+      expect(value.isValid, isFalse);
+    }
+    expect(request(vmid: 100, cores: 1, memory: 128).isValid, isTrue);
+    expect(
+      request(
+        vmid: 999999999,
+        cores: 64,
+        memory: 262144,
+        name: 'x' * 63,
+      ).isValid,
+      isTrue,
+    );
+  });
 }
