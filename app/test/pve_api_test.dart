@@ -1286,137 +1286,147 @@ void main() {
     },
   );
 
-  test('template clone API uses nextid, exact ACL paths, and one full QEMU POST', () async {
-    final dio = Dio();
-    final requests = <RequestOptions>[];
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          requests.add(options);
-          dynamic data;
-          if (options.path.endsWith('/cluster/nextid')) {
-            data = options.queryParameters.containsKey('vmid') ? 901 : '901';
-          } else if (options.path.endsWith('/access/permissions')) {
-            final path = options.queryParameters['path'];
-            data = {
-              path: {
-                if (path == '/vms/900') 'VM.Clone': 1,
-                if (path == '/vms/901') 'VM.Allocate': 1,
-              },
-            };
-          } else if (options.path.endsWith('/clone')) {
-            data = 'UPID:pve1:1:2:3:qmclone:900:user@pve:';
-          } else {
-            fail('Unexpected request: ${options.path}');
-          }
-          handler.resolve(
-            Response<dynamic>(
-              requestOptions: options,
-              statusCode: 200,
-              data: {'data': data},
-            ),
-          );
-        },
-      ),
-    );
-    final gateway = DioPveGateway(profile, credentials, http: dio);
-    addTearDown(gateway.close);
-    const source = Guest(
-      node: 'pve1',
-      vmid: 900,
-      kind: 'qemu',
-      name: 'ubuntu-template',
-      status: 'stopped',
-      isTemplate: true,
-    );
-
-    expect(await gateway.nextFreeVmid(), 901);
-    expect((await gateway.permissionsForVmid(900)).has('VM.Clone'), isTrue);
-    expect((await gateway.permissionsForVmid(901)).has('VM.Allocate'), isTrue);
-    await gateway.assertVmidAvailable(901);
-    final upid = await gateway.cloneTemplate(
-      source,
-      const GuestCloneRequest(newVmid: 901, name: 'ubuntu-copy'),
-    );
-
-    expect(upid, startsWith('UPID:'));
-    final posts = requests.where((request) => request.method == 'POST').toList();
-    expect(posts, hasLength(1));
-    final post = posts.single;
-    expect(post.uri.path, '/api2/json/nodes/pve1/qemu/900/clone');
-    expect(post.data, isA<Map<String, dynamic>>());
-    final body = Map<String, dynamic>.from(post.data as Map);
-    expect(body['newid'], 901);
-    expect(body['full'], 1);
-    expect(body['name'], 'ubuntu-copy');
-    expect(body.containsKey('hostname'), isFalse);
-    expect(
-      requests.where(
-        (request) =>
-            request.path.endsWith('/cluster/nextid') &&
-            request.queryParameters['vmid'] == 901,
-      ),
-      hasLength(1),
-    );
-  });
-
-  test('LXC template clone sends hostname and never retries an ambiguous POST', () async {
-    final dio = Dio();
-    var posts = 0;
-    late RequestOptions request;
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          request = options;
-          posts++;
-          handler.reject(
-            DioException(
-              requestOptions: options,
-              type: DioExceptionType.badResponse,
-              response: Response<dynamic>(
+  test(
+    'template clone API uses nextid, exact ACL paths, and one full QEMU POST',
+    () async {
+      final dio = Dio();
+      final requests = <RequestOptions>[];
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            requests.add(options);
+            dynamic data;
+            if (options.path.endsWith('/cluster/nextid')) {
+              data = options.queryParameters.containsKey('vmid') ? 901 : '901';
+            } else if (options.path.endsWith('/access/permissions')) {
+              final path = options.queryParameters['path'];
+              data = {
+                path: {
+                  if (path == '/vms/900') 'VM.Clone': 1,
+                  if (path == '/vms/901') 'VM.Allocate': 1,
+                },
+              };
+            } else if (options.path.endsWith('/clone')) {
+              data = 'UPID:pve1:1:2:3:qmclone:900:user@pve:';
+            } else {
+              fail('Unexpected request: ${options.path}');
+            }
+            handler.resolve(
+              Response<dynamic>(
                 requestOptions: options,
-                statusCode: 503,
+                statusCode: 200,
+                data: {'data': data},
               ),
-            ),
-          );
-        },
-      ),
-    );
-    final gateway = DioPveGateway(
-      profile,
-      credentials,
-      http: dio,
-      retryWait: (_) async => fail('Clone POST must not be retried.'),
-    );
-    addTearDown(gateway.close);
-    const source = Guest(
-      node: 'pve1',
-      vmid: 900,
-      kind: 'lxc',
-      name: 'debian-template',
-      status: 'stopped',
-      isTemplate: true,
-    );
-
-    await expectLater(
-      gateway.cloneTemplate(
-        source,
-        const GuestCloneRequest(newVmid: 902, name: 'debian-copy'),
-      ),
-      throwsA(
-        isA<PveFailure>().having(
-          (failure) => failure.mayHaveExecuted,
-          'mayHaveExecuted',
-          isTrue,
+            );
+          },
         ),
-      ),
-    );
-    expect(posts, 1);
-    expect(request.uri.path, '/api2/json/nodes/pve1/lxc/900/clone');
-    final body = Map<String, dynamic>.from(request.data as Map);
-    expect(body['hostname'], 'debian-copy');
-    expect(body.containsKey('name'), isFalse);
-    expect(body['full'], 1);
-  });
+      );
+      final gateway = DioPveGateway(profile, credentials, http: dio);
+      addTearDown(gateway.close);
+      const source = Guest(
+        node: 'pve1',
+        vmid: 900,
+        kind: 'qemu',
+        name: 'ubuntu-template',
+        status: 'stopped',
+        isTemplate: true,
+      );
 
+      expect(await gateway.nextFreeVmid(), 901);
+      expect((await gateway.permissionsForVmid(900)).has('VM.Clone'), isTrue);
+      expect(
+        (await gateway.permissionsForVmid(901)).has('VM.Allocate'),
+        isTrue,
+      );
+      await gateway.assertVmidAvailable(901);
+      final upid = await gateway.cloneTemplate(
+        source,
+        const GuestCloneRequest(newVmid: 901, name: 'ubuntu-copy'),
+      );
+
+      expect(upid, startsWith('UPID:'));
+      final posts = requests
+          .where((request) => request.method == 'POST')
+          .toList();
+      expect(posts, hasLength(1));
+      final post = posts.single;
+      expect(post.uri.path, '/api2/json/nodes/pve1/qemu/900/clone');
+      expect(post.data, isA<Map<String, dynamic>>());
+      final body = Map<String, dynamic>.from(post.data as Map);
+      expect(body['newid'], 901);
+      expect(body['full'], 1);
+      expect(body['name'], 'ubuntu-copy');
+      expect(body.containsKey('hostname'), isFalse);
+      expect(
+        requests.where(
+          (request) =>
+              request.path.endsWith('/cluster/nextid') &&
+              request.queryParameters['vmid'] == 901,
+        ),
+        hasLength(1),
+      );
+    },
+  );
+
+  test(
+    'LXC template clone sends hostname and never retries an ambiguous POST',
+    () async {
+      final dio = Dio();
+      var posts = 0;
+      late RequestOptions request;
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            request = options;
+            posts++;
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                type: DioExceptionType.badResponse,
+                response: Response<dynamic>(
+                  requestOptions: options,
+                  statusCode: 503,
+                ),
+              ),
+            );
+          },
+        ),
+      );
+      final gateway = DioPveGateway(
+        profile,
+        credentials,
+        http: dio,
+        retryWait: (_) async => fail('Clone POST must not be retried.'),
+      );
+      addTearDown(gateway.close);
+      const source = Guest(
+        node: 'pve1',
+        vmid: 900,
+        kind: 'lxc',
+        name: 'debian-template',
+        status: 'stopped',
+        isTemplate: true,
+      );
+
+      await expectLater(
+        gateway.cloneTemplate(
+          source,
+          const GuestCloneRequest(newVmid: 902, name: 'debian-copy'),
+        ),
+        throwsA(
+          isA<PveFailure>().having(
+            (failure) => failure.mayHaveExecuted,
+            'mayHaveExecuted',
+            isTrue,
+          ),
+        ),
+      );
+      expect(posts, 1);
+      expect(request.uri.path, '/api2/json/nodes/pve1/lxc/900/clone');
+      final body = Map<String, dynamic>.from(request.data as Map);
+      expect(body['hostname'], 'debian-copy');
+      expect(body.containsKey('name'), isFalse);
+      expect(body['full'], 1);
+    },
+  );
 }
