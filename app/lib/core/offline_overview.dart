@@ -35,7 +35,7 @@ class OfflineOverview {
   );
 
   Map<String, int> toJson() => {
-    'v': 1,
+    'v': 2,
     'timestampMs': fetchedAt.millisecondsSinceEpoch,
     'totalNodes': totalNodes,
     'onlineNodes': onlineNodes,
@@ -45,7 +45,7 @@ class OfflineOverview {
   };
 
   static OfflineOverview? fromJson(Object? raw, {DateTime? now}) {
-    if (raw is! Map<String, dynamic> || raw.length != 7 || raw['v'] != 1) {
+    if (raw is! Map<String, dynamic> || raw.length != 7 || raw['v'] != 2) {
       return null;
     }
     final timestamp = raw['timestampMs'];
