@@ -220,7 +220,7 @@ class _LxcCreatePageState extends State<LxcCreatePage> {
               ),
               const SizedBox(height: 12),
               const Text(
-                'Creates an unprivileged container with Proxmox's default 4 GiB '
+                "Creates an unprivileged container with Proxmox's default 4 GiB "
                 'rootfs. No password, SSH key, NIC, pool, HA, restore input or '
                 'start-after-create option is sent.',
               ),
