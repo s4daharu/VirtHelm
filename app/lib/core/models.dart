@@ -1174,7 +1174,11 @@ class QemuCreateRequest {
 
   String? get validationError {
     final normalizedNode = node.trim();
-    if (normalizedNode.isEmpty || normalizedNode.length > 64) {
+    if (normalizedNode.isEmpty ||
+        normalizedNode.length > 64 ||
+        !RegExp(
+          r'^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$',
+        ).hasMatch(normalizedNode)) {
       return 'Select a valid destination node.';
     }
     if (vmid < 100 || vmid > 999999999) {

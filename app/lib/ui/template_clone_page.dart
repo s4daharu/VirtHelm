@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../core/app_controller.dart';
 import '../core/models.dart';
+import 'provisioning_confirmation_dialog.dart';
 
 class TemplateClonePage extends StatefulWidget {
   const TemplateClonePage({
@@ -128,94 +129,47 @@ class _TemplateClonePageState extends State<TemplateClonePage> {
   }
 
   Future<bool> _confirm(Guest source, GuestCloneRequest request) async {
-    final typedController = TextEditingController();
-    try {
-      return await showDialog<bool>(
-            context: context,
-            barrierDismissible: false,
-            builder: (dialogContext) => StatefulBuilder(
-              builder: (context, setDialogState) {
-                final matches =
-                    typedController.text.trim() == request.newVmid.toString();
-                final insecure =
-                    widget.controller.active?.allowInvalidCertificates == true;
-                return AlertDialog(
-                  title: const Text('Confirm full template clone'),
-                  content: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Source: ${source.kind.toUpperCase()} ${source.vmid} '
-                          'on ${source.node}\n'
-                          'Destination: ${request.name.trim()} '
-                          '(VMID ${request.newVmid})\n\n'
-                          'VirtHelm will request one full clone on the same node. '
-                          'Proxmox will choose the destination storage using its '
-                          'default clone behavior.',
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Preflight checks VM.Clone on the source, VM.Allocate '
-                          'on the destination VMID, a fresh clean inventory, and '
-                          'server-side VMID availability. Proxmox remains the '
-                          'final authority for datastore and network permissions.',
-                        ),
-                        if (insecure) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            'INSECURE: server certificate verification is disabled '
-                            'for this connection.',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 16),
-                        Text(
-                          'Type VMID ${request.newVmid} to submit:',
-                          style: Theme.of(context).textTheme.labelLarge,
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          key: const Key('clone-confirm-vmid'),
-                          controller: typedController,
-                          autofocus: true,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                          onChanged: (_) => setDialogState(() {}),
-                          decoration: const InputDecoration(
-                            labelText: 'Confirm destination VMID',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(dialogContext, false),
-                      child: const Text('Cancel'),
-                    ),
-                    FilledButton(
-                      key: const Key('clone-confirm-submit'),
-                      onPressed: matches
-                          ? () => Navigator.pop(dialogContext, true)
-                          : null,
-                      child: const Text('Submit clone'),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ) ??
-          false;
-    } finally {
-      typedController.dispose();
-    }
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => ProvisioningConfirmationDialog(
+            controller: widget.controller,
+            isCurrent: () =>
+                mounted && _currentSession && _currentSource != null,
+            canSubmit: () =>
+                widget.controller.isInventoryWriteSafe &&
+                !widget.controller.refreshing &&
+                !widget.controller.isGuestActionBlocked(source) &&
+                !widget.controller.isProvisioningTargetBlocked(
+                  source.kind,
+                  source.node,
+                  request.newVmid,
+                ),
+            vmid: request.newVmid,
+            title: 'Confirm full template clone',
+            keyPrefix: 'clone',
+            submitLabel: 'Submit clone',
+            details: [
+              Text(
+                'Source: ${source.kind.toUpperCase()} ${source.vmid} '
+                'on ${source.node}\n'
+                'Destination: ${request.name.trim()} '
+                '(VMID ${request.newVmid})\n\n'
+                'VirtHelm will request one full clone on the same node. '
+                'Proxmox will choose the destination storage using its '
+                'default clone behavior.',
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Preflight checks VM.Clone on the source, VM.Allocate '
+                'on the destination VMID, a fresh clean inventory, and '
+                'server-side VMID availability. Proxmox remains the '
+                'final authority for datastore and network permissions.',
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   Future<void> _reviewAndSubmit() async {

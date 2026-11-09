@@ -1795,8 +1795,15 @@ void main() {
           isNull,
           reason: 'guest filter sheet must not overflow at large text',
         );
+        await tester.ensureVisible(find.byKey(const Key('guest-filter-apply')));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const Key('guest-filter-apply')).hitTestable(),
+          findsOneWidget,
+        );
         await tester.tap(find.byKey(const Key('guest-filter-apply')));
         await tester.pumpAndSettle();
+        expect(find.text('Filter guests'), findsNothing);
       }
     }
   });

@@ -115,6 +115,10 @@ class _Gateway
   int qemuCreateSubmissions = 0;
   QemuCreateRequest? lastQemuCreateRequest;
   PveFailure? qemuCreateSubmissionFailure;
+  Completer<int>? nextVmidGate;
+  Completer<GuestPermissionSnapshot>? provisioningPermissionGate;
+  Completer<void>? availabilityGate;
+  Completer<String>? createGate;
   int guestMetricCalls = 0;
   final List<GuestMetricTimeframe> guestMetricTimeframes = [];
   Completer<GuestMetricSeries>? guestMetricGate;
@@ -313,17 +317,21 @@ class _Gateway
   }
 
   @override
-  Future<int> nextFreeVmid() async => nextCloneVmid;
+  Future<int> nextFreeVmid() async => nextVmidGate?.future ?? nextCloneVmid;
 
   @override
   Future<void> assertVmidAvailable(int vmid) async {
     assertedCloneVmids.add(vmid);
     if (cloneAvailabilityFailure != null) throw cloneAvailabilityFailure!;
+    if (availabilityGate != null) await availabilityGate!.future;
   }
 
   @override
   Future<GuestPermissionSnapshot> permissionsForVmid(int vmid) async {
     clonePermissionVmids.add(vmid);
+    if (provisioningPermissionGate != null) {
+      return provisioningPermissionGate!.future;
+    }
     return clonePermissionResults[vmid] ??
         const GuestPermissionSnapshot(privileges: <String>{});
   }
@@ -342,6 +350,7 @@ class _Gateway
     if (qemuCreateSubmissionFailure != null) {
       throw qemuCreateSubmissionFailure!;
     }
+    if (createGate != null) return createGate!.future;
     return 'UPID:${request.node}:1234:123:abc:qmcreate:${request.vmid}:operator@pve:';
   }
 
@@ -2984,7 +2993,11 @@ void main() {
         onBoot: true,
       );
 
-      await ctl.runQemuCreate(request, profileId: ctl.active!.id);
+      await ctl.runQemuCreate(
+        request,
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+      );
 
       expect(gateway.clonePermissionVmids, [901]);
       expect(gateway.assertedCloneVmids, [901]);
@@ -3031,6 +3044,7 @@ void main() {
             memoryMiB: 2048,
           ),
           profileId: ctl.active!.id,
+          generation: ctl.connectionGeneration,
         ),
         throwsA(
           isA<PveFailure>()
@@ -3049,4 +3063,509 @@ void main() {
       expect(ctl.isProvisioningTargetBlocked('qemu', 'pve1', 901), isFalse);
     },
   );
+
+  group('QEMU create safety audit', () {
+    late AppController ctl;
+    late _Gateway gateway;
+    late String profileId;
+    late int generation;
+    const privileges = GuestPermissionSnapshot(
+      privileges: {
+        'VM.Allocate',
+        'VM.Config.CPU',
+        'VM.Config.Memory',
+        'VM.Config.Options',
+      },
+    );
+    const request = QemuCreateRequest(
+      node: 'pve1',
+      vmid: 901,
+      name: 'audit-vm',
+      cores: 2,
+      memoryMiB: 2048,
+    );
+    const resources = [
+      {'type': 'node', 'node': 'pve1', 'status': 'online'},
+      {'type': 'node', 'node': 'pve2', 'status': 'online'},
+      {
+        'type': 'qemu',
+        'node': 'pve1',
+        'vmid': 900,
+        'template': 1,
+        'name': 'template',
+        'status': 'stopped',
+      },
+    ];
+    Future<void> submit([QemuCreateRequest value = request]) =>
+        ctl.runQemuCreate(value, profileId: profileId, generation: generation);
+
+    setUp(() async {
+      final prefs = await SharedPreferences.getInstance();
+      ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (_, _) => gateway = _Gateway()
+          ..inventoryResources = resources
+          ..clonePermissionResults[900] = const GuestPermissionSnapshot(
+            privileges: {'VM.Clone'},
+          )
+          ..clonePermissionResults[901] = privileges,
+      );
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 'synthetic',
+      );
+      profileId = ctl.active!.id;
+      generation = ctl.connectionGeneration;
+    });
+    tearDown(() => ctl.dispose());
+
+    test(
+      'rejects an old generation after reconnecting the same profile',
+      () async {
+        await ctl.activate(ctl.active!);
+        await expectLater(submit(), throwsA(isA<PveFailure>()));
+        expect(gateway.qemuCreateSubmissions, 0);
+      },
+    );
+
+    for (final condition in [
+      'stale',
+      'malformed',
+      'offline node',
+      'duplicate node',
+      'occupied lxc VMID',
+      'background',
+      'no network',
+      'refreshing',
+    ]) {
+      test('rejects $condition before preflight', () async {
+        switch (condition) {
+          case 'stale':
+            ctl.message = 'Read failed';
+          case 'malformed':
+            ctl.inventory = Inventory.fromResources([
+              ...resources,
+              {'type': 'qemu', 'vmid': 'bad'},
+            ]);
+          case 'offline node':
+            ctl.inventory = Inventory.fromResources([
+              {'type': 'node', 'node': 'pve1', 'status': 'offline'},
+            ]);
+          case 'duplicate node':
+            ctl.inventory = Inventory.fromResources([
+              ...resources,
+              resources.first,
+            ]);
+          case 'occupied lxc VMID':
+            ctl.inventory = Inventory.fromResources([
+              ...resources,
+              {'type': 'lxc', 'node': 'pve2', 'vmid': 901, 'status': 'stopped'},
+            ]);
+          case 'background':
+            ctl.setForeground(false);
+          case 'no network':
+            ctl.setDeviceNetworkState(DeviceNetworkState.unavailable);
+          case 'refreshing':
+            ctl.refreshing = true;
+        }
+        final reads = gateway.inventoryCalls;
+        await expectLater(submit(), throwsA(isA<PveFailure>()));
+        expect(gateway.qemuCreateSubmissions, 0);
+        expect(gateway.inventoryCalls, reads);
+        expect(ctl.isProvisioningTargetBlocked('qemu', 'pve1', 901), isFalse);
+      });
+    }
+
+    for (final change in [
+      'collision',
+      'offline node',
+      'malformed',
+      'duplicate node',
+    ]) {
+      test('rejects $change in the second live inventory', () async {
+        gateway.inventoryResources = switch (change) {
+          'collision' => [
+            ...resources,
+            {'type': 'lxc', 'node': 'pve2', 'vmid': 901, 'status': 'stopped'},
+          ],
+          'offline node' => [
+            {'type': 'node', 'node': 'pve1', 'status': 'offline'},
+          ],
+          'malformed' => [
+            ...resources,
+            {'type': 'qemu', 'vmid': 'bad'},
+          ],
+          _ => [...resources, resources.first],
+        };
+        await expectLater(submit(), throwsA(isA<PveFailure>()));
+        expect(gateway.qemuCreateSubmissions, 0);
+        expect(gateway.clonePermissionVmids, isEmpty);
+        expect(ctl.isProvisioningTargetBlocked('qemu', 'pve2', 901), isFalse);
+      });
+    }
+
+    test(
+      'reserves a cluster-wide VMID synchronously before any await',
+      () async {
+        final gate = gateway.inventoryGate = Completer<Inventory>();
+        final first = submit();
+        expect(ctl.isProvisioningTargetBlocked('qemu', 'pve2', 901), isTrue);
+        await expectLater(
+          submit(
+            const QemuCreateRequest(
+              node: 'pve2',
+              vmid: 901,
+              name: 'other',
+              cores: 2,
+              memoryMiB: 2048,
+            ),
+          ),
+          throwsA(isA<PveFailure>()),
+        );
+        await expectLater(
+          ctl.runTemplateClone(
+            ctl.inventory!.guests.single,
+            const GuestCloneRequest(newVmid: 901, name: 'clone'),
+            profileId: profileId,
+          ),
+          throwsA(isA<PveFailure>()),
+        );
+        gate.complete(Inventory.fromResources(resources));
+        await first;
+        expect(gateway.qemuCreateSubmissions, 1);
+        expect(gateway.cloneSubmissions, 0);
+      },
+    );
+
+    test(
+      'clone reserves its destination against create on another node',
+      () async {
+        await ctl.runTemplateClone(
+          ctl.inventory!.guests.single,
+          const GuestCloneRequest(newVmid: 901, name: 'clone'),
+          profileId: profileId,
+        );
+        await expectLater(
+          submit(
+            const QemuCreateRequest(
+              node: 'pve2',
+              vmid: 901,
+              name: 'other',
+              cores: 2,
+              memoryMiB: 2048,
+            ),
+          ),
+          throwsA(isA<PveFailure>()),
+        );
+        expect(gateway.qemuCreateSubmissions, 0);
+      },
+    );
+
+    test(
+      'new clone destination cannot run power actions before clone completes',
+      () async {
+        await ctl.runTemplateClone(
+          ctl.inventory!.guests.single,
+          const GuestCloneRequest(newVmid: 901, name: 'clone'),
+          profileId: profileId,
+        );
+        gateway.inventoryResources = [
+          ...resources,
+          {'type': 'qemu', 'node': 'pve2', 'vmid': 901, 'status': 'stopped'},
+        ];
+        await ctl.refresh();
+        final destination = ctl.inventory!.guests.singleWhere(
+          (g) => g.vmid == 901,
+        );
+        expect(ctl.isGuestActionBlocked(destination), isTrue);
+        await expectLater(
+          ctl.runAction(destination, GuestAction.start, profileId: profileId),
+          throwsA(isA<PveFailure>()),
+        );
+        expect(gateway.submissions, 0);
+      },
+    );
+
+    for (final stage in ['inventory', 'permissions', 'availability']) {
+      for (final change in [
+        'reconnect',
+        'background',
+        'inventory',
+        'no network',
+      ]) {
+        test('cancels after $change during $stage preflight', () async {
+          final oldGateway = gateway;
+          final Completer<dynamic> gate;
+          switch (stage) {
+            case 'inventory':
+              gate = gateway.inventoryGate = Completer<Inventory>();
+            case 'permissions':
+              gate = gateway.provisioningPermissionGate =
+                  Completer<GuestPermissionSnapshot>();
+            default:
+              gate = gateway.availabilityGate = Completer<void>();
+          }
+          final result = expectLater(submit(), throwsA(isA<PveFailure>()));
+          // Drain preflight's already-completed futures up to the chosen gate.
+          await Future<void>.delayed(Duration.zero);
+          switch (change) {
+            case 'reconnect':
+              await ctl.activate(ctl.active!);
+            case 'background':
+              ctl.setForeground(false);
+            case 'no network':
+              ctl.setDeviceNetworkState(DeviceNetworkState.unavailable);
+            default:
+              ctl.inventory = Inventory.fromResources(resources);
+          }
+          gate.complete(switch (stage) {
+            'inventory' => Inventory.fromResources(resources),
+            'permissions' => privileges,
+            _ => null,
+          });
+          await result;
+          expect(oldGateway.qemuCreateSubmissions, 0);
+          expect(ctl.tasks, isEmpty);
+        });
+      }
+    }
+
+    test(
+      'server-side VMID collision denies POST and releases reservations',
+      () async {
+        gateway.cloneAvailabilityFailure = const PveFailure('VMID occupied');
+        await expectLater(submit(), throwsA(isA<PveFailure>()));
+        expect(gateway.qemuCreateSubmissions, 0);
+        expect(ctl.isProvisioningTargetBlocked('qemu', 'pve2', 901), isFalse);
+      },
+    );
+
+    test(
+      'ambiguous POST stays locked across nodes even after refresh',
+      () async {
+        gateway.qemuCreateSubmissionFailure = const PveFailure(
+          'Response lost',
+          mayHaveExecuted: true,
+        );
+        await expectLater(submit(), throwsA(isA<PveFailure>()));
+        await ctl.refresh();
+        await expectLater(
+          submit(
+            const QemuCreateRequest(
+              node: 'pve2',
+              vmid: 901,
+              name: 'retry',
+              cores: 2,
+              memoryMiB: 2048,
+            ),
+          ),
+          throwsA(isA<PveFailure>()),
+        );
+        expect(gateway.qemuCreateSubmissions, 1);
+        expect(ctl.isProvisioningTargetBlocked('lxc', 'pve2', 901), isTrue);
+      },
+    );
+
+    test('definitive POST denial releases reservations', () async {
+      gateway.qemuCreateSubmissionFailure = const PveFailure(
+        'Denied',
+        status: 403,
+      );
+      await expectLater(submit(), throwsA(isA<PveFailure>()));
+      expect(ctl.isProvisioningTargetBlocked('qemu', 'pve2', 901), isFalse);
+    });
+
+    test('late POST response cannot populate a reconnected session', () async {
+      final old = gateway;
+      final gate = gateway.createGate = Completer<String>();
+      final result = expectLater(
+        submit(),
+        throwsA(
+          isA<PveFailure>().having(
+            (e) => e.mayHaveExecuted,
+            'ambiguous',
+            isTrue,
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await ctl.activate(ctl.active!);
+      gate.complete('UPID:pve1:1:2:3:qmcreate:901:user@pve:');
+      await result;
+      expect(old.qemuCreateSubmissions, 1);
+      expect(ctl.tasks, isEmpty);
+      expect(ctl.isProvisioningTargetBlocked('qemu', 'pve1', 901), isFalse);
+    });
+
+    for (final exitStatus in ['OK', 'ERROR']) {
+      test(
+        '$exitStatus task retains both locks until post-completion refresh',
+        () async {
+          final gate = gateway.taskGate = Completer<ServerTaskStatus>();
+          await submit();
+          final refreshGate = gateway.inventoryGate = Completer<Inventory>();
+          gate.complete(
+            ServerTaskStatus(status: 'stopped', exitStatus: exitStatus),
+          );
+          await Future<void>.delayed(Duration.zero);
+          expect(
+            ctl.tasks.single.outcome,
+            exitStatus == 'OK'
+                ? OperationOutcome.succeeded
+                : OperationOutcome.failed,
+          );
+          expect(ctl.isProvisioningTargetBlocked('qemu', 'pve1', 901), isTrue);
+          expect(ctl.isProvisioningTargetBlocked('lxc', 'pve2', 901), isTrue);
+          refreshGate.complete(Inventory.fromResources(resources));
+          await Future<void>.delayed(Duration.zero);
+          expect(ctl.isProvisioningTargetBlocked('qemu', 'pve1', 901), isFalse);
+          expect(ctl.isProvisioningTargetBlocked('lxc', 'pve2', 901), isFalse);
+        },
+      );
+    }
+
+    for (final code in [401, 403, 404]) {
+      test(
+        'unverifiable task HTTP $code retains the cluster VMID lock',
+        () async {
+          gateway.taskFailure = PveFailure('Task unavailable', status: code);
+          await submit();
+          await Future<void>.delayed(Duration.zero);
+          expect(ctl.tasks.single.outcome, OperationOutcome.unknown);
+          expect(ctl.isProvisioningTargetBlocked('lxc', 'pve2', 901), isTrue);
+        },
+      );
+    }
+
+    for (final failure in ['malformed', 'transport']) {
+      test(
+        'terminal task with $failure reconciliation remains locked',
+        () async {
+          final gate = gateway.taskGate = Completer<ServerTaskStatus>();
+          await submit();
+          if (failure == 'malformed') {
+            gateway.inventoryResources = [
+              ...resources,
+              {'type': 'qemu', 'vmid': 'bad'},
+            ];
+          } else {
+            gateway.inventoryFailure = const PveFailure('Read failed');
+          }
+          gate.complete(
+            const ServerTaskStatus(status: 'stopped', exitStatus: 'OK'),
+          );
+          await Future<void>.delayed(Duration.zero);
+          expect(ctl.isProvisioningTargetBlocked('lxc', 'pve2', 901), isTrue);
+          gateway.inventoryFailure = null;
+          gateway.inventoryResources = resources;
+          await ctl.refresh();
+          expect(ctl.isProvisioningTargetBlocked('lxc', 'pve2', 901), isTrue);
+        },
+      );
+    }
+
+    test(
+      'terminal task cannot reconcile with an inventory read begun before completion',
+      () async {
+        final taskGate = gateway.taskGate = Completer<ServerTaskStatus>();
+        await submit();
+        final oldRead = gateway.inventoryGate = Completer<Inventory>();
+        final refresh = ctl.refresh();
+        final reads = gateway.inventoryCalls;
+        taskGate.complete(
+          const ServerTaskStatus(status: 'stopped', exitStatus: 'OK'),
+        );
+        await Future<void>.delayed(Duration.zero);
+        final newRead = gateway.inventoryGate = Completer<Inventory>();
+        oldRead.complete(Inventory.fromResources(resources));
+        await refresh;
+        await Future<void>.delayed(Duration.zero);
+        expect(gateway.inventoryCalls, reads + 1);
+        expect(ctl.isProvisioningTargetBlocked('lxc', 'pve2', 901), isTrue);
+        newRead.complete(Inventory.fromResources(resources));
+        await Future<void>.delayed(Duration.zero);
+        expect(ctl.isProvisioningTargetBlocked('lxc', 'pve2', 901), isFalse);
+      },
+    );
+
+    test(
+      'suggestion ignores a late response from a reconnected profile',
+      () async {
+        final gate = gateway.nextVmidGate = Completer<int>();
+        final result = ctl.suggestQemuCreateVmid(
+          profileId: profileId,
+          generation: generation,
+        );
+        await ctl.activate(ctl.active!);
+        gate.complete(901);
+        expect(await result, isNull);
+      },
+    );
+
+    for (final privilege in privileges.privileges) {
+      test(
+        'denies missing $privilege before availability check or POST',
+        () async {
+          gateway.clonePermissionResults[901] = GuestPermissionSnapshot(
+            privileges: privileges.privileges.difference({privilege}),
+          );
+          await expectLater(
+            submit(),
+            throwsA(
+              isA<PveFailure>().having(
+                (e) => e.status,
+                'permission denied',
+                403,
+              ),
+            ),
+          );
+          expect(gateway.assertedCloneVmids, isEmpty);
+          expect(gateway.qemuCreateSubmissions, 0);
+        },
+      );
+    }
+
+    test('preflight authentication loss invalidates authorization', () async {
+      gateway.inventoryFailure = const PveFailure('Revoked token', status: 401);
+      await expectLater(submit(), throwsA(isA<PveFailure>()));
+      expect(ctl.isInventoryWriteSafe, isFalse);
+      expect(gateway.qemuCreateSubmissions, 0);
+      expect(ctl.isProvisioningTargetBlocked('qemu', 'pve1', 901), isFalse);
+    });
+
+    test('invalid request cannot trigger any preflight I/O', () async {
+      final reads = gateway.inventoryCalls;
+      await expectLater(
+        submit(
+          const QemuCreateRequest(
+            node: 'pve1',
+            vmid: 901,
+            name: 'valid',
+            cores: 0,
+            memoryMiB: 2048,
+          ),
+        ),
+        throwsA(isA<PveFailure>()),
+      );
+      expect(gateway.inventoryCalls, reads);
+      expect(gateway.qemuCreateSubmissions, 0);
+    });
+
+    test(
+      'suggestion rejects a VMID occupied in the current inventory',
+      () async {
+        gateway.nextCloneVmid = 900;
+        expect(
+          await ctl.suggestQemuCreateVmid(
+            profileId: profileId,
+            generation: generation,
+          ),
+          isNull,
+        );
+      },
+    );
+  });
 }

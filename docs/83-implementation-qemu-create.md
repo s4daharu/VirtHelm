@@ -17,6 +17,11 @@ Current upstream Proxmox QEMU source confirms:
 
 The server also performs quorum and VMID-unused checks before creating the VM configuration.
 
+References: [official API viewer](https://pve.proxmox.com/pve-docs/api-viewer/) and
+[official QEMU API source at 530b95c](https://git.proxmox.com/?p=qemu-server.git;a=blob;f=src/PVE/API2/Qemu.pm;hb=530b95c630316d76f06c74f9c2488b76aee194fc)
+(`create_vm`, `check_vm_modify_config_perm`, and `qmcreate` worker registration).
+These are upstream source contracts, not deployed PVE 8.4/9.2 fixtures.
+
 VirtHelm intentionally sends only:
 
 - `vmid`;
@@ -53,7 +58,7 @@ The create page supports:
 
 The final confirmation requires the operator to type the exact destination VMID. The dialog explicitly states that the VM has no disk, network or installation media and will not be started.
 
-## Preflight and exactly-once write behavior
+## Preflight and single-shot submission
 
 Immediately before the POST, the controller requires:
 
@@ -68,7 +73,11 @@ Immediately before the POST, the controller requires:
 
 Only after those checks is one create POST issued.
 
-Mutation POSTs are never automatically retried. A returned UPID is registered with the existing task engine. The provisioning target remains single-flight locked until terminal task handling is followed by an authoritative inventory refresh. Timeout, unavailable task verification, authentication loss, ambiguous transport failure or an unexpected create response moves the node/VMID target into the existing uncertain-operation lockout.
+Mutation POSTs are never automatically retried. A returned UPID must match the requested node, VMID and `qmcreate` worker before it is registered with the existing task engine. The exact guest key and the cluster-wide destination VMID remain single-flight locked until terminal task handling is followed by a new, clean authoritative inventory refresh. Both reservations participate in task completion and uncertainty handling. Create and clone cannot reserve the same destination on different nodes or across QEMU/LXC, and a newly discovered provisioning destination cannot authorize a concurrent power action. Timeout, unavailable task verification, authentication loss, ambiguous transport failure or an unexpected create response retains the cluster-wide destination lockout. A malformed or failed reconciliation read cannot release it.
+
+The controller takes the originating connection generation explicitly. Create and clone confirmation dialogs observe the controller directly, redact the old identity on profile/reconnect/source invalidation, and disable submission when inventory or target availability changes. Dialog-owned text controllers are disposed with the dialog route, not while its exit transition still renders.
+
+This is an at-most-one client submission per accepted operation, not a claim of distributed exactly-once execution. Proxmox remains authoritative for races with other clients, quorum and final validation.
 
 ## Regression coverage
 
@@ -84,6 +93,12 @@ This milestone adds coverage for:
 - UPID registration and provisioning-target lockout;
 - Guests-screen entry into the create wizard.
 
+The [branch cross-check](84-qemu-create-branch-cross-check-2026-11-09.md) adds
+cross-node/create-clone reservations, newly discovered destination power guards,
+same-profile generation rejection, every preflight-await race, privilege denials,
+ambiguous/definitive failures, task reconciliation and dialog lifecycle/redaction
+regressions. The form and confirmation also have a synthetic 320dp/200%-text check.
+
 Source-smoke checks also require the create model, API boundary, controller flow, UI entry and this implementation record.
 
 ## Deliberately deferred
@@ -92,4 +107,4 @@ This milestone does **not** add QEMU disks, storage selection, ISO/media selecti
 
 Live PVE 8.4/9.2 create/ACL/quorum fixtures and physical Android confirmation/accessibility/network-transition testing remain release gates. Source/CI success does not constitute production certification.
 
-The app version advances to **0.1.36**.
+The original branch introduced **0.1.36**; the pre-merge safety audit advances the app to **0.1.37**.

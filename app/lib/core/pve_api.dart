@@ -673,6 +673,19 @@ class DioPveGateway
         mayHaveExecuted: true,
       );
     }
+    final parts = value.split(':');
+    if (parts.length != 9 ||
+        parts[1] != normalized.node ||
+        !parts.skip(2).take(3).every(RegExp(r'^[0-9A-Fa-f]+$').hasMatch) ||
+        parts[5] != 'qmcreate' ||
+        parts[6] != normalized.vmid.toString() ||
+        parts[7].trim().isEmpty ||
+        parts[8].isNotEmpty) {
+      throw const PveFailure(
+        'Server returned a mismatched create task identifier. Check task history.',
+        mayHaveExecuted: true,
+      );
+    }
     return value;
   }
 
