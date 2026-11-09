@@ -8,10 +8,7 @@ const profile = ConnectionProfile(
   name: 'Lab',
   endpoint: 'https://pve.invalid:8006',
 );
-const credentials = ApiCredentials(
-  tokenId: 'test@pve!test',
-  secret: 'x',
-);
+const credentials = ApiCredentials(tokenId: 'test@pve!test', secret: 'x');
 
 void main() {
   test('QEMU migration preflight parses allowed nodes and local blockers', () {
@@ -190,7 +187,11 @@ void main() {
       throwsA(
         isA<PveFailure>()
             .having((error) => error.mayHaveExecuted, 'unknown outcome', isTrue)
-            .having((error) => error.message, 'message', contains('mismatched')),
+            .having(
+              (error) => error.message,
+              'message',
+              contains('mismatched'),
+            ),
       ),
     );
   });
