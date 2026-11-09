@@ -393,6 +393,164 @@ class _GuestPageState extends State<GuestPage> {
     );
   }
 
+  List<Node> _migrationTargets(Guest guest) {
+    final inv = widget.controller.inventory;
+    if (inv == null) return const <Node>[];
+    final targets = inv.nodes
+        .where(
+          (node) =>
+              node.name != guest.node &&
+              node.status == 'online',
+        )
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+    return targets;
+  }
+
+  String _migrationImpact(Guest guest) {
+    if (guest.kind == 'lxc' && guest.isRunning) {
+      return 'Restart migration will stop the container, move it, and start it on the destination. Downtime is expected.';
+    }
+    if (guest.kind == 'qemu' && guest.isRunning) {
+      return 'VirtHelm will request live QEMU migration. This guarded slice allows only server-preflighted guests on shared storage with no local host resources.';
+    }
+    return 'The guest is stopped, so VirtHelm will request an offline migration.';
+  }
+
+  Future<void> _openMigration(Guest source) async {
+    if (!_currentSession || submitting) return;
+    final targets = _migrationTargets(source);
+    if (targets.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No other online destination node is available.'),
+        ),
+      );
+      return;
+    }
+
+    final target = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('Choose destination node'),
+        children: [
+          for (final node in targets)
+            SimpleDialogOption(
+              key: Key('guest-migration-target-${node.name}'),
+              onPressed: () => Navigator.of(dialogContext).pop(node.name),
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.dns_rounded),
+                title: Text(node.name),
+                subtitle: const Text('Online'),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (!mounted || !_currentSession || target == null) return;
+
+    final confirmation = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final matches =
+              confirmation.text.trim() == source.vmid.toString();
+          return AlertDialog(
+            title: Text('Migrate ${source.name}?'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${source.node} → $target',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(_migrationImpact(source)),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'The destination, guest state, VM.Migrate privilege, and server migration preflight are revalidated immediately before one POST. VirtHelm never retries a migration POST automatically.',
+                  ),
+                  if (source.kind == 'lxc') ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'LXC storage transfer and final authorization remain Proxmox-authoritative; storage remapping and force options are not exposed.',
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  Text(
+                    'Type VMID ${source.vmid} to confirm.',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    key: const Key('guest-migration-confirmation'),
+                    controller: confirmation,
+                    keyboardType: TextInputType.number,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'VMID confirmation',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) => setDialogState(() {}),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                key: const Key('guest-migration-submit'),
+                onPressed: matches
+                    ? () => Navigator.of(dialogContext).pop(true)
+                    : null,
+                child: const Text('Migrate'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    confirmation.dispose();
+    if (!mounted || !_currentSession || confirmed != true) return;
+
+    setState(() => submitting = true);
+    try {
+      await widget.controller.runGuestMigration(
+        source,
+        GuestMigrationRequest(targetNode: target),
+        profileId: widget.profileId,
+        generation: widget.generation,
+      );
+      if (!mounted || !_currentSession) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Migration task submitted. Check Tasks for its final result.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        final message = error is PveFailure
+            ? error.message
+            : 'Could not submit migration.';
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } finally {
+      if (mounted) setState(() => submitting = false);
+    }
+  }
+
   GuestAction _primaryAction(Guest? guest) {
     if (guest == null) return GuestAction.start;
     return guest.isStopped ? GuestAction.start : GuestAction.shutdown;
@@ -1311,6 +1469,19 @@ class _GuestPageState extends State<GuestPage> {
                   ),
                 ),
                 const SizedBox(width: 8),
+                IconButton(
+                  key: const Key('guest-migrate'),
+                  tooltip: guest == null || _migrationTargets(guest).isEmpty
+                      ? 'No online migration target'
+                      : 'Migrate guest',
+                  onPressed:
+                      allowed &&
+                          guest != null &&
+                          _migrationTargets(guest).isNotEmpty
+                      ? () => _openMigration(guest)
+                      : null,
+                  icon: const Icon(Icons.swap_horiz_rounded),
+                ),
                 PopupMenuButton<GuestAction>(
                   key: const Key('guest-more-actions'),
                   enabled: allowed && guest != null,
