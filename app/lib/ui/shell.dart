@@ -1292,7 +1292,10 @@ class _GuestsTabState extends State<_GuestsTab> {
                       const SizedBox(width: 8),
                       ActionChip(
                         key: const Key('guest-create-lxc'),
-                        avatar: const Icon(Icons.inventory_2_outlined, size: 18),
+                        avatar: const Icon(
+                          Icons.inventory_2_outlined,
+                          size: 18,
+                        ),
                         label: const Text('Create CT'),
                         onPressed: canCreateQemu
                             ? () => _openLxcCreate(context)
