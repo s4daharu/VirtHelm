@@ -42,7 +42,7 @@ class _LxcCreatePageState extends State<LxcCreatePage> {
       widget.controller.connectionGeneration == widget.generation;
 
   List<String> get _nodes {
-    if (!_current) return const [];
+    if (!_current) return const <String>[];
     final result =
         widget.controller.inventory?.nodes
             .where((node) => node.status == 'online')
@@ -347,7 +347,7 @@ class _LxcCreatePageState extends State<LxcCreatePage> {
                 label: const Text('OS template'),
                 expandedInsets: EdgeInsets.zero,
                 dropdownMenuEntries: [
-                  for (final template in _options?.templates ?? const [])
+                  for (final template in _options?.templates ?? const <LxcTemplate>[])
                     DropdownMenuEntry(
                       value: template.volid,
                       label: '${template.displayName} Â· ${template.storage}',
@@ -364,7 +364,7 @@ class _LxcCreatePageState extends State<LxcCreatePage> {
                 label: const Text('Root filesystem storage'),
                 expandedInsets: EdgeInsets.zero,
                 dropdownMenuEntries: [
-                  for (final storage in _options?.rootfsStorages ?? const [])
+                  for (final storage in _options?.rootfsStorages ?? const <String>[])
                     DropdownMenuEntry(value: storage, label: storage),
                 ],
                 onSelected: (value) => setState(() => _storage = value),
