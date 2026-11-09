@@ -21,7 +21,7 @@ required = [
   'app/lib/ui/qemu_create_page.dart',
   'app/lib/ui/lxc_create_page.dart',
   'app/lib/ui/provisioning_confirmation_dialog.dart',
-  'app/test/provisioning_page_test.dart',
+  'app/test/provisioning_page_test.dart','app/test/lxc_create_test.dart',
   'app/test/models_test.dart',
   'app/test/controller_test.dart','app/test/pve_api_test.dart',
   'app/test/widget_test.dart','app/test/pve_tls_test.dart',
