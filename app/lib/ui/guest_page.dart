@@ -256,7 +256,8 @@ class _GuestPageState extends State<GuestPage> {
       setState(() {
         backupArchiveInventory = null;
         backupArchivesLoadedAt = null;
-        backupArchiveError = 'Choose one backup storage before loading archives.';
+        backupArchiveError =
+            'Choose one backup storage before loading archives.';
       });
       return;
     }
