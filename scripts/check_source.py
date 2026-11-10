@@ -90,6 +90,7 @@ required = [
    'docs/88-implementation-guest-snapshot-create.md',
    'docs/89-implementation-guest-backup-start.md',
    'docs/90-implementation-guest-backup-archive-read.md',
+   'docs/91-implementation-backup-validation-confidence.md',
    'app/test/guest_backup_start_test.dart']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
@@ -289,6 +290,14 @@ assert 'inspectGuestBackupArchives' in files['app/lib/core/app_controller.dart']
 assert "Key('guest-load-backup-archives')" in files['app/lib/ui/guest_page.dart']
 assert 'integrity verification' in files['docs/90-implementation-guest-backup-archive-read.md'].lower()
 assert 'backup archive listing is exact-guest scoped and newest first' in files['app/test/guest_backup_start_test.dart']
+assert 'class GuestBackupValidationAssessment' in files['app/lib/core/models.dart']
+assert 'BackupValidationConfidence.partial' in files['app/lib/core/models.dart']
+assert "Key('guest-backup-validation-confidence')" in files['app/lib/ui/guest_page.dart']
+assert "Key('guest-backup-validation-headline')" in files['app/lib/ui/guest_page.dart']
+assert 'No PBS verification result' in files['app/lib/ui/guest_page.dart']
+assert 'never authorizes restore' in files['app/lib/ui/guest_page.dart']
+assert 'There is intentionally no `verified`' in files['docs/91-implementation-backup-validation-confidence.md']
+assert 'backup validation confidence stays evidence-limited' in files['app/test/models_test.dart']
 assert '_guestTags' in files['app/lib/core/models.dart']
 assert 'final List<String> tags' in files['app/lib/core/models.dart']
 assert 'String? tag' in files['app/lib/core/guest_list_filter.dart']
