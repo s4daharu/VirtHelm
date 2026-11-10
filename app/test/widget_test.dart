@@ -96,6 +96,7 @@ class _GuestSnapshotController extends AppController {
 
   final List<int> requestedVmids = [];
   final List<String> requestedBackupStorages = [];
+  final List<int> requestedRestoreVmids = [];
 
   @override
   Future<GuestBackupArchiveInventory?> inspectGuestBackupArchives({
@@ -119,6 +120,33 @@ class _GuestSnapshotController extends AppController {
         ),
       ],
       ignoredRecords: 1,
+    );
+  }
+
+  @override
+  Future<GuestRestorePlanPreflight?> inspectGuestRestorePlan({
+    required String profileId,
+    required int generation,
+    required Guest guest,
+    required GuestBackupArchive archive,
+    required GuestRestorePlanRequest request,
+  }) async {
+    requestedRestoreVmids.add(request.targetVmid);
+    return GuestRestorePlanPreflight(
+      sourceArchive: archive,
+      targetNode: request.targetNode,
+      targetVmid: request.targetVmid,
+      targetStorage: request.targetStorage,
+      status: GuestRestorePlanStatus.preflightComplete,
+      sourceArchiveVisible: true,
+      sourceStorageUsable: true,
+      targetNodeOnline: true,
+      targetVmidAvailable: true,
+      targetStorageUsable: true,
+      vmAllocateAvailable: true,
+      datastoreAllocateSpaceAvailable: true,
+      storageReadComplete: true,
+      targetStorageAvailableBytes: 10737418240,
     );
   }
 
@@ -871,6 +899,15 @@ void main() {
           active: true,
           contentTypes: ['backup'],
         ),
+        StoragePool(
+          node: 'pve1',
+          id: 'local-lvm',
+          type: 'lvmthin',
+          enabled: true,
+          active: true,
+          contentTypes: ['images'],
+          available: 10737418240,
+        ),
       ];
       controller.serverTasks = const [
         RecentServerTask(
@@ -961,6 +998,41 @@ void main() {
       expect(find.textContaining('1 unusable row(s) ignored'), findsOneWidget);
       expect(
         find.textContaining('Archive visibility is not a checksum'),
+        findsOneWidget,
+      );
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey<String>('guest-plan-restore-0')),
+        120,
+        scrollable: recoveryScroll,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey<String>('guest-plan-restore-0')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Plan restore target'), findsOneWidget);
+      expect(
+        find.textContaining('will not submit a restore request'),
+        findsOneWidget,
+      );
+      await tester.enterText(
+        find.byKey(const Key('guest-restore-target-vmid')),
+        '901',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('guest-restore-plan-submit')));
+      await tester.pumpAndSettle();
+      expect(controller.requestedRestoreVmids, [901]);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('guest-restore-plan-preflight')),
+        180,
+        scrollable: recoveryScroll,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Preflight complete'), findsOneWidget);
+      expect(find.textContaining('Target VMID is free'), findsOneWidget);
+      expect(
+        find.textContaining('No restore request has been submitted'),
         findsOneWidget,
       );
       await tester.scrollUntilVisible(
