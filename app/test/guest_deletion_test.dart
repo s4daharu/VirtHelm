@@ -50,54 +50,57 @@ void main() {
     expect(request.data, isNull);
   });
 
-  test('LXC deletion requires stopped state and accepts vzdestroy UPID', () async {
-    const running = Guest(
-      node: 'pve1',
-      vmid: 202,
-      kind: 'lxc',
-      name: 'API',
-      status: 'running',
-    );
-    var requests = 0;
-    final dio = Dio();
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          requests++;
-          handler.resolve(
-            Response<dynamic>(
-              requestOptions: options,
-              statusCode: 200,
-              data: {
-                'data':
-                    'UPID:pve1:00000001:00000002:00000003:vzdestroy:202:test-user:',
-              },
-            ),
-          );
-        },
-      ),
-    );
-    final gateway = DioPveGateway(profile, credentials, http: dio);
-    addTearDown(gateway.close);
-
-    await expectLater(
-      gateway.deleteGuest(running),
-      throwsA(isA<FormatException>()),
-    );
-    expect(requests, 0);
-
-    final upid = await gateway.deleteGuest(
-      const Guest(
+  test(
+    'LXC deletion requires stopped state and accepts vzdestroy UPID',
+    () async {
+      const running = Guest(
         node: 'pve1',
         vmid: 202,
         kind: 'lxc',
         name: 'API',
-        status: 'stopped',
-      ),
-    );
-    expect(upid, contains(':vzdestroy:202:'));
-    expect(requests, 1);
-  });
+        status: 'running',
+      );
+      var requests = 0;
+      final dio = Dio();
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            requests++;
+            handler.resolve(
+              Response<dynamic>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'data':
+                      'UPID:pve1:00000001:00000002:00000003:vzdestroy:202:test-user:',
+                },
+              ),
+            );
+          },
+        ),
+      );
+      final gateway = DioPveGateway(profile, credentials, http: dio);
+      addTearDown(gateway.close);
+
+      await expectLater(
+        gateway.deleteGuest(running),
+        throwsA(isA<FormatException>()),
+      );
+      expect(requests, 0);
+
+      final upid = await gateway.deleteGuest(
+        const Guest(
+          node: 'pve1',
+          vmid: 202,
+          kind: 'lxc',
+          name: 'API',
+          status: 'stopped',
+        ),
+      );
+      expect(upid, contains(':vzdestroy:202:'));
+      expect(requests, 1);
+    },
+  );
 
   test('mismatched deletion worker is treated as an uncertain outcome', () async {
     const guest = Guest(
@@ -132,7 +135,11 @@ void main() {
       throwsA(
         isA<PveFailure>()
             .having((error) => error.mayHaveExecuted, 'unknown outcome', isTrue)
-            .having((error) => error.message, 'message', contains('mismatched')),
+            .having(
+              (error) => error.message,
+              'message',
+              contains('mismatched'),
+            ),
       ),
     );
   });
