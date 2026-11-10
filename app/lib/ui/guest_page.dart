@@ -664,9 +664,7 @@ class _GuestPageState extends State<GuestPage> {
     return parts.join(' • ');
   }
 
-  String _backupValidationTaskText(
-    GuestBackupValidationAssessment assessment,
-  ) {
+  String _backupValidationTaskText(GuestBackupValidationAssessment assessment) {
     final task = assessment.latestBackupTask;
     if (task == null) {
       return 'No vzdump task for this VMID is visible in the current recent-task window.';
@@ -679,7 +677,9 @@ class _GuestPageState extends State<GuestPage> {
       BackupTaskEvidence.failed => 'failed',
       BackupTaskEvidence.unknown => 'unknown',
     };
-    return when == null ? 'Latest visible task: $state.' : 'Latest visible task: $state • ${formatAge(when)}.';
+    return when == null
+        ? 'Latest visible task: $state.'
+        : 'Latest visible task: $state • ${formatAge(when)}.';
   }
 
   Future<void> execute(Guest guest, GuestAction action) async {
@@ -2107,7 +2107,9 @@ class _GuestPageState extends State<GuestPage> {
                   dense: true,
                   leading: const Icon(Icons.inventory_2_outlined),
                   title: const Text('Archive visibility and identity'),
-                  subtitle: Text(_backupValidationArchiveText(backupValidation)),
+                  subtitle: Text(
+                    _backupValidationArchiveText(backupValidation),
+                  ),
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
