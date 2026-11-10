@@ -78,6 +78,7 @@ class _Gateway
         GuestPermissionGateway,
         GuestCloneGateway,
         GuestMigrationGateway,
+        GuestDeleteGateway,
         GuestCreateGateway,
         LxcCreateGateway {
   int submissions = 0;
@@ -124,6 +125,10 @@ class _Gateway
   Guest? lastMigratedGuest;
   Completer<GuestMigrationPreflight>? migrationPreflightGate;
   Completer<String>? migrationGate;
+  int deleteSubmissions = 0;
+  Guest? lastDeletedGuest;
+  PveFailure? deleteSubmissionFailure;
+  Completer<String>? deleteGate;
   int qemuCreateSubmissions = 0;
   QemuCreateRequest? lastQemuCreateRequest;
   PveFailure? qemuCreateSubmissionFailure;
@@ -392,6 +397,16 @@ class _Gateway
     }
     if (migrationGate != null) return migrationGate!.future;
     final worker = guest.kind == 'qemu' ? 'qmigrate' : 'vzmigrate';
+    return 'UPID:${guest.node}:1234:123:abc:$worker:${guest.vmid}:operator@pve:';
+  }
+
+  @override
+  Future<String> deleteGuest(Guest guest) async {
+    deleteSubmissions++;
+    lastDeletedGuest = guest;
+    if (deleteSubmissionFailure != null) throw deleteSubmissionFailure!;
+    if (deleteGate != null) return deleteGate!.future;
+    final worker = guest.kind == 'qemu' ? 'qmdestroy' : 'vzdestroy';
     return 'UPID:${guest.node}:1234:123:abc:$worker:${guest.vmid}:operator@pve:';
   }
 
@@ -3256,6 +3271,171 @@ void main() {
         throwsA(isA<PveFailure>()),
       );
       expect(gateway.migrationSubmissions, 1);
+      expect(ctl.isGuestActionBlocked(refreshed), isTrue);
+    },
+  );
+
+  test(
+    'guest deletion requires stopped guest VM.Allocate and submits exactly once',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway()
+          ..inventoryResources = [
+            {'type': 'node', 'node': 'pve1', 'status': 'online'},
+            {
+              'type': 'qemu',
+              'vmid': 101,
+              'node': 'pve1',
+              'name': 'Web',
+              'status': 'stopped',
+            },
+          ]
+          ..guestPermissionResult = const GuestPermissionSnapshot(
+            privileges: {'VM.Allocate'},
+          ),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 'synthetic',
+      );
+
+      final source = ctl.inventory!.guests.single;
+      await ctl.runGuestDeletion(
+        source,
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+      );
+
+      expect(gateway.guestPermissionCalls, 1);
+      expect(gateway.deleteSubmissions, 1);
+      expect(gateway.lastDeletedGuest?.vmid, 101);
+      expect(ctl.tasks, hasLength(1));
+      expect(ctl.tasks.single.title, contains('Delete Web (101)'));
+      expect(ctl.tasks.single.outcome, OperationOutcome.running);
+      expect(ctl.isGuestActionBlocked(source), isTrue);
+    },
+  );
+
+  test(
+    'guest deletion rejects a running guest before permission or DELETE',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) =>
+            gateway = _Gateway()
+              ..inventoryResources = [
+                {'type': 'node', 'node': 'pve1', 'status': 'online'},
+                {
+                  'type': 'lxc',
+                  'vmid': 202,
+                  'node': 'pve1',
+                  'name': 'API',
+                  'status': 'running',
+                },
+              ],
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 'synthetic',
+      );
+
+      final source = ctl.inventory!.guests.single;
+      await expectLater(
+        ctl.runGuestDeletion(
+          source,
+          profileId: ctl.active!.id,
+          generation: ctl.connectionGeneration,
+        ),
+        throwsA(
+          isA<PveFailure>().having(
+            (error) => error.message,
+            'message',
+            contains('Stop the guest'),
+          ),
+        ),
+      );
+      expect(gateway.guestPermissionCalls, 0);
+      expect(gateway.deleteSubmissions, 0);
+    },
+  );
+
+  test(
+    'ambiguous deletion remains locked and cannot be retried after refresh',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway()
+          ..inventoryResources = [
+            {'type': 'node', 'node': 'pve1', 'status': 'online'},
+            {
+              'type': 'lxc',
+              'vmid': 202,
+              'node': 'pve1',
+              'name': 'API',
+              'status': 'stopped',
+            },
+          ]
+          ..guestPermissionResult = const GuestPermissionSnapshot(
+            privileges: {'VM.Allocate'},
+          )
+          ..deleteSubmissionFailure = const PveFailure(
+            'Response lost',
+            mayHaveExecuted: true,
+          ),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 'synthetic',
+      );
+
+      final source = ctl.inventory!.guests.single;
+      await expectLater(
+        ctl.runGuestDeletion(
+          source,
+          profileId: ctl.active!.id,
+          generation: ctl.connectionGeneration,
+        ),
+        throwsA(
+          isA<PveFailure>().having(
+            (error) => error.mayHaveExecuted,
+            'unknown outcome',
+            isTrue,
+          ),
+        ),
+      );
+      expect(gateway.deleteSubmissions, 1);
+      expect(ctl.isGuestActionBlocked(source), isTrue);
+
+      await ctl.refresh();
+      final refreshed = ctl.inventory!.guests.single;
+      await expectLater(
+        ctl.runGuestDeletion(
+          refreshed,
+          profileId: ctl.active!.id,
+          generation: ctl.connectionGeneration,
+        ),
+        throwsA(isA<PveFailure>()),
+      );
+      expect(gateway.deleteSubmissions, 1);
       expect(ctl.isGuestActionBlocked(refreshed), isTrue);
     },
   );
