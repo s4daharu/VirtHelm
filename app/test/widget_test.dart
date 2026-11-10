@@ -1905,6 +1905,11 @@ void main() {
   testWidgets(
     'connection manager fits a narrow phone at 200 percent text scale',
     (tester) async {
+      // Detach the previous test's MediaQuery dependents before changing the
+      // synthetic view metrics. Flutter can otherwise notify an element that
+      // was removed by the same root update.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
       tester.view.physicalSize = const Size(320, 640);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
