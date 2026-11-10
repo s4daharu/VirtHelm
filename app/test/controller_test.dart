@@ -3579,6 +3579,238 @@ void main() {
   );
 
   test(
+    'restore plan preflight revalidates archive target storage and ACL hints without mutation',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway()
+          ..storageResult = ReadCollection(
+            values: const [
+              StoragePool(
+                node: 'pve1',
+                id: 'backup',
+                type: 'dir',
+                enabled: true,
+                active: true,
+                contentTypes: ['backup'],
+              ),
+              StoragePool(
+                node: 'pve1',
+                id: 'local-lvm',
+                type: 'lvmthin',
+                enabled: true,
+                active: true,
+                contentTypes: ['images', 'rootdir'],
+                available: 10737418240,
+              ),
+            ],
+          )
+          ..clonePermissionResults[901] = const GuestPermissionSnapshot(
+            privileges: {'VM.Allocate'},
+          )
+          ..pathPermissionResults['/storage/local-lvm'] =
+              const GuestPermissionSnapshot(
+                privileges: {'Datastore.AllocateSpace'},
+              ),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 'synthetic',
+      );
+
+      final guest = ctl.inventory!.guests.single;
+      final archive = gateway.backupArchiveResult.archives.single;
+      final result = await ctl.inspectGuestRestorePlan(
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+        guest: guest,
+        archive: archive,
+        request: const GuestRestorePlanRequest(
+          targetNode: 'pve1',
+          targetVmid: 901,
+          targetStorage: 'local-lvm',
+        ),
+      );
+
+      expect(result, isNotNull);
+      expect(result!.status, GuestRestorePlanStatus.preflightComplete);
+      expect(result.sourceArchiveVisible, isTrue);
+      expect(result.sourceStorageUsable, isTrue);
+      expect(result.targetNodeOnline, isTrue);
+      expect(result.targetVmidAvailable, isTrue);
+      expect(result.targetStorageUsable, isTrue);
+      expect(result.vmAllocateAvailable, isTrue);
+      expect(result.datastoreAllocateSpaceAvailable, isTrue);
+      expect(result.targetStorageAvailableBytes, 10737418240);
+      expect(result.blockers, isEmpty);
+      expect(gateway.backupArchiveCalls, 1);
+      expect(gateway.clonePermissionVmids, [901]);
+      expect(gateway.permissionPaths, ['/storage/local-lvm']);
+      expect(gateway.submissions, 0);
+      expect(gateway.backupSubmissions, 0);
+      expect(gateway.qemuCreateSubmissions, 0);
+      expect(gateway.lxcCreateSubmissions, 0);
+      expect(ctl.tasks, isEmpty);
+    },
+  );
+
+  test('restore plan preflight blocks an occupied target VMID', () async {
+    final prefs = await SharedPreferences.getInstance();
+    late _Gateway gateway;
+    final ctl = AppController(
+      repository: ProfileRepository(prefs, _Vault()),
+      gatewayFactory: (profile, credentials) => gateway = _Gateway()
+        ..inventoryResources = [
+          {'type': 'node', 'node': 'pve1', 'status': 'online'},
+          {
+            'type': 'qemu',
+            'vmid': 101,
+            'node': 'pve1',
+            'name': 'Web',
+            'status': 'running',
+          },
+          {
+            'type': 'qemu',
+            'vmid': 901,
+            'node': 'pve1',
+            'name': 'Existing',
+            'status': 'stopped',
+          },
+        ]
+        ..storageResult = ReadCollection(
+          values: const [
+            StoragePool(
+              node: 'pve1',
+              id: 'backup',
+              type: 'dir',
+              enabled: true,
+              active: true,
+              contentTypes: ['backup'],
+            ),
+            StoragePool(
+              node: 'pve1',
+              id: 'local-lvm',
+              type: 'lvmthin',
+              enabled: true,
+              active: true,
+              contentTypes: ['images'],
+            ),
+          ],
+        )
+        ..clonePermissionResults[901] = const GuestPermissionSnapshot(
+          privileges: {'VM.Allocate'},
+        )
+        ..pathPermissionResults['/storage/local-lvm'] =
+            const GuestPermissionSnapshot(
+              privileges: {'Datastore.AllocateSpace'},
+            ),
+    );
+    addTearDown(ctl.dispose);
+    await ctl.initialize();
+    await ctl.connect(
+      name: 'Lab',
+      address: 'https://pve.local',
+      tokenId: 'me@pve!app',
+      secret: 'synthetic',
+    );
+
+    final source = ctl.inventory!.guests.singleWhere(
+      (guest) => guest.vmid == 101,
+    );
+    final result = await ctl.inspectGuestRestorePlan(
+      profileId: ctl.active!.id,
+      generation: ctl.connectionGeneration,
+      guest: source,
+      archive: gateway.backupArchiveResult.archives.single,
+      request: const GuestRestorePlanRequest(
+        targetNode: 'pve1',
+        targetVmid: 901,
+        targetStorage: 'local-lvm',
+      ),
+    );
+
+    expect(result, isNotNull);
+    expect(result!.status, GuestRestorePlanStatus.blocked);
+    expect(result.targetVmidAvailable, isFalse);
+    expect(result.blockers, contains(contains('already in use')));
+    expect(gateway.backupArchiveCalls, 1);
+    expect(gateway.submissions, 0);
+    expect(gateway.backupSubmissions, 0);
+    expect(gateway.qemuCreateSubmissions, 0);
+    expect(ctl.tasks, isEmpty);
+  });
+
+  test('restore preflight 401 invalidates live write safety', () async {
+    final prefs = await SharedPreferences.getInstance();
+    late _Gateway gateway;
+    final ctl = AppController(
+      repository: ProfileRepository(prefs, _Vault()),
+      gatewayFactory: (profile, credentials) =>
+          gateway = _Gateway()
+            ..storageResult = ReadCollection(
+              values: const [
+                StoragePool(
+                  node: 'pve1',
+                  id: 'backup',
+                  type: 'dir',
+                  enabled: true,
+                  active: true,
+                  contentTypes: ['backup'],
+                ),
+                StoragePool(
+                  node: 'pve1',
+                  id: 'local-lvm',
+                  type: 'lvmthin',
+                  enabled: true,
+                  active: true,
+                  contentTypes: ['images'],
+                ),
+              ],
+            ),
+    );
+    addTearDown(ctl.dispose);
+    await ctl.initialize();
+    await ctl.connect(
+      name: 'Lab',
+      address: 'https://pve.local',
+      tokenId: 'me@pve!app',
+      secret: 'synthetic',
+    );
+
+    final source = ctl.inventory!.guests.single;
+    gateway.backupArchiveFailure = const PveFailure(
+      'Authentication failed. Check or rotate your API token.',
+      status: 401,
+    );
+    await expectLater(
+      ctl.inspectGuestRestorePlan(
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+        guest: source,
+        archive: gateway.backupArchiveResult.archives.single,
+        request: const GuestRestorePlanRequest(
+          targetNode: 'pve1',
+          targetVmid: 901,
+          targetStorage: 'local-lvm',
+        ),
+      ),
+      throwsA(isA<PveFailure>()),
+    );
+
+    expect(ctl.message, contains('Authentication failed'));
+    expect(ctl.isInventoryWriteSafe, isFalse);
+    expect(gateway.backupSubmissions, 0);
+    expect(gateway.qemuCreateSubmissions, 0);
+    expect(ctl.tasks, isEmpty);
+  });
+
+  test(
     'guest backup revalidates guest and storage permissions and tracks one task',
     () async {
       final prefs = await SharedPreferences.getInstance();

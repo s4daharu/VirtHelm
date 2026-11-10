@@ -637,6 +637,95 @@ void main() {
     },
   );
 
+  test(
+    'restore plan request validates constrained same-node target inputs',
+    () {
+      const valid = GuestRestorePlanRequest(
+        targetNode: ' pve1 ',
+        targetVmid: 901,
+        targetStorage: ' local-lvm ',
+      );
+      expect(valid.isValid, isTrue);
+      final normalized = valid.normalized();
+      expect(normalized.targetNode, 'pve1');
+      expect(normalized.targetVmid, 901);
+      expect(normalized.targetStorage, 'local-lvm');
+
+      for (final request in [
+        const GuestRestorePlanRequest(
+          targetNode: '',
+          targetVmid: 901,
+          targetStorage: 'local-lvm',
+        ),
+        const GuestRestorePlanRequest(
+          targetNode: 'pve1/other',
+          targetVmid: 901,
+          targetStorage: 'local-lvm',
+        ),
+        const GuestRestorePlanRequest(
+          targetNode: 'pve1',
+          targetVmid: 99,
+          targetStorage: 'local-lvm',
+        ),
+        const GuestRestorePlanRequest(
+          targetNode: 'pve1',
+          targetVmid: 901,
+          targetStorage: '../local',
+        ),
+      ]) {
+        expect(request.isValid, isFalse);
+        expect(request.validationError, isNotNull);
+      }
+    },
+  );
+
+  test('restore preflight status never implies restore authorization', () {
+    const archive = GuestBackupArchive(
+      node: 'pve1',
+      storage: 'backup',
+      volid: 'backup:backup/vzdump-qemu-101-2026_11_11-10_00_00.vma.zst',
+      kind: 'qemu',
+      vmid: 101,
+    );
+    const complete = GuestRestorePlanPreflight(
+      sourceArchive: archive,
+      targetNode: 'pve1',
+      targetVmid: 901,
+      targetStorage: 'local-lvm',
+      status: GuestRestorePlanStatus.preflightComplete,
+      sourceArchiveVisible: true,
+      sourceStorageUsable: true,
+      targetNodeOnline: true,
+      targetVmidAvailable: true,
+      targetStorageUsable: true,
+      vmAllocateAvailable: true,
+      datastoreAllocateSpaceAvailable: true,
+      storageReadComplete: true,
+    );
+    expect(complete.preflightComplete, isTrue);
+    expect(complete.headline, 'Preflight complete');
+
+    const blocked = GuestRestorePlanPreflight(
+      sourceArchive: archive,
+      targetNode: 'pve1',
+      targetVmid: 101,
+      targetStorage: 'local-lvm',
+      status: GuestRestorePlanStatus.blocked,
+      sourceArchiveVisible: true,
+      sourceStorageUsable: true,
+      targetNodeOnline: true,
+      targetVmidAvailable: false,
+      targetStorageUsable: true,
+      vmAllocateAvailable: true,
+      datastoreAllocateSpaceAvailable: true,
+      storageReadComplete: true,
+      blockers: ['Target VMID is already in use.'],
+    );
+    expect(blocked.preflightComplete, isFalse);
+    expect(blocked.headline, 'Blocked');
+    expect(blocked.blockers, isNotEmpty);
+  });
+
   test('template marker is parsed and blocks every power action', () {
     final template = Guest.fromResource({
       'type': 'qemu',

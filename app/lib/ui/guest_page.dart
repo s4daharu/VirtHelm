@@ -38,6 +38,10 @@ class _GuestPageState extends State<GuestPage> {
   String? backupArchiveError;
   DateTime? backupArchivesLoadedAt;
   String? selectedBackupArchiveStorage;
+  bool loadingRestorePlan = false;
+  GuestRestorePlanPreflight? restorePlan;
+  String? restorePlanError;
+  DateTime? restorePlanLoadedAt;
   bool loadingConfiguration = false;
   GuestConfiguration? configuration;
   String? configurationError;
@@ -266,6 +270,9 @@ class _GuestPageState extends State<GuestPage> {
       loadingBackupArchives = true;
       selectedBackupArchiveStorage = storage;
       backupArchiveError = null;
+      restorePlan = null;
+      restorePlanError = null;
+      restorePlanLoadedAt = null;
     });
     try {
       final result = await widget.controller.inspectGuestBackupArchives(
@@ -436,6 +443,198 @@ class _GuestPageState extends State<GuestPage> {
         .toList();
     result.sort();
     return result;
+  }
+
+  List<String> _restoreTargetStorageIds(Guest? guest) {
+    if (guest == null || !_currentSession) return const <String>[];
+    final requiredContent = guest.kind == 'qemu' ? 'images' : 'rootdir';
+    final result = widget.controller.storages
+        .where(
+          (storage) =>
+              storage.node == guest.node &&
+              storage.enabled == true &&
+              storage.active == true &&
+              storage.contentTypes.contains(requiredContent),
+        )
+        .map((storage) => storage.id)
+        .toSet()
+        .toList();
+    result.sort();
+    return result;
+  }
+
+  Future<void> _openRestorePlan(
+    Guest source,
+    GuestBackupArchive archive,
+  ) async {
+    if (!_currentSession || loadingRestorePlan || submitting) return;
+    final targetStorages = _restoreTargetStorageIds(source);
+    if (targetStorages.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No active ${source.kind == 'qemu' ? 'images' : 'rootdir'} storage is visible on ${source.node}.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    var vmidText = '';
+    String? selectedStorage = targetStorages.length == 1
+        ? targetStorages.single
+        : null;
+    GuestRestorePlanRequest? selectedRequest;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final targetVmid = int.tryParse(vmidText.trim());
+          final request = targetVmid == null
+              ? null
+              : GuestRestorePlanRequest(
+                  targetNode: source.node,
+                  targetVmid: targetVmid,
+                  targetStorage: selectedStorage ?? '',
+                ).normalized();
+          final validationError = request?.validationError;
+          return AlertDialog(
+            title: const Text('Plan restore target'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    archive.displayName,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${source.node} • ${source.kind.toUpperCase()} ${source.vmid} source',
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'This is a read-only restore plan. VirtHelm will not submit a restore request.',
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'This first slice supports the current node and a different, free VMID only. Existing-target overwrite, cross-node restore, storage remapping, and the restore mutation remain gated.',
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Preflight re-reads the source archive, clean cluster inventory, target storage state, VM.Allocate, and Datastore.AllocateSpace. Reported archive size is compressed backup metadata and is not proof of restored disk-space sufficiency.',
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    key: const Key('guest-restore-target-vmid'),
+                    initialValue: vmidText,
+                    keyboardType: TextInputType.number,
+                    maxLength: 9,
+                    decoration: InputDecoration(
+                      labelText: 'Alternate target VMID',
+                      hintText: '901',
+                      border: const OutlineInputBorder(),
+                      errorText: vmidText.isEmpty
+                          ? null
+                          : targetVmid == null
+                          ? 'Enter a numeric VMID.'
+                          : validationError,
+                    ),
+                    onChanged: (value) =>
+                        setDialogState(() => vmidText = value),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    key: const Key('guest-restore-target-storage'),
+                    initialValue: selectedStorage,
+                    decoration: const InputDecoration(
+                      labelText: 'Target storage',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      for (final storage in targetStorages)
+                        DropdownMenuItem(value: storage, child: Text(storage)),
+                    ],
+                    onChanged: (value) =>
+                        setDialogState(() => selectedStorage = value),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                key: const Key('guest-restore-plan-submit'),
+                onPressed:
+                    request != null &&
+                        selectedStorage != null &&
+                        validationError == null
+                    ? () {
+                        selectedRequest = request;
+                        Navigator.of(dialogContext).pop(true);
+                      }
+                    : null,
+                child: const Text('Run preflight'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    if (!mounted ||
+        !_currentSession ||
+        confirmed != true ||
+        selectedRequest == null) {
+      return;
+    }
+
+    setState(() {
+      loadingRestorePlan = true;
+      restorePlan = null;
+      restorePlanError = null;
+      restorePlanLoadedAt = null;
+    });
+    try {
+      final result = await widget.controller.inspectGuestRestorePlan(
+        profileId: widget.profileId,
+        generation: widget.generation,
+        guest: source,
+        archive: archive,
+        request: selectedRequest!,
+      );
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        restorePlan = result;
+        restorePlanLoadedAt = result == null ? null : DateTime.now();
+        if (result == null) {
+          restorePlanError =
+              'Restore preflight is no longer current. Refresh and review the archive again.';
+        }
+      });
+    } on PveFailure catch (error) {
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        restorePlan = null;
+        restorePlanLoadedAt = null;
+        restorePlanError = error.message;
+      });
+    } catch (_) {
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        restorePlan = null;
+        restorePlanLoadedAt = null;
+        restorePlanError = 'Could not complete restore preflight.';
+      });
+    } finally {
+      if (mounted && _currentSession) {
+        setState(() => loadingRestorePlan = false);
+      }
+    }
   }
 
   Future<void> _openBackup(Guest source) async {
@@ -1818,6 +2017,16 @@ class _GuestPageState extends State<GuestPage> {
         : null;
     final backupArchives =
         visibleBackupArchives?.archives ?? const <GuestBackupArchive>[];
+    final restoreTargetStorages = _restoreTargetStorageIds(guest);
+    final visibleRestorePlan =
+        guest != null &&
+            restorePlan != null &&
+            backupArchives.any(
+              (archive) => archive.volid == restorePlan!.sourceArchive.volid,
+            ) &&
+            restoreTargetStorages.contains(restorePlan!.targetStorage)
+        ? restorePlan
+        : null;
     final backupValidation = GuestBackupValidationAssessment.evaluate(
       archives: visibleBackupArchives,
       backupTasks: backupTasks,
@@ -1852,8 +2061,10 @@ class _GuestPageState extends State<GuestPage> {
         Text(
           'Snapshots are not backups. Snapshot inventory and exact-guest backup '
           'archive visibility are loaded only when requested. Guarded create-only '
-          'snapshots and one-off vzdump backup submission are available; snapshot '
-          'rollback/delete, archive integrity verification, and restore remain unavailable.',
+          'snapshots and one-off vzdump backup submission are available. A GET-only '
+          'same-node alternate-VMID restore plan/conflict preflight is available for '
+          'visible archives; snapshot rollback/delete, archive integrity verification, '
+          'overwrite/cross-node restore, and the restore mutation remain unavailable.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 10),
@@ -1982,6 +2193,9 @@ class _GuestPageState extends State<GuestPage> {
                             backupArchiveInventory = null;
                             backupArchivesLoadedAt = null;
                             backupArchiveError = null;
+                            restorePlan = null;
+                            restorePlanError = null;
+                            restorePlanLoadedAt = null;
                           });
                         },
                 ),
@@ -2047,6 +2261,14 @@ class _GuestPageState extends State<GuestPage> {
                       : backupArchives[index].displayName,
                 ),
                 subtitle: Text(_backupArchiveSubtitle(backupArchives[index])),
+                trailing: IconButton(
+                  key: ValueKey<String>('guest-plan-restore-$index'),
+                  tooltip: 'Plan restore',
+                  onPressed: restoreTargetStorages.isEmpty || loadingRestorePlan
+                      ? null
+                      : () => _openRestorePlan(guest!, backupArchives[index]),
+                  icon: const Icon(Icons.rule_folder_outlined),
+                ),
               ),
             ),
           const SizedBox(height: 6),
@@ -2054,6 +2276,96 @@ class _GuestPageState extends State<GuestPage> {
             'Archive visibility is not a checksum, PBS verification result, '
             'restore test, or recoverability guarantee.',
             style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+        if (guest != null && restorePlanError != null) ...[
+          const SizedBox(height: 10),
+          Text(restorePlanError!, style: TextStyle(color: scheme.error)),
+        ],
+        if (visibleRestorePlan != null) ...[
+          const SizedBox(height: 14),
+          Card(
+            key: const Key('guest-restore-plan-preflight'),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.rule_folder_outlined),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Restore plan preflight',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              visibleRestorePlan.headline,
+                              key: const Key('guest-restore-plan-headline'),
+                              style: Theme.of(context).textTheme.labelLarge,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${visibleRestorePlan.sourceArchive.displayName}\n'
+                    '${visibleRestorePlan.targetNode} • VMID ${visibleRestorePlan.targetVmid} • ${visibleRestorePlan.targetStorage}'
+                    '${restorePlanLoadedAt != null ? ' • checked ${formatAge(restorePlanLoadedAt!)}' : ''}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const Divider(height: 24),
+                  Text(
+                    '${visibleRestorePlan.sourceArchiveVisible && visibleRestorePlan.sourceStorageUsable ? '✓' : '!'} Source archive and backup storage freshly visible',
+                  ),
+                  Text(
+                    '${visibleRestorePlan.targetNodeOnline ? '✓' : '!'} Target node online',
+                  ),
+                  Text(
+                    '${visibleRestorePlan.targetVmidAvailable ? '✓' : '!'} Target VMID is free',
+                  ),
+                  Text(
+                    '${visibleRestorePlan.targetStorageUsable ? '✓' : '!'} Target storage active and type-compatible',
+                  ),
+                  Text(
+                    '${visibleRestorePlan.vmAllocateAvailable ? '✓' : '!'} VM.Allocate permission hint',
+                  ),
+                  Text(
+                    '${visibleRestorePlan.datastoreAllocateSpaceAvailable ? '✓' : '!'} Datastore.AllocateSpace permission hint',
+                  ),
+                  if (visibleRestorePlan.blockers.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'Blockers',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    for (final blocker in visibleRestorePlan.blockers)
+                      Text('• $blocker'),
+                  ],
+                  const SizedBox(height: 10),
+                  Text(
+                    'Source archive size: ${formatBytes(visibleRestorePlan.sourceArchive.sizeBytes)} • '
+                    'target storage currently available: ${formatBytes(visibleRestorePlan.targetStorageAvailableBytes)}. '
+                    'Archive size is compressed backup metadata, not a restored-disk allocation estimate.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'No restore request has been submitted. This is point-in-time planning evidence only; '
+                    'existing-target overwrite, cross-node restore, and the restore mutation remain gated.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
         const SizedBox(height: 22),

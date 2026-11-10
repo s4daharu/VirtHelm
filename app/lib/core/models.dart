@@ -966,6 +966,97 @@ class GuestBackupValidationAssessment {
   }
 }
 
+class GuestRestorePlanRequest {
+  const GuestRestorePlanRequest({
+    required this.targetNode,
+    required this.targetVmid,
+    required this.targetStorage,
+  });
+
+  final String targetNode;
+  final int targetVmid;
+  final String targetStorage;
+
+  String? get validationError {
+    final node = targetNode.trim();
+    if (node.isEmpty ||
+        node.length > 64 ||
+        !RegExp(
+          r'^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$',
+        ).hasMatch(node)) {
+      return 'Target node is invalid.';
+    }
+    if (targetVmid < 100 || targetVmid > 999999999) {
+      return 'Target VMID must be between 100 and 999999999.';
+    }
+    final storage = targetStorage.trim();
+    if (storage.isEmpty ||
+        storage.length > 64 ||
+        !RegExp(r'^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$').hasMatch(storage)) {
+      return 'Target storage identifier is invalid.';
+    }
+    return null;
+  }
+
+  bool get isValid => validationError == null;
+
+  GuestRestorePlanRequest normalized() => GuestRestorePlanRequest(
+    targetNode: targetNode.trim(),
+    targetVmid: targetVmid,
+    targetStorage: targetStorage.trim(),
+  );
+}
+
+enum GuestRestorePlanStatus { blocked, preflightComplete }
+
+/// Read-only restore planning evidence.
+///
+/// This object never authorizes or submits a restore. It records a point-in-time
+/// conflict/ACL/storage preflight for one already identity-checked archive.
+class GuestRestorePlanPreflight {
+  const GuestRestorePlanPreflight({
+    required this.sourceArchive,
+    required this.targetNode,
+    required this.targetVmid,
+    required this.targetStorage,
+    required this.status,
+    required this.sourceArchiveVisible,
+    required this.sourceStorageUsable,
+    required this.targetNodeOnline,
+    required this.targetVmidAvailable,
+    required this.targetStorageUsable,
+    required this.vmAllocateAvailable,
+    required this.datastoreAllocateSpaceAvailable,
+    required this.storageReadComplete,
+    this.targetStorageAvailableBytes,
+    this.blockers = const <String>[],
+  });
+
+  final GuestBackupArchive sourceArchive;
+  final String targetNode;
+  final int targetVmid;
+  final String targetStorage;
+  final GuestRestorePlanStatus status;
+  final bool sourceArchiveVisible;
+  final bool sourceStorageUsable;
+  final bool targetNodeOnline;
+  final bool targetVmidAvailable;
+  final bool targetStorageUsable;
+  final bool vmAllocateAvailable;
+  final bool datastoreAllocateSpaceAvailable;
+  final bool storageReadComplete;
+  final int? targetStorageAvailableBytes;
+  final List<String> blockers;
+
+  bool get preflightComplete =>
+      status == GuestRestorePlanStatus.preflightComplete;
+
+  String get headline => switch (status) {
+    GuestRestorePlanStatus.blocked => 'Blocked',
+    GuestRestorePlanStatus.preflightComplete => 'Preflight complete',
+  };
+}
+
 class GuestSnapshotCreateRequest {
   const GuestSnapshotCreateRequest({required this.name});
 
