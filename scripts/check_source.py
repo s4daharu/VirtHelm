@@ -87,7 +87,9 @@ required = [
    'docs/85-implementation-lxc-create.md',
    'docs/86-implementation-guest-migration.md',
    'docs/87-implementation-guest-deletion.md',
-   'docs/88-implementation-guest-snapshot-create.md']
+   'docs/88-implementation-guest-snapshot-create.md',
+   'docs/89-implementation-guest-backup-start.md',
+   'app/test/guest_backup_start_test.dart']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)
@@ -267,6 +269,17 @@ assert "Key('guest-create-snapshot')" in files['app/lib/ui/guest_page.dart']
 assert "Key('guest-snapshot-create-submit')" in files['app/lib/ui/guest_page.dart']
 assert 'create-only snapshots' in files['docs/88-implementation-guest-snapshot-create.md']
 assert 'QEMU snapshot creation posts only snapname' in files['app/test/guest_snapshot_create_test.dart']
+assert 'class GuestBackupRequest' in files['app/lib/core/models.dart']
+assert 'abstract class GuestBackupGateway' in files['app/lib/core/pve_api.dart']
+assert "'mode': 'snapshot'" in files['app/lib/core/pve_api.dart']
+assert "parts[5] != 'vzdump'" in files['app/lib/core/pve_api.dart']
+assert 'runGuestBackup' in files['app/lib/core/app_controller.dart']
+assert 'VM.Backup' in files['app/lib/core/app_controller.dart']
+assert 'Datastore.AllocateSpace' in files['app/lib/core/app_controller.dart']
+assert "Key('guest-start-backup')" in files['app/lib/ui/guest_page.dart']
+assert "Key('guest-backup-submit')" in files['app/lib/ui/guest_page.dart']
+assert 'no pruning' in files['docs/89-implementation-guest-backup-start.md'].lower()
+assert 'QEMU backup posts only vmid storage and snapshot mode' in files['app/test/guest_backup_start_test.dart']
 assert '_guestTags' in files['app/lib/core/models.dart']
 assert 'final List<String> tags' in files['app/lib/core/models.dart']
 assert 'String? tag' in files['app/lib/core/guest_list_filter.dart']
