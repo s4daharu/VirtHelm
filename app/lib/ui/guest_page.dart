@@ -434,10 +434,7 @@ class _GuestPageState extends State<GuestPage> {
                     ),
                     items: [
                       for (final storage in storages)
-                        DropdownMenuItem(
-                          value: storage,
-                          child: Text(storage),
-                        ),
+                        DropdownMenuItem(value: storage, child: Text(storage)),
                     ],
                     onChanged: (value) =>
                         setDialogState(() => selectedStorage = value),
