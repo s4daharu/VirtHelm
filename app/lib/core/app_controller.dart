@@ -237,7 +237,10 @@ class AppController extends ChangeNotifier {
     if (target == null || targetStorage == null) return null;
 
     try {
-      final result = await gateway.guestBackupArchives(target, targetStorage.id);
+      final result = await gateway.guestBackupArchives(
+        target,
+        targetStorage.id,
+      );
       if (!current() || currentGuest() == null || currentStorage() == null) {
         return null;
       }
