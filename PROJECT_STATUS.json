@@ -12,7 +12,7 @@
   "framework": "Flutter",
   "primary_pve": "9.2",
   "regression_pve": "8.4",
-  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration and stopped-guest deletion operational slices",
+  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion and create-only snapshot operational slices",
   "github_repository_url": "https://github.com/s4daharu/VirtHelm",
   "documentation_uploaded_and_verified": true,
   "docs_initial_remote_commit": "4fdfcd704aced213508f798533fd6370573ac284",
@@ -138,10 +138,11 @@
       "GUEST-05 partial adds guarded empty QEMU VM creation with online-node revalidation, destination VMID collision checks, VM.Allocate + VM.Config.CPU/Memory/Options hints, a five-field payload, typed VMID confirmation, exactly one POST, UPID tracking and uncertain-outcome lockout. Disk/network/media/storage enrichment remains gated.",
       "GUEST-013 adds guarded unprivileged LXC creation from live-discovered vztmpl content and active rootdir storage, with VM/storage ACL hints, cluster-wide VMID reservation, typed confirmation, exactly one vzcreate POST, strict UPID tracking and uncertain-outcome lockout. Privileged/custom-rootfs/networked/richer provisioning remains gated.",
       "GUEST-06 partial adds guarded same-cluster QEMU/LXC migration with fresh source/online-target revalidation, VM.Migrate hints, Proxmox migration preflight, typed source-VMID confirmation, exactly one migration POST, strict qmigrate/vzmigrate/hamigrate UPID tracking and uncertain-outcome lockout. QEMU local-disk/host-resource migration, storage remapping, force/network tuning, bulk and cross-cluster migration remain gated.",
-      "GUEST-07 first destructive slice adds stopped-only guarded QEMU/LXC deletion with exact identity/state revalidation, VM.Allocate hints, named guest + VMID typed confirmation, explicit recovery-backup acknowledgement, exactly one DELETE, strict qmdestroy/vzdestroy UPID tracking and uncertain-outcome lockout. skiplock/purge/unreferenced-disk knobs, template/running deletion and automated backup/quorum claims remain gated."
+      "GUEST-07 first destructive slice adds stopped-only guarded QEMU/LXC deletion with exact identity/state revalidation, VM.Allocate hints, named guest + VMID typed confirmation, explicit recovery-backup acknowledgement, exactly one DELETE, strict qmdestroy/vzdestroy UPID tracking and uncertain-outcome lockout. skiplock/purge/unreferenced-disk knobs, template/running deletion and automated backup/quorum claims remain gated.",
+      "GUEST-02 partial adds guarded create-only QEMU/LXC snapshots with exact identity/state revalidation, VM.Snapshot hints, a fresh complete snapshot-name collision check, exactly one POST carrying only snapname, strict qmsnapshot/vzsnapshot UPID tracking and uncertain-outcome lockout. QEMU vmstate capture plus snapshot rollback/delete remain gated."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 249,
+    "current_flutter_tests_defined": 257,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; test counts alone are not a release claim. Audited baseline a8f9443 passed both checks and signed prerelease publication.",
     "p0_scope_complete": false,
@@ -525,7 +526,19 @@
     "safety": "Explicit originating profile/generation, foreground/default-network availability, fresh clean unchanged inventory, exact stopped guest identity/state revalidation, synchronous guest plus cluster-wide VMID reservation, VM.Allocate hint, exactly one DELETE without retry, strict source-node/VMID/worker validation, uncertain-outcome lockout and post-terminal authoritative inventory reconciliation.",
     "destructive_boundary": "No skiplock, purge, destroy-unreferenced-disks or equivalent optional deletion parameters are exposed. Templates and running guests are rejected. The UI warns that used/owned volumes and snapshots may be destroyed and requires the operator to acknowledge recovery-backup verification; VirtHelm does not infer backup recoverability.",
     "verification": "New API and controller regressions cover QEMU/LXC DELETE method/worker validation, stopped-state and privilege enforcement, task registration and ambiguous-outcome lockout. Current-head pinned CI and disposable PVE 8.4/9.2 destructive fixtures remain authoritative gates.",
-    "deferred": "Automated backup/quorum/HA safety proof, template deletion, running deletion, skiplock/purge/unreferenced-disk controls, disk-detach/remove, snapshot/backup mutation and bulk destructive operations.",
+    "deferred": "Automated backup/quorum/HA safety proof, template deletion, running deletion, skiplock/purge/unreferenced-disk controls, disk-detach/remove, snapshot rollback/delete, backup mutation and bulk destructive operations.",
     "report": "docs/87-implementation-guest-deletion.md"
+  },
+  "m4_guest_snapshot_creation_workflow": {
+    "status": "implemented_source_level_reviewed_live_gates_open",
+    "feature_id": "GUEST-02 partial / M4 recovery operations",
+    "version": "0.1.41",
+    "behavior": "Non-template QEMU/LXC guest Recovery exposes guarded create-only snapshots for guests whose live state is still exactly running or stopped. Snapshot inventory remains on-demand and rollback/delete are not exposed.",
+    "contract": "GET /access/permissions on exact /vms/{vmid} for VM.Snapshot; GET /nodes/{node}/{qemu|lxc}/{vmid}/snapshot for a complete collision check; exactly one POST to the same snapshot collection with snapname only, returning qmsnapshot/vzsnapshot UPID.",
+    "safety": "Explicit originating profile/generation, foreground/default-network availability, fresh clean unchanged inventory, exact source identity/state revalidation, synchronous guest plus cluster-wide VMID reservation, VM.Snapshot hint, complete non-truncated snapshot-name recheck, one POST without retry, strict source-node/VMID/worker validation, uncertain-outcome lockout and existing task-state reconciliation.",
+    "boundary": "This slice sends only snapname. It does not request QEMU vmstate/RAM capture, descriptions, rollback, snapshot deletion, retention, backup/archive verification, or restore. Snapshots are explicitly not presented as backups.",
+    "verification": "Synthetic gateway and controller regressions cover exact QEMU/LXC POST payloads, strict workers, name validation/collision refusal, VM.Snapshot enforcement, task registration and ambiguous-outcome lockout. Current-head pinned CI and disposable PVE 8.4/9.2 snapshot/storage fixtures remain authoritative gates.",
+    "deferred": "QEMU RAM-state snapshots, snapshot descriptions, rollback/delete, retention, scheduled snapshots, backup execution/archive verification/restore and physical-device certification.",
+    "report": "docs/88-implementation-guest-snapshot-create.md"
   }
 }

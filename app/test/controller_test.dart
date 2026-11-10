@@ -76,6 +76,7 @@ class _Gateway
     implements
         PveGateway,
         GuestPermissionGateway,
+        GuestSnapshotCreateGateway,
         GuestCloneGateway,
         GuestMigrationGateway,
         GuestDeleteGateway,
@@ -95,6 +96,11 @@ class _Gateway
       GuestSnapshot(name: 'before-upgrade'),
     ],
   );
+  int snapshotCreateSubmissions = 0;
+  Guest? lastSnapshotGuest;
+  GuestSnapshotCreateRequest? lastSnapshotRequest;
+  PveFailure? snapshotCreateFailure;
+  Completer<String>? snapshotCreateGate;
   int guestConfigurationCalls = 0;
   Completer<GuestConfiguration>? guestConfigurationGate;
   PveFailure? guestConfigurationFailure;
@@ -329,6 +335,20 @@ class _Gateway
     if (guestSnapshotGate != null) return guestSnapshotGate!.future;
     if (guestSnapshotFailure != null) throw guestSnapshotFailure!;
     return guestSnapshotResult;
+  }
+
+  @override
+  Future<String> createGuestSnapshot(
+    Guest guest,
+    GuestSnapshotCreateRequest request,
+  ) async {
+    snapshotCreateSubmissions++;
+    lastSnapshotGuest = guest;
+    lastSnapshotRequest = request;
+    if (snapshotCreateFailure != null) throw snapshotCreateFailure!;
+    if (snapshotCreateGate != null) return snapshotCreateGate!.future;
+    final worker = guest.kind == 'qemu' ? 'qmsnapshot' : 'vzsnapshot';
+    return 'UPID:${guest.node}:1234:123:abc:$worker:${guest.vmid}:operator@pve:';
   }
 
   @override
@@ -3436,6 +3456,185 @@ void main() {
         throwsA(isA<PveFailure>()),
       );
       expect(gateway.deleteSubmissions, 1);
+      expect(ctl.isGuestActionBlocked(refreshed), isTrue);
+    },
+  );
+
+  test(
+    'guest snapshot creation revalidates permission and tracks one task',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway(),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 'synthetic',
+      );
+
+      final source = ctl.inventory!.guests.single;
+      await ctl.runGuestSnapshotCreate(
+        source,
+        const GuestSnapshotCreateRequest(name: 'pre-change'),
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+      );
+
+      expect(gateway.guestPermissionCalls, 1);
+      expect(gateway.guestSnapshotCalls, 1);
+      expect(gateway.snapshotCreateSubmissions, 1);
+      expect(gateway.lastSnapshotGuest?.vmid, 101);
+      expect(gateway.lastSnapshotRequest?.name, 'pre-change');
+      expect(ctl.tasks, hasLength(1));
+      expect(ctl.tasks.single.title, contains('Snapshot Web (101)'));
+      expect(ctl.tasks.single.title, contains('pre-change'));
+      expect(ctl.tasks.single.outcome, OperationOutcome.running);
+      expect(ctl.isGuestActionBlocked(source), isTrue);
+    },
+  );
+
+  test(
+    'guest snapshot creation rejects missing VM.Snapshot before snapshot read',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway()
+          ..guestPermissionResult = const GuestPermissionSnapshot(
+            privileges: {'VM.Audit'},
+          ),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 'synthetic',
+      );
+
+      final source = ctl.inventory!.guests.single;
+      await expectLater(
+        ctl.runGuestSnapshotCreate(
+          source,
+          const GuestSnapshotCreateRequest(name: 'pre-change'),
+          profileId: ctl.active!.id,
+          generation: ctl.connectionGeneration,
+        ),
+        throwsA(
+          isA<PveFailure>().having((error) => error.status, 'status', 403),
+        ),
+      );
+
+      expect(gateway.guestPermissionCalls, 1);
+      expect(gateway.guestSnapshotCalls, 0);
+      expect(gateway.snapshotCreateSubmissions, 0);
+      expect(ctl.isGuestActionBlocked(source), isFalse);
+    },
+  );
+
+  test(
+    'guest snapshot creation refuses an existing exact snapshot name',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway(),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 'synthetic',
+      );
+
+      final source = ctl.inventory!.guests.single;
+      await expectLater(
+        ctl.runGuestSnapshotCreate(
+          source,
+          const GuestSnapshotCreateRequest(name: 'before-upgrade'),
+          profileId: ctl.active!.id,
+          generation: ctl.connectionGeneration,
+        ),
+        throwsA(
+          isA<PveFailure>().having(
+            (error) => error.message,
+            'message',
+            contains('already exists'),
+          ),
+        ),
+      );
+
+      expect(gateway.guestPermissionCalls, 1);
+      expect(gateway.guestSnapshotCalls, 1);
+      expect(gateway.snapshotCreateSubmissions, 0);
+      expect(ctl.isGuestActionBlocked(source), isFalse);
+    },
+  );
+
+  test(
+    'ambiguous snapshot POST remains locked and cannot be retried',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) => gateway = _Gateway()
+          ..snapshotCreateFailure = const PveFailure(
+            'Response lost',
+            mayHaveExecuted: true,
+          ),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 'synthetic',
+      );
+
+      final source = ctl.inventory!.guests.single;
+      await expectLater(
+        ctl.runGuestSnapshotCreate(
+          source,
+          const GuestSnapshotCreateRequest(name: 'pre-change'),
+          profileId: ctl.active!.id,
+          generation: ctl.connectionGeneration,
+        ),
+        throwsA(
+          isA<PveFailure>().having(
+            (error) => error.mayHaveExecuted,
+            'unknown outcome',
+            isTrue,
+          ),
+        ),
+      );
+      expect(gateway.snapshotCreateSubmissions, 1);
+      expect(ctl.isGuestActionBlocked(source), isTrue);
+
+      await ctl.refresh();
+      final refreshed = ctl.inventory!.guests.single;
+      await expectLater(
+        ctl.runGuestSnapshotCreate(
+          refreshed,
+          const GuestSnapshotCreateRequest(name: 'pre-change'),
+          profileId: ctl.active!.id,
+          generation: ctl.connectionGeneration,
+        ),
+        throwsA(isA<PveFailure>()),
+      );
+      expect(gateway.snapshotCreateSubmissions, 1);
       expect(ctl.isGuestActionBlocked(refreshed), isTrue);
     },
   );

@@ -735,6 +735,31 @@ class GuestSnapshotInventory {
   final bool truncated;
 }
 
+class GuestSnapshotCreateRequest {
+  const GuestSnapshotCreateRequest({required this.name});
+
+  final String name;
+
+  String? get validationError {
+    final normalized = name.trim();
+    if (normalized.isEmpty || normalized.length > 64) {
+      return 'Snapshot name must be 1 to 64 characters.';
+    }
+    if (normalized.toLowerCase() == 'current') {
+      return 'Snapshot name "current" is reserved by Proxmox.';
+    }
+    if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$').hasMatch(normalized)) {
+      return 'Snapshot name may contain letters, numbers, underscores, and hyphens.';
+    }
+    return null;
+  }
+
+  bool get isValid => validationError == null;
+
+  GuestSnapshotCreateRequest normalized() =>
+      GuestSnapshotCreateRequest(name: name.trim());
+}
+
 bool _validPermissionPropagationFlag(Object? value) {
   if (value is bool) return true;
   if (value is num) return value == 0 || value == 1;

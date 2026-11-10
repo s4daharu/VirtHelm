@@ -10,6 +10,15 @@ abstract class GuestPermissionGateway {
   Future<GuestPermissionSnapshot> guestPermissions(Guest guest);
 }
 
+abstract class GuestSnapshotCreateGateway {
+  Future<GuestPermissionSnapshot> guestPermissions(Guest guest);
+  Future<GuestSnapshotInventory> guestSnapshots(Guest guest);
+  Future<String> createGuestSnapshot(
+    Guest guest,
+    GuestSnapshotCreateRequest request,
+  );
+}
+
 abstract class GuestCloneGateway {
   Future<int> nextFreeVmid();
   Future<void> assertVmidAvailable(int vmid);
@@ -82,6 +91,7 @@ class DioPveGateway
     implements
         PveGateway,
         GuestPermissionGateway,
+        GuestSnapshotCreateGateway,
         GuestCloneGateway,
         GuestMigrationGateway,
         GuestDeleteGateway,
@@ -583,6 +593,54 @@ class DioPveGateway
       malformedRecords: malformed,
       truncated: raw.length > snapshotLimit,
     );
+  }
+
+  @override
+  Future<String> createGuestSnapshot(
+    Guest guest,
+    GuestSnapshotCreateRequest request,
+  ) async {
+    if (guest.isTemplate) {
+      throw const FormatException(
+        'Templates cannot use this snapshot workflow.',
+      );
+    }
+    if (!guest.isRunning && !guest.isStopped) {
+      throw const FormatException(
+        'Guest state must be running or stopped before taking a snapshot.',
+      );
+    }
+    final normalized = request.normalized();
+    final validationError = normalized.validationError;
+    if (validationError != null) throw FormatException(validationError);
+
+    final value = await _request(
+      '${_guestPath(guest)}/snapshot',
+      mutation: true,
+      mutationData: {'snapname': normalized.name},
+    );
+    if (value is! String || !value.startsWith('UPID:')) {
+      throw const PveFailure(
+        'Server returned an unexpected snapshot task identifier. Check task history.',
+        mayHaveExecuted: true,
+      );
+    }
+
+    final parts = value.split(':');
+    final expectedWorker = guest.kind == 'qemu' ? 'qmsnapshot' : 'vzsnapshot';
+    if (parts.length != 9 ||
+        parts[1] != guest.node ||
+        !parts.skip(2).take(3).every(RegExp(r'^[0-9A-Fa-f]+$').hasMatch) ||
+        parts[5] != expectedWorker ||
+        parts[6] != guest.vmid.toString() ||
+        parts[7].trim().isEmpty ||
+        parts[8].isNotEmpty) {
+      throw const PveFailure(
+        'Server returned a mismatched snapshot task identifier. Check task history.',
+        mayHaveExecuted: true,
+      );
+    }
+    return value;
   }
 
   @override
