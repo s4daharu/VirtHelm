@@ -253,6 +253,230 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<GuestRestorePlanPreflight?> inspectGuestRestorePlan({
+    required String profileId,
+    required int generation,
+    required Guest guest,
+    required GuestBackupArchive archive,
+    required GuestRestorePlanRequest request,
+  }) async {
+    final gateway = _gateway;
+    final GuestBackupGateway? backupGateway = gateway is GuestBackupGateway
+        ? gateway as GuestBackupGateway
+        : null;
+    final GuestCreateGateway? createGateway = gateway is GuestCreateGateway
+        ? gateway as GuestCreateGateway
+        : null;
+
+    bool current() =>
+        !_disposed && generation == _generation && active?.id == profileId;
+
+    Guest? currentGuest() {
+      final matches = inventory?.guests.where(
+        (item) =>
+            item.node == guest.node &&
+            item.kind == guest.kind &&
+            item.vmid == guest.vmid,
+      );
+      if (matches == null || matches.length != 1) return null;
+      return matches.single;
+    }
+
+    if (!current() ||
+        gateway == null ||
+        backupGateway == null ||
+        createGateway == null ||
+        deviceNetworkState == DeviceNetworkState.unavailable) {
+      return null;
+    }
+
+    final source = currentGuest();
+    if (source == null) return null;
+    if (archive.node != source.node ||
+        archive.kind != source.kind ||
+        archive.vmid != source.vmid) {
+      throw const PveFailure(
+        'Selected backup archive no longer matches this guest.',
+      );
+    }
+    final cachedSourceStorage = storages.where(
+      (item) =>
+          item.node == source.node &&
+          item.id == archive.storage &&
+          item.enabled == true &&
+          item.active == true &&
+          item.contentTypes.contains('backup'),
+    );
+    if (cachedSourceStorage.length != 1) {
+      return null;
+    }
+
+    final normalized = request.normalized();
+    final validationError = normalized.validationError;
+    if (validationError != null) throw PveFailure(validationError);
+    if (normalized.targetNode != source.node) {
+      throw const PveFailure(
+        'Cross-node restore planning remains gated in this milestone.',
+      );
+    }
+
+    final inventorySnapshot = inventory;
+    bool stillCurrent() =>
+        current() &&
+        identical(inventorySnapshot, inventory) &&
+        currentGuest() != null;
+
+    final live = await gateway.inventory();
+    if (!stillCurrent()) return null;
+    if (live.malformedGuestRecords != 0) {
+      throw const PveFailure(
+        'Live inventory verification is incomplete. Restore planning was stopped.',
+      );
+    }
+
+    final liveSources = live.guests
+        .where(
+          (item) =>
+              item.node == source.node &&
+              item.kind == source.kind &&
+              item.vmid == source.vmid,
+        )
+        .toList(growable: false);
+    if (liveSources.length != 1) {
+      throw const PveFailure(
+        'The source guest moved or disappeared during restore planning.',
+      );
+    }
+    final liveSource = liveSources.single;
+
+    final freshArchives = await gateway.guestBackupArchives(
+      liveSource,
+      archive.storage,
+    );
+    if (!stillCurrent()) return null;
+    final sourceArchiveVisible = freshArchives.archives.any(
+      (item) =>
+          item.volid == archive.volid &&
+          item.kind == archive.kind &&
+          item.vmid == archive.vmid,
+    );
+
+    final storageRead = await gateway.storageOverview([
+      normalized.targetNode,
+    ]);
+    if (!stillCurrent()) return null;
+
+    final targetNodeOnline = live.nodes.any(
+      (item) =>
+          item.name == normalized.targetNode && item.status == 'online',
+    );
+    final targetVmidAvailable = !live.guests.any(
+      (item) => item.vmid == normalized.targetVmid,
+    );
+    final sourceStorageMatches = storageRead.values.where(
+      (item) =>
+          item.node == source.node &&
+          item.id == archive.storage &&
+          item.enabled == true &&
+          item.active == true &&
+          item.contentTypes.contains('backup'),
+    );
+    final sourceStorageUsable =
+        storageRead.complete && sourceStorageMatches.length == 1;
+
+    final requiredTargetContent = source.kind == 'qemu' ? 'images' : 'rootdir';
+    final targetStorageMatches = storageRead.values.where(
+      (item) =>
+          item.node == normalized.targetNode &&
+          item.id == normalized.targetStorage,
+    );
+    final targetStorage = targetStorageMatches.length == 1
+        ? targetStorageMatches.single
+        : null;
+    final targetStorageUsable =
+        storageRead.complete &&
+        targetStorage != null &&
+        targetStorage.enabled == true &&
+        targetStorage.active == true &&
+        targetStorage.contentTypes.contains(requiredTargetContent);
+
+    final vmPermissions = await createGateway.permissionsForVmid(
+      normalized.targetVmid,
+    );
+    if (!stillCurrent()) return null;
+    final storagePermissions = await backupGateway.permissionsForPath(
+      '/storage/${normalized.targetStorage}',
+    );
+    if (!stillCurrent()) return null;
+
+    final vmAllocateAvailable = vmPermissions.has('VM.Allocate');
+    final datastoreAllocateSpaceAvailable = storagePermissions.has(
+      'Datastore.AllocateSpace',
+    );
+
+    final blockers = <String>[];
+    if (!sourceArchiveVisible) {
+      blockers.add(
+        freshArchives.truncated
+            ? 'The selected archive could not be confirmed in the truncated fresh archive response.'
+            : 'The selected archive is no longer visible on the source backup storage.',
+      );
+    }
+    if (!storageRead.complete) {
+      blockers.add(
+        'Storage inventory is incomplete; source and target storage state cannot be trusted.',
+      );
+    }
+    if (!sourceStorageUsable) {
+      blockers.add(
+        'The source backup storage is no longer uniquely active and backup-capable.',
+      );
+    }
+    if (!targetNodeOnline) {
+      blockers.add('The target node is not currently online.');
+    }
+    if (!targetVmidAvailable) {
+      blockers.add(
+        'Target VMID ${normalized.targetVmid} is already in use. Overwrite restore remains gated.',
+      );
+    }
+    if (!targetStorageUsable) {
+      blockers.add(
+        'Target storage "${normalized.targetStorage}" is not uniquely active with $requiredTargetContent content.',
+      );
+    }
+    if (!vmAllocateAvailable) {
+      blockers.add(
+        'The active token does not report VM.Allocate on target VMID ${normalized.targetVmid}.',
+      );
+    }
+    if (!datastoreAllocateSpaceAvailable) {
+      blockers.add(
+        'The active token does not report Datastore.AllocateSpace on target storage "${normalized.targetStorage}".',
+      );
+    }
+
+    return GuestRestorePlanPreflight(
+      sourceArchive: archive,
+      targetNode: normalized.targetNode,
+      targetVmid: normalized.targetVmid,
+      targetStorage: normalized.targetStorage,
+      status: blockers.isEmpty
+          ? GuestRestorePlanStatus.preflightComplete
+          : GuestRestorePlanStatus.blocked,
+      sourceArchiveVisible: sourceArchiveVisible,
+      sourceStorageUsable: sourceStorageUsable,
+      targetNodeOnline: targetNodeOnline,
+      targetVmidAvailable: targetVmidAvailable,
+      targetStorageUsable: targetStorageUsable,
+      vmAllocateAvailable: vmAllocateAvailable,
+      datastoreAllocateSpaceAvailable: datastoreAllocateSpaceAvailable,
+      storageReadComplete: storageRead.complete,
+      targetStorageAvailableBytes: targetStorage?.available,
+      blockers: List<String>.unmodifiable(blockers),
+    );
+  }
+
   Future<GuestConfiguration?> inspectGuestConfiguration({
     required String profileId,
     required int generation,
