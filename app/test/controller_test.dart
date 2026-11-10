@@ -3742,6 +3742,69 @@ void main() {
     expect(ctl.tasks, isEmpty);
   });
 
+  test('restore preflight 401 invalidates live write safety', () async {
+    final prefs = await SharedPreferences.getInstance();
+    late _Gateway gateway;
+    final ctl = AppController(
+      repository: ProfileRepository(prefs, _Vault()),
+      gatewayFactory: (profile, credentials) => gateway = _Gateway()
+        ..storageResult = ReadCollection(
+          values: const [
+            StoragePool(
+              node: 'pve1',
+              id: 'backup',
+              type: 'dir',
+              enabled: true,
+              active: true,
+              contentTypes: ['backup'],
+            ),
+            StoragePool(
+              node: 'pve1',
+              id: 'local-lvm',
+              type: 'lvmthin',
+              enabled: true,
+              active: true,
+              contentTypes: ['images'],
+            ),
+          ],
+        ),
+    );
+    addTearDown(ctl.dispose);
+    await ctl.initialize();
+    await ctl.connect(
+      name: 'Lab',
+      address: 'https://pve.local',
+      tokenId: 'me@pve!app',
+      secret: 'synthetic',
+    );
+
+    final source = ctl.inventory!.guests.single;
+    gateway.backupArchiveFailure = const PveFailure(
+      'Authentication failed. Check or rotate your API token.',
+      status: 401,
+    );
+    await expectLater(
+      ctl.inspectGuestRestorePlan(
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+        guest: source,
+        archive: gateway.backupArchiveResult.archives.single,
+        request: const GuestRestorePlanRequest(
+          targetNode: 'pve1',
+          targetVmid: 901,
+          targetStorage: 'local-lvm',
+        ),
+      ),
+      throwsA(isA<PveFailure>()),
+    );
+
+    expect(ctl.message, contains('Authentication failed'));
+    expect(ctl.isInventoryWriteSafe, isFalse);
+    expect(gateway.backupSubmissions, 0);
+    expect(gateway.qemuCreateSubmissions, 0);
+    expect(ctl.tasks, isEmpty);
+  });
+
   test(
     'guest backup revalidates guest and storage permissions and tracks one task',
     () async {
