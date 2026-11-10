@@ -634,6 +634,54 @@ class _GuestPageState extends State<GuestPage> {
     return parts.join(' • ');
   }
 
+  String _backupValidationArchiveText(
+    GuestBackupValidationAssessment assessment,
+  ) {
+    final archive = assessment.latestArchive;
+    if (!assessment.archiveReadCompleted) {
+      return 'Not loaded. Load backup archives for the selected storage.';
+    }
+    if (archive == null) {
+      return 'No matching backup archive is currently visible.';
+    }
+    final parts = <String>[
+      '${assessment.visibleArchiveCount} matching archive'
+          '${assessment.visibleArchiveCount == 1 ? '' : 's'} visible',
+      'exact ${archive.kind.toUpperCase()} ${archive.vmid} identity',
+    ];
+    if (archive.createdAt != null) {
+      parts.add('latest created ${formatAge(archive.createdAt!)}');
+    }
+    if (archive.sizeBytes != null) {
+      parts.add(formatBytes(archive.sizeBytes));
+    }
+    if (assessment.ignoredArchiveRows > 0) {
+      parts.add('${assessment.ignoredArchiveRows} unusable row(s) ignored');
+    }
+    if (assessment.archiveListTruncated) {
+      parts.add('response truncated locally');
+    }
+    return parts.join(' • ');
+  }
+
+  String _backupValidationTaskText(
+    GuestBackupValidationAssessment assessment,
+  ) {
+    final task = assessment.latestBackupTask;
+    if (task == null) {
+      return 'No vzdump task for this VMID is visible in the current recent-task window.';
+    }
+    final when = task.endedAt ?? task.startedAt;
+    final state = switch (assessment.taskEvidence) {
+      BackupTaskEvidence.none => 'not visible',
+      BackupTaskEvidence.running => 'running',
+      BackupTaskEvidence.succeeded => 'succeeded',
+      BackupTaskEvidence.failed => 'failed',
+      BackupTaskEvidence.unknown => 'unknown',
+    };
+    return when == null ? 'Latest visible task: $state.' : 'Latest visible task: $state • ${formatAge(when)}.';
+  }
+
   Future<void> execute(Guest guest, GuestAction action) async {
     if (submitting || !_currentSession) return;
     final isForce = action == GuestAction.stop;
@@ -1770,6 +1818,10 @@ class _GuestPageState extends State<GuestPage> {
         : null;
     final backupArchives =
         visibleBackupArchives?.archives ?? const <GuestBackupArchive>[];
+    final backupValidation = GuestBackupValidationAssessment.evaluate(
+      archives: visibleBackupArchives,
+      backupTasks: backupTasks,
+    );
     final scheme = Theme.of(context).colorScheme;
     final snapshotCreateAllowed =
         guest != null &&
@@ -2004,6 +2056,93 @@ class _GuestPageState extends State<GuestPage> {
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
+        const SizedBox(height: 22),
+        Card(
+          key: const Key('guest-backup-validation-confidence'),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.fact_check_outlined),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Backup validation confidence',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            backupValidation.headline,
+                            key: const Key('guest-backup-validation-headline'),
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  backupValidation.confidence ==
+                          BackupValidationConfidence.partial
+                      ? 'VirtHelm has partial operational evidence because a matching archive is visible. '
+                            'Confidence cannot become verified from PVE archive visibility or task history alone.'
+                      : backupValidation.confidence ==
+                            BackupValidationConfidence.insufficient
+                      ? 'The selected storage was checked, but no matching archive is visible. '
+                            'Recent task success cannot upgrade this result.'
+                      : 'Archive visibility has not been loaded for the selected storage, so backup validation is not assessed.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const Divider(height: 24),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  leading: const Icon(Icons.inventory_2_outlined),
+                  title: const Text('Archive visibility and identity'),
+                  subtitle: Text(_backupValidationArchiveText(backupValidation)),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  leading: const Icon(Icons.task_alt_outlined),
+                  title: const Text('Recent backup task evidence'),
+                  subtitle: Text(_backupValidationTaskText(backupValidation)),
+                ),
+                const ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  leading: Icon(Icons.verified_outlined),
+                  title: Text('Integrity verification'),
+                  subtitle: Text(
+                    'Unavailable in this PVE-only workflow. No PBS verification result or checksum validation is consumed.',
+                  ),
+                ),
+                const ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  leading: Icon(Icons.settings_backup_restore_outlined),
+                  title: Text('Restore test'),
+                  subtitle: Text(
+                    'Unavailable. VirtHelm has not performed or recorded a tested restore for this archive.',
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'This card is evidence classification only. It is not a recoverability guarantee and never authorizes restore.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ),
         const SizedBox(height: 22),
         Text(
           'Recent backup tasks',
