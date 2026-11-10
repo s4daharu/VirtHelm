@@ -244,6 +244,65 @@ class _GuestPageState extends State<GuestPage> {
     }
   }
 
+  Future<void> loadBackupArchives() async {
+    final guest = currentGuest();
+    if (loadingBackupArchives || !_currentSession || guest == null) return;
+    final storages = _backupStorageIds(guest);
+    var storage = selectedBackupArchiveStorage;
+    if (storage == null || !storages.contains(storage)) {
+      storage = storages.length == 1 ? storages.single : null;
+    }
+    if (storage == null) {
+      setState(() {
+        backupArchiveInventory = null;
+        backupArchivesLoadedAt = null;
+        backupArchiveError = 'Choose one backup storage before loading archives.';
+      });
+      return;
+    }
+
+    setState(() {
+      loadingBackupArchives = true;
+      selectedBackupArchiveStorage = storage;
+      backupArchiveError = null;
+    });
+    try {
+      final result = await widget.controller.inspectGuestBackupArchives(
+        profileId: widget.profileId,
+        generation: widget.generation,
+        guest: guest,
+        storage: storage,
+      );
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        backupArchiveInventory = result;
+        backupArchivesLoadedAt = result == null ? null : DateTime.now();
+        if (result == null) {
+          backupArchiveError =
+              'Backup archive data is no longer current. Refresh and reopen this guest.';
+        }
+      });
+    } on PveFailure catch (error) {
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        backupArchiveInventory = null;
+        backupArchivesLoadedAt = null;
+        backupArchiveError = error.message;
+      });
+    } catch (_) {
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        backupArchiveInventory = null;
+        backupArchivesLoadedAt = null;
+        backupArchiveError = 'Could not load backup archives.';
+      });
+    } finally {
+      if (mounted && _currentSession) {
+        setState(() => loadingBackupArchives = false);
+      }
+    }
+  }
+
   Future<void> _openSnapshotCreate(Guest source) async {
     if (!_currentSession || submitting || source.isTemplate) return;
     if (!source.isRunning && !source.isStopped) {
