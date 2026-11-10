@@ -1884,15 +1884,135 @@ class _GuestPageState extends State<GuestPage> {
             ),
         ],
         const SizedBox(height: 22),
+        Text('Backup archives', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 6),
+        Text(
+          'Read-only storage content for this exact VMID and QEMU/LXC type. '
+          'A visible archive is stronger evidence than task history alone, but '
+          'VirtHelm does not inspect archive contents, verify integrity, or test restore.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 10),
+        if (backupStorages.isEmpty)
+          const Card(
+            child: ListTile(
+              leading: Icon(Icons.inventory_2_outlined),
+              title: Text('No backup storage available'),
+              subtitle: Text(
+                'No enabled, active storage advertising backup content is visible '
+                'on this guest node.',
+              ),
+            ),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: 280,
+                child: DropdownButton<String>(
+                  key: const Key('guest-backup-archive-storage'),
+                  value: effectiveBackupArchiveStorage,
+                  hint: const Text('Choose backup storage'),
+                  isExpanded: true,
+                  items: [
+                    for (final storage in backupStorages)
+                      DropdownMenuItem(value: storage, child: Text(storage)),
+                  ],
+                  onChanged: loadingBackupArchives
+                      ? null
+                      : (value) {
+                          setState(() {
+                            selectedBackupArchiveStorage = value;
+                            backupArchiveInventory = null;
+                            backupArchivesLoadedAt = null;
+                            backupArchiveError = null;
+                          });
+                        },
+                ),
+              ),
+              FilledButton.tonalIcon(
+                key: const Key('guest-load-backup-archives'),
+                onPressed:
+                    guest == null ||
+                        effectiveBackupArchiveStorage == null ||
+                        loadingBackupArchives
+                    ? null
+                    : loadBackupArchives,
+                icon: loadingBackupArchives
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.inventory_2_outlined),
+                label: Text(
+                  visibleBackupArchives == null
+                      ? 'Load archives'
+                      : 'Refresh archives',
+                ),
+              ),
+            ],
+          ),
+        if (guest != null && backupArchiveError != null) ...[
+          const SizedBox(height: 10),
+          Text(backupArchiveError!, style: TextStyle(color: scheme.error)),
+        ],
+        if (visibleBackupArchives != null) ...[
+          const SizedBox(height: 10),
+          Text(
+            '${backupArchives.length} archive${backupArchives.length == 1 ? '' : 's'}'
+            ' on ${visibleBackupArchives.storage}'
+            '${visibleBackupArchives.ignoredRecords > 0 ? ' • ${visibleBackupArchives.ignoredRecords} unusable row(s) ignored' : ''}'
+            '${visibleBackupArchives.truncated ? ' • response truncated locally' : ''}'
+            '${backupArchivesLoadedAt != null ? ' • loaded ${formatAge(backupArchivesLoadedAt!)}' : ''}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          if (backupArchives.isEmpty)
+            const Card(
+              child: ListTile(
+                leading: Icon(Icons.inventory_2_outlined),
+                title: Text('No backup archive reported'),
+                subtitle: Text(
+                  'PVE did not report backup content matching this guest on the selected storage.',
+                ),
+              ),
+            ),
+          for (var index = 0; index < backupArchives.length; index++)
+            Card(
+              child: ListTile(
+                leading: Icon(
+                  index == 0
+                      ? Icons.inventory_2_rounded
+                      : Icons.inventory_2_outlined,
+                ),
+                title: Text(
+                  index == 0
+                      ? 'Latest • ${backupArchives[index].displayName}'
+                      : backupArchives[index].displayName,
+                ),
+                subtitle: Text(_backupArchiveSubtitle(backupArchives[index])),
+              ),
+            ),
+          const SizedBox(height: 6),
+          Text(
+            'Archive visibility is not a checksum, PBS verification result, '
+            'restore test, or recoverability guarantee.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+        const SizedBox(height: 22),
         Text(
           'Recent backup tasks',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 6),
         Text(
-          'Recent Proxmox vzdump task outcomes for this VMID only. Starting a '
-          'backup and seeing task success still does not prove an archive exists, '
-          'is verified, or is restorable.',
+          'Recent Proxmox vzdump task outcomes for this VMID only. A successful '
+          'task does not by itself prove a matching archive is still visible, '
+          'verified, or restorable; load archive visibility separately.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         if (widget.controller.serverTaskMessage != null) ...[
