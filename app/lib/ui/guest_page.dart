@@ -578,7 +578,9 @@ class _GuestPageState extends State<GuestPage> {
                   Text(
                     'This permanently destroys the guest and the used/owned volumes Proxmox associates with it. '
                     'Snapshots are not backups. VirtHelm does not expose skip-lock, purge, or unreferenced-disk deletion options in this guarded slice.',
-                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   const Text(
