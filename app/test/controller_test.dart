@@ -116,8 +116,7 @@ class _Gateway
           GuestBackupArchive(
             node: 'pve1',
             storage: 'backup',
-            volid:
-                'backup:backup/vzdump-qemu-101-2026_11_11-10_00_00.vma.zst',
+            volid: 'backup:backup/vzdump-qemu-101-2026_11_11-10_00_00.vma.zst',
             kind: 'qemu',
             vmid: 101,
             sizeBytes: 1024,
@@ -3530,19 +3529,20 @@ void main() {
       late _Gateway gateway;
       final ctl = AppController(
         repository: ProfileRepository(prefs, _Vault()),
-        gatewayFactory: (profile, credentials) => gateway = _Gateway()
-          ..storageResult = ReadCollection(
-            values: const [
-              StoragePool(
-                node: 'pve1',
-                id: 'backup',
-                type: 'dir',
-                enabled: true,
-                active: true,
-                contentTypes: ['backup'],
+        gatewayFactory: (profile, credentials) =>
+            gateway = _Gateway()
+              ..storageResult = ReadCollection(
+                values: const [
+                  StoragePool(
+                    node: 'pve1',
+                    id: 'backup',
+                    type: 'dir',
+                    enabled: true,
+                    active: true,
+                    contentTypes: ['backup'],
+                  ),
+                ],
               ),
-            ],
-          ),
       );
       addTearDown(ctl.dispose);
       await ctl.initialize();
