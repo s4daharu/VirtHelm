@@ -12,7 +12,7 @@
   "framework": "Flutter",
   "primary_pve": "9.2",
   "regression_pve": "8.4",
-  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, create-only snapshot, one-off backup-start, exact-guest backup-archive visibility and evidence-limited backup validation confidence operational slices",
+  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, create-only snapshot, one-off backup-start, exact-guest backup-archive visibility, evidence-limited backup validation confidence, and GET-only same-node alternate-VMID restore-plan/conflict-preflight operational slices",
   "github_repository_url": "https://github.com/s4daharu/VirtHelm",
   "documentation_uploaded_and_verified": true,
   "docs_initial_remote_commit": "4fdfcd704aced213508f798533fd6370573ac284",
@@ -37,7 +37,7 @@
   "m1_validation": "Automated branch CI has passed source checks, analyzer, tests and Android debug APK build for the M1 safety implementation; live PVE/device release validation remains open.",
   "flutter_build_success": true,
   "ci_flutter_version": "3.44.4",
-  "android_build_evidence": "Full Docs and Android checks and signed prerelease publication passed for audited baseline a8f9443c58ac2d92ac438610dfe1f193e09e58dc. The read-only guest recovery milestone is subject to the same current-head CI/release gates; live PVE/device release validation remains open.",
+  "android_build_evidence": "Full Docs and Android checks and signed prerelease publication passed for audited baseline a8f9443c58ac2d92ac438610dfe1f193e09e58dc. The 0.1.45 restore-plan/conflict-preflight milestone remains subject to current-head CI plus live PVE/device release gates.",
   "m1_safety_followup": "Implemented: per-guest single-flight, profile/snapshot revalidation, bounded task verification, ambiguous-outcome lockout, auth-revocation fail-closed handling and race regression tests.",
   "m2_read_cockpit": {
     "features": [
@@ -142,10 +142,11 @@
       "GUEST-02 partial adds guarded create-only QEMU/LXC snapshots with exact identity/state revalidation, VM.Snapshot hints, a fresh complete snapshot-name collision check, exactly one POST carrying only snapname, strict qmsnapshot/vzsnapshot UPID tracking and uncertain-outcome lockout. QEMU vmstate capture plus snapshot rollback/delete remain gated.",
       "GUEST-03 partial adds guarded one-off QEMU/LXC vzdump submission to a selected active backup-capable storage: exact guest/state revalidation, VM.Backup plus Datastore.AllocateSpace hints, exactly one snapshot-mode POST, strict vzdump UPID matching and uncertain-outcome lockout. Pruning/retention, hooks/tuning, archive verification and restore remain gated.",
       "BKP-002 partial adds on-demand exact-guest backup archive visibility from one current active backup-capable storage: content=backup plus exact-VMID GET, QEMU/LXC volume-ID identity filtering, bounded reviewed metadata, newest-first display, and session/storage redaction. Archive presence is not checksum/integrity verification or a restore test.",
-      "BKP-009 partial adds a local backup validation confidence card over exact-guest archive visibility plus the newest recent vzdump task. States are only Not assessed, Insufficient evidence and Partial evidence; task success cannot replace archive presence, and archive presence can never become checksum/PBS verification or tested-restore evidence."
+      "BKP-009 partial adds a local backup validation confidence card over exact-guest archive visibility plus the newest recent vzdump task. States are only Not assessed, Insufficient evidence and Partial evidence; task success cannot replace archive presence, and archive presence can never become checksum/PBS verification or tested-restore evidence.",
+      "BKP-007/BKP-008 first slice adds GET-only same-node alternate-VMID restore planning for one currently visible exact-guest archive. Fresh clean inventory, archive visibility, source/target storage state, target VMID conflicts, VM.Allocate and Datastore.AllocateSpace hints are rechecked; archive size is not treated as restored-capacity proof, and no restore mutation/overwrite/cross-node path is exposed."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 272,
+    "current_flutter_tests_defined": 276,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; test counts alone are not a release claim. Audited baseline a8f9443 passed both checks and signed prerelease publication.",
     "p0_scope_complete": false,
@@ -414,6 +415,18 @@
       "safety": "Branding-only native resource change. No API, credential, TLS, network, persistence or mutation behavior changes.",
       "verification": "Generated-runner validation, formatting, analyzer, Flutter tests, Docs and Android checks passed on audited baseline a8f9443c58ac2d92ac438610dfe1f193e09e58dc; signed prerelease publication also succeeded. Physical-device branding review remains open.",
       "report": "docs/77-whole-repository-cross-check-2026-11-08.md"
+    },
+    "restore_plan_preflight": {
+      "status": "implemented_source_level_read_only",
+      "feature_ids": [
+        "BKP-007",
+        "BKP-008"
+      ],
+      "behavior": "plan one visible exact-guest backup archive to a same-node alternate free VMID and compatible storage; rerun fresh archive/inventory/storage/ACL conflict checks without mutation",
+      "mutation_boundary": "no restore POST/PUT/DELETE or task submission; overwrite, cross-node and richer mapping remain gated",
+      "capacity_boundary": "reported archive size and target available bytes are context only; compressed archive size is not treated as restored disk allocation",
+      "followup": "docs/92-implementation-restore-plan-preflight.md",
+      "release_validation": "live PVE 8.4/9.2 archive/storage/ACL fixtures and physical Android accessibility/network lifecycle remain open"
     }
   },
   "m3_safe_operator_read_recovery": {
