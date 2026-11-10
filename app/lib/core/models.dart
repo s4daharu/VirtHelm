@@ -825,7 +825,9 @@ class GuestBackupArchive {
 
     final volid = _backupArchiveText(json['volid']);
     if (volid == null) {
-      throw const FormatException('Backup record is missing a valid volume ID.');
+      throw const FormatException(
+        'Backup record is missing a valid volume ID.',
+      );
     }
     final identity = _backupArchiveIdentity(volid, storage);
     if (identity == null ||
