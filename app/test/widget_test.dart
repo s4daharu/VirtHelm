@@ -924,10 +924,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Not assessed'), findsOneWidget);
-      expect(
-        find.textContaining('No PBS verification result'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('No PBS verification result'), findsOneWidget);
 
       await tester.scrollUntilVisible(
         find.text('Recent backup tasks'),
@@ -973,18 +970,12 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Partial evidence'), findsOneWidget);
-      expect(
-        find.textContaining('exact QEMU 101 identity'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('exact QEMU 101 identity'), findsOneWidget);
       expect(
         find.textContaining('Latest visible task: succeeded'),
         findsOneWidget,
       );
-      expect(
-        find.textContaining('never authorizes restore'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('never authorizes restore'), findsOneWidget);
 
       await tester.scrollUntilVisible(
         find.byKey(const Key('guest-load-snapshots')),
