@@ -26,6 +26,11 @@ abstract class GuestMigrationGateway {
   Future<String> migrateGuest(Guest guest, GuestMigrationRequest request);
 }
 
+abstract class GuestDeleteGateway {
+  Future<GuestPermissionSnapshot> guestPermissions(Guest guest);
+  Future<String> deleteGuest(Guest guest);
+}
+
 abstract class GuestCreateGateway {
   Future<int> nextFreeVmid();
   Future<void> assertVmidAvailable(int vmid);
@@ -79,6 +84,7 @@ class DioPveGateway
         GuestPermissionGateway,
         GuestCloneGateway,
         GuestMigrationGateway,
+        GuestDeleteGateway,
         GuestCreateGateway,
         LxcCreateGateway {
   DioPveGateway(
@@ -193,11 +199,21 @@ class DioPveGateway
   Future<Response<dynamic>> _sendRequest(
     String path, {
     required bool mutation,
+    bool deleteMutation = false,
     Map<String, dynamic>? queryParameters,
     Map<String, dynamic>? mutationData,
   }) async {
     if (_closed) throw const PveFailure('Connection closed.');
     if (mutation) {
+      if (deleteMutation) {
+        return _http.delete<dynamic>(
+          path,
+          data: mutationData,
+          options: mutationData == null
+              ? null
+              : Options(contentType: Headers.formUrlEncodedContentType),
+        );
+      }
       return _http.post<dynamic>(
         path,
         data: mutationData,
@@ -229,6 +245,7 @@ class DioPveGateway
   Future<dynamic> _request(
     String path, {
     bool mutation = false,
+    bool deleteMutation = false,
     Map<String, dynamic>? queryParameters,
     Map<String, dynamic>? mutationData,
   }) async {
@@ -236,6 +253,7 @@ class DioPveGateway
       final response = await _sendRequest(
         path,
         mutation: mutation,
+        deleteMutation: deleteMutation,
         queryParameters: queryParameters,
         mutationData: mutationData,
       );
@@ -756,6 +774,44 @@ class DioPveGateway
         parts[8].isNotEmpty) {
       throw const PveFailure(
         'Server returned a mismatched migration task identifier. Check task history.',
+        mayHaveExecuted: true,
+      );
+    }
+    return value;
+  }
+
+  @override
+  Future<String> deleteGuest(Guest guest) async {
+    if (guest.isTemplate) {
+      throw const FormatException(
+        'Templates cannot be deleted by this workflow.',
+      );
+    }
+    if (!guest.isStopped) {
+      throw const FormatException('Stop the guest before deletion.');
+    }
+    final value = await _request(
+      _guestPath(guest),
+      mutation: true,
+      deleteMutation: true,
+    );
+    if (value is! String || !value.startsWith('UPID:')) {
+      throw const PveFailure(
+        'Server returned an unexpected deletion task identifier. Check task history.',
+        mayHaveExecuted: true,
+      );
+    }
+    final parts = value.split(':');
+    final expectedWorker = guest.kind == 'qemu' ? 'qmdestroy' : 'vzdestroy';
+    if (parts.length != 9 ||
+        parts[1] != guest.node ||
+        !parts.skip(2).take(3).every(RegExp(r'^[0-9A-Fa-f]+$').hasMatch) ||
+        parts[5] != expectedWorker ||
+        parts[6] != guest.vmid.toString() ||
+        parts[7].trim().isEmpty ||
+        parts[8].isNotEmpty) {
+      throw const PveFailure(
+        'Server returned a mismatched deletion task identifier. Check task history.',
         mayHaveExecuted: true,
       );
     }

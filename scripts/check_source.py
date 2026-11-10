@@ -22,6 +22,7 @@ required = [
   'app/lib/ui/lxc_create_page.dart',
   'app/lib/ui/provisioning_confirmation_dialog.dart',
   'app/test/provisioning_page_test.dart','app/test/lxc_create_test.dart',
+  'app/test/guest_deletion_test.dart',
   'app/test/models_test.dart',
   'app/test/controller_test.dart','app/test/pve_api_test.dart',
   'app/test/guest_migration_test.dart',
@@ -84,7 +85,8 @@ required = [
    'docs/83-implementation-qemu-create.md',
    'docs/84-qemu-create-branch-cross-check-2026-11-09.md',
    'docs/85-implementation-lxc-create.md',
-   'docs/86-implementation-guest-migration.md']
+   'docs/86-implementation-guest-migration.md',
+   'docs/87-implementation-guest-deletion.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)
@@ -247,6 +249,14 @@ assert 'VM.Migrate' in files['app/lib/core/app_controller.dart']
 assert "Key('guest-migrate')" in files['app/lib/ui/guest_page.dart']
 assert 'typed source VMID confirmation' in files['docs/86-implementation-guest-migration.md']
 assert "test('mismatched migration UPID is treated as an uncertain outcome'" in files['app/test/guest_migration_test.dart']
+assert 'abstract class GuestDeleteGateway' in files['app/lib/core/pve_api.dart']
+assert 'deleteMutation: true' in files['app/lib/core/pve_api.dart']
+assert 'runGuestDeletion' in files['app/lib/core/app_controller.dart']
+assert 'VM.Allocate' in files['app/lib/core/app_controller.dart']
+assert "Key('guest-delete')" in files['app/lib/ui/guest_page.dart']
+assert "Key('guest-delete-backup-ack')" in files['app/lib/ui/guest_page.dart']
+assert 'named guest + VMID confirmation' in files['docs/87-implementation-guest-deletion.md']
+assert "test('QEMU deletion uses one DELETE and validates qmdestroy UPID'" in files['app/test/guest_deletion_test.dart']
 assert '_guestTags' in files['app/lib/core/models.dart']
 assert 'final List<String> tags' in files['app/lib/core/models.dart']
 assert 'String? tag' in files['app/lib/core/guest_list_filter.dart']

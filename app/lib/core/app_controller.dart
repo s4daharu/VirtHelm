@@ -2201,6 +2201,172 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<void> runGuestDeletion(
+    Guest source, {
+    required String profileId,
+    required int generation,
+  }) async {
+    final gateway = _gateway;
+    final GuestDeleteGateway? deleteGateway = gateway is GuestDeleteGateway
+        ? gateway as GuestDeleteGateway
+        : null;
+    if (_disposed || generation != _generation || active?.id != profileId) {
+      throw const PveFailure(
+        'Connection changed; return to the guest before deleting.',
+      );
+    }
+    if (source.isTemplate) {
+      throw const PveFailure(
+        'Template deletion is not exposed by this guarded guest workflow.',
+      );
+    }
+    if (!source.isStopped) {
+      throw const PveFailure('Stop the guest before deleting it.');
+    }
+    if (!_foreground ||
+        gateway == null ||
+        deleteGateway == null ||
+        !isInventoryWriteSafe ||
+        refreshing ||
+        deviceNetworkState == DeviceNetworkState.unavailable) {
+      throw const PveFailure(
+        'Refresh a clean live inventory before deleting a guest.',
+      );
+    }
+
+    final snapshot = inventory!;
+    final sourceMatches = snapshot.guests
+        .where(
+          (item) =>
+              item.kind == source.kind &&
+              item.vmid == source.vmid &&
+              item.node == source.node,
+        )
+        .toList();
+    if (sourceMatches.length != 1 ||
+        !identical(sourceMatches.single, source) ||
+        sourceMatches.single.status != source.status ||
+        sourceMatches.single.isTemplate) {
+      throw const PveFailure(
+        'Guest inventory changed. Refresh and review the deletion target again.',
+      );
+    }
+
+    final key = _guestKey(source);
+    final vmidKey = _provisioningVmidKey(source.vmid);
+    final keys = {key, vmidKey};
+    if (keys.any(_uncertainGuestOperations.contains)) {
+      throw const PveFailure(
+        'An earlier operation for this guest has an unknown outcome. '
+        'Verify server task history and inventory before reconnecting and trying again.',
+        mayHaveExecuted: true,
+      );
+    }
+    if (keys.any(_pendingGuestOperations.contains)) {
+      throw const PveFailure(
+        'An operation is already pending for this guest. Check Tasks.',
+      );
+    }
+
+    bool stillCurrent() =>
+        generation == _generation &&
+        active?.id == profileId &&
+        !_disposed &&
+        _foreground &&
+        deviceNetworkState != DeviceNetworkState.unavailable &&
+        identical(snapshot, inventory) &&
+        !refreshing &&
+        isInventoryWriteSafe;
+
+    _pendingGuestOperations.addAll(keys);
+    _notify();
+    var deleteAttempted = false;
+    try {
+      final live = await gateway.inventory();
+      if (!stillCurrent()) {
+        throw const PveFailure('Connection changed; deletion canceled.');
+      }
+      if (live.malformedGuestRecords != 0) {
+        throw const PveFailure(
+          'Live inventory verification is incomplete. Deletion was not submitted.',
+        );
+      }
+
+      final liveSources = live.guests
+          .where(
+            (item) =>
+                item.kind == source.kind &&
+                item.vmid == source.vmid &&
+                item.node == source.node,
+          )
+          .toList();
+      if (liveSources.length != 1 || liveSources.single.isTemplate) {
+        throw const PveFailure(
+          'The guest moved, disappeared, or became a template during verification.',
+        );
+      }
+      final liveSource = liveSources.single;
+      if (!liveSource.isStopped || liveSource.status != source.status) {
+        throw const PveFailure(
+          'Guest state changed during deletion verification. It must remain stopped.',
+        );
+      }
+
+      final permissions = await deleteGateway.guestPermissions(liveSource);
+      if (!stillCurrent()) {
+        throw const PveFailure(
+          'Connection or inventory changed during deletion verification.',
+        );
+      }
+      if (!permissions.has('VM.Allocate')) {
+        throw const PveFailure(
+          'The active token does not report VM.Allocate on this guest.',
+          status: 403,
+        );
+      }
+
+      deleteAttempted = true;
+      final upid = await deleteGateway.deleteGuest(liveSource);
+      if (generation != _generation || active?.id != profileId || _disposed) {
+        throw const PveFailure(
+          'Connection changed after deletion submission. Check server task history.',
+          mayHaveExecuted: true,
+        );
+      }
+      _taskTargets[upid] = keys;
+      tasks.insert(
+        0,
+        TrackedTask(
+          upid: upid,
+          node: source.node,
+          title: 'Delete ${source.name} (${source.vmid})',
+          startedAt: DateTime.now(),
+          outcome: OperationOutcome.running,
+        ),
+      );
+      _notify();
+      if (_foreground) _startPolling();
+    } catch (error) {
+      if (generation == _generation &&
+          error is PveFailure &&
+          error.status == 401) {
+        message = error.message;
+        unawaited(_clearOfflineAfterAuth(generation));
+      }
+      if (generation == _generation &&
+          (error is PveFailure ? error.mayHaveExecuted : deleteAttempted)) {
+        _uncertainGuestOperations.addAll(keys);
+      }
+      rethrow;
+    } finally {
+      if (generation == _generation &&
+          !_taskTargets.values.any((targets) => targets.contains(key))) {
+        _pendingGuestOperations.removeAll(keys);
+      }
+      if (generation == _generation) _notify();
+    }
+  }
+
   Future<void> runAction(
     Guest guest,
     GuestAction action, {

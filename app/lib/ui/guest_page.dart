@@ -547,6 +547,126 @@ class _GuestPageState extends State<GuestPage> {
     }
   }
 
+  Future<void> _openDeletion(Guest source) async {
+    if (!_currentSession ||
+        submitting ||
+        !source.isStopped ||
+        source.isTemplate) {
+      return;
+    }
+    final expected = 'DELETE ${source.name} ${source.vmid}';
+    final confirmation = TextEditingController();
+    var backupAcknowledged = false;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final matches = confirmation.text.trim() == expected;
+          return AlertDialog(
+            title: Text('Permanently delete ${source.name}?'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${source.kind.toUpperCase()} • ${source.node} • VMID ${source.vmid}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'This permanently destroys the guest and the used/owned volumes Proxmox associates with it. '
+                    'Snapshots are not backups. VirtHelm does not expose skip-lock, purge, or unreferenced-disk deletion options in this guarded slice.',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'The guest must remain stopped. The exact guest identity, clean inventory, and VM.Allocate privilege are revalidated immediately before exactly one DELETE request. VirtHelm never retries a deletion mutation automatically.',
+                  ),
+                  const SizedBox(height: 12),
+                  CheckboxListTile(
+                    key: const Key('guest-delete-backup-ack'),
+                    contentPadding: EdgeInsets.zero,
+                    value: backupAcknowledged,
+                    onChanged: (value) => setDialogState(
+                      () => backupAcknowledged = value ?? false,
+                    ),
+                    title: const Text(
+                      'I verified any required recoverable backup outside this confirmation.',
+                    ),
+                    controlAffinity: ListTileControlAffinity.leading,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Type exactly: $expected',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    key: const Key('guest-delete-confirmation'),
+                    controller: confirmation,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Destructive confirmation',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) => setDialogState(() {}),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                key: const Key('guest-delete-submit'),
+                onPressed: matches && backupAcknowledged
+                    ? () => Navigator.of(dialogContext).pop(true)
+                    : null,
+                child: const Text('Delete permanently'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    confirmation.dispose();
+    if (!mounted || !_currentSession || confirmed != true) return;
+
+    setState(() => submitting = true);
+    try {
+      await widget.controller.runGuestDeletion(
+        source,
+        profileId: widget.profileId,
+        generation: widget.generation,
+      );
+      if (!mounted || !_currentSession) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Deletion task submitted. Check Tasks for its final result.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        final message = error is PveFailure
+            ? error.message
+            : 'Could not submit deletion.';
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } finally {
+      if (mounted) setState(() => submitting = false);
+    }
+  }
+
   GuestAction _primaryAction(Guest? guest) {
     if (guest == null) return GuestAction.start;
     return guest.isStopped ? GuestAction.start : GuestAction.shutdown;
@@ -1074,6 +1194,12 @@ class _GuestPageState extends State<GuestPage> {
             label: 'Migrate guest',
             icon: Icons.drive_file_move_outline,
           ),
+          _permissionTile(
+            snapshot: visible,
+            privilege: 'VM.Allocate',
+            label: 'Delete guest / allocate VMID',
+            icon: Icons.delete_forever_outlined,
+          ),
           const SizedBox(height: 8),
           Text(
             'Configuration privileges',
@@ -1477,6 +1603,29 @@ class _GuestPageState extends State<GuestPage> {
                       ? () => _openMigration(guest)
                       : null,
                   icon: const Icon(Icons.swap_horiz_rounded),
+                ),
+                IconButton(
+                  key: const Key('guest-delete'),
+                  tooltip: guest == null
+                      ? 'Guest unavailable'
+                      : guest.isTemplate
+                      ? 'Template deletion unavailable here'
+                      : !guest.isStopped
+                      ? 'Stop guest before deletion'
+                      : 'Delete guest permanently',
+                  onPressed:
+                      allowed &&
+                          guest != null &&
+                          guest.isStopped &&
+                          !guest.isTemplate
+                      ? () => _openDeletion(guest)
+                      : null,
+                  icon: Icon(
+                    Icons.delete_forever_outlined,
+                    color: allowed && guest?.isStopped == true
+                        ? scheme.error
+                        : null,
+                  ),
                 ),
                 PopupMenuButton<GuestAction>(
                   key: const Key('guest-more-actions'),
