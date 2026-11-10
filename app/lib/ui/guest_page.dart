@@ -1576,7 +1576,7 @@ class _GuestPageState extends State<GuestPage> {
               ),
               FilledButton.icon(
                 key: const Key('guest-create-snapshot'),
-                onPressed: snapshotCreateAllowed && guest != null
+                onPressed: snapshotCreateAllowed
                     ? () => _openSnapshotCreate(guest)
                     : null,
                 icon: const Icon(Icons.add_a_photo_outlined),
