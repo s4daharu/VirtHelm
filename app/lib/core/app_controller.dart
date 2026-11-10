@@ -326,7 +326,18 @@ class AppController extends ChangeNotifier {
         identical(inventorySnapshot, inventory) &&
         currentGuest() != null;
 
-    final live = await gateway.inventory();
+    Future<T> authenticatedRead<T>(Future<T> Function() read) async {
+      try {
+        return await read();
+      } on PveFailure catch (error) {
+        if (error.status == 401 && current()) {
+          await _recordAuthenticatedReadLoss(generation, error.message);
+        }
+        rethrow;
+      }
+    }
+
+    final live = await authenticatedRead(gateway.inventory);
     if (!stillCurrent()) return null;
     if (live.malformedGuestRecords != 0) {
       throw const PveFailure(
@@ -349,9 +360,8 @@ class AppController extends ChangeNotifier {
     }
     final liveSource = liveSources.single;
 
-    final freshArchives = await gateway.guestBackupArchives(
-      liveSource,
-      archive.storage,
+    final freshArchives = await authenticatedRead(
+      () => gateway.guestBackupArchives(liveSource, archive.storage),
     );
     if (!stillCurrent()) return null;
     final sourceArchiveVisible = freshArchives.archives.any(
@@ -361,9 +371,9 @@ class AppController extends ChangeNotifier {
           item.vmid == archive.vmid,
     );
 
-    final storageRead = await gateway.storageOverview([
-      normalized.targetNode,
-    ]);
+    final storageRead = await authenticatedRead(
+      () => gateway.storageOverview([normalized.targetNode]),
+    );
     if (!stillCurrent()) return null;
 
     final targetNodeOnline = live.nodes.any(
@@ -400,12 +410,14 @@ class AppController extends ChangeNotifier {
         targetStorage.active == true &&
         targetStorage.contentTypes.contains(requiredTargetContent);
 
-    final vmPermissions = await createGateway.permissionsForVmid(
-      normalized.targetVmid,
+    final vmPermissions = await authenticatedRead(
+      () => createGateway.permissionsForVmid(normalized.targetVmid),
     );
     if (!stillCurrent()) return null;
-    final storagePermissions = await backupGateway.permissionsForPath(
-      '/storage/${normalized.targetStorage}',
+    final storagePermissions = await authenticatedRead(
+      () => backupGateway.permissionsForPath(
+        '/storage/${normalized.targetStorage}',
+      ),
     );
     if (!stillCurrent()) return null;
 
