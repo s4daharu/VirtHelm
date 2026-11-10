@@ -145,7 +145,7 @@
       "BKP-009 partial adds a local backup validation confidence card over exact-guest archive visibility plus the newest recent vzdump task. States are only Not assessed, Insufficient evidence and Partial evidence; task success cannot replace archive presence, and archive presence can never become checksum/PBS verification or tested-restore evidence."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 301,
+    "current_flutter_tests_defined": 272,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; test counts alone are not a release claim. Audited baseline a8f9443 passed both checks and signed prerelease publication.",
     "p0_scope_complete": false,
