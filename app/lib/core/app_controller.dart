@@ -2531,7 +2531,9 @@ class AppController extends ChangeNotifier {
         );
       }
 
-      final backupStorages = await backupGateway.backupStorages(liveSource.node);
+      final backupStorages = await backupGateway.backupStorages(
+        liveSource.node,
+      );
       if (!stillCurrent()) {
         throw const PveFailure(
           'Connection or inventory changed during backup-storage verification.',
