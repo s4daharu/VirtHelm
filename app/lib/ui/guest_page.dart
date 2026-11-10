@@ -614,6 +614,25 @@ class _GuestPageState extends State<GuestPage> {
     return parts.join(' • ');
   }
 
+  String _backupArchiveSubtitle(GuestBackupArchive archive) {
+    final parts = <String>[archive.storage];
+    if (archive.createdAt != null) {
+      parts.add('Created ${formatAge(archive.createdAt!)}');
+    } else {
+      parts.add('Creation time unavailable');
+    }
+    if (archive.sizeBytes != null) {
+      parts.add(formatBytes(archive.sizeBytes));
+    }
+    if (archive.format != null) {
+      parts.add(archive.format!);
+    }
+    if (archive.protected == true) {
+      parts.add('Protected flag reported by PVE');
+    }
+    return parts.join(' • ');
+  }
+
   Future<void> execute(Guest guest, GuestAction action) async {
     if (submitting || !_currentSession) return;
     final isForce = action == GuestAction.stop;
