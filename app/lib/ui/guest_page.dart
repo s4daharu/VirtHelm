@@ -539,10 +539,16 @@ class _GuestPageState extends State<GuestPage> {
         generation: widget.generation,
       );
       if (!mounted || !_currentSession) return;
+      setState(() {
+        selectedBackupArchiveStorage = selectedStorage;
+        backupArchiveInventory = null;
+        backupArchivesLoadedAt = null;
+        backupArchiveError = null;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Backup task submitted. Check Tasks and verify the archive before treating it as recoverable.',
+            'Backup task submitted. Check Tasks and load the storage archive list after completion.',
           ),
         ),
       );
