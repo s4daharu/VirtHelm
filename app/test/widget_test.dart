@@ -95,6 +95,33 @@ class _GuestSnapshotController extends AppController {
     : super(repository: repository);
 
   final List<int> requestedVmids = [];
+  final List<String> requestedBackupStorages = [];
+
+  @override
+  Future<GuestBackupArchiveInventory?> inspectGuestBackupArchives({
+    required String profileId,
+    required int generation,
+    required Guest guest,
+    required String storage,
+  }) async {
+    requestedBackupStorages.add(storage);
+    return GuestBackupArchiveInventory(
+      storage: storage,
+      archives: [
+        GuestBackupArchive(
+          node: guest.node,
+          storage: storage,
+          volid:
+              '$storage:backup/vzdump-qemu-101-2026_11_11-10_00_00.vma.zst',
+          kind: guest.kind,
+          vmid: guest.vmid,
+          sizeBytes: 1024,
+          createdAt: DateTime.utc(2026, 11, 11, 10),
+        ),
+      ],
+      ignoredRecords: 1,
+    );
+  }
 
   @override
   Future<GuestSnapshotInventory?> inspectGuestSnapshots({
@@ -836,6 +863,16 @@ void main() {
           'status': 'running',
         },
       ]);
+      controller.storages = const [
+        StoragePool(
+          node: 'pve1',
+          id: 'backup',
+          type: 'dir',
+          enabled: true,
+          active: true,
+          contentTypes: ['backup'],
+        ),
+      ];
       controller.serverTasks = const [
         RecentServerTask(
           upid: 'UPID:pve1:1:2:3:vzdump:101:user@pve:',
@@ -871,12 +908,26 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('guest-recovery-list')), findsOneWidget);
       expect(controller.requestedVmids, isEmpty);
+      expect(controller.requestedBackupStorages, isEmpty);
       expect(
-        find.textContaining('does not prove an archive exists'),
+        find.textContaining('does not by itself prove a matching archive'),
         findsOneWidget,
       );
       expect(find.text('Backup task • succeeded'), findsOneWidget);
       expect(find.textContaining('202'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('guest-load-backup-archives')));
+      await tester.pumpAndSettle();
+      expect(controller.requestedBackupStorages, ['backup']);
+      expect(
+        find.textContaining('Latest • vzdump-qemu-101-2026_11_11'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('1 unusable row(s) ignored'), findsOneWidget);
+      expect(
+        find.textContaining('Archive visibility is not a checksum'),
+        findsOneWidget,
+      );
 
       await tester.tap(find.byKey(const Key('guest-load-snapshots')));
       await tester.pumpAndSettle();
@@ -890,6 +941,7 @@ void main() {
       controller.notifyListeners();
       await tester.pump();
       expect(find.text('before-upgrade'), findsNothing);
+      expect(find.textContaining('Latest • vzdump-qemu-101'), findsNothing);
 
       controller.active = const ConnectionProfile(
         id: 'b',
