@@ -33,6 +33,11 @@ class _GuestPageState extends State<GuestPage> {
   GuestSnapshotInventory? snapshotInventory;
   String? snapshotError;
   DateTime? snapshotsLoadedAt;
+  bool loadingBackupArchives = false;
+  GuestBackupArchiveInventory? backupArchiveInventory;
+  String? backupArchiveError;
+  DateTime? backupArchivesLoadedAt;
+  String? selectedBackupArchiveStorage;
   bool loadingConfiguration = false;
   GuestConfiguration? configuration;
   String? configurationError;
@@ -235,6 +240,66 @@ class _GuestPageState extends State<GuestPage> {
     } finally {
       if (mounted && _currentSession) {
         setState(() => loadingSnapshots = false);
+      }
+    }
+  }
+
+  Future<void> loadBackupArchives() async {
+    final guest = currentGuest();
+    if (loadingBackupArchives || !_currentSession || guest == null) return;
+    final storages = _backupStorageIds(guest);
+    var storage = selectedBackupArchiveStorage;
+    if (storage == null || !storages.contains(storage)) {
+      storage = storages.length == 1 ? storages.single : null;
+    }
+    if (storage == null) {
+      setState(() {
+        backupArchiveInventory = null;
+        backupArchivesLoadedAt = null;
+        backupArchiveError =
+            'Choose one backup storage before loading archives.';
+      });
+      return;
+    }
+
+    setState(() {
+      loadingBackupArchives = true;
+      selectedBackupArchiveStorage = storage;
+      backupArchiveError = null;
+    });
+    try {
+      final result = await widget.controller.inspectGuestBackupArchives(
+        profileId: widget.profileId,
+        generation: widget.generation,
+        guest: guest,
+        storage: storage,
+      );
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        backupArchiveInventory = result;
+        backupArchivesLoadedAt = result == null ? null : DateTime.now();
+        if (result == null) {
+          backupArchiveError =
+              'Backup archive data is no longer current. Refresh and reopen this guest.';
+        }
+      });
+    } on PveFailure catch (error) {
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        backupArchiveInventory = null;
+        backupArchivesLoadedAt = null;
+        backupArchiveError = error.message;
+      });
+    } catch (_) {
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        backupArchiveInventory = null;
+        backupArchivesLoadedAt = null;
+        backupArchiveError = 'Could not load backup archives.';
+      });
+    } finally {
+      if (mounted && _currentSession) {
+        setState(() => loadingBackupArchives = false);
       }
     }
   }
@@ -475,10 +540,16 @@ class _GuestPageState extends State<GuestPage> {
         generation: widget.generation,
       );
       if (!mounted || !_currentSession) return;
+      setState(() {
+        selectedBackupArchiveStorage = selectedStorage;
+        backupArchiveInventory = null;
+        backupArchivesLoadedAt = null;
+        backupArchiveError = null;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Backup task submitted. Check Tasks and verify the archive before treating it as recoverable.',
+            'Backup task submitted. Check Tasks and load the storage archive list after completion.',
           ),
         ),
       );
@@ -540,6 +611,25 @@ class _GuestPageState extends State<GuestPage> {
     if (when != null) parts.add(formatAge(when));
     if (task.exitStatus != null && task.exitStatus!.trim().isNotEmpty) {
       parts.add('Exit: ${task.exitStatus}');
+    }
+    return parts.join(' • ');
+  }
+
+  String _backupArchiveSubtitle(GuestBackupArchive archive) {
+    final parts = <String>[archive.storage];
+    if (archive.createdAt != null) {
+      parts.add('Created ${formatAge(archive.createdAt!)}');
+    } else {
+      parts.add('Creation time unavailable');
+    }
+    if (archive.sizeBytes != null) {
+      parts.add(formatBytes(archive.sizeBytes));
+    }
+    if (archive.format != null) {
+      parts.add(archive.format!);
+    }
+    if (archive.protected == true) {
+      parts.add('Protected flag reported by PVE');
     }
     return parts.join(' • ');
   }
@@ -1666,6 +1756,20 @@ class _GuestPageState extends State<GuestPage> {
     final recoveryPoints = snapshots.where((item) => !item.isCurrent).length;
     final backupTasks = _backupTasks(guest);
     final backupStorages = _backupStorageIds(guest);
+    final effectiveBackupArchiveStorage =
+        selectedBackupArchiveStorage != null &&
+            backupStorages.contains(selectedBackupArchiveStorage)
+        ? selectedBackupArchiveStorage
+        : backupStorages.length == 1
+        ? backupStorages.single
+        : null;
+    final visibleBackupArchives =
+        guest != null &&
+            backupArchiveInventory?.storage == effectiveBackupArchiveStorage
+        ? backupArchiveInventory
+        : null;
+    final backupArchives =
+        visibleBackupArchives?.archives ?? const <GuestBackupArchive>[];
     final scheme = Theme.of(context).colorScheme;
     final snapshotCreateAllowed =
         guest != null &&
@@ -1694,10 +1798,10 @@ class _GuestPageState extends State<GuestPage> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Snapshots are not backups. Snapshot inventory is loaded only when '
-          'requested. Guarded create-only snapshots and one-off vzdump backup '
-          'submission are available; snapshot rollback/delete, archive '
-          'verification, and restore remain unavailable.',
+          'Snapshots are not backups. Snapshot inventory and exact-guest backup '
+          'archive visibility are loaded only when requested. Guarded create-only '
+          'snapshots and one-off vzdump backup submission are available; snapshot '
+          'rollback/delete, archive integrity verification, and restore remain unavailable.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 10),
@@ -1781,15 +1885,135 @@ class _GuestPageState extends State<GuestPage> {
             ),
         ],
         const SizedBox(height: 22),
+        Text('Backup archives', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 6),
+        Text(
+          'Read-only storage content for this exact VMID and QEMU/LXC type. '
+          'A visible archive is stronger evidence than task history alone, but '
+          'VirtHelm does not inspect archive contents, verify integrity, or test restore.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 10),
+        if (backupStorages.isEmpty)
+          const Card(
+            child: ListTile(
+              leading: Icon(Icons.inventory_2_outlined),
+              title: Text('No backup storage available'),
+              subtitle: Text(
+                'No enabled, active storage advertising backup content is visible '
+                'on this guest node.',
+              ),
+            ),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: 280,
+                child: DropdownButton<String>(
+                  key: const Key('guest-backup-archive-storage'),
+                  value: effectiveBackupArchiveStorage,
+                  hint: const Text('Choose backup storage'),
+                  isExpanded: true,
+                  items: [
+                    for (final storage in backupStorages)
+                      DropdownMenuItem(value: storage, child: Text(storage)),
+                  ],
+                  onChanged: loadingBackupArchives
+                      ? null
+                      : (value) {
+                          setState(() {
+                            selectedBackupArchiveStorage = value;
+                            backupArchiveInventory = null;
+                            backupArchivesLoadedAt = null;
+                            backupArchiveError = null;
+                          });
+                        },
+                ),
+              ),
+              FilledButton.tonalIcon(
+                key: const Key('guest-load-backup-archives'),
+                onPressed:
+                    guest == null ||
+                        effectiveBackupArchiveStorage == null ||
+                        loadingBackupArchives
+                    ? null
+                    : loadBackupArchives,
+                icon: loadingBackupArchives
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.inventory_2_outlined),
+                label: Text(
+                  visibleBackupArchives == null
+                      ? 'Load archives'
+                      : 'Refresh archives',
+                ),
+              ),
+            ],
+          ),
+        if (guest != null && backupArchiveError != null) ...[
+          const SizedBox(height: 10),
+          Text(backupArchiveError!, style: TextStyle(color: scheme.error)),
+        ],
+        if (visibleBackupArchives != null) ...[
+          const SizedBox(height: 10),
+          Text(
+            '${backupArchives.length} archive${backupArchives.length == 1 ? '' : 's'}'
+            ' on ${visibleBackupArchives.storage}'
+            '${visibleBackupArchives.ignoredRecords > 0 ? ' • ${visibleBackupArchives.ignoredRecords} unusable row(s) ignored' : ''}'
+            '${visibleBackupArchives.truncated ? ' • response truncated locally' : ''}'
+            '${backupArchivesLoadedAt != null ? ' • loaded ${formatAge(backupArchivesLoadedAt!)}' : ''}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          if (backupArchives.isEmpty)
+            const Card(
+              child: ListTile(
+                leading: Icon(Icons.inventory_2_outlined),
+                title: Text('No backup archive reported'),
+                subtitle: Text(
+                  'PVE did not report backup content matching this guest on the selected storage.',
+                ),
+              ),
+            ),
+          for (var index = 0; index < backupArchives.length; index++)
+            Card(
+              child: ListTile(
+                leading: Icon(
+                  index == 0
+                      ? Icons.inventory_2_rounded
+                      : Icons.inventory_2_outlined,
+                ),
+                title: Text(
+                  index == 0
+                      ? 'Latest • ${backupArchives[index].displayName}'
+                      : backupArchives[index].displayName,
+                ),
+                subtitle: Text(_backupArchiveSubtitle(backupArchives[index])),
+              ),
+            ),
+          const SizedBox(height: 6),
+          Text(
+            'Archive visibility is not a checksum, PBS verification result, '
+            'restore test, or recoverability guarantee.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+        const SizedBox(height: 22),
         Text(
           'Recent backup tasks',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 6),
         Text(
-          'Recent Proxmox vzdump task outcomes for this VMID only. Starting a '
-          'backup and seeing task success still does not prove an archive exists, '
-          'is verified, or is restorable.',
+          'Recent Proxmox vzdump task outcomes for this VMID only. A successful '
+          'task does not by itself prove a matching archive is still visible, '
+          'verified, or restorable; load archive visibility separately.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         if (widget.controller.serverTaskMessage != null) ...[

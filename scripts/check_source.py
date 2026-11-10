@@ -89,6 +89,7 @@ required = [
    'docs/87-implementation-guest-deletion.md',
    'docs/88-implementation-guest-snapshot-create.md',
    'docs/89-implementation-guest-backup-start.md',
+   'docs/90-implementation-guest-backup-archive-read.md',
    'app/test/guest_backup_start_test.dart']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
@@ -163,7 +164,7 @@ assert "'${_guestPath(guest)}/snapshot'" in files['app/lib/core/pve_api.dart']
 assert 'inspectGuestSnapshots' in files['app/lib/core/app_controller.dart']
 assert "Key('guest-recovery-tab')" in files['app/lib/ui/guest_page.dart']
 assert 'Snapshots are not backups' in files['app/lib/ui/guest_page.dart']
-assert 'does not prove an archive exists' in files['app/lib/ui/guest_page.dart']
+assert 'Archive visibility is not a checksum' in files['app/lib/ui/guest_page.dart']
 assert 'class GuestConfiguration' in files['app/lib/core/models.dart']
 assert 'Future<GuestConfiguration> guestConfiguration' in files['app/lib/core/pve_api.dart']
 assert "'${_guestPath(guest)}/config'" in files['app/lib/core/pve_api.dart']
@@ -280,6 +281,14 @@ assert "Key('guest-start-backup')" in files['app/lib/ui/guest_page.dart']
 assert "Key('guest-backup-submit')" in files['app/lib/ui/guest_page.dart']
 assert 'no pruning' in files['docs/89-implementation-guest-backup-start.md'].lower()
 assert 'QEMU backup posts only vmid storage and snapshot mode' in files['app/test/guest_backup_start_test.dart']
+assert 'class GuestBackupArchive' in files['app/lib/core/models.dart']
+assert 'class GuestBackupArchiveInventory' in files['app/lib/core/models.dart']
+assert 'Future<GuestBackupArchiveInventory> guestBackupArchives' in files['app/lib/core/pve_api.dart']
+assert "'content': 'backup', 'vmid': guest.vmid" in files['app/lib/core/pve_api.dart']
+assert 'inspectGuestBackupArchives' in files['app/lib/core/app_controller.dart']
+assert "Key('guest-load-backup-archives')" in files['app/lib/ui/guest_page.dart']
+assert 'integrity verification' in files['docs/90-implementation-guest-backup-archive-read.md'].lower()
+assert 'backup archive listing is exact-guest scoped and newest first' in files['app/test/guest_backup_start_test.dart']
 assert '_guestTags' in files['app/lib/core/models.dart']
 assert 'final List<String> tags' in files['app/lib/core/models.dart']
 assert 'String? tag' in files['app/lib/core/guest_list_filter.dart']

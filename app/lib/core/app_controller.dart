@@ -194,6 +194,65 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<GuestBackupArchiveInventory?> inspectGuestBackupArchives({
+    required String profileId,
+    required int generation,
+    required Guest guest,
+    required String storage,
+  }) async {
+    final gateway = _gateway;
+    bool current() =>
+        !_disposed && generation == _generation && active?.id == profileId;
+    Guest? currentGuest() {
+      final matches = inventory?.guests.where(
+        (item) =>
+            item.node == guest.node &&
+            item.kind == guest.kind &&
+            item.vmid == guest.vmid,
+      );
+      if (matches == null || matches.length != 1) return null;
+      return matches.single;
+    }
+
+    StoragePool? currentStorage() {
+      final matches = storages.where(
+        (item) =>
+            item.node == guest.node &&
+            item.id == storage &&
+            item.enabled == true &&
+            item.active == true &&
+            item.contentTypes.contains('backup'),
+      );
+      if (matches.length != 1) return null;
+      return matches.single;
+    }
+
+    if (!current() ||
+        gateway == null ||
+        deviceNetworkState == DeviceNetworkState.unavailable) {
+      return null;
+    }
+    final target = currentGuest();
+    final targetStorage = currentStorage();
+    if (target == null || targetStorage == null) return null;
+
+    try {
+      final result = await gateway.guestBackupArchives(
+        target,
+        targetStorage.id,
+      );
+      if (!current() || currentGuest() == null || currentStorage() == null) {
+        return null;
+      }
+      return result;
+    } on PveFailure catch (error) {
+      if (error.status == 401 && current()) {
+        await _recordAuthenticatedReadLoss(generation, error.message);
+      }
+      rethrow;
+    }
+  }
+
   Future<GuestConfiguration?> inspectGuestConfiguration({
     required String profileId,
     required int generation,

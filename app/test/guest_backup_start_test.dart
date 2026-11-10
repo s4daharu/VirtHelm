@@ -66,6 +66,156 @@ void main() {
     },
   );
 
+  test('backup archive listing is exact-guest scoped and newest first', () async {
+    const guest = Guest(
+      node: 'pve1',
+      vmid: 101,
+      kind: 'qemu',
+      name: 'Web',
+      status: 'running',
+    );
+    late RequestOptions request;
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          request = options;
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'data': [
+                  {
+                    'content': 'backup',
+                    'volid':
+                        'backup-a:backup/vzdump-qemu-101-2026_11_10-10_00_00.vma.zst',
+                    'vmid': 101,
+                    'size': 1024,
+                    'ctime': 1700000000,
+                    'format': 'vma.zst',
+                    'protected': 1,
+                  },
+                  {
+                    'content': 'backup',
+                    'volid': 'backup-a:backup/vm/101/2026-11-11T10:00:00Z',
+                    'vmid': '101',
+                    'size': 2048,
+                    'ctime': 1800000000,
+                  },
+                  {
+                    'content': 'backup',
+                    'volid':
+                        'backup-a:backup/vzdump-lxc-101-2026_11_10-10_00_00.tar.zst',
+                    'vmid': 101,
+                  },
+                  {
+                    'content': 'backup',
+                    'volid':
+                        'backup-a:backup/vzdump-qemu-202-2026_11_10-10_00_00.vma.zst',
+                    'vmid': 202,
+                  },
+                  'malformed',
+                ],
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(profile, credentials, http: dio);
+    addTearDown(gateway.close);
+
+    final result = await gateway.guestBackupArchives(guest, 'backup-a');
+
+    expect(request.method, 'GET');
+    expect(request.path, '/nodes/pve1/storage/backup-a/content');
+    expect(request.queryParameters, {'content': 'backup', 'vmid': 101});
+    expect(result.storage, 'backup-a');
+    expect(result.archives, hasLength(2));
+    expect(result.ignoredRecords, 3);
+    expect(result.truncated, isFalse);
+    expect(result.latest?.volid, contains('backup/vm/101/'));
+    expect(result.archives.last.format, 'vma.zst');
+    expect(result.archives.last.protected, isTrue);
+  });
+
+  test('LXC PBS-style backup archive identity is accepted', () async {
+    const guest = Guest(
+      node: 'pve1',
+      vmid: 101,
+      kind: 'lxc',
+      name: 'CT',
+      status: 'stopped',
+    );
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'data': [
+                  {
+                    'content': 'backup',
+                    'volid': 'pbs:backup/ct/101/2026-11-11T10:00:00Z',
+                    'vmid': 101,
+                    'size': 4096,
+                  },
+                ],
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(profile, credentials, http: dio);
+    addTearDown(gateway.close);
+
+    final result = await gateway.guestBackupArchives(guest, 'pbs');
+
+    expect(result.archives, hasLength(1));
+    expect(result.archives.single.kind, 'lxc');
+    expect(result.archives.single.vmid, 101);
+    expect(result.archives.single.sizeBytes, 4096);
+  });
+
+  test('invalid backup archive storage is rejected before I/O', () async {
+    const guest = Guest(
+      node: 'pve1',
+      vmid: 101,
+      kind: 'qemu',
+      name: 'Web',
+      status: 'running',
+    );
+    var requests = 0;
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          requests++;
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {'data': <dynamic>[]},
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(profile, credentials, http: dio);
+    addTearDown(gateway.close);
+
+    await expectLater(
+      gateway.guestBackupArchives(guest, 'bad/storage'),
+      throwsA(isA<FormatException>()),
+    );
+    expect(requests, 0);
+  });
+
   test('QEMU backup posts only vmid storage and snapshot mode', () async {
     const guest = Guest(
       node: 'pve1',

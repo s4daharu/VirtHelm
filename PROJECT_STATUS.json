@@ -12,7 +12,7 @@
   "framework": "Flutter",
   "primary_pve": "9.2",
   "regression_pve": "8.4",
-  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, create-only snapshot and one-off backup-start operational slices",
+  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, create-only snapshot, one-off backup-start and exact-guest backup-archive visibility operational slices",
   "github_repository_url": "https://github.com/s4daharu/VirtHelm",
   "documentation_uploaded_and_verified": true,
   "docs_initial_remote_commit": "4fdfcd704aced213508f798533fd6370573ac284",
@@ -140,10 +140,11 @@
       "GUEST-06 partial adds guarded same-cluster QEMU/LXC migration with fresh source/online-target revalidation, VM.Migrate hints, Proxmox migration preflight, typed source-VMID confirmation, exactly one migration POST, strict qmigrate/vzmigrate/hamigrate UPID tracking and uncertain-outcome lockout. QEMU local-disk/host-resource migration, storage remapping, force/network tuning, bulk and cross-cluster migration remain gated.",
       "GUEST-07 first destructive slice adds stopped-only guarded QEMU/LXC deletion with exact identity/state revalidation, VM.Allocate hints, named guest + VMID typed confirmation, explicit recovery-backup acknowledgement, exactly one DELETE, strict qmdestroy/vzdestroy UPID tracking and uncertain-outcome lockout. skiplock/purge/unreferenced-disk knobs, template/running deletion and automated backup/quorum claims remain gated.",
       "GUEST-02 partial adds guarded create-only QEMU/LXC snapshots with exact identity/state revalidation, VM.Snapshot hints, a fresh complete snapshot-name collision check, exactly one POST carrying only snapname, strict qmsnapshot/vzsnapshot UPID tracking and uncertain-outcome lockout. QEMU vmstate capture plus snapshot rollback/delete remain gated.",
-      "GUEST-03 partial adds guarded one-off QEMU/LXC vzdump submission to a selected active backup-capable storage: exact guest/state revalidation, VM.Backup plus Datastore.AllocateSpace hints, exactly one snapshot-mode POST, strict vzdump UPID matching and uncertain-outcome lockout. Pruning/retention, hooks/tuning, archive verification and restore remain gated."
+      "GUEST-03 partial adds guarded one-off QEMU/LXC vzdump submission to a selected active backup-capable storage: exact guest/state revalidation, VM.Backup plus Datastore.AllocateSpace hints, exactly one snapshot-mode POST, strict vzdump UPID matching and uncertain-outcome lockout. Pruning/retention, hooks/tuning, archive verification and restore remain gated.",
+      "BKP-002 partial adds on-demand exact-guest backup archive visibility from one current active backup-capable storage: content=backup plus exact-VMID GET, QEMU/LXC volume-ID identity filtering, bounded reviewed metadata, newest-first display, and session/storage redaction. Archive presence is not checksum/integrity verification or a restore test."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 266,
+    "current_flutter_tests_defined": 270,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; test counts alone are not a release claim. Audited baseline a8f9443 passed both checks and signed prerelease publication.",
     "p0_scope_complete": false,
@@ -554,5 +555,18 @@
     "verification": "Synthetic gateway and controller regressions cover storage discovery/filtering, exact POST payload, strict UPID identity, VM.Backup and Datastore.AllocateSpace enforcement, storage revalidation, task registration and ambiguous-outcome lockout. Current-head pinned CI and disposable PVE 8.4/9.2 backup/storage/ACL fixtures remain authoritative gates.",
     "deferred": "Backup scheduling/retention/pruning, archive inventory/integrity verification, restore, PBS-specific browsing/workflows, advanced vzdump tuning and physical-device certification.",
     "report": "docs/89-implementation-guest-backup-start.md"
+  },
+  "m4_guest_backup_archive_read": {
+    "status": "implemented_source_level_reviewed_live_gates_open",
+    "feature_id": "BKP-002 partial / M4 recovery operations",
+    "version": "0.1.43",
+    "behavior": "Guest Recovery can explicitly load the currently visible backup archives for one exact QEMU/LXC guest from one selected enabled, active backup-capable storage. The list is transient and newest-first; it is separate from recent vzdump task history.",
+    "contract": "GET /nodes/{node}/storage/{storage}/content with content=backup and vmid={exact VMID}; retain only bounded reviewed metadata from rows whose volume identifier also matches the current QEMU/LXC type and VMID.",
+    "safety": "Originating profile/generation, exact guest node/type/VMID and exact selected storage node/id/capability are checked before and after the GET. Android default-network loss blocks new reads; 401 invalidates authenticated live state. Loaded archive data is hidden when the exact guest/session/storage no longer matches and is invalidated after a new backup submission.",
+    "identity_boundary": "File-style vzdump-qemu/vzdump-lxc and PBS-style backup/vm or backup/ct volume identifiers must agree with the current guest type and VMID. Wrong-type, wrong-VMID and malformed neighboring rows are ignored rather than treated as recovery evidence.",
+    "truth_boundary": "Archive visibility proves only that PVE currently reports matching backup content on the selected storage. VirtHelm does not checksum/open the archive, consume PBS verification state, test restore, or claim recoverability.",
+    "verification": "Synthetic gateway/controller/widget regressions cover exact GET path/query, file-style and PBS-style QEMU/LXC identity, malformed/wrong-identity row filtering, newest-first ordering, invalid-storage pre-I/O rejection, storage/session gating and Recovery UI redaction. Current-head pinned CI and disposable PVE 8.4/9.2 storage-content fixtures remain authoritative gates.",
+    "deferred": "Archive checksum/integrity verification, PBS verification state, backup schedules/retention/pruning, restore planning/conflict preflight, actual restore, PBS-specific browsing/workflows and physical-device certification.",
+    "report": "docs/90-implementation-guest-backup-archive-read.md"
   }
 }

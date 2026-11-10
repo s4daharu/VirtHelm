@@ -105,6 +105,24 @@ class _Gateway
   int backupStorageCalls = 0;
   List<String> backupStorageResult = const ['backup'];
   PveFailure? backupStorageFailure;
+  int backupArchiveCalls = 0;
+  Guest? lastBackupArchiveGuest;
+  String? lastBackupArchiveStorage;
+  PveFailure? backupArchiveFailure;
+  GuestBackupArchiveInventory backupArchiveResult =
+      const GuestBackupArchiveInventory(
+        storage: 'backup',
+        archives: [
+          GuestBackupArchive(
+            node: 'pve1',
+            storage: 'backup',
+            volid: 'backup:backup/vzdump-qemu-101-2026_11_11-10_00_00.vma.zst',
+            kind: 'qemu',
+            vmid: 101,
+            sizeBytes: 1024,
+          ),
+        ],
+      );
   int backupSubmissions = 0;
   Guest? lastBackupGuest;
   GuestBackupRequest? lastBackupRequest;
@@ -359,6 +377,18 @@ class _Gateway
     if (snapshotCreateGate != null) return snapshotCreateGate!.future;
     final worker = guest.kind == 'qemu' ? 'qmsnapshot' : 'vzsnapshot';
     return 'UPID:${guest.node}:1234:123:abc:$worker:${guest.vmid}:operator@pve:';
+  }
+
+  @override
+  Future<GuestBackupArchiveInventory> guestBackupArchives(
+    Guest guest,
+    String storage,
+  ) async {
+    backupArchiveCalls++;
+    lastBackupArchiveGuest = guest;
+    lastBackupArchiveStorage = storage;
+    if (backupArchiveFailure != null) throw backupArchiveFailure!;
+    return backupArchiveResult;
   }
 
   @override
@@ -3489,6 +3519,62 @@ void main() {
       );
       expect(gateway.deleteSubmissions, 1);
       expect(ctl.isGuestActionBlocked(refreshed), isTrue);
+    },
+  );
+
+  test(
+    'guest backup archive inspection requires current exact backup storage',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      late _Gateway gateway;
+      final ctl = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        gatewayFactory: (profile, credentials) =>
+            gateway = _Gateway()
+              ..storageResult = ReadCollection(
+                values: const [
+                  StoragePool(
+                    node: 'pve1',
+                    id: 'backup',
+                    type: 'dir',
+                    enabled: true,
+                    active: true,
+                    contentTypes: ['backup'],
+                  ),
+                ],
+              ),
+      );
+      addTearDown(ctl.dispose);
+      await ctl.initialize();
+      await ctl.connect(
+        name: 'Lab',
+        address: 'https://pve.local',
+        tokenId: 'me@pve!app',
+        secret: 'synthetic',
+      );
+
+      final guest = ctl.inventory!.guests.single;
+      final result = await ctl.inspectGuestBackupArchives(
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+        guest: guest,
+        storage: 'backup',
+      );
+
+      expect(result?.archives, hasLength(1));
+      expect(gateway.backupArchiveCalls, 1);
+      expect(gateway.lastBackupArchiveGuest?.vmid, 101);
+      expect(gateway.lastBackupArchiveStorage, 'backup');
+
+      ctl.storages = const [];
+      final stale = await ctl.inspectGuestBackupArchives(
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+        guest: guest,
+        storage: 'backup',
+      );
+      expect(stale, isNull);
+      expect(gateway.backupArchiveCalls, 1);
     },
   );
 

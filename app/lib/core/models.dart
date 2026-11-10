@@ -736,6 +736,150 @@ class GuestSnapshotInventory {
   final bool truncated;
 }
 
+String? _backupArchiveText(Object? value, {int maxLength = 512}) {
+  final text = asText(value)?.trim();
+  if (text == null ||
+      text.isEmpty ||
+      text.length > maxLength ||
+      RegExp(r'[\x00-\x1F\x7F]').hasMatch(text)) {
+    return null;
+  }
+  return text;
+}
+
+int? _backupArchiveVmid(Object? value) {
+  final numeric = asInteger(value);
+  if (numeric != null) return numeric;
+  final text = asText(value)?.trim();
+  if (text == null || !RegExp(r'^\d{1,9}$').hasMatch(text)) return null;
+  return int.tryParse(text);
+}
+
+({String kind, int vmid})? _backupArchiveIdentity(
+  String volid,
+  String storage,
+) {
+  final prefix = '$storage:backup/';
+  if (!volid.startsWith(prefix)) return null;
+  final path = volid.substring(prefix.length);
+
+  final fileMatch = RegExp(
+    r'^(?:.*/)?vzdump-(qemu|lxc)-(\d{1,9})-',
+  ).firstMatch(path);
+  if (fileMatch != null) {
+    final vmid = int.tryParse(fileMatch.group(2)!);
+    if (vmid != null) return (kind: fileMatch.group(1)!, vmid: vmid);
+  }
+
+  final pbsMatch = RegExp(r'^(vm|ct)/(\d{1,9})(?:/|$)').firstMatch(path);
+  if (pbsMatch != null) {
+    final vmid = int.tryParse(pbsMatch.group(2)!);
+    if (vmid != null) {
+      return (kind: pbsMatch.group(1) == 'vm' ? 'qemu' : 'lxc', vmid: vmid);
+    }
+  }
+  return null;
+}
+
+/// Read-only metadata for one backup archive that PVE reports for the exact
+/// guest VMID and type. Presence is not integrity or restore verification.
+class GuestBackupArchive {
+  const GuestBackupArchive({
+    required this.node,
+    required this.storage,
+    required this.volid,
+    required this.kind,
+    required this.vmid,
+    this.format,
+    this.sizeBytes,
+    this.createdAt,
+    this.protected,
+  });
+
+  final String node;
+  final String storage;
+  final String volid;
+  final String kind;
+  final int vmid;
+  final String? format;
+  final int? sizeBytes;
+  final DateTime? createdAt;
+  final bool? protected;
+
+  String get displayName {
+    final slash = volid.lastIndexOf('/');
+    return slash >= 0 && slash + 1 < volid.length
+        ? volid.substring(slash + 1)
+        : volid;
+  }
+
+  factory GuestBackupArchive.fromApi(
+    Map<String, dynamic> json, {
+    required Guest guest,
+    required String storage,
+  }) {
+    final content = _backupArchiveText(json['content'], maxLength: 32);
+    if (content != null && content != 'backup') {
+      throw const FormatException('Storage record is not backup content.');
+    }
+
+    final volid = _backupArchiveText(json['volid']);
+    if (volid == null) {
+      throw const FormatException(
+        'Backup record is missing a valid volume ID.',
+      );
+    }
+    final identity = _backupArchiveIdentity(volid, storage);
+    if (identity == null ||
+        identity.vmid != guest.vmid ||
+        identity.kind != guest.kind) {
+      throw const FormatException(
+        'Backup record does not match the requested guest identity.',
+      );
+    }
+
+    final reportedVmid = _backupArchiveVmid(json['vmid']);
+    if (reportedVmid != null && reportedVmid != guest.vmid) {
+      throw const FormatException(
+        'Backup record reports a mismatched guest VMID.',
+      );
+    }
+
+    final sizeBytes = asInteger(json['size']);
+    if (sizeBytes != null && sizeBytes < 0) {
+      throw const FormatException('Backup record reports an invalid size.');
+    }
+
+    return GuestBackupArchive(
+      node: guest.node,
+      storage: storage,
+      volid: volid,
+      kind: identity.kind,
+      vmid: identity.vmid,
+      format: _backupArchiveText(json['format'], maxLength: 64),
+      sizeBytes: sizeBytes,
+      createdAt: asUnixSeconds(json['ctime']),
+      protected: asFlag(json['protected']),
+    );
+  }
+}
+
+class GuestBackupArchiveInventory {
+  const GuestBackupArchiveInventory({
+    required this.storage,
+    required this.archives,
+    this.ignoredRecords = 0,
+    this.truncated = false,
+  });
+
+  final String storage;
+  final List<GuestBackupArchive> archives;
+  final int ignoredRecords;
+  final bool truncated;
+
+  GuestBackupArchive? get latest => archives.isEmpty ? null : archives.first;
+}
+
 class GuestSnapshotCreateRequest {
   const GuestSnapshotCreateRequest({required this.name});
 
