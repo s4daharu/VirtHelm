@@ -480,7 +480,7 @@ class _GuestPageState extends State<GuestPage> {
       return;
     }
 
-    final vmidController = TextEditingController();
+    var vmidText = '';
     String? selectedStorage = targetStorages.length == 1
         ? targetStorages.single
         : null;
@@ -490,7 +490,7 @@ class _GuestPageState extends State<GuestPage> {
       barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) {
-          final targetVmid = int.tryParse(vmidController.text.trim());
+          final targetVmid = int.tryParse(vmidText.trim());
           final request = targetVmid == null
               ? null
               : GuestRestorePlanRequest(
@@ -527,22 +527,23 @@ class _GuestPageState extends State<GuestPage> {
                     'Preflight re-reads the source archive, clean cluster inventory, target storage state, VM.Allocate, and Datastore.AllocateSpace. Reported archive size is compressed backup metadata and is not proof of restored disk-space sufficiency.',
                   ),
                   const SizedBox(height: 16),
-                  TextField(
+                  TextFormField(
                     key: const Key('guest-restore-target-vmid'),
-                    controller: vmidController,
+                    initialValue: vmidText,
                     keyboardType: TextInputType.number,
                     maxLength: 9,
                     decoration: InputDecoration(
                       labelText: 'Alternate target VMID',
                       hintText: '901',
                       border: const OutlineInputBorder(),
-                      errorText: vmidController.text.isEmpty
+                      errorText: vmidText.isEmpty
                           ? null
                           : targetVmid == null
                           ? 'Enter a numeric VMID.'
                           : validationError,
                     ),
-                    onChanged: (_) => setDialogState(() {}),
+                    onChanged: (value) =>
+                        setDialogState(() => vmidText = value),
                   ),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
@@ -585,7 +586,6 @@ class _GuestPageState extends State<GuestPage> {
         },
       ),
     );
-    vmidController.dispose();
     if (!mounted ||
         !_currentSession ||
         confirmed != true ||
