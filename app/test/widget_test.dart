@@ -111,8 +111,7 @@ class _GuestSnapshotController extends AppController {
         GuestBackupArchive(
           node: guest.node,
           storage: storage,
-          volid:
-              '$storage:backup/vzdump-qemu-101-2026_11_11-10_00_00.vma.zst',
+          volid: '$storage:backup/vzdump-qemu-101-2026_11_11-10_00_00.vma.zst',
           kind: guest.kind,
           vmid: guest.vmid,
           sizeBytes: 1024,
