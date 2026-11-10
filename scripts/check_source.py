@@ -22,7 +22,7 @@ required = [
   'app/lib/ui/lxc_create_page.dart',
   'app/lib/ui/provisioning_confirmation_dialog.dart',
   'app/test/provisioning_page_test.dart','app/test/lxc_create_test.dart',
-  'app/test/guest_deletion_test.dart',
+  'app/test/guest_deletion_test.dart','app/test/guest_snapshot_create_test.dart',
   'app/test/models_test.dart',
   'app/test/controller_test.dart','app/test/pve_api_test.dart',
   'app/test/guest_migration_test.dart',
@@ -86,7 +86,8 @@ required = [
    'docs/84-qemu-create-branch-cross-check-2026-11-09.md',
    'docs/85-implementation-lxc-create.md',
    'docs/86-implementation-guest-migration.md',
-   'docs/87-implementation-guest-deletion.md']
+   'docs/87-implementation-guest-deletion.md',
+   'docs/88-implementation-guest-snapshot-create.md']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)
@@ -257,6 +258,15 @@ assert "Key('guest-delete')" in files['app/lib/ui/guest_page.dart']
 assert "Key('guest-delete-backup-ack')" in files['app/lib/ui/guest_page.dart']
 assert 'named guest + VMID confirmation' in files['docs/87-implementation-guest-deletion.md']
 assert "test('QEMU deletion uses one DELETE and validates qmdestroy UPID'" in files['app/test/guest_deletion_test.dart']
+assert 'class GuestSnapshotCreateRequest' in files['app/lib/core/models.dart']
+assert 'abstract class GuestSnapshotCreateGateway' in files['app/lib/core/pve_api.dart']
+assert "'snapname': normalized.name" in files['app/lib/core/pve_api.dart']
+assert 'runGuestSnapshotCreate' in files['app/lib/core/app_controller.dart']
+assert 'VM.Snapshot' in files['app/lib/core/app_controller.dart']
+assert "Key('guest-create-snapshot')" in files['app/lib/ui/guest_page.dart']
+assert "Key('guest-snapshot-create-submit')" in files['app/lib/ui/guest_page.dart']
+assert 'create-only snapshots' in files['docs/88-implementation-guest-snapshot-create.md']
+assert 'QEMU snapshot creation posts only snapname' in files['app/test/guest_snapshot_create_test.dart']
 assert '_guestTags' in files['app/lib/core/models.dart']
 assert 'final List<String> tags' in files['app/lib/core/models.dart']
 assert 'String? tag' in files['app/lib/core/guest_list_filter.dart']

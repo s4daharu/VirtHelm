@@ -239,6 +239,122 @@ class _GuestPageState extends State<GuestPage> {
     }
   }
 
+  Future<void> _openSnapshotCreate(Guest source) async {
+    if (!_currentSession || submitting || source.isTemplate) return;
+    if (!source.isRunning && !source.isStopped) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Refresh the guest before taking a snapshot.'),
+        ),
+      );
+      return;
+    }
+
+    final nameController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final request = GuestSnapshotCreateRequest(
+            name: nameController.text,
+          ).normalized();
+          final validationError = request.validationError;
+          return AlertDialog(
+            title: Text('Snapshot ${source.name}?'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${source.node} • ${source.kind.toUpperCase()} ${source.vmid}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Snapshots are not backups. This create-only flow captures guest disk/configuration snapshot state supported by Proxmox. VirtHelm does not request QEMU RAM-state capture.',
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Immediately before one POST, VirtHelm revalidates the exact guest and state, VM.Snapshot privilege, and a fresh complete snapshot list for name collisions. The mutation is never retried automatically.',
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    key: const Key('guest-snapshot-name'),
+                    controller: nameController,
+                    autofocus: true,
+                    maxLength: 64,
+                    decoration: InputDecoration(
+                      labelText: 'Snapshot name',
+                      hintText: 'before-upgrade',
+                      border: const OutlineInputBorder(),
+                      errorText:
+                          nameController.text.isEmpty ? null : validationError,
+                      helperText:
+                          'Letters, numbers, underscores, and hyphens only.',
+                    ),
+                    onChanged: (_) => setDialogState(() {}),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                key: const Key('guest-snapshot-create-submit'),
+                onPressed:
+                    validationError == null && nameController.text.isNotEmpty
+                    ? () => Navigator.of(dialogContext).pop(true)
+                    : null,
+                child: const Text('Create snapshot'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    final snapshotName = nameController.text;
+    nameController.dispose();
+    if (!mounted || !_currentSession || confirmed != true) return;
+
+    setState(() => submitting = true);
+    try {
+      await widget.controller.runGuestSnapshotCreate(
+        source,
+        GuestSnapshotCreateRequest(name: snapshotName),
+        profileId: widget.profileId,
+        generation: widget.generation,
+      );
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        snapshotInventory = null;
+        snapshotsLoadedAt = null;
+        snapshotError = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Snapshot task submitted. Check Tasks, then refresh snapshots after completion.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted || !_currentSession) return;
+      final message = error is PveFailure
+          ? error.message
+          : 'Could not submit snapshot.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted && _currentSession) setState(() => submitting = false);
+    }
+  }
+
   List<RecentServerTask> _backupTasks(Guest? guest) {
     if (guest == null || !_currentSession) return const <RecentServerTask>[];
     final vmid = guest.vmid.toString();
@@ -1410,6 +1526,15 @@ class _GuestPageState extends State<GuestPage> {
     final recoveryPoints = snapshots.where((item) => !item.isCurrent).length;
     final backupTasks = _backupTasks(guest);
     final scheme = Theme.of(context).colorScheme;
+    final snapshotCreateAllowed =
+        guest != null &&
+        !guest.isTemplate &&
+        (guest.isRunning || guest.isStopped) &&
+        widget.controller.isInventoryWriteSafe &&
+        !widget.controller.refreshing &&
+        !widget.controller.isGuestActionBlocked(guest) &&
+        !loadingSnapshots &&
+        !submitting;
     return _tabList(
       key: const Key('guest-recovery-list'),
       children: [
@@ -1419,28 +1544,43 @@ class _GuestPageState extends State<GuestPage> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Snapshots are not backups. Snapshot inventory is read-only and '
-          'loaded only when requested. Create, rollback, and delete actions '
-          'are intentionally unavailable.',
+          'Snapshots are not backups. Snapshot inventory is loaded only when '
+          'requested. Guarded create-only snapshots are available; rollback '
+          'and delete remain unavailable. QEMU RAM-state capture is not requested.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 10),
         Align(
           alignment: Alignment.centerLeft,
-          child: FilledButton.tonalIcon(
-            key: const Key('guest-load-snapshots'),
-            onPressed: guest == null || loadingSnapshots ? null : loadSnapshots,
-            icon: loadingSnapshots
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.restore_rounded),
-            label: Text(
-              snapshotInventory == null
-                  ? 'Load snapshots'
-                  : 'Refresh snapshots',
-            ),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.tonalIcon(
+                key: const Key('guest-load-snapshots'),
+                onPressed:
+                    guest == null || loadingSnapshots ? null : loadSnapshots,
+                icon: loadingSnapshots
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.restore_rounded),
+                label: Text(
+                  snapshotInventory == null
+                      ? 'Load snapshots'
+                      : 'Refresh snapshots',
+                ),
+              ),
+              FilledButton.icon(
+                key: const Key('guest-create-snapshot'),
+                onPressed: snapshotCreateAllowed && guest != null
+                    ? () => _openSnapshotCreate(guest)
+                    : null,
+                icon: const Icon(Icons.add_a_photo_outlined),
+                label: const Text('Create snapshot'),
+              ),
+            ],
           ),
         ),
         if (guest != null && snapshotError != null) ...[
