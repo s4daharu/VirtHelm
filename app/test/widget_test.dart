@@ -960,11 +960,27 @@ void main() {
       await tester.tap(find.byKey(const Key('guest-load-snapshots')));
       await tester.pumpAndSettle();
       expect(controller.requestedVmids, [101]);
-      await tester.ensureVisible(find.text('before-upgrade'));
+      await tester.scrollUntilVisible(
+        find.textContaining('1 malformed ignored'),
+        160,
+        scrollable: recoveryScroll,
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('1 malformed ignored'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Current state'),
+        120,
+        scrollable: recoveryScroll,
+      );
       await tester.pumpAndSettle();
       expect(find.text('Current state'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('before-upgrade'),
+        120,
+        scrollable: recoveryScroll,
+      );
+      await tester.pumpAndSettle();
       expect(find.text('before-upgrade'), findsOneWidget);
-      expect(find.textContaining('1 malformed ignored'), findsOneWidget);
       expect(find.textContaining('Includes VM memory state'), findsOneWidget);
 
       controller.inventory = Inventory.fromResources([]);
