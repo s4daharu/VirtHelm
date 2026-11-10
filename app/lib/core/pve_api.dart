@@ -783,7 +783,9 @@ class DioPveGateway
   @override
   Future<String> deleteGuest(Guest guest) async {
     if (guest.isTemplate) {
-      throw const FormatException('Templates cannot be deleted by this workflow.');
+      throw const FormatException(
+        'Templates cannot be deleted by this workflow.',
+      );
     }
     if (!guest.isStopped) {
       throw const FormatException('Stop the guest before deletion.');
