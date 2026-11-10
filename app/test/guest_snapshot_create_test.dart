@@ -134,55 +134,48 @@ void main() {
     expect(requests, 0);
   });
 
-  test(
-    'mismatched snapshot worker is treated as an uncertain outcome',
-    () async {
-      const guest = Guest(
-        node: 'pve1',
-        vmid: 101,
-        kind: 'qemu',
-        name: 'Web',
-        status: 'running',
-      );
-      final dio = Dio();
-      dio.interceptors.add(
-        InterceptorsWrapper(
-          onRequest: (options, handler) {
-            handler.resolve(
-              Response<dynamic>(
-                requestOptions: options,
-                statusCode: 200,
-                data: {
-                  'data':
-                      'UPID:pve1:00000001:00000002:00000003:vzsnapshot:101:test-user:',
-                },
-              ),
-            );
-          },
-        ),
-      );
-      final gateway = DioPveGateway(profile, credentials, http: dio);
-      addTearDown(gateway.close);
+  test('mismatched snapshot worker is treated as an uncertain outcome', () async {
+    const guest = Guest(
+      node: 'pve1',
+      vmid: 101,
+      kind: 'qemu',
+      name: 'Web',
+      status: 'running',
+    );
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'data':
+                    'UPID:pve1:00000001:00000002:00000003:vzsnapshot:101:test-user:',
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(profile, credentials, http: dio);
+    addTearDown(gateway.close);
 
-      await expectLater(
-        gateway.createGuestSnapshot(
-          guest,
-          const GuestSnapshotCreateRequest(name: 'before-upgrade'),
-        ),
-        throwsA(
-          isA<PveFailure>()
-              .having(
-                (error) => error.mayHaveExecuted,
-                'unknown outcome',
-                isTrue,
-              )
-              .having(
-                (error) => error.message,
-                'message',
-                contains('mismatched'),
-              ),
-        ),
-      );
-    },
-  );
+    await expectLater(
+      gateway.createGuestSnapshot(
+        guest,
+        const GuestSnapshotCreateRequest(name: 'before-upgrade'),
+      ),
+      throwsA(
+        isA<PveFailure>()
+            .having((error) => error.mayHaveExecuted, 'unknown outcome', isTrue)
+            .having(
+              (error) => error.message,
+              'message',
+              contains('mismatched'),
+            ),
+      ),
+    );
+  });
 }

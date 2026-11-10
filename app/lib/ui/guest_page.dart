@@ -289,8 +289,9 @@ class _GuestPageState extends State<GuestPage> {
                       labelText: 'Snapshot name',
                       hintText: 'before-upgrade',
                       border: const OutlineInputBorder(),
-                      errorText:
-                          nameController.text.isEmpty ? null : validationError,
+                      errorText: nameController.text.isEmpty
+                          ? null
+                          : validationError,
                       helperText:
                           'Letters, numbers, underscores, and hyphens only.',
                     ),
@@ -1558,8 +1559,9 @@ class _GuestPageState extends State<GuestPage> {
             children: [
               FilledButton.tonalIcon(
                 key: const Key('guest-load-snapshots'),
-                onPressed:
-                    guest == null || loadingSnapshots ? null : loadSnapshots,
+                onPressed: guest == null || loadingSnapshots
+                    ? null
+                    : loadSnapshots,
                 icon: loadingSnapshots
                     ? const SizedBox.square(
                         dimension: 18,
