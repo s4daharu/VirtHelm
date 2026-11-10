@@ -1755,6 +1755,20 @@ class _GuestPageState extends State<GuestPage> {
     final recoveryPoints = snapshots.where((item) => !item.isCurrent).length;
     final backupTasks = _backupTasks(guest);
     final backupStorages = _backupStorageIds(guest);
+    final effectiveBackupArchiveStorage =
+        selectedBackupArchiveStorage != null &&
+            backupStorages.contains(selectedBackupArchiveStorage)
+        ? selectedBackupArchiveStorage
+        : backupStorages.length == 1
+        ? backupStorages.single
+        : null;
+    final visibleBackupArchives =
+        guest != null &&
+            backupArchiveInventory?.storage == effectiveBackupArchiveStorage
+        ? backupArchiveInventory
+        : null;
+    final backupArchives =
+        visibleBackupArchives?.archives ?? const <GuestBackupArchive>[];
     final scheme = Theme.of(context).colorScheme;
     final snapshotCreateAllowed =
         guest != null &&
@@ -1783,10 +1797,10 @@ class _GuestPageState extends State<GuestPage> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Snapshots are not backups. Snapshot inventory is loaded only when '
-          'requested. Guarded create-only snapshots and one-off vzdump backup '
-          'submission are available; snapshot rollback/delete, archive '
-          'verification, and restore remain unavailable.',
+          'Snapshots are not backups. Snapshot inventory and exact-guest backup '
+          'archive visibility are loaded only when requested. Guarded create-only '
+          'snapshots and one-off vzdump backup submission are available; snapshot '
+          'rollback/delete, archive integrity verification, and restore remain unavailable.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 10),
