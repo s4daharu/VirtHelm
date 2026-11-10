@@ -51,7 +51,8 @@ required=['README.md','SECURITY.md','CONTRIBUTING.md',
            'docs/74-premerge-ui-cross-check-2026-11-07.md',
            'docs/75-connection-management-onboarding.md',
            'docs/76-accessibility-theme-completion.md',
-           'docs/77-whole-repository-cross-check-2026-11-08.md']
+           'docs/77-whole-repository-cross-check-2026-11-08.md',
+           'docs/93-whole-repository-cross-check-2026-11-11.md']
 missing=[p for p in required if not (root/p).is_file()]
 assert not missing, f'Missing required docs: {missing}'
 with (root/'docs/api-endpoint-index.csv').open(newline='',encoding='utf-8') as f:
@@ -72,5 +73,8 @@ test_count=sum(
     for path in (root/'app/test').glob('*.dart')
 )
 assert status['implementation_audit']['current_flutter_tests_defined'] == test_count, 'PROJECT_STATUS Flutter test count drift'
-assert status['live_pve_tested'] is False, 'Repository CI must not claim live PVE validation'
+assert status['live_pve_tested'] is False, 'Repository CI must not claim a complete live PVE release matrix'
+if status.get('live_pve_readonly_smoke_tested'):
+    assert status.get('live_pve_validation_scope'), 'Bounded read-only evidence needs an explicit scope'
+    assert 'No mutations' in status['live_pve_validation_scope'], 'Read-only evidence must not imply mutation validation'
 print(f'Documentation smoke-check passed: {len(required)} required files, {len(rows)} endpoint rows.')

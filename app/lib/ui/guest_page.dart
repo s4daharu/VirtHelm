@@ -42,6 +42,7 @@ class _GuestPageState extends State<GuestPage> {
   GuestRestorePlanPreflight? restorePlan;
   String? restorePlanError;
   DateTime? restorePlanLoadedAt;
+  int _restorePlanRevision = 0;
   bool loadingConfiguration = false;
   GuestConfiguration? configuration;
   String? configurationError;
@@ -54,6 +55,50 @@ class _GuestPageState extends State<GuestPage> {
   bool get _currentSession =>
       widget.controller.active?.id == widget.profileId &&
       widget.controller.connectionGeneration == widget.generation;
+
+  Future<T?> _showGuestDialog<T>({
+    required WidgetBuilder builder,
+    bool barrierDismissible = false,
+  }) => showDialog<T>(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    builder: (dialogContext) => AnimatedBuilder(
+      animation: widget.controller,
+      builder: (context, _) {
+        if (!_currentSession || currentGuest() == null) {
+          return AlertDialog(
+            title: const Text('Confirmation expired'),
+            content: const Text(
+              'Connection or guest changed. Reopen the guest from the active connection.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        }
+        return builder(dialogContext);
+      },
+    ),
+  );
+
+  Widget _operationConnectionContext() => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Text(
+      'Connection: ${widget.controller.active?.name ?? 'Unknown'}'
+      '${widget.controller.active?.allowInvalidCertificates == true ? '\nINSECURE: server certificate verification is disabled.' : ''}',
+      style: Theme.of(context).textTheme.bodySmall,
+    ),
+  );
+
+  void _clearRestorePlan() {
+    _restorePlanRevision++;
+    restorePlan = null;
+    restorePlanError = null;
+    restorePlanLoadedAt = null;
+  }
 
   Guest? currentGuest() {
     if (!_currentSession) return null;
@@ -270,9 +315,7 @@ class _GuestPageState extends State<GuestPage> {
       loadingBackupArchives = true;
       selectedBackupArchiveStorage = storage;
       backupArchiveError = null;
-      restorePlan = null;
-      restorePlanError = null;
-      restorePlanLoadedAt = null;
+      _clearRestorePlan();
     });
     try {
       final result = await widget.controller.inspectGuestBackupArchives(
@@ -322,14 +365,12 @@ class _GuestPageState extends State<GuestPage> {
       return;
     }
 
-    final nameController = TextEditingController();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
+    var snapshotName = '';
+    final confirmed = await _showGuestDialog<bool>(
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) {
           final request = GuestSnapshotCreateRequest(
-            name: nameController.text,
+            name: snapshotName,
           ).normalized();
           final validationError = request.validationError;
           return AlertDialog(
@@ -339,6 +380,7 @@ class _GuestPageState extends State<GuestPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  _operationConnectionContext(),
                   Text(
                     '${source.node} • ${source.kind.toUpperCase()} ${source.vmid}',
                     style: Theme.of(context).textTheme.titleMedium,
@@ -352,22 +394,21 @@ class _GuestPageState extends State<GuestPage> {
                     'Immediately before one POST, VirtHelm revalidates the exact guest and state, VM.Snapshot privilege, and a fresh complete snapshot list for name collisions. The mutation is never retried automatically.',
                   ),
                   const SizedBox(height: 16),
-                  TextField(
+                  TextFormField(
                     key: const Key('guest-snapshot-name'),
-                    controller: nameController,
+                    initialValue: snapshotName,
                     autofocus: true,
                     maxLength: 64,
                     decoration: InputDecoration(
                       labelText: 'Snapshot name',
                       hintText: 'before-upgrade',
                       border: const OutlineInputBorder(),
-                      errorText: nameController.text.isEmpty
-                          ? null
-                          : validationError,
+                      errorText: snapshotName.isEmpty ? null : validationError,
                       helperText:
                           'Letters, numbers, underscores, and hyphens only.',
                     ),
-                    onChanged: (_) => setDialogState(() {}),
+                    onChanged: (value) =>
+                        setDialogState(() => snapshotName = value),
                   ),
                 ],
               ),
@@ -379,8 +420,7 @@ class _GuestPageState extends State<GuestPage> {
               ),
               FilledButton(
                 key: const Key('guest-snapshot-create-submit'),
-                onPressed:
-                    validationError == null && nameController.text.isNotEmpty
+                onPressed: validationError == null && snapshotName.isNotEmpty
                     ? () => Navigator.of(dialogContext).pop(true)
                     : null,
                 child: const Text('Create snapshot'),
@@ -390,8 +430,6 @@ class _GuestPageState extends State<GuestPage> {
         },
       ),
     );
-    final snapshotName = nameController.text;
-    nameController.dispose();
     if (!mounted || !_currentSession || confirmed != true) return;
 
     setState(() => submitting = true);
@@ -485,9 +523,7 @@ class _GuestPageState extends State<GuestPage> {
         ? targetStorages.single
         : null;
     GuestRestorePlanRequest? selectedRequest;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
+    final confirmed = await _showGuestDialog<bool>(
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) {
           final targetVmid = int.tryParse(vmidText.trim());
@@ -506,6 +542,7 @@ class _GuestPageState extends State<GuestPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  _operationConnectionContext(),
                   Text(
                     archive.displayName,
                     style: Theme.of(context).textTheme.titleMedium,
@@ -595,10 +632,9 @@ class _GuestPageState extends State<GuestPage> {
 
     setState(() {
       loadingRestorePlan = true;
-      restorePlan = null;
-      restorePlanError = null;
-      restorePlanLoadedAt = null;
+      _clearRestorePlan();
     });
+    final revision = _restorePlanRevision;
     try {
       final result = await widget.controller.inspectGuestRestorePlan(
         profileId: widget.profileId,
@@ -607,7 +643,9 @@ class _GuestPageState extends State<GuestPage> {
         archive: archive,
         request: selectedRequest!,
       );
-      if (!mounted || !_currentSession) return;
+      if (!mounted || !_currentSession || revision != _restorePlanRevision) {
+        return;
+      }
       setState(() {
         restorePlan = result;
         restorePlanLoadedAt = result == null ? null : DateTime.now();
@@ -617,14 +655,18 @@ class _GuestPageState extends State<GuestPage> {
         }
       });
     } on PveFailure catch (error) {
-      if (!mounted || !_currentSession) return;
+      if (!mounted || !_currentSession || revision != _restorePlanRevision) {
+        return;
+      }
       setState(() {
         restorePlan = null;
         restorePlanLoadedAt = null;
         restorePlanError = error.message;
       });
     } catch (_) {
-      if (!mounted || !_currentSession) return;
+      if (!mounted || !_currentSession || revision != _restorePlanRevision) {
+        return;
+      }
       setState(() {
         restorePlan = null;
         restorePlanLoadedAt = null;
@@ -660,9 +702,7 @@ class _GuestPageState extends State<GuestPage> {
     }
 
     String? selectedStorage = storages.length == 1 ? storages.single : null;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
+    final confirmed = await _showGuestDialog<bool>(
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
@@ -672,6 +712,7 @@ class _GuestPageState extends State<GuestPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  _operationConnectionContext(),
                   Text(
                     '${source.node} • ${source.kind.toUpperCase()} ${source.vmid}',
                     style: Theme.of(context).textTheme.titleMedium,
@@ -744,6 +785,7 @@ class _GuestPageState extends State<GuestPage> {
         backupArchiveInventory = null;
         backupArchivesLoadedAt = null;
         backupArchiveError = null;
+        _clearRestorePlan();
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1019,8 +1061,8 @@ class _GuestPageState extends State<GuestPage> {
       return;
     }
 
-    final target = await showDialog<String>(
-      context: context,
+    final target = await _showGuestDialog<String>(
+      barrierDismissible: true,
       builder: (dialogContext) => SimpleDialog(
         title: const Text('Choose destination node'),
         children: [
@@ -1040,13 +1082,11 @@ class _GuestPageState extends State<GuestPage> {
     );
     if (!mounted || !_currentSession || target == null) return;
 
-    final confirmation = TextEditingController();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
+    var confirmation = '';
+    final confirmed = await _showGuestDialog<bool>(
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) {
-          final matches = confirmation.text.trim() == source.vmid.toString();
+          final matches = confirmation.trim() == source.vmid.toString();
           return AlertDialog(
             title: Text('Migrate ${source.name}?'),
             content: SingleChildScrollView(
@@ -1054,6 +1094,7 @@ class _GuestPageState extends State<GuestPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  _operationConnectionContext(),
                   Text(
                     '${source.node} → $target',
                     style: Theme.of(context).textTheme.titleMedium,
@@ -1076,16 +1117,17 @@ class _GuestPageState extends State<GuestPage> {
                     style: Theme.of(context).textTheme.labelLarge,
                   ),
                   const SizedBox(height: 8),
-                  TextField(
+                  TextFormField(
                     key: const Key('guest-migration-confirmation'),
-                    controller: confirmation,
+                    initialValue: confirmation,
                     keyboardType: TextInputType.number,
                     autofocus: true,
                     decoration: const InputDecoration(
                       labelText: 'VMID confirmation',
                       border: OutlineInputBorder(),
                     ),
-                    onChanged: (_) => setDialogState(() {}),
+                    onChanged: (value) =>
+                        setDialogState(() => confirmation = value),
                   ),
                 ],
               ),
@@ -1107,7 +1149,6 @@ class _GuestPageState extends State<GuestPage> {
         },
       ),
     );
-    confirmation.dispose();
     if (!mounted || !_currentSession || confirmed != true) return;
 
     setState(() => submitting = true);
@@ -1148,14 +1189,12 @@ class _GuestPageState extends State<GuestPage> {
       return;
     }
     final expected = 'DELETE ${source.name} ${source.vmid}';
-    final confirmation = TextEditingController();
+    var confirmation = '';
     var backupAcknowledged = false;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
+    final confirmed = await _showGuestDialog<bool>(
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) {
-          final matches = confirmation.text.trim() == expected;
+          final matches = confirmation.trim() == expected;
           return AlertDialog(
             title: Text('Permanently delete ${source.name}?'),
             content: SingleChildScrollView(
@@ -1163,6 +1202,7 @@ class _GuestPageState extends State<GuestPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  _operationConnectionContext(),
                   Text(
                     '${source.kind.toUpperCase()} • ${source.node} • VMID ${source.vmid}',
                     style: Theme.of(context).textTheme.titleMedium,
@@ -1198,15 +1238,16 @@ class _GuestPageState extends State<GuestPage> {
                     style: Theme.of(context).textTheme.labelLarge,
                   ),
                   const SizedBox(height: 8),
-                  TextField(
+                  TextFormField(
                     key: const Key('guest-delete-confirmation'),
-                    controller: confirmation,
+                    initialValue: confirmation,
                     autofocus: true,
                     decoration: const InputDecoration(
                       labelText: 'Destructive confirmation',
                       border: OutlineInputBorder(),
                     ),
-                    onChanged: (_) => setDialogState(() {}),
+                    onChanged: (value) =>
+                        setDialogState(() => confirmation = value),
                   ),
                 ],
               ),
@@ -1228,7 +1269,6 @@ class _GuestPageState extends State<GuestPage> {
         },
       ),
     );
-    confirmation.dispose();
     if (!mounted || !_currentSession || confirmed != true) return;
 
     setState(() => submitting = true);
@@ -1481,7 +1521,7 @@ class _GuestPageState extends State<GuestPage> {
       Text(
         guest?.isTemplate == true
             ? 'This is a template discovered from the current cluster inventory. '
-                  'Power actions are disabled; the reviewed clone wizard is available below while create-from-scratch remains gated.'
+                  'Power actions are disabled; the reviewed clone wizard is available below. Separate QEMU/LXC creation wizards are available from Guests.'
             : 'Power actions are available below. Each operation is checked '
                   'against fresh server state and tracked as a task.',
         style: TextStyle(color: scheme.onSurfaceVariant),
@@ -1489,8 +1529,10 @@ class _GuestPageState extends State<GuestPage> {
       const SizedBox(height: 14),
       Text(
         'Read-only reviewed configuration fields are available in the '
-        'Configuration tab. Console, snapshot changes, migrations, and '
-        'configuration editing remain gated behind additional validated workflows.',
+        'Configuration tab. Guarded snapshot creation and backup submission '
+        'are available in Recovery; migration and stopped-guest deletion are '
+        'available below. Console, snapshot rollback/delete, restore execution, '
+        'and configuration editing remain gated.',
         style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
       ),
     ],
@@ -1955,7 +1997,8 @@ class _GuestPageState extends State<GuestPage> {
           'Configuration editing remains disabled. Guarded same-cluster migration is available from the action bar. Empty QEMU VM '
           'creation and template cloning are available only through their '
           'separately guarded provisioning workflows; storage/network/media '
-          'configuration and LXC creation remain gated.',
+          'configuration remains gated. Unprivileged LXC creation is available '
+          'through its separately guarded provisioning workflow.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
@@ -2193,9 +2236,7 @@ class _GuestPageState extends State<GuestPage> {
                             backupArchiveInventory = null;
                             backupArchivesLoadedAt = null;
                             backupArchiveError = null;
-                            restorePlan = null;
-                            restorePlanError = null;
-                            restorePlanLoadedAt = null;
+                            _clearRestorePlan();
                           });
                         },
                 ),

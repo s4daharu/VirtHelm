@@ -66,8 +66,13 @@ class ProfileRepository {
     return result;
   }
 
+  String? _storedString(String key) {
+    final value = _prefs.get(key);
+    return value is String ? value : null;
+  }
+
   List<ConnectionProfile> readProfiles() {
-    final raw = _prefs.getString(_profilesKey);
+    final raw = _storedString(_profilesKey);
     if (raw == null) return [];
     try {
       final decoded = jsonDecode(raw);
@@ -97,7 +102,7 @@ class ProfileRepository {
     }
   }
 
-  String? get activeId => _prefs.getString(_activeKey);
+  String? get activeId => _storedString(_activeKey);
 
   AppThemePreference get themePreference {
     final raw = _prefs.get(_themeKey);
@@ -227,7 +232,7 @@ class ProfileRepository {
   }
 
   List<ForegroundThresholdAlertRule> readThresholdAlertRules(String profileId) {
-    final raw = _prefs.getString(_thresholdRulesKey);
+    final raw = _storedString(_thresholdRulesKey);
     if (raw == null) return [];
     try {
       final decoded = jsonDecode(raw);
@@ -304,7 +309,7 @@ class ProfileRepository {
       });
 
   Map<String, dynamic> _readThresholdRulesRoot() {
-    final raw = _prefs.getString(_thresholdRulesKey);
+    final raw = _storedString(_thresholdRulesKey);
     if (raw == null) return <String, dynamic>{};
     try {
       final decoded = jsonDecode(raw);
@@ -317,11 +322,11 @@ class ProfileRepository {
   }
 
   Future<void> _clearThresholdAlertRules(String profileId) async {
-    final raw = _prefs.getString(_thresholdRulesKey);
+    final raw = _prefs.get(_thresholdRulesKey);
     if (raw == null) return;
     Map<String, dynamic> root;
     try {
-      final decoded = jsonDecode(raw);
+      final decoded = raw is String ? jsonDecode(raw) : null;
       if (decoded is! Map<String, dynamic>) {
         final removed = await _prefs.remove(_thresholdRulesKey);
         if (!removed) {
@@ -349,7 +354,7 @@ class ProfileRepository {
   }
 
   Set<String> readGuestFavorites(String profileId) {
-    final raw = _prefs.getString(_favoritesKey);
+    final raw = _storedString(_favoritesKey);
     if (raw == null) return <String>{};
     try {
       final decoded = jsonDecode(raw);
@@ -370,7 +375,7 @@ class ProfileRepository {
     if (!readProfiles().any((profile) => profile.id == profileId)) {
       throw StateError('Connection no longer exists.');
     }
-    final raw = _prefs.getString(_favoritesKey);
+    final raw = _storedString(_favoritesKey);
     final decoded = <String, dynamic>{};
     if (raw != null) {
       try {
@@ -397,7 +402,7 @@ class ProfileRepository {
   });
 
   List<SavedGuestView> readGuestViews(String profileId) {
-    final raw = _prefs.getString(_guestViewsKey);
+    final raw = _storedString(_guestViewsKey);
     if (raw == null) return [];
     try {
       final decoded = jsonDecode(raw);
@@ -478,7 +483,7 @@ class ProfileRepository {
       });
 
   Map<String, dynamic> _readGuestViewsRoot() {
-    final raw = _prefs.getString(_guestViewsKey);
+    final raw = _storedString(_guestViewsKey);
     if (raw == null) return <String, dynamic>{};
     try {
       final decoded = jsonDecode(raw);
@@ -491,11 +496,11 @@ class ProfileRepository {
   }
 
   Future<void> _clearGuestViews(String profileId) async {
-    final raw = _prefs.getString(_guestViewsKey);
+    final raw = _prefs.get(_guestViewsKey);
     if (raw == null) return;
     Map<String, dynamic> root;
     try {
-      final decoded = jsonDecode(raw);
+      final decoded = raw is String ? jsonDecode(raw) : null;
       if (decoded is! Map<String, dynamic>) {
         final removed = await _prefs.remove(_guestViewsKey);
         if (!removed) throw StateError('Could not clear guest views.');
@@ -520,10 +525,10 @@ class ProfileRepository {
       _mutate(() => _clearGuestFavorites(profileId));
 
   Future<void> _clearGuestFavorites(String profileId) async {
-    final raw = _prefs.getString(_favoritesKey);
+    final raw = _prefs.get(_favoritesKey);
     if (raw == null) return;
     try {
-      final decoded = jsonDecode(raw);
+      final decoded = raw is String ? jsonDecode(raw) : null;
       if (decoded is! Map<String, dynamic>) {
         final removed = await _prefs.remove(_favoritesKey);
         if (!removed) throw StateError('Could not clear guest favorites.');
@@ -604,6 +609,16 @@ class ProfileRepository {
           } catch (_) {}
           Error.throwWithStackTrace(error, stackTrace);
         }
+      });
+
+  /// User edits invalidate cached counts without rewriting an unchanged token.
+  Future<void> updateConfigurationMetadata(ConnectionProfile profile) =>
+      _mutate(() async {
+        final profiles = readProfiles();
+        final index = profiles.indexWhere((item) => item.id == profile.id);
+        if (index < 0) throw StateError('Connection no longer exists.');
+        await _clearOfflineOverview(profile.id);
+        await _writeProfiles([...profiles]..[index] = profile);
       });
 
   Future<void> updateMetadata(ConnectionProfile profile) => _mutate(() async {

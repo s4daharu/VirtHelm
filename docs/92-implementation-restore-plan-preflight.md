@@ -19,7 +19,7 @@ Immediately after the operator chooses the target, the controller revalidates:
 3. the exact selected archive on the exact source backup storage;
 4. fresh node storage state for both source backup storage and selected target storage;
 5. target node online state;
-6. cluster-wide target VMID availability;
+6. cluster-wide target VMID availability, using inventory plus the server-side GET `/cluster/nextid?vmid=...` assertion (added by the [November 11 cross-check](93-whole-repository-cross-check-2026-11-11.md); ACL-filtered inventory alone is insufficient);
 7. target content compatibility: `images` for QEMU or `rootdir` for LXC;
 8. effective `VM.Allocate` on the target VMID;
 9. effective `Datastore.AllocateSpace` on the target storage.
@@ -46,6 +46,7 @@ The card may show the archive's reported size beside the target storage's curren
 Each loaded archive exposes **Plan restore** when a compatible same-node destination storage is currently visible. The dialog states the no-mutation boundary before collecting an alternate VMID. The resulting card shows source visibility, node state, VMID conflict state, storage compatibility, ACL hints, blockers, capacity context, and a point-in-time disclaimer.
 
 Changing or refreshing archive storage clears previous restore-plan evidence.
+The cross-check also rejects obsolete in-flight results after archive refresh/storage changes, network loss or session changes, and displays freshly re-read archive metadata.
 
 ## Automated coverage
 

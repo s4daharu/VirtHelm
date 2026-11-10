@@ -2,6 +2,8 @@
 
 Evidence status codes: **DOC** = official source substantiates the concept; **AUTO** = implemented behavior covered by automated source/unit/contract/build checks; **PLAN** = chosen design; **PENDING** = real integration/security/device evidence still required; **PASS** is reserved for attached target-environment evidence.
 
+**2026-11-11 bounded live evidence:** one PVE 9.2.26 server passed GET-only HTTP/schema inspection and 23 adapter-enforced GETs through the actual gateway/parsers. See [audit 93](93-whole-repository-cross-check-2026-11-11.md) for exact scope and limits. This is not a blanket PASS for the rows below: PVE 8.4, mutations, restricted-token ACLs, backend variants and physical-device gates remain open.
+
 | Claim / behavior | Current evidence | Remaining evidence |
 |---|---|---|
 | PVE HTTPS/API-token protocol and token-console limitation | DOC + AUTO header/transport tests | PVE 8.4/9.2 auth/ACL lab |
@@ -34,6 +36,7 @@ Evidence status codes: **DOC** = official source substantiates the concept; **AU
 | GET-only same-node alternate-VMID restore planning/conflict preflight for one visible exact-guest archive; fresh clean inventory, exact archive re-read, target VMID conflict, type-compatible storage, `VM.Allocate` and `Datastore.AllocateSpace` hints; no restore mutation, overwrite or cross-node path | PLAN/DOC existing read contracts + AUTO model/controller/widget/source regressions | disposable PVE 8.4/9.2 archive/storage/ACL/reused-VMID fixtures, physical Android accessibility/network lifecycle, and independently reviewed restore mutation contract before any write |
 | QEMU/LXC start/shutdown/reboot/stop paths and one-POST behavior | AUTO contract/fault guards | disposable 8.4/9.2 mutation tests |
 | Mutation single-flight, stale/profile race rejection, unknown timeout lockout | AUTO | network fault injection against real PVE |
+| Final `/status/current` preflight for migration/snapshot/backup/deletion; deletion name drift rejection; new guest-operation dialog session redaction/TLS context; restore server-side VMID collision assertion and stale-evidence invalidation | DOC existing read contracts + AUTO controller/model/widget regressions; bounded 9.2.26 GET/parser smoke evidence in audit 93 | disposable dual-version mutation/fault/ACL/backend matrix and physical Android lifecycle/accessibility/TLS review |
 | Task-detail terminal success requires stopped + OK exit status | AUTO | live successful/failed task fixtures |
 | Node task-list RUNNING/archive-result normalization | source-inspected + AUTO | live 8.4/9.2 task-list fixtures |
 | Storage partial 403/malformed handling and no shared-total summation | AUTO | local/shared/PBS-backed PVE storage fixtures |

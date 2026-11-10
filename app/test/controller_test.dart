@@ -89,6 +89,8 @@ class _Gateway
   int taskLogCalls = 0;
   final List<int> taskLogStarts = [];
   int guestSnapshotCalls = 0;
+  int guestStatusCalls = 0;
+  PveFailure? guestStatusFailure;
   Completer<GuestSnapshotInventory>? guestSnapshotGate;
   PveFailure? guestSnapshotFailure;
   GuestSnapshotInventory guestSnapshotResult = const GuestSnapshotInventory(
@@ -326,8 +328,12 @@ class _Gateway
   }
 
   @override
-  Future<String> guestStatus(Guest guest) =>
-      preflight?.future ?? Future.value(status);
+  Future<String> guestStatus(Guest guest) {
+    guestStatusCalls++;
+    if (guestStatusFailure != null) return Future.error(guestStatusFailure!);
+    return preflight?.future ?? Future.value(status);
+  }
+
   @override
   Future<String> submit(Guest guest, GuestAction action) async {
     submissions++;
@@ -561,10 +567,273 @@ class _Gateway
   }
 }
 
+Future<(AppController, _Gateway)> _auditController({
+  String status = 'running',
+}) async {
+  final prefs = await SharedPreferences.getInstance();
+  late _Gateway gateway;
+  final controller = AppController(
+    repository: ProfileRepository(prefs, _Vault()),
+    gatewayFactory: (profile, credentials) => gateway = _Gateway()
+      ..status = status
+      ..inventoryResources = [
+        {'type': 'node', 'node': 'pve1', 'status': 'online'},
+        {'type': 'node', 'node': 'pve2', 'status': 'online'},
+        {
+          'type': 'qemu',
+          'vmid': 101,
+          'node': 'pve1',
+          'name': 'Web',
+          'status': status,
+        },
+      ]
+      ..storageResult = ReadCollection(
+        values: const [
+          StoragePool(
+            node: 'pve1',
+            id: 'backup',
+            type: 'dir',
+            enabled: true,
+            active: true,
+            contentTypes: ['backup'],
+          ),
+          StoragePool(
+            node: 'pve1',
+            id: 'local-lvm',
+            type: 'lvmthin',
+            enabled: true,
+            active: true,
+            contentTypes: ['images', 'rootdir'],
+          ),
+        ],
+      )
+      ..guestPermissionResult = const GuestPermissionSnapshot(
+        privileges: {'VM.Snapshot', 'VM.Backup', 'VM.Allocate', 'VM.Migrate'},
+      )
+      ..migrationPreflightResult = GuestMigrationPreflight(
+        running: status == 'running',
+        allowedNodes: const ['pve2'],
+      )
+      ..clonePermissionResults[901] = const GuestPermissionSnapshot(
+        privileges: {'VM.Allocate'},
+      )
+      ..pathPermissionResults['/storage/local-lvm'] =
+          const GuestPermissionSnapshot(privileges: {'Datastore.AllocateSpace'})
+      ..pathPermissionResults['/storage/backup'] =
+          const GuestPermissionSnapshot(
+            privileges: {'Datastore.AllocateSpace'},
+          ),
+  );
+  await controller.initialize();
+  await controller.connect(
+    name: 'Lab',
+    address: 'https://pve.example',
+    tokenId: 'me@pve!test',
+    secret: 'synthetic',
+  );
+  return (controller, gateway);
+}
+
+Future<GuestRestorePlanPreflight?> _auditRestorePlan(
+  AppController controller,
+  _Gateway gateway, {
+  GuestBackupArchive? archive,
+}) => controller.inspectGuestRestorePlan(
+  profileId: controller.active!.id,
+  generation: controller.connectionGeneration,
+  guest: controller.inventory!.guests.single,
+  archive: archive ?? gateway.backupArchiveResult.archives.single,
+  request: const GuestRestorePlanRequest(
+    targetNode: 'pve1',
+    targetVmid: 901,
+    targetStorage: 'local-lvm',
+  ),
+);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  for (final status in [400, 403, 503]) {
+    test(
+      'restore plan fails closed on server VMID check HTTP $status',
+      () async {
+        final (controller, gateway) = await _auditController();
+        addTearDown(controller.dispose);
+        gateway.cloneAvailabilityFailure = PveFailure(
+          'Cannot confirm VMID',
+          status: status,
+        );
+        final plan = await _auditRestorePlan(controller, gateway);
+        expect(gateway.assertedCloneVmids, [901]);
+        expect(plan?.targetVmidAvailable, isFalse);
+        expect(plan?.preflightComplete, isFalse);
+        expect(plan?.blockers, contains(contains('could not be confirmed')));
+        expect(controller.tasks, isEmpty);
+        expect(gateway.qemuCreateSubmissions + gateway.backupSubmissions, 0);
+      },
+    );
+  }
+
+  test(
+    'restore VMID-check authentication loss invalidates live writes',
+    () async {
+      final (controller, gateway) = await _auditController();
+      addTearDown(controller.dispose);
+      gateway.cloneAvailabilityFailure = const PveFailure(
+        'Authentication failed',
+        status: 401,
+      );
+      await expectLater(
+        _auditRestorePlan(controller, gateway),
+        throwsA(isA<PveFailure>()),
+      );
+      expect(controller.isInventoryWriteSafe, isFalse);
+      expect(controller.tasks, isEmpty);
+    },
+  );
+
+  test('restore plan discards results after default-network loss', () async {
+    final (controller, gateway) = await _auditController();
+    addTearDown(controller.dispose);
+    gateway.availabilityGate = Completer<void>();
+    final pending = _auditRestorePlan(controller, gateway);
+    await Future<void>.delayed(Duration.zero);
+    expect(gateway.assertedCloneVmids, [901]);
+    controller.setDeviceNetworkState(DeviceNetworkState.unavailable);
+    controller.setDeviceNetworkState(DeviceNetworkState.unknown);
+    gateway.availabilityGate!.complete();
+    expect(await pending, isNull);
+    expect(gateway.clonePermissionVmids, isEmpty);
+    expect(controller.tasks, isEmpty);
+  });
+
+  test('restore plan discards results after same-profile reconnect', () async {
+    final (controller, gateway) = await _auditController();
+    addTearDown(controller.dispose);
+    gateway.availabilityGate = Completer<void>();
+    final pending = _auditRestorePlan(controller, gateway);
+    await Future<void>.delayed(Duration.zero);
+    await controller.activate(controller.active!);
+    gateway.availabilityGate!.complete();
+    expect(await pending, isNull);
+    expect(controller.tasks, isEmpty);
+  });
+
+  test('restore plan uses freshly read archive metadata', () async {
+    final (controller, gateway) = await _auditController();
+    addTearDown(controller.dispose);
+    final oldArchive = gateway.backupArchiveResult.archives.single;
+    final fresh = GuestBackupArchive(
+      node: oldArchive.node,
+      storage: oldArchive.storage,
+      volid: oldArchive.volid,
+      kind: oldArchive.kind,
+      vmid: oldArchive.vmid,
+      sizeBytes: 2048,
+    );
+    gateway.backupArchiveResult = GuestBackupArchiveInventory(
+      storage: 'backup',
+      archives: [fresh],
+    );
+    final plan = await _auditRestorePlan(
+      controller,
+      gateway,
+      archive: oldArchive,
+    );
+    expect(plan?.sourceArchive, same(fresh));
+    expect(plan?.sourceArchive.sizeBytes, 2048);
+  });
+
+  for (final operation in ['snapshot', 'backup', 'delete', 'migration']) {
+    for (final authLost in [false, true]) {
+      test(
+        '$operation final live status blocks ${authLost ? '401' : 'state drift'} before mutation',
+        () async {
+          final (controller, gateway) = await _auditController(
+            status: 'stopped',
+          );
+          addTearDown(controller.dispose);
+          if (authLost) {
+            gateway.guestStatusFailure = const PveFailure(
+              'Authentication failed',
+              status: 401,
+            );
+          } else {
+            gateway.preflight = Completer<String>()..complete('running');
+          }
+          final guest = controller.inventory!.guests.single;
+          final profileId = controller.active!.id;
+          final generation = controller.connectionGeneration;
+          final Future<void> pending;
+          switch (operation) {
+            case 'snapshot':
+              pending = controller.runGuestSnapshotCreate(
+                guest,
+                const GuestSnapshotCreateRequest(name: 'audit'),
+                profileId: profileId,
+                generation: generation,
+              );
+            case 'backup':
+              pending = controller.runGuestBackup(
+                guest,
+                const GuestBackupRequest(storage: 'backup'),
+                profileId: profileId,
+                generation: generation,
+              );
+            case 'delete':
+              pending = controller.runGuestDeletion(
+                guest,
+                profileId: profileId,
+                generation: generation,
+              );
+            default:
+              pending = controller.runGuestMigration(
+                guest,
+                const GuestMigrationRequest(targetNode: 'pve2'),
+                profileId: profileId,
+                generation: generation,
+              );
+          }
+          await expectLater(pending, throwsA(isA<PveFailure>()));
+          expect(gateway.guestStatusCalls, 1);
+          expect(
+            gateway.snapshotCreateSubmissions +
+                gateway.backupSubmissions +
+                gateway.deleteSubmissions +
+                gateway.migrationSubmissions,
+            0,
+          );
+          expect(controller.tasks, isEmpty);
+          expect(controller.isGuestActionBlocked(guest), isFalse);
+          if (authLost) expect(controller.isInventoryWriteSafe, isFalse);
+        },
+      );
+    }
+  }
+
+  test('deletion rejects a renamed live target before mutation', () async {
+    final (controller, gateway) = await _auditController(status: 'stopped');
+    addTearDown(controller.dispose);
+    final guest = controller.inventory!.guests.single;
+    gateway.inventoryResources!.last['name'] = 'Renamed';
+    await expectLater(
+      controller.runGuestDeletion(
+        guest,
+        profileId: controller.active!.id,
+        generation: controller.connectionGeneration,
+      ),
+      throwsA(
+        isA<PveFailure>().having(
+          (e) => e.message,
+          'message',
+          contains('name changed'),
+        ),
+      ),
+    );
+    expect(gateway.deleteSubmissions, 0);
+  });
 
   test(
     'candidate connection check reports limited inventory without persistence',
@@ -1272,6 +1541,22 @@ void main() {
       await prefs.setString('profile_metadata_v1', '{malformed-json');
       expect(repo.readProfiles(), isEmpty);
 
+      // Native preference types can be corrupt too, not just JSON contents.
+      await prefs.setInt('profile_metadata_v1', 7);
+      await prefs.setBool('active_profile_v1', true);
+      for (final key in [
+        'guest_favorites_v1',
+        'guest_saved_views_v1',
+        'foreground_threshold_rules_v1',
+      ]) {
+        await prefs.setStringList(key, ['malformed']);
+      }
+      expect(repo.readProfiles(), isEmpty);
+      expect(repo.activeId, isNull);
+      expect(repo.readGuestFavorites('valid-profile'), isEmpty);
+      expect(repo.readGuestViews('valid-profile'), isEmpty);
+      expect(repo.readThresholdAlertRules('valid-profile'), isEmpty);
+
       final replacement = ConnectionProfile.create(
         name: 'Replacement',
         address: 'https://replacement.example',
@@ -1281,6 +1566,14 @@ void main() {
         const ApiCredentials(tokenId: 'me@pve!test', secret: 'test'),
       );
       expect(repo.readProfiles().single.id, replacement.id);
+      await repo.delete(replacement.id);
+      for (final key in [
+        'guest_favorites_v1',
+        'guest_saved_views_v1',
+        'foreground_threshold_rules_v1',
+      ]) {
+        expect(prefs.containsKey(key), isFalse);
+      }
     },
   );
 
@@ -1455,6 +1748,11 @@ void main() {
       final stored = await vault.retrieve(profile.id);
       expect(stored?.tokenId, credentials.tokenId);
       expect(stored?.secret, credentials.secret);
+      expect(
+        vault.storeCalls,
+        1,
+        reason: 'Unchanged credentials must not be rewritten',
+      );
     },
   );
 
@@ -3365,6 +3663,7 @@ void main() {
       final ctl = AppController(
         repository: ProfileRepository(prefs, _Vault()),
         gatewayFactory: (profile, credentials) => gateway = _Gateway()
+          ..status = 'stopped'
           ..inventoryResources = [
             {'type': 'node', 'node': 'pve1', 'status': 'online'},
             {
@@ -3462,6 +3761,7 @@ void main() {
       final ctl = AppController(
         repository: ProfileRepository(prefs, _Vault()),
         gatewayFactory: (profile, credentials) => gateway = _Gateway()
+          ..status = 'stopped'
           ..inventoryResources = [
             {'type': 'node', 'node': 'pve1', 'status': 'online'},
             {
@@ -3652,6 +3952,7 @@ void main() {
       expect(gateway.backupArchiveCalls, 1);
       expect(gateway.clonePermissionVmids, [901]);
       expect(gateway.permissionPaths, ['/storage/local-lvm']);
+      expect(gateway.assertedCloneVmids, [901]);
       expect(gateway.submissions, 0);
       expect(gateway.backupSubmissions, 0);
       expect(gateway.qemuCreateSubmissions, 0);

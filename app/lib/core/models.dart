@@ -932,8 +932,10 @@ class GuestBackupValidationAssessment {
     final latestTask = tasks.isEmpty ? null : tasks.first;
     final taskEvidence = latestTask == null
         ? BackupTaskEvidence.none
-        : !latestTask.isDone
+        : latestTask.status == 'running'
         ? BackupTaskEvidence.running
+        : !latestTask.isDone
+        ? BackupTaskEvidence.unknown
         : latestTask.exitStatus == 'OK'
         ? BackupTaskEvidence.succeeded
         : latestTask.exitStatus == null
@@ -1389,6 +1391,10 @@ class Guest {
       throw const FormatException('Guest is missing node or VMID.');
     }
     final rawName = asText(json['name']);
+    final template = asFlag(json['template']);
+    if (json.containsKey('template') && template == null) {
+      throw const FormatException('Guest has an invalid template marker.');
+    }
     return Guest(
       node: node,
       vmid: vmid,
@@ -1397,7 +1403,7 @@ class Guest {
           ? rawName
           : '$kind $vmid',
       status: asText(json['status']) ?? 'unknown',
-      isTemplate: asFlag(json['template']) == true,
+      isTemplate: template == true,
       cpu: asDouble(json['cpu']),
       mem: asInteger(json['mem']),
       maxMem: asInteger(json['maxmem']),
@@ -1455,6 +1461,7 @@ class Inventory {
   factory Inventory.fromResources(List<dynamic> values, {DateTime? fetchedAt}) {
     final nodes = <Node>[];
     final guests = <Guest>[];
+    final vmids = <int>{};
     var malformedGuestRecords = 0;
     for (final entry in values) {
       if (entry is! Map<String, dynamic>) {
@@ -1466,7 +1473,9 @@ class Inventory {
         nodes.add(Node.fromResource(entry));
       } else if (kind == 'qemu' || kind == 'lxc') {
         try {
-          guests.add(Guest.fromResource(entry));
+          final guest = Guest.fromResource(entry);
+          if (!vmids.add(guest.vmid)) malformedGuestRecords++;
+          guests.add(guest);
         } on FormatException {
           malformedGuestRecords++;
           continue;

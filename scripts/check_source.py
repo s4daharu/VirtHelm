@@ -26,6 +26,7 @@ required = [
   'app/test/models_test.dart',
   'app/test/controller_test.dart','app/test/pve_api_test.dart',
   'app/test/guest_migration_test.dart',
+  'app/test/guest_operation_dialog_test.dart',
   'app/test/widget_test.dart','app/test/pve_tls_test.dart',
   'app/test/incident_center_test.dart','app/test/alert_rules_test.dart',
   'app/test/alert_rules_widget_test.dart',
@@ -91,7 +92,8 @@ required = [
    'docs/89-implementation-guest-backup-start.md',
    'docs/90-implementation-guest-backup-archive-read.md',
    'docs/91-implementation-backup-validation-confidence.md',
-   'docs/92-implementation-restore-plan-preflight.md',
+    'docs/92-implementation-restore-plan-preflight.md',
+    'docs/93-whole-repository-cross-check-2026-11-11.md',
    'app/test/guest_backup_start_test.dart']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
@@ -212,7 +214,10 @@ assert "Key('threshold-rule-consecutive-samples')" in files['app/lib/ui/alert_ru
 assert "Key('threshold-rule-hysteresis-slider')" in files['app/lib/ui/alert_rules_page.dart']
 assert "Key('manage-threshold-rules')" in files['app/lib/ui/incident_center_tab.dart']
 assert 'final bool isTemplate' in files['app/lib/core/models.dart']
-assert "asFlag(json['template']) == true" in files['app/lib/core/models.dart']
+assert "final template = asFlag(json['template']);" in files['app/lib/core/models.dart']
+assert "json.containsKey('template') && template == null" in files['app/lib/core/models.dart']
+assert 'if (!vmids.add(guest.vmid)) malformedGuestRecords++;' in files['app/lib/core/models.dart']
+assert 'updateConfigurationMetadata' in files['app/lib/core/profile_repository.dart']
 assert "'templates' => guest.isTemplate" in files['app/lib/core/guest_list_filter.dart']
 assert "('templates', 'Templates')" in files['app/lib/ui/shell.dart']
 assert 'Templates cannot use power actions.' in files['app/lib/core/app_controller.dart']
@@ -302,6 +307,10 @@ assert 'backup validation confidence stays evidence-limited' in files['app/test/
 assert 'class GuestRestorePlanRequest' in files['app/lib/core/models.dart']
 assert 'class GuestRestorePlanPreflight' in files['app/lib/core/models.dart']
 assert 'inspectGuestRestorePlan' in files['app/lib/core/app_controller.dart']
+assert 'createGateway.assertVmidAvailable(normalized.targetVmid)' in files['app/lib/core/app_controller.dart']
+assert '_verifyGuestStatusBeforeMutation' in files['app/lib/core/app_controller.dart']
+assert '_showGuestDialog' in files['app/lib/ui/guest_page.dart']
+assert 'revision != _restorePlanRevision' in files['app/lib/ui/guest_page.dart']
 assert "Key('guest-restore-plan-preflight')" in files['app/lib/ui/guest_page.dart']
 assert "ValueKey<String>('guest-plan-restore-$index')" in files['app/lib/ui/guest_page.dart']
 assert 'No restore request has been submitted' in files['app/lib/ui/guest_page.dart']

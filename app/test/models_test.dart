@@ -2,6 +2,42 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:virthelm/core/models.dart';
 
 void main() {
+  test('duplicate cluster-wide VMIDs make inventory write-unsafe', () {
+    final inventory = Inventory.fromResources([
+      {'type': 'qemu', 'node': 'pve1', 'vmid': 101, 'status': 'stopped'},
+      {'type': 'lxc', 'node': 'pve2', 'vmid': 101, 'status': 'running'},
+    ]);
+    expect(inventory.guests, hasLength(2));
+    expect(inventory.malformedGuestRecords, 1);
+  });
+
+  test('malformed template markers cannot become writable workloads', () {
+    for (final marker in [null, 'unexpected', <String>[]]) {
+      final inventory = Inventory.fromResources([
+        {'type': 'qemu', 'node': 'pve1', 'vmid': 101, 'template': marker},
+      ]);
+      expect(inventory.guests, isEmpty);
+      expect(inventory.malformedGuestRecords, 1);
+    }
+  });
+
+  test('unknown backup task state is not reported as running', () {
+    final assessment = GuestBackupValidationAssessment.evaluate(
+      archives: null,
+      backupTasks: const [
+        RecentServerTask(
+          upid: 'UPID:pve1:1:2:3:vzdump:101:user@pve:',
+          node: 'pve1',
+          operation: 'vzdump',
+          resourceId: '101',
+          status: 'unknown',
+        ),
+      ],
+    );
+    expect(assessment.taskEvidence, BackupTaskEvidence.unknown);
+    expect(assessment.confidence, BackupValidationConfidence.notAssessed);
+  });
+
   test(
     'certificate bypass defaults off and round-trips only explicit opt-in',
     () {

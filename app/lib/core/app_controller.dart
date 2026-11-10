@@ -261,6 +261,7 @@ class AppController extends ChangeNotifier {
     required GuestRestorePlanRequest request,
   }) async {
     final gateway = _gateway;
+    final networkEpoch = _networkEpoch;
     final GuestBackupGateway? backupGateway = gateway is GuestBackupGateway
         ? gateway as GuestBackupGateway
         : null;
@@ -323,6 +324,9 @@ class AppController extends ChangeNotifier {
     final inventorySnapshot = inventory;
     bool stillCurrent() =>
         current() &&
+        _foreground &&
+        networkEpoch == _networkEpoch &&
+        deviceNetworkState != DeviceNetworkState.unavailable &&
         identical(inventorySnapshot, inventory) &&
         currentGuest() != null;
 
@@ -364,24 +368,55 @@ class AppController extends ChangeNotifier {
       () => gateway.guestBackupArchives(liveSource, archive.storage),
     );
     if (!stillCurrent()) return null;
-    final sourceArchiveVisible = freshArchives.archives.any(
+    final matchingArchives = freshArchives.archives.where(
       (item) =>
+          item.node == source.node &&
+          item.storage == archive.storage &&
           item.volid == archive.volid &&
           item.kind == archive.kind &&
           item.vmid == archive.vmid,
     );
+    final sourceArchiveVisible = matchingArchives.length == 1;
 
     final storageRead = await authenticatedRead(
       () => gateway.storageOverview([normalized.targetNode]),
     );
     if (!stillCurrent()) return null;
 
-    final targetNodeOnline = live.nodes.any(
-      (item) => item.name == normalized.targetNode && item.status == 'online',
+    final targetNodes = live.nodes.where(
+      (item) => item.name == normalized.targetNode,
     );
-    final targetVmidAvailable = !live.guests.any(
+    final targetNodeOnline =
+        targetNodes.length == 1 && targetNodes.single.status == 'online';
+    var targetVmidAvailable = !live.guests.any(
       (item) => item.vmid == normalized.targetVmid,
     );
+    String? vmidVerificationError;
+    if (targetVmidAvailable) {
+      // Cluster resources are ACL-filtered. Absence there cannot prove that a
+      // VMID is free; nextid checks the server's cluster-wide namespace.
+      try {
+        await authenticatedRead(
+          () => createGateway.assertVmidAvailable(normalized.targetVmid),
+        );
+      } on PveFailure catch (error) {
+        if (error.status == 401) rethrow;
+        targetVmidAvailable = false;
+        vmidVerificationError =
+            'Target VMID availability could not be confirmed by the server. '
+            'Overwrite restore remains gated.';
+      }
+      if (!stillCurrent()) return null;
+    }
+    if (isProvisioningTargetBlocked(
+      source.kind,
+      normalized.targetNode,
+      normalized.targetVmid,
+    )) {
+      targetVmidAvailable = false;
+      vmidVerificationError =
+          'Target VMID has a pending or uncertain operation in this session.';
+    }
     final sourceStorageMatches = storageRead.values.where(
       (item) =>
           item.node == source.node &&
@@ -448,7 +483,8 @@ class AppController extends ChangeNotifier {
     }
     if (!targetVmidAvailable) {
       blockers.add(
-        'Target VMID ${normalized.targetVmid} is already in use. Overwrite restore remains gated.',
+        vmidVerificationError ??
+            'Target VMID ${normalized.targetVmid} is already in use. Overwrite restore remains gated.',
       );
     }
     if (!targetStorageUsable) {
@@ -468,7 +504,7 @@ class AppController extends ChangeNotifier {
     }
 
     return GuestRestorePlanPreflight(
-      sourceArchive: archive,
+      sourceArchive: sourceArchiveVisible ? matchingArchives.single : archive,
       targetNode: normalized.targetNode,
       targetVmid: normalized.targetVmid,
       targetStorage: normalized.targetStorage,
@@ -1341,7 +1377,11 @@ class AppController extends ChangeNotifier {
       await candidate.inventory();
       _checkConnectionSetup(generation);
       final validatedProfile = profile.withServerVersion(serverVersion);
-      await repository.update(validatedProfile, credential);
+      if (tokenChanged) {
+        await repository.update(validatedProfile, credential);
+      } else {
+        await repository.updateConfigurationMetadata(validatedProfile);
+      }
       if (_disposed) {
         throw const PveFailure(
           'Connection update completed after app shutdown.',
@@ -1669,6 +1709,24 @@ class AppController extends ChangeNotifier {
 
   bool get isInventoryWriteSafe =>
       isInventoryFresh && inventory!.malformedGuestRecords == 0;
+
+  Future<void> _verifyGuestStatusBeforeMutation(
+    PveGateway gateway,
+    Guest guest,
+    bool Function() stillCurrent,
+  ) async {
+    final status = await gateway.guestStatus(guest);
+    if (!stillCurrent()) {
+      throw const PveFailure(
+        'Connection or inventory changed during live status verification.',
+      );
+    }
+    if (status != guest.status) {
+      throw const PveFailure(
+        'Guest state changed during live status verification. Refresh and review again.',
+      );
+    }
+  }
 
   Future<void> runQemuCreate(
     QemuCreateRequest request, {
@@ -2450,6 +2508,7 @@ class AppController extends ChangeNotifier {
         );
       }
 
+      await _verifyGuestStatusBeforeMutation(gateway, liveSource, stillCurrent);
       postAttempted = true;
       final upid = await migrationGateway.migrateGuest(liveSource, normalized);
       if (generation != _generation || active?.id != profileId || _disposed) {
@@ -2647,6 +2706,7 @@ class AppController extends ChangeNotifier {
         );
       }
 
+      await _verifyGuestStatusBeforeMutation(gateway, liveSource, stillCurrent);
       postAttempted = true;
       final upid = await snapshotGateway.createGuestSnapshot(
         liveSource,
@@ -2854,6 +2914,7 @@ class AppController extends ChangeNotifier {
         );
       }
 
+      await _verifyGuestStatusBeforeMutation(gateway, liveSource, stillCurrent);
       postAttempted = true;
       final upid = await backupGateway.startGuestBackup(liveSource, normalized);
       if (generation != _generation || active?.id != profileId || _disposed) {
@@ -3008,6 +3069,11 @@ class AppController extends ChangeNotifier {
           'Guest state changed during deletion verification. It must remain stopped.',
         );
       }
+      if (liveSource.name != source.name) {
+        throw const PveFailure(
+          'Guest name changed during deletion verification. Refresh and confirm the exact target again.',
+        );
+      }
 
       final permissions = await deleteGateway.guestPermissions(liveSource);
       if (!stillCurrent()) {
@@ -3022,6 +3088,7 @@ class AppController extends ChangeNotifier {
         );
       }
 
+      await _verifyGuestStatusBeforeMutation(gateway, liveSource, stillCurrent);
       deleteAttempted = true;
       final upid = await deleteGateway.deleteGuest(liveSource);
       if (generation != _generation || active?.id != profileId || _disposed) {
