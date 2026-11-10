@@ -908,6 +908,17 @@ void main() {
       expect(find.byKey(const Key('guest-recovery-list')), findsOneWidget);
       expect(controller.requestedVmids, isEmpty);
       expect(controller.requestedBackupStorages, isEmpty);
+      final recoveryScroll = find.descendant(
+        of: find.byKey(const Key('guest-recovery-list')),
+        matching: find.byType(Scrollable),
+      );
+
+      await tester.scrollUntilVisible(
+        find.text('Recent backup tasks'),
+        260,
+        scrollable: recoveryScroll,
+      );
+      await tester.pumpAndSettle();
       expect(
         find.textContaining('does not by itself prove a matching archive'),
         findsOneWidget,
@@ -915,9 +926,21 @@ void main() {
       expect(find.text('Backup task • succeeded'), findsOneWidget);
       expect(find.textContaining('202'), findsNothing);
 
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('guest-load-backup-archives')),
+        -260,
+        scrollable: recoveryScroll,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('guest-load-backup-archives')));
       await tester.pumpAndSettle();
       expect(controller.requestedBackupStorages, ['backup']);
+      await tester.scrollUntilVisible(
+        find.textContaining('Latest • vzdump-qemu-101-2026_11_11'),
+        220,
+        scrollable: recoveryScroll,
+      );
+      await tester.pumpAndSettle();
       expect(
         find.textContaining('Latest • vzdump-qemu-101-2026_11_11'),
         findsOneWidget,
@@ -928,9 +951,17 @@ void main() {
         findsOneWidget,
       );
 
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('guest-load-snapshots')),
+        -260,
+        scrollable: recoveryScroll,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('guest-load-snapshots')));
       await tester.pumpAndSettle();
       expect(controller.requestedVmids, [101]);
+      await tester.ensureVisible(find.text('before-upgrade'));
+      await tester.pumpAndSettle();
       expect(find.text('Current state'), findsOneWidget);
       expect(find.text('before-upgrade'), findsOneWidget);
       expect(find.textContaining('1 malformed ignored'), findsOneWidget);
