@@ -3607,8 +3607,9 @@ void main() {
               ),
             ],
           )
-          ..clonePermissionResults[901] =
-              const GuestPermissionSnapshot(privileges: {'VM.Allocate'})
+          ..clonePermissionResults[901] = const GuestPermissionSnapshot(
+            privileges: {'VM.Allocate'},
+          )
           ..pathPermissionResults['/storage/local-lvm'] =
               const GuestPermissionSnapshot(
                 privileges: {'Datastore.AllocateSpace'},
@@ -3702,8 +3703,9 @@ void main() {
             ),
           ],
         )
-        ..clonePermissionResults[901] =
-            const GuestPermissionSnapshot(privileges: {'VM.Allocate'})
+        ..clonePermissionResults[901] = const GuestPermissionSnapshot(
+          privileges: {'VM.Allocate'},
+        )
         ..pathPermissionResults['/storage/local-lvm'] =
             const GuestPermissionSnapshot(
               privileges: {'Datastore.AllocateSpace'},
@@ -3718,7 +3720,9 @@ void main() {
       secret: 'synthetic',
     );
 
-    final source = ctl.inventory!.guests.singleWhere((guest) => guest.vmid == 101);
+    final source = ctl.inventory!.guests.singleWhere(
+      (guest) => guest.vmid == 101,
+    );
     final result = await ctl.inspectGuestRestorePlan(
       profileId: ctl.active!.id,
       generation: ctl.connectionGeneration,
@@ -3747,27 +3751,28 @@ void main() {
     late _Gateway gateway;
     final ctl = AppController(
       repository: ProfileRepository(prefs, _Vault()),
-      gatewayFactory: (profile, credentials) => gateway = _Gateway()
-        ..storageResult = ReadCollection(
-          values: const [
-            StoragePool(
-              node: 'pve1',
-              id: 'backup',
-              type: 'dir',
-              enabled: true,
-              active: true,
-              contentTypes: ['backup'],
+      gatewayFactory: (profile, credentials) =>
+          gateway = _Gateway()
+            ..storageResult = ReadCollection(
+              values: const [
+                StoragePool(
+                  node: 'pve1',
+                  id: 'backup',
+                  type: 'dir',
+                  enabled: true,
+                  active: true,
+                  contentTypes: ['backup'],
+                ),
+                StoragePool(
+                  node: 'pve1',
+                  id: 'local-lvm',
+                  type: 'lvmthin',
+                  enabled: true,
+                  active: true,
+                  contentTypes: ['images'],
+                ),
+              ],
             ),
-            StoragePool(
-              node: 'pve1',
-              id: 'local-lvm',
-              type: 'lvmthin',
-              enabled: true,
-              active: true,
-              contentTypes: ['images'],
-            ),
-          ],
-        ),
     );
     addTearDown(ctl.dispose);
     await ctl.initialize();
