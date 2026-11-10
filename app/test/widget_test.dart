@@ -914,6 +914,22 @@ void main() {
       );
 
       await tester.scrollUntilVisible(
+        find.byKey(const Key('guest-backup-validation-confidence')),
+        260,
+        scrollable: recoveryScroll,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('guest-backup-validation-headline')),
+        findsOneWidget,
+      );
+      expect(find.text('Not assessed'), findsOneWidget);
+      expect(
+        find.textContaining('No PBS verification result'),
+        findsOneWidget,
+      );
+
+      await tester.scrollUntilVisible(
         find.text('Recent backup tasks'),
         260,
         scrollable: recoveryScroll,
@@ -948,6 +964,25 @@ void main() {
       expect(find.textContaining('1 unusable row(s) ignored'), findsOneWidget);
       expect(
         find.textContaining('Archive visibility is not a checksum'),
+        findsOneWidget,
+      );
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('guest-backup-validation-confidence')),
+        220,
+        scrollable: recoveryScroll,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Partial evidence'), findsOneWidget);
+      expect(
+        find.textContaining('exact QEMU 101 identity'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Latest visible task: succeeded'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('never authorizes restore'),
         findsOneWidget,
       );
 
