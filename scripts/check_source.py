@@ -91,6 +91,7 @@ required = [
    'docs/89-implementation-guest-backup-start.md',
    'docs/90-implementation-guest-backup-archive-read.md',
    'docs/91-implementation-backup-validation-confidence.md',
+   'docs/92-implementation-restore-plan-preflight.md',
    'app/test/guest_backup_start_test.dart']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
@@ -298,6 +299,14 @@ assert 'No PBS verification result' in files['app/lib/ui/guest_page.dart']
 assert 'never authorizes restore' in files['app/lib/ui/guest_page.dart']
 assert 'There is intentionally no `verified`' in files['docs/91-implementation-backup-validation-confidence.md']
 assert 'backup validation confidence stays evidence-limited' in files['app/test/models_test.dart']
+assert 'class GuestRestorePlanRequest' in files['app/lib/core/models.dart']
+assert 'class GuestRestorePlanPreflight' in files['app/lib/core/models.dart']
+assert 'inspectGuestRestorePlan' in files['app/lib/core/app_controller.dart']
+assert "Key('guest-restore-plan-preflight')" in files['app/lib/ui/guest_page.dart']
+assert "ValueKey<String>('guest-plan-restore-$index')" in files['app/lib/ui/guest_page.dart']
+assert 'No restore request has been submitted' in files['app/lib/ui/guest_page.dart']
+assert 'No new mutation endpoint is implemented.' in files['docs/92-implementation-restore-plan-preflight.md']
+assert 'restore plan preflight revalidates archive target storage and ACL hints without mutation' in files['app/test/controller_test.dart']
 assert '_guestTags' in files['app/lib/core/models.dart']
 assert 'final List<String> tags' in files['app/lib/core/models.dart']
 assert 'String? tag' in files['app/lib/core/guest_list_filter.dart']
