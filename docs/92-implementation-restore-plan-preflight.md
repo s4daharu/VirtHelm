@@ -55,6 +55,7 @@ Synthetic coverage now verifies:
 - explicit blocked vs preflight-complete evidence states;
 - fresh archive/storage/VMID/ACL preflight with zero mutation submissions;
 - occupied target VMID conflict blocking;
+- authentication revocation during preflight invalidates live write safety;
 - Recovery UI flow from visible archive to alternate VMID preflight card;
 - source smoke assertions for the model/controller/UI boundary and this document.
 
