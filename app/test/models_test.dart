@@ -637,44 +637,47 @@ void main() {
     },
   );
 
-  test('restore plan request validates constrained same-node target inputs', () {
-    const valid = GuestRestorePlanRequest(
-      targetNode: ' pve1 ',
-      targetVmid: 901,
-      targetStorage: ' local-lvm ',
-    );
-    expect(valid.isValid, isTrue);
-    final normalized = valid.normalized();
-    expect(normalized.targetNode, 'pve1');
-    expect(normalized.targetVmid, 901);
-    expect(normalized.targetStorage, 'local-lvm');
+  test(
+    'restore plan request validates constrained same-node target inputs',
+    () {
+      const valid = GuestRestorePlanRequest(
+        targetNode: ' pve1 ',
+        targetVmid: 901,
+        targetStorage: ' local-lvm ',
+      );
+      expect(valid.isValid, isTrue);
+      final normalized = valid.normalized();
+      expect(normalized.targetNode, 'pve1');
+      expect(normalized.targetVmid, 901);
+      expect(normalized.targetStorage, 'local-lvm');
 
-    for (final request in [
-      const GuestRestorePlanRequest(
-        targetNode: '',
-        targetVmid: 901,
-        targetStorage: 'local-lvm',
-      ),
-      const GuestRestorePlanRequest(
-        targetNode: 'pve1/other',
-        targetVmid: 901,
-        targetStorage: 'local-lvm',
-      ),
-      const GuestRestorePlanRequest(
-        targetNode: 'pve1',
-        targetVmid: 99,
-        targetStorage: 'local-lvm',
-      ),
-      const GuestRestorePlanRequest(
-        targetNode: 'pve1',
-        targetVmid: 901,
-        targetStorage: '../local',
-      ),
-    ]) {
-      expect(request.isValid, isFalse);
-      expect(request.validationError, isNotNull);
-    }
-  });
+      for (final request in [
+        const GuestRestorePlanRequest(
+          targetNode: '',
+          targetVmid: 901,
+          targetStorage: 'local-lvm',
+        ),
+        const GuestRestorePlanRequest(
+          targetNode: 'pve1/other',
+          targetVmid: 901,
+          targetStorage: 'local-lvm',
+        ),
+        const GuestRestorePlanRequest(
+          targetNode: 'pve1',
+          targetVmid: 99,
+          targetStorage: 'local-lvm',
+        ),
+        const GuestRestorePlanRequest(
+          targetNode: 'pve1',
+          targetVmid: 901,
+          targetStorage: '../local',
+        ),
+      ]) {
+        expect(request.isValid, isFalse);
+        expect(request.validationError, isNotNull);
+      }
+    },
+  );
 
   test('restore preflight status never implies restore authorization', () {
     const archive = GuestBackupArchive(
