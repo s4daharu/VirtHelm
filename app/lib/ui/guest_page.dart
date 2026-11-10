@@ -356,6 +356,145 @@ class _GuestPageState extends State<GuestPage> {
     }
   }
 
+  List<String> _backupStorageIds(Guest? guest) {
+    if (guest == null || !_currentSession) return const <String>[];
+    final result = widget.controller.storages
+        .where(
+          (storage) =>
+              storage.node == guest.node &&
+              storage.enabled == true &&
+              storage.active == true &&
+              storage.contentTypes.contains('backup'),
+        )
+        .map((storage) => storage.id)
+        .toSet()
+        .toList();
+    result.sort();
+    return result;
+  }
+
+  Future<void> _openBackup(Guest source) async {
+    if (!_currentSession || submitting || source.isTemplate) return;
+    if (!source.isRunning && !source.isStopped) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Refresh the guest before starting a backup.'),
+        ),
+      );
+      return;
+    }
+    final storages = _backupStorageIds(source);
+    if (storages.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No active backup-capable storage is visible on this guest node.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    String? selectedStorage = storages.length == 1 ? storages.single : null;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text('Back up ${source.name}?'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${source.node} • ${source.kind.toUpperCase()} ${source.vmid}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'VirtHelm will start one Proxmox vzdump task in snapshot mode for this guest and selected storage. It does not request pruning, retention changes, hooks, fleecing, bandwidth, performance, or ionice tuning.',
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'A successful task is not proof that the produced archive is verified or restorable. Restore remains unavailable in this guarded slice.',
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Immediately before one POST, VirtHelm revalidates the exact guest and state, VM.Backup privilege, active backup-capable storage, and Datastore.AllocateSpace on that storage. The mutation is never retried automatically.',
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    key: const Key('guest-backup-storage'),
+                    initialValue: selectedStorage,
+                    decoration: const InputDecoration(
+                      labelText: 'Backup storage',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      for (final storage in storages)
+                        DropdownMenuItem(value: storage, child: Text(storage)),
+                    ],
+                    onChanged: (value) =>
+                        setDialogState(() => selectedStorage = value),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                key: const Key('guest-backup-submit'),
+                onPressed: selectedStorage == null
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Start backup'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    if (!mounted ||
+        !_currentSession ||
+        confirmed != true ||
+        selectedStorage == null) {
+      return;
+    }
+
+    setState(() => submitting = true);
+    try {
+      await widget.controller.runGuestBackup(
+        source,
+        GuestBackupRequest(storage: selectedStorage!),
+        profileId: widget.profileId,
+        generation: widget.generation,
+      );
+      if (!mounted || !_currentSession) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Backup task submitted. Check Tasks and verify the archive before treating it as recoverable.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted || !_currentSession) return;
+      final message = error is PveFailure
+          ? error.message
+          : 'Could not submit backup.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted && _currentSession) setState(() => submitting = false);
+    }
+  }
+
   List<RecentServerTask> _backupTasks(Guest? guest) {
     if (guest == null || !_currentSession) return const <RecentServerTask>[];
     final vmid = guest.vmid.toString();
@@ -1526,6 +1665,7 @@ class _GuestPageState extends State<GuestPage> {
     final snapshots = visibleSnapshots?.snapshots ?? const <GuestSnapshot>[];
     final recoveryPoints = snapshots.where((item) => !item.isCurrent).length;
     final backupTasks = _backupTasks(guest);
+    final backupStorages = _backupStorageIds(guest);
     final scheme = Theme.of(context).colorScheme;
     final snapshotCreateAllowed =
         guest != null &&
@@ -1535,6 +1675,15 @@ class _GuestPageState extends State<GuestPage> {
         !widget.controller.refreshing &&
         !widget.controller.isGuestActionBlocked(guest) &&
         !loadingSnapshots &&
+        !submitting;
+    final backupAllowed =
+        guest != null &&
+        !guest.isTemplate &&
+        (guest.isRunning || guest.isStopped) &&
+        backupStorages.isNotEmpty &&
+        widget.controller.isInventoryWriteSafe &&
+        !widget.controller.refreshing &&
+        !widget.controller.isGuestActionBlocked(guest) &&
         !submitting;
     return _tabList(
       key: const Key('guest-recovery-list'),
@@ -1546,8 +1695,9 @@ class _GuestPageState extends State<GuestPage> {
         const SizedBox(height: 6),
         Text(
           'Snapshots are not backups. Snapshot inventory is loaded only when '
-          'requested. Guarded create-only snapshots are available; rollback '
-          'and delete remain unavailable. QEMU RAM-state capture is not requested.',
+          'requested. Guarded create-only snapshots and one-off vzdump backup '
+          'submission are available; snapshot rollback/delete, archive '
+          'verification, and restore remain unavailable.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 10),
@@ -1581,6 +1731,12 @@ class _GuestPageState extends State<GuestPage> {
                     : null,
                 icon: const Icon(Icons.add_a_photo_outlined),
                 label: const Text('Create snapshot'),
+              ),
+              FilledButton.icon(
+                key: const Key('guest-start-backup'),
+                onPressed: backupAllowed ? () => _openBackup(guest) : null,
+                icon: const Icon(Icons.backup_outlined),
+                label: const Text('Start backup'),
               ),
             ],
           ),
@@ -1631,8 +1787,9 @@ class _GuestPageState extends State<GuestPage> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Recent Proxmox vzdump task outcomes for this VMID only. A successful '
-          'task does not prove an archive exists, is verified, or is restorable.',
+          'Recent Proxmox vzdump task outcomes for this VMID only. Starting a '
+          'backup and seeing task success still does not prove an archive exists, '
+          'is verified, or is restorable.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         if (widget.controller.serverTaskMessage != null) ...[

@@ -2400,6 +2400,210 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<void> runGuestBackup(
+    Guest source,
+    GuestBackupRequest request, {
+    required String profileId,
+    required int generation,
+  }) async {
+    final gateway = _gateway;
+    final GuestBackupGateway? backupGateway = gateway is GuestBackupGateway
+        ? gateway as GuestBackupGateway
+        : null;
+    if (_disposed || generation != _generation || active?.id != profileId) {
+      throw const PveFailure(
+        'Connection changed; return to the guest before starting a backup.',
+      );
+    }
+    if (source.isTemplate) {
+      throw const PveFailure(
+        'Template backup is not exposed by this guarded guest workflow.',
+      );
+    }
+    if (!source.isRunning && !source.isStopped) {
+      throw const PveFailure(
+        'Refresh the guest before starting a backup; its state is unknown.',
+      );
+    }
+    final normalized = request.normalized();
+    final validationError = normalized.validationError;
+    if (validationError != null) throw PveFailure(validationError);
+    if (!_foreground ||
+        gateway == null ||
+        backupGateway == null ||
+        !isInventoryWriteSafe ||
+        refreshing ||
+        deviceNetworkState == DeviceNetworkState.unavailable) {
+      throw const PveFailure(
+        'Refresh a clean live inventory before starting a backup.',
+      );
+    }
+
+    final inventorySnapshot = inventory!;
+    final sourceMatches = inventorySnapshot.guests
+        .where(
+          (item) =>
+              item.kind == source.kind &&
+              item.vmid == source.vmid &&
+              item.node == source.node,
+        )
+        .toList();
+    if (sourceMatches.length != 1 ||
+        !identical(sourceMatches.single, source) ||
+        sourceMatches.single.status != source.status ||
+        sourceMatches.single.isTemplate) {
+      throw const PveFailure(
+        'Guest inventory changed. Refresh and review the backup target again.',
+      );
+    }
+
+    final key = _guestKey(source);
+    final vmidKey = _provisioningVmidKey(source.vmid);
+    final keys = {key, vmidKey};
+    if (keys.any(_uncertainGuestOperations.contains)) {
+      throw const PveFailure(
+        'An earlier operation for this guest has an unknown outcome. '
+        'Verify server task history and inventory before reconnecting and trying again.',
+        mayHaveExecuted: true,
+      );
+    }
+    if (keys.any(_pendingGuestOperations.contains)) {
+      throw const PveFailure(
+        'An operation is already pending for this guest. Check Tasks.',
+      );
+    }
+
+    bool stillCurrent() =>
+        generation == _generation &&
+        active?.id == profileId &&
+        !_disposed &&
+        _foreground &&
+        deviceNetworkState != DeviceNetworkState.unavailable &&
+        identical(inventorySnapshot, inventory) &&
+        !refreshing &&
+        isInventoryWriteSafe;
+
+    _pendingGuestOperations.addAll(keys);
+    _notify();
+    var postAttempted = false;
+    try {
+      final live = await gateway.inventory();
+      if (!stillCurrent()) {
+        throw const PveFailure('Connection changed; backup canceled.');
+      }
+      if (live.malformedGuestRecords != 0) {
+        throw const PveFailure(
+          'Live inventory verification is incomplete. Backup was not submitted.',
+        );
+      }
+
+      final liveSources = live.guests
+          .where(
+            (item) =>
+                item.kind == source.kind &&
+                item.vmid == source.vmid &&
+                item.node == source.node,
+          )
+          .toList();
+      if (liveSources.length != 1 || liveSources.single.isTemplate) {
+        throw const PveFailure(
+          'The guest moved, disappeared, or became a template during verification.',
+        );
+      }
+      final liveSource = liveSources.single;
+      if (liveSource.status != source.status ||
+          (!liveSource.isRunning && !liveSource.isStopped)) {
+        throw const PveFailure(
+          'Guest state changed during backup verification. Refresh and review it again.',
+        );
+      }
+
+      final permissions = await backupGateway.guestPermissions(liveSource);
+      if (!stillCurrent()) {
+        throw const PveFailure(
+          'Connection or inventory changed during backup verification.',
+        );
+      }
+      if (!permissions.has('VM.Backup')) {
+        throw const PveFailure(
+          'The active token does not report VM.Backup on this guest.',
+          status: 403,
+        );
+      }
+
+      final backupStorages = await backupGateway.backupStorages(
+        liveSource.node,
+      );
+      if (!stillCurrent()) {
+        throw const PveFailure(
+          'Connection or inventory changed during backup-storage verification.',
+        );
+      }
+      if (!backupStorages.contains(normalized.storage)) {
+        throw PveFailure(
+          'Backup storage "${normalized.storage}" is not active and backup-capable on this node.',
+        );
+      }
+
+      final storagePermissions = await backupGateway.permissionsForPath(
+        '/storage/${normalized.storage}',
+      );
+      if (!stillCurrent()) {
+        throw const PveFailure(
+          'Connection or inventory changed during storage permission verification.',
+        );
+      }
+      if (!storagePermissions.has('Datastore.AllocateSpace')) {
+        throw const PveFailure(
+          'The active token does not report Datastore.AllocateSpace on the selected backup storage.',
+          status: 403,
+        );
+      }
+
+      postAttempted = true;
+      final upid = await backupGateway.startGuestBackup(liveSource, normalized);
+      if (generation != _generation || active?.id != profileId || _disposed) {
+        throw const PveFailure(
+          'Connection changed after backup submission. Check server task history.',
+          mayHaveExecuted: true,
+        );
+      }
+
+      _taskTargets[upid] = keys;
+      tasks.insert(
+        0,
+        TrackedTask(
+          upid: upid,
+          node: source.node,
+          title:
+              'Backup ${source.name} (${source.vmid}) • ${normalized.storage}',
+          startedAt: DateTime.now(),
+          outcome: OperationOutcome.running,
+        ),
+      );
+      _notify();
+      if (_foreground) _startPolling();
+    } catch (error) {
+      if (generation == _generation &&
+          error is PveFailure &&
+          error.status == 401) {
+        message = error.message;
+        unawaited(_clearOfflineAfterAuth(generation));
+      }
+      if (generation == _generation &&
+          (error is PveFailure ? error.mayHaveExecuted : postAttempted)) {
+        _uncertainGuestOperations.addAll(keys);
+      }
+      rethrow;
+    } finally {
+      if (generation == _generation &&
+          !_taskTargets.values.any((targets) => targets.contains(key))) {
+        _pendingGuestOperations.removeAll(keys);
+      }
+      if (generation == _generation) _notify();
+    }
+  }
+
   Future<void> runGuestDeletion(
     Guest source, {
     required String profileId,

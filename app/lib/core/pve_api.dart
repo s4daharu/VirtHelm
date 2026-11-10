@@ -10,6 +10,13 @@ abstract class GuestPermissionGateway {
   Future<GuestPermissionSnapshot> guestPermissions(Guest guest);
 }
 
+abstract class GuestBackupGateway {
+  Future<GuestPermissionSnapshot> guestPermissions(Guest guest);
+  Future<GuestPermissionSnapshot> permissionsForPath(String path);
+  Future<List<String>> backupStorages(String node);
+  Future<String> startGuestBackup(Guest guest, GuestBackupRequest request);
+}
+
 abstract class GuestSnapshotCreateGateway {
   Future<GuestPermissionSnapshot> guestPermissions(Guest guest);
   Future<GuestSnapshotInventory> guestSnapshots(Guest guest);
@@ -91,6 +98,7 @@ class DioPveGateway
     implements
         PveGateway,
         GuestPermissionGateway,
+        GuestBackupGateway,
         GuestSnapshotCreateGateway,
         GuestCloneGateway,
         GuestMigrationGateway,
@@ -554,6 +562,95 @@ class DioPveGateway
       entries: List<TaskLogEntry>.unmodifiable(entries),
       malformedRecords: malformed,
     );
+  }
+
+  @override
+  Future<List<String>> backupStorages(String node) async {
+    final normalizedNode = node.trim();
+    if (normalizedNode.isEmpty ||
+        normalizedNode.length > 64 ||
+        !RegExp(
+          r'^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$',
+        ).hasMatch(normalizedNode)) {
+      throw const FormatException('Invalid node.');
+    }
+    final raw = await _request('/nodes/${_segment(normalizedNode)}/storage');
+    if (raw is! List) {
+      throw const PveFailure('Unexpected storage response.');
+    }
+
+    final storages = <String>{};
+    for (final entry in raw) {
+      if (entry is! Map) continue;
+      try {
+        final storage = StoragePool.fromApi(
+          Map<String, dynamic>.from(entry),
+          node: normalizedNode,
+        );
+        if (storage.enabled == true &&
+            storage.active == true &&
+            storage.contentTypes.contains('backup')) {
+          storages.add(storage.id);
+        }
+      } on FormatException {
+        continue;
+      } on TypeError {
+        continue;
+      }
+    }
+    final result = storages.toList()..sort();
+    return List<String>.unmodifiable(result);
+  }
+
+  @override
+  Future<String> startGuestBackup(
+    Guest guest,
+    GuestBackupRequest request,
+  ) async {
+    if (guest.isTemplate) {
+      throw const FormatException(
+        'Templates cannot use this guarded backup workflow.',
+      );
+    }
+    if (!guest.isRunning && !guest.isStopped) {
+      throw const FormatException(
+        'Guest state must be running or stopped before starting a backup.',
+      );
+    }
+    final normalized = request.normalized();
+    final validationError = normalized.validationError;
+    if (validationError != null) throw FormatException(validationError);
+
+    final value = await _request(
+      '/nodes/${_segment(guest.node)}/vzdump',
+      mutation: true,
+      mutationData: {
+        'vmid': guest.vmid,
+        'storage': normalized.storage,
+        'mode': 'snapshot',
+      },
+    );
+    if (value is! String || !value.startsWith('UPID:')) {
+      throw const PveFailure(
+        'Server returned an unexpected backup task identifier. Check task history.',
+        mayHaveExecuted: true,
+      );
+    }
+
+    final parts = value.split(':');
+    if (parts.length != 9 ||
+        parts[1] != guest.node ||
+        !parts.skip(2).take(3).every(RegExp(r'^[0-9A-Fa-f]+$').hasMatch) ||
+        parts[5] != 'vzdump' ||
+        parts[6] != guest.vmid.toString() ||
+        parts[7].trim().isEmpty ||
+        parts[8].isNotEmpty) {
+      throw const PveFailure(
+        'Server returned a mismatched backup task identifier. Check task history.',
+        mayHaveExecuted: true,
+      );
+    }
+    return value;
   }
 
   @override

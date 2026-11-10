@@ -539,6 +539,7 @@ class RecentServerTask {
     'vzshutdown' => 'Shut down container',
     'vzstop' => 'Force stop container',
     'vzreboot' => 'Reboot container',
+    'vzdump' => 'Backup guest',
     _ => operation,
   };
 
@@ -758,6 +759,28 @@ class GuestSnapshotCreateRequest {
 
   GuestSnapshotCreateRequest normalized() =>
       GuestSnapshotCreateRequest(name: name.trim());
+}
+
+class GuestBackupRequest {
+  const GuestBackupRequest({required this.storage});
+
+  final String storage;
+
+  String? get validationError {
+    final normalized = storage.trim();
+    if (normalized.isEmpty || normalized.length > 64) {
+      return 'Choose a backup storage.';
+    }
+    if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$').hasMatch(normalized)) {
+      return 'Backup storage identifier is invalid.';
+    }
+    return null;
+  }
+
+  bool get isValid => validationError == null;
+
+  GuestBackupRequest normalized() =>
+      GuestBackupRequest(storage: storage.trim());
 }
 
 bool _validPermissionPropagationFlag(Object? value) {
