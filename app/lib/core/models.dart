@@ -779,7 +779,8 @@ class GuestBackupRequest {
 
   bool get isValid => validationError == null;
 
-  GuestBackupRequest normalized() => GuestBackupRequest(storage: storage.trim());
+  GuestBackupRequest normalized() =>
+      GuestBackupRequest(storage: storage.trim());
 }
 
 bool _validPermissionPropagationFlag(Object? value) {
