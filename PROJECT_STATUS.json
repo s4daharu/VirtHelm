@@ -146,7 +146,7 @@
       "BKP-007/BKP-008 first slice adds GET-only same-node alternate-VMID restore planning for one currently visible exact-guest archive. Fresh clean inventory, archive visibility, source/target storage state, target VMID conflicts, VM.Allocate and Datastore.AllocateSpace hints are rechecked; archive size is not treated as restored-capacity proof, and no restore mutation/overwrite/cross-node path is exposed."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 276,
+    "current_flutter_tests_defined": 277,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; test counts alone are not a release claim. Audited baseline a8f9443 passed both checks and signed prerelease publication.",
     "p0_scope_complete": false,
