@@ -866,13 +866,13 @@ class GuestBackupArchiveInventory {
   const GuestBackupArchiveInventory({
     required this.storage,
     required this.archives,
-    this.malformedRecords = 0,
+    this.ignoredRecords = 0,
     this.truncated = false,
   });
 
   final String storage;
   final List<GuestBackupArchive> archives;
-  final int malformedRecords;
+  final int ignoredRecords;
   final bool truncated;
 
   GuestBackupArchive? get latest => archives.isEmpty ? null : archives.first;
