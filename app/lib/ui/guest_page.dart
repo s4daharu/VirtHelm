@@ -33,6 +33,11 @@ class _GuestPageState extends State<GuestPage> {
   GuestSnapshotInventory? snapshotInventory;
   String? snapshotError;
   DateTime? snapshotsLoadedAt;
+  bool loadingBackupArchives = false;
+  GuestBackupArchiveInventory? backupArchiveInventory;
+  String? backupArchiveError;
+  DateTime? backupArchivesLoadedAt;
+  String? selectedBackupArchiveStorage;
   bool loadingConfiguration = false;
   GuestConfiguration? configuration;
   String? configurationError;
