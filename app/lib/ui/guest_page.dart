@@ -2264,8 +2264,7 @@ class _GuestPageState extends State<GuestPage> {
                 trailing: IconButton(
                   key: ValueKey<String>('guest-plan-restore-$index'),
                   tooltip: 'Plan restore',
-                  onPressed:
-                      restoreTargetStorages.isEmpty || loadingRestorePlan
+                  onPressed: restoreTargetStorages.isEmpty || loadingRestorePlan
                       ? null
                       : () => _openRestorePlan(guest!, backupArchives[index]),
                   icon: const Icon(Icons.rule_folder_outlined),
