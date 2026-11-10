@@ -1,6 +1,6 @@
 {
   "project": "VirtHelm",
-  "as_of": "2026-11-10",
+  "as_of": "2026-11-11",
   "app_code_written": true,
   "flutter_build_executed": true,
   "live_pve_tested": false,
@@ -12,7 +12,7 @@
   "framework": "Flutter",
   "primary_pve": "9.2",
   "regression_pve": "8.4",
-  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion and create-only snapshot operational slices",
+  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, create-only snapshot and one-off backup-start operational slices",
   "github_repository_url": "https://github.com/s4daharu/VirtHelm",
   "documentation_uploaded_and_verified": true,
   "docs_initial_remote_commit": "4fdfcd704aced213508f798533fd6370573ac284",
@@ -139,10 +139,11 @@
       "GUEST-013 adds guarded unprivileged LXC creation from live-discovered vztmpl content and active rootdir storage, with VM/storage ACL hints, cluster-wide VMID reservation, typed confirmation, exactly one vzcreate POST, strict UPID tracking and uncertain-outcome lockout. Privileged/custom-rootfs/networked/richer provisioning remains gated.",
       "GUEST-06 partial adds guarded same-cluster QEMU/LXC migration with fresh source/online-target revalidation, VM.Migrate hints, Proxmox migration preflight, typed source-VMID confirmation, exactly one migration POST, strict qmigrate/vzmigrate/hamigrate UPID tracking and uncertain-outcome lockout. QEMU local-disk/host-resource migration, storage remapping, force/network tuning, bulk and cross-cluster migration remain gated.",
       "GUEST-07 first destructive slice adds stopped-only guarded QEMU/LXC deletion with exact identity/state revalidation, VM.Allocate hints, named guest + VMID typed confirmation, explicit recovery-backup acknowledgement, exactly one DELETE, strict qmdestroy/vzdestroy UPID tracking and uncertain-outcome lockout. skiplock/purge/unreferenced-disk knobs, template/running deletion and automated backup/quorum claims remain gated.",
-      "GUEST-02 partial adds guarded create-only QEMU/LXC snapshots with exact identity/state revalidation, VM.Snapshot hints, a fresh complete snapshot-name collision check, exactly one POST carrying only snapname, strict qmsnapshot/vzsnapshot UPID tracking and uncertain-outcome lockout. QEMU vmstate capture plus snapshot rollback/delete remain gated."
+      "GUEST-02 partial adds guarded create-only QEMU/LXC snapshots with exact identity/state revalidation, VM.Snapshot hints, a fresh complete snapshot-name collision check, exactly one POST carrying only snapname, strict qmsnapshot/vzsnapshot UPID tracking and uncertain-outcome lockout. QEMU vmstate capture plus snapshot rollback/delete remain gated.",
+      "GUEST-03 partial adds guarded one-off QEMU/LXC vzdump submission to a selected active backup-capable storage: exact guest/state revalidation, VM.Backup plus Datastore.AllocateSpace hints, exactly one snapshot-mode POST, strict vzdump UPID matching and uncertain-outcome lockout. Pruning/retention, hooks/tuning, archive verification and restore remain gated."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 257,
+    "current_flutter_tests_defined": 266,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; test counts alone are not a release claim. Audited baseline a8f9443 passed both checks and signed prerelease publication.",
     "p0_scope_complete": false,
@@ -540,5 +541,18 @@
     "verification": "Synthetic gateway and controller regressions cover exact QEMU/LXC POST payloads, strict workers, name validation/collision refusal, VM.Snapshot enforcement, task registration and ambiguous-outcome lockout. Current-head pinned CI and disposable PVE 8.4/9.2 snapshot/storage fixtures remain authoritative gates.",
     "deferred": "QEMU RAM-state snapshots, snapshot descriptions, rollback/delete, retention, scheduled snapshots, backup execution/archive verification/restore and physical-device certification.",
     "report": "docs/88-implementation-guest-snapshot-create.md"
+  },
+  "m4_guest_backup_start_workflow": {
+    "status": "implemented_source_level_reviewed_live_gates_open",
+    "feature_id": "GUEST-03 partial / M4 recovery operations",
+    "version": "0.1.42",
+    "behavior": "Non-template running/stopped QEMU/LXC guest Recovery exposes a guarded one-off backup action to an already visible active backup-capable storage. The operation starts a Proxmox vzdump task in snapshot mode and remains task-oriented; archive integrity/restorability is not inferred.",
+    "contract": "GET /access/permissions on exact /vms/{vmid} for VM.Backup; fresh GET /nodes/{node}/storage for active content=backup storage; GET /access/permissions on /storage/{storage} for Datastore.AllocateSpace; exactly one POST /nodes/{node}/vzdump with vmid/storage/mode=snapshot returning a vzdump UPID.",
+    "safety": "Explicit originating profile/generation, foreground/default-network availability, fresh clean unchanged inventory, exact guest identity/state revalidation, synchronous guest plus cluster-wide VMID reservation, VM.Backup and Datastore.AllocateSpace hints, fresh selected-storage capability recheck, one POST without retry, strict source-node/VMID/worker validation, uncertain-outcome lockout and existing task-state reconciliation.",
+    "payload_boundary": "Only vmid, storage and mode=snapshot are sent. No prune-backups/retention, scripts/hooks, fleecing, bandwidth, performance, ionice or other tuning knobs are exposed.",
+    "recovery_boundary": "A successful vzdump task is not presented as proof an archive exists, was verified, or is restorable. Archive enumeration/verification and restore remain unavailable.",
+    "verification": "Synthetic gateway and controller regressions cover storage discovery/filtering, exact POST payload, strict UPID identity, VM.Backup and Datastore.AllocateSpace enforcement, storage revalidation, task registration and ambiguous-outcome lockout. Current-head pinned CI and disposable PVE 8.4/9.2 backup/storage/ACL fixtures remain authoritative gates.",
+    "deferred": "Backup scheduling/retention/pruning, archive inventory/integrity verification, restore, PBS-specific browsing/workflows, advanced vzdump tuning and physical-device certification.",
+    "report": "docs/89-implementation-guest-backup-start.md"
   }
 }
