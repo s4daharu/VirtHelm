@@ -377,8 +377,7 @@ class AppController extends ChangeNotifier {
     if (!stillCurrent()) return null;
 
     final targetNodeOnline = live.nodes.any(
-      (item) =>
-          item.name == normalized.targetNode && item.status == 'online',
+      (item) => item.name == normalized.targetNode && item.status == 'online',
     );
     final targetVmidAvailable = !live.guests.any(
       (item) => item.vmid == normalized.targetVmid,
