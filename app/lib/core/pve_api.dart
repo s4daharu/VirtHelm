@@ -68,6 +68,10 @@ abstract class PveGateway {
   Future<Inventory> inventory();
   Future<ReadCollection<StoragePool>> storageOverview(List<String> nodes);
   Future<ReadCollection<RecentServerTask>> recentTasks(List<String> nodes);
+  Future<GuestBackupArchiveInventory> guestBackupArchives(
+    Guest guest,
+    String storage,
+  );
   Future<String> guestStatus(Guest guest);
   Future<String> submit(Guest guest, GuestAction action);
   Future<ServerTaskStatus> taskStatus(TrackedTask task);
@@ -561,6 +565,74 @@ class DioPveGateway
     return TaskLogResult(
       entries: List<TaskLogEntry>.unmodifiable(entries),
       malformedRecords: malformed,
+    );
+  }
+
+  @override
+  Future<GuestBackupArchiveInventory> guestBackupArchives(
+    Guest guest,
+    String storage,
+  ) async {
+    final normalizedStorage = storage.trim();
+    if (normalizedStorage.isEmpty ||
+        normalizedStorage.length > 64 ||
+        !RegExp(
+          r'^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$',
+        ).hasMatch(normalizedStorage)) {
+      throw const FormatException('Invalid backup storage.');
+    }
+
+    final raw = await _request(
+      '/nodes/${_segment(guest.node)}/storage/'
+      '${_segment(normalizedStorage)}/content',
+      queryParameters: {'content': 'backup', 'vmid': guest.vmid},
+    );
+    if (raw is! List) {
+      throw const PveFailure('Unexpected backup archive response.');
+    }
+
+    const archiveLimit = 500;
+    final archives = <GuestBackupArchive>[];
+    var ignored = 0;
+    for (final row in raw.take(archiveLimit)) {
+      if (row is! Map) {
+        ignored++;
+        continue;
+      }
+      try {
+        archives.add(
+          GuestBackupArchive.fromApi(
+            Map<String, dynamic>.from(row),
+            guest: guest,
+            storage: normalizedStorage,
+          ),
+        );
+      } on FormatException {
+        ignored++;
+      } on TypeError {
+        ignored++;
+      }
+    }
+
+    archives.sort((a, b) {
+      final aTime = a.createdAt;
+      final bTime = b.createdAt;
+      if (aTime != null && bTime != null) {
+        final timeOrder = bTime.compareTo(aTime);
+        if (timeOrder != 0) return timeOrder;
+      } else if (aTime != null) {
+        return -1;
+      } else if (bTime != null) {
+        return 1;
+      }
+      return a.volid.compareTo(b.volid);
+    });
+
+    return GuestBackupArchiveInventory(
+      storage: normalizedStorage,
+      archives: List<GuestBackupArchive>.unmodifiable(archives),
+      ignoredRecords: ignored,
+      truncated: raw.length > archiveLimit,
     );
   }
 
