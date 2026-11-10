@@ -3568,7 +3568,9 @@ void main() {
           profileId: ctl.active!.id,
           generation: ctl.connectionGeneration,
         ),
-        throwsA(isA<PveFailure>().having((error) => error.status, 'status', 403)),
+        throwsA(
+          isA<PveFailure>().having((error) => error.status, 'status', 403),
+        ),
       );
 
       expect(gateway.backupStorageCalls, 0);
@@ -3654,7 +3656,9 @@ void main() {
           profileId: ctl.active!.id,
           generation: ctl.connectionGeneration,
         ),
-        throwsA(isA<PveFailure>().having((error) => error.status, 'status', 403)),
+        throwsA(
+          isA<PveFailure>().having((error) => error.status, 'status', 403),
+        ),
       );
 
       expect(gateway.permissionPaths, ['/storage/backup']);
@@ -3663,69 +3667,66 @@ void main() {
     },
   );
 
-  test(
-    'ambiguous backup POST remains locked and cannot be retried',
-    () async {
-      final prefs = await SharedPreferences.getInstance();
-      late _Gateway gateway;
-      final ctl = AppController(
-        repository: ProfileRepository(prefs, _Vault()),
-        gatewayFactory: (profile, credentials) => gateway = _Gateway()
-          ..guestPermissionResult = const GuestPermissionSnapshot(
-            privileges: {'VM.Backup'},
-          )
-          ..pathPermissionResults['/storage/backup'] =
-              const GuestPermissionSnapshot(
-                privileges: {'Datastore.AllocateSpace'},
-              )
-          ..backupSubmissionFailure = const PveFailure(
-            'Response lost',
-            mayHaveExecuted: true,
-          ),
-      );
-      addTearDown(ctl.dispose);
-      await ctl.initialize();
-      await ctl.connect(
-        name: 'Lab',
-        address: 'https://pve.local',
-        tokenId: 'me@pve!app',
-        secret: 'synthetic',
-      );
+  test('ambiguous backup POST remains locked and cannot be retried', () async {
+    final prefs = await SharedPreferences.getInstance();
+    late _Gateway gateway;
+    final ctl = AppController(
+      repository: ProfileRepository(prefs, _Vault()),
+      gatewayFactory: (profile, credentials) => gateway = _Gateway()
+        ..guestPermissionResult = const GuestPermissionSnapshot(
+          privileges: {'VM.Backup'},
+        )
+        ..pathPermissionResults['/storage/backup'] =
+            const GuestPermissionSnapshot(
+              privileges: {'Datastore.AllocateSpace'},
+            )
+        ..backupSubmissionFailure = const PveFailure(
+          'Response lost',
+          mayHaveExecuted: true,
+        ),
+    );
+    addTearDown(ctl.dispose);
+    await ctl.initialize();
+    await ctl.connect(
+      name: 'Lab',
+      address: 'https://pve.local',
+      tokenId: 'me@pve!app',
+      secret: 'synthetic',
+    );
 
-      final source = ctl.inventory!.guests.single;
-      await expectLater(
-        ctl.runGuestBackup(
-          source,
-          const GuestBackupRequest(storage: 'backup'),
-          profileId: ctl.active!.id,
-          generation: ctl.connectionGeneration,
+    final source = ctl.inventory!.guests.single;
+    await expectLater(
+      ctl.runGuestBackup(
+        source,
+        const GuestBackupRequest(storage: 'backup'),
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+      ),
+      throwsA(
+        isA<PveFailure>().having(
+          (error) => error.mayHaveExecuted,
+          'unknown outcome',
+          isTrue,
         ),
-        throwsA(
-          isA<PveFailure>().having(
-            (error) => error.mayHaveExecuted,
-            'unknown outcome',
-            isTrue,
-          ),
-        ),
-      );
-      expect(gateway.backupSubmissions, 1);
-      expect(ctl.isGuestActionBlocked(source), isTrue);
+      ),
+    );
+    expect(gateway.backupSubmissions, 1);
+    expect(ctl.isGuestActionBlocked(source), isTrue);
 
-      await ctl.refresh();
-      final refreshed = ctl.inventory!.guests.single;
-      await expectLater(
-        ctl.runGuestBackup(
-          refreshed,
-          const GuestBackupRequest(storage: 'backup'),
-          profileId: ctl.active!.id,
-          generation: ctl.connectionGeneration,
-        ),
-        throwsA(isA<PveFailure>()),
-      );
-      expect(gateway.backupSubmissions, 1);
-      expect(ctl.isGuestActionBlocked(refreshed), isTrue);
-    },
-  );
+    await ctl.refresh();
+    final refreshed = ctl.inventory!.guests.single;
+    await expectLater(
+      ctl.runGuestBackup(
+        refreshed,
+        const GuestBackupRequest(storage: 'backup'),
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+      ),
+      throwsA(isA<PveFailure>()),
+    );
+    expect(gateway.backupSubmissions, 1);
+    expect(ctl.isGuestActionBlocked(refreshed), isTrue);
+  });
 
   test(
     'guest snapshot creation revalidates permission and tracks one task',
