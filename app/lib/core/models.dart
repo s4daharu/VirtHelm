@@ -880,6 +880,92 @@ class GuestBackupArchiveInventory {
   GuestBackupArchive? get latest => archives.isEmpty ? null : archives.first;
 }
 
+enum BackupValidationConfidence { notAssessed, insufficient, partial }
+
+enum BackupTaskEvidence { none, running, succeeded, failed, unknown }
+
+class GuestBackupValidationAssessment {
+  const GuestBackupValidationAssessment({
+    required this.confidence,
+    required this.visibleArchiveCount,
+    required this.ignoredArchiveRows,
+    required this.archiveListTruncated,
+    required this.taskEvidence,
+    this.latestArchive,
+    this.latestBackupTask,
+  });
+
+  final BackupValidationConfidence confidence;
+  final int visibleArchiveCount;
+  final int ignoredArchiveRows;
+  final bool archiveListTruncated;
+  final GuestBackupArchive? latestArchive;
+  final BackupTaskEvidence taskEvidence;
+  final RecentServerTask? latestBackupTask;
+
+  bool get archiveReadCompleted =>
+      confidence != BackupValidationConfidence.notAssessed;
+  bool get hasVisibleArchive => latestArchive != null;
+
+  String get headline => switch (confidence) {
+    BackupValidationConfidence.notAssessed => 'Not assessed',
+    BackupValidationConfidence.insufficient => 'Insufficient evidence',
+    BackupValidationConfidence.partial => 'Partial evidence',
+  };
+
+  static GuestBackupValidationAssessment evaluate({
+    required GuestBackupArchiveInventory? archives,
+    required Iterable<RecentServerTask> backupTasks,
+  }) {
+    final tasks = backupTasks.toList(growable: false)
+      ..sort((a, b) {
+        final aTime =
+            a.endedAt ??
+            a.startedAt ??
+            DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+        final bTime =
+            b.endedAt ??
+            b.startedAt ??
+            DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+        return bTime.compareTo(aTime);
+      });
+    final latestTask = tasks.isEmpty ? null : tasks.first;
+    final taskEvidence = latestTask == null
+        ? BackupTaskEvidence.none
+        : !latestTask.isDone
+        ? BackupTaskEvidence.running
+        : latestTask.exitStatus == 'OK'
+        ? BackupTaskEvidence.succeeded
+        : latestTask.exitStatus == null
+        ? BackupTaskEvidence.unknown
+        : BackupTaskEvidence.failed;
+
+    if (archives == null) {
+      return GuestBackupValidationAssessment(
+        confidence: BackupValidationConfidence.notAssessed,
+        visibleArchiveCount: 0,
+        ignoredArchiveRows: 0,
+        archiveListTruncated: false,
+        taskEvidence: taskEvidence,
+        latestBackupTask: latestTask,
+      );
+    }
+
+    final latestArchive = archives.latest;
+    return GuestBackupValidationAssessment(
+      confidence: latestArchive == null
+          ? BackupValidationConfidence.insufficient
+          : BackupValidationConfidence.partial,
+      visibleArchiveCount: archives.archives.length,
+      ignoredArchiveRows: archives.ignoredRecords,
+      archiveListTruncated: archives.truncated,
+      latestArchive: latestArchive,
+      taskEvidence: taskEvidence,
+      latestBackupTask: latestTask,
+    );
+  }
+}
+
 class GuestSnapshotCreateRequest {
   const GuestSnapshotCreateRequest({required this.name});
 

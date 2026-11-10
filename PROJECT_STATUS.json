@@ -12,7 +12,7 @@
   "framework": "Flutter",
   "primary_pve": "9.2",
   "regression_pve": "8.4",
-  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, create-only snapshot, one-off backup-start and exact-guest backup-archive visibility operational slices",
+  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, create-only snapshot, one-off backup-start, exact-guest backup-archive visibility and evidence-limited backup validation confidence operational slices",
   "github_repository_url": "https://github.com/s4daharu/VirtHelm",
   "documentation_uploaded_and_verified": true,
   "docs_initial_remote_commit": "4fdfcd704aced213508f798533fd6370573ac284",
@@ -141,10 +141,11 @@
       "GUEST-07 first destructive slice adds stopped-only guarded QEMU/LXC deletion with exact identity/state revalidation, VM.Allocate hints, named guest + VMID typed confirmation, explicit recovery-backup acknowledgement, exactly one DELETE, strict qmdestroy/vzdestroy UPID tracking and uncertain-outcome lockout. skiplock/purge/unreferenced-disk knobs, template/running deletion and automated backup/quorum claims remain gated.",
       "GUEST-02 partial adds guarded create-only QEMU/LXC snapshots with exact identity/state revalidation, VM.Snapshot hints, a fresh complete snapshot-name collision check, exactly one POST carrying only snapname, strict qmsnapshot/vzsnapshot UPID tracking and uncertain-outcome lockout. QEMU vmstate capture plus snapshot rollback/delete remain gated.",
       "GUEST-03 partial adds guarded one-off QEMU/LXC vzdump submission to a selected active backup-capable storage: exact guest/state revalidation, VM.Backup plus Datastore.AllocateSpace hints, exactly one snapshot-mode POST, strict vzdump UPID matching and uncertain-outcome lockout. Pruning/retention, hooks/tuning, archive verification and restore remain gated.",
-      "BKP-002 partial adds on-demand exact-guest backup archive visibility from one current active backup-capable storage: content=backup plus exact-VMID GET, QEMU/LXC volume-ID identity filtering, bounded reviewed metadata, newest-first display, and session/storage redaction. Archive presence is not checksum/integrity verification or a restore test."
+      "BKP-002 partial adds on-demand exact-guest backup archive visibility from one current active backup-capable storage: content=backup plus exact-VMID GET, QEMU/LXC volume-ID identity filtering, bounded reviewed metadata, newest-first display, and session/storage redaction. Archive presence is not checksum/integrity verification or a restore test.",
+      "BKP-009 partial adds a local backup validation confidence card over exact-guest archive visibility plus the newest recent vzdump task. States are only Not assessed, Insufficient evidence and Partial evidence; task success cannot replace archive presence, and archive presence can never become checksum/PBS verification or tested-restore evidence."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 270,
+    "current_flutter_tests_defined": 272,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; test counts alone are not a release claim. Audited baseline a8f9443 passed both checks and signed prerelease publication.",
     "p0_scope_complete": false,
@@ -568,5 +569,18 @@
     "verification": "Synthetic gateway/controller/widget regressions cover exact GET path/query, file-style and PBS-style QEMU/LXC identity, malformed/wrong-identity row filtering, newest-first ordering, invalid-storage pre-I/O rejection, storage/session gating and Recovery UI redaction. Current-head pinned CI and disposable PVE 8.4/9.2 storage-content fixtures remain authoritative gates.",
     "deferred": "Archive checksum/integrity verification, PBS verification state, backup schedules/retention/pruning, restore planning/conflict preflight, actual restore, PBS-specific browsing/workflows and physical-device certification.",
     "report": "docs/90-implementation-guest-backup-archive-read.md"
+  },
+  "m4_backup_validation_confidence": {
+    "status": "implemented_source_level_reviewed_live_gates_open",
+    "feature_id": "BKP-009 partial / M4 recovery operations",
+    "version": "0.1.44",
+    "behavior": "Guest Recovery derives a deterministic evidence card from the explicitly loaded exact-guest backup archive inventory and newest visible recent vzdump task. The only confidence states are Not assessed, Insufficient evidence and Partial evidence.",
+    "evidence_model": "Not assessed until archive visibility is explicitly loaded; Insufficient when the selected storage was read but no matching exact-guest archive is visible; Partial when at least one exact QEMU/LXC + VMID archive is visible. Task history is an independent supporting signal and never upgrades missing archive evidence.",
+    "integrity_boundary": "No verified/safe/restorable state exists. PVE archive visibility, size, age, protected flag and task success are not checksum or integrity evidence. PBS verification state is not connected or inferred.",
+    "restore_boundary": "No restore test is performed or recorded, and the confidence card cannot authorize restore. Restore planning/conflict preflight and all restore mutations remain gated.",
+    "traffic_and_storage": "No new endpoint, background read, mutation or persistence is added. The card is computed locally from transient recovery-route data already scoped by profile/generation/guest/storage.",
+    "verification": "Synthetic model regressions cover unassessed/insufficient/partial states and newest mixed task outcome selection. Recovery widget coverage verifies explicit transition after archive loading plus PBS-verification/restore disclaimers. Current-head pinned CI remains authoritative; real PVE/PBS evidence remains a release gate.",
+    "deferred": "PBS authenticated connector and per-snapshot verification state, checksum/integrity verification, backup freshness policy, tested-restore declaration/history, restore plan/conflict preflight, actual restore and physical-device certification.",
+    "report": "docs/91-implementation-backup-validation-confidence.md"
   }
 }

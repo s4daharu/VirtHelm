@@ -537,6 +537,106 @@ void main() {
     );
   });
 
+  test('backup validation confidence stays evidence-limited', () {
+    const archive = GuestBackupArchive(
+      node: 'pve1',
+      storage: 'backup',
+      volid: 'backup:backup/vzdump-qemu-101-2026_11_11-10_00_00.vma.zst',
+      kind: 'qemu',
+      vmid: 101,
+      sizeBytes: 1024,
+    );
+    final succeeded = RecentServerTask(
+      upid: 'UPID:pve1:1:2:3:vzdump:101:user@pve:',
+      node: 'pve1',
+      operation: 'vzdump',
+      resourceId: '101',
+      status: 'stopped',
+      exitStatus: 'OK',
+      endedAt: DateTime.utc(2026, 11, 11, 10),
+    );
+
+    final notAssessed = GuestBackupValidationAssessment.evaluate(
+      archives: null,
+      backupTasks: [succeeded],
+    );
+    expect(notAssessed.confidence, BackupValidationConfidence.notAssessed);
+    expect(notAssessed.taskEvidence, BackupTaskEvidence.succeeded);
+    expect(notAssessed.hasVisibleArchive, isFalse);
+
+    final empty = GuestBackupValidationAssessment.evaluate(
+      archives: const GuestBackupArchiveInventory(
+        storage: 'backup',
+        archives: [],
+      ),
+      backupTasks: [succeeded],
+    );
+    expect(empty.confidence, BackupValidationConfidence.insufficient);
+    expect(empty.visibleArchiveCount, 0);
+    expect(empty.headline, 'Insufficient evidence');
+
+    final visible = GuestBackupValidationAssessment.evaluate(
+      archives: const GuestBackupArchiveInventory(
+        storage: 'backup',
+        archives: [archive],
+        ignoredRecords: 2,
+        truncated: true,
+      ),
+      backupTasks: [succeeded],
+    );
+    expect(visible.confidence, BackupValidationConfidence.partial);
+    expect(visible.headline, 'Partial evidence');
+    expect(visible.latestArchive, same(archive));
+    expect(visible.visibleArchiveCount, 1);
+    expect(visible.ignoredArchiveRows, 2);
+    expect(visible.archiveListTruncated, isTrue);
+  });
+
+  test(
+    'backup validation uses the newest task without upgrading confidence',
+    () {
+      final olderSuccess = RecentServerTask(
+        upid: 'UPID:pve1:1:2:3:vzdump:101:user@pve:',
+        node: 'pve1',
+        operation: 'vzdump',
+        resourceId: '101',
+        status: 'stopped',
+        exitStatus: 'OK',
+        endedAt: DateTime.utc(2026, 11, 10, 10),
+      );
+      final newerFailure = RecentServerTask(
+        upid: 'UPID:pve1:4:5:6:vzdump:101:user@pve:',
+        node: 'pve1',
+        operation: 'vzdump',
+        resourceId: '101',
+        status: 'stopped',
+        exitStatus: 'ERROR',
+        endedAt: DateTime.utc(2026, 11, 11, 10),
+      );
+
+      final result = GuestBackupValidationAssessment.evaluate(
+        archives: const GuestBackupArchiveInventory(
+          storage: 'backup',
+          archives: [
+            GuestBackupArchive(
+              node: 'pve1',
+              storage: 'backup',
+              volid:
+                  'backup:backup/vzdump-qemu-101-2026_11_09-10_00_00.vma.zst',
+              kind: 'qemu',
+              vmid: 101,
+            ),
+          ],
+        ),
+        backupTasks: [olderSuccess, newerFailure],
+      );
+
+      expect(result.confidence, BackupValidationConfidence.partial);
+      expect(result.taskEvidence, BackupTaskEvidence.failed);
+      expect(result.latestBackupTask, same(newerFailure));
+    },
+  );
+
   test('template marker is parsed and blocks every power action', () {
     final template = Guest.fromResource({
       'type': 'qemu',
