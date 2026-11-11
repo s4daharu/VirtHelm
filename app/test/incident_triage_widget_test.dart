@@ -91,7 +91,9 @@ void main() {
     expect(find.text('Node pve1 is offline'), findsOneWidget);
     expect(find.text('Node pve2 is offline'), findsNothing);
     expect(find.text('Acknowledge shown (1)'), findsOneWidget);
-    await tester.ensureVisible(find.byKey(const Key('incident-bulk-acknowledge')));
+    await tester.ensureVisible(
+      find.byKey(const Key('incident-bulk-acknowledge')),
+    );
     await tester.tap(find.byKey(const Key('incident-bulk-acknowledge')));
     await tester.pumpAndSettle();
     expect(find.text('Acknowledge 1 shown signals?'), findsOneWidget);
@@ -146,5 +148,4 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('CRITICAL'), findsOneWidget);
   });
-
 }

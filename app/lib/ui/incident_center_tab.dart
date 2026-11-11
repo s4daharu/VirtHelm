@@ -57,40 +57,42 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
 
   List<IncidentTriageRecord> _visible(List<IncidentTriageRecord> records) {
     final query = _query.trim().toLowerCase();
-    return records.where((record) {
-      final incident = record.incident;
-      if (filter == _IncidentFilter.critical &&
-          incident.severity != CockpitIncidentSeverity.critical) {
-        return false;
-      }
-      if (filter == _IncidentFilter.warning &&
-          incident.severity != CockpitIncidentSeverity.warning) {
-        return false;
-      }
-      if (source == _IncidentSourceFilter.nodes &&
-          incident.source != CockpitIncidentSource.node) {
-        return false;
-      }
-      if (source == _IncidentSourceFilter.tasks &&
-          incident.source != CockpitIncidentSource.task) {
-        return false;
-      }
-      if (source == _IncidentSourceFilter.rules &&
-          incident.source != CockpitIncidentSource.rule) {
-        return false;
-      }
-      if (query.isEmpty) return true;
-      final text = [
-        incident.title,
-        incident.detail,
-        incident.node ?? '',
-        incident.taskTitle ?? '',
-        incident.guestVmid?.toString() ?? '',
-        incident.storageId ?? '',
-        incident.sourceLabel,
-      ].join(' ').toLowerCase();
-      return text.contains(query);
-    }).toList(growable: false);
+    return records
+        .where((record) {
+          final incident = record.incident;
+          if (filter == _IncidentFilter.critical &&
+              incident.severity != CockpitIncidentSeverity.critical) {
+            return false;
+          }
+          if (filter == _IncidentFilter.warning &&
+              incident.severity != CockpitIncidentSeverity.warning) {
+            return false;
+          }
+          if (source == _IncidentSourceFilter.nodes &&
+              incident.source != CockpitIncidentSource.node) {
+            return false;
+          }
+          if (source == _IncidentSourceFilter.tasks &&
+              incident.source != CockpitIncidentSource.task) {
+            return false;
+          }
+          if (source == _IncidentSourceFilter.rules &&
+              incident.source != CockpitIncidentSource.rule) {
+            return false;
+          }
+          if (query.isEmpty) return true;
+          final text = [
+            incident.title,
+            incident.detail,
+            incident.node ?? '',
+            incident.taskTitle ?? '',
+            incident.guestVmid?.toString() ?? '',
+            incident.storageId ?? '',
+            incident.sourceLabel,
+          ].join(' ').toLowerCase();
+          return text.contains(query);
+        })
+        .toList(growable: false);
   }
 
   Future<void> _acknowledgeVisible(
@@ -130,7 +132,9 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
     );
     if (changed > 0 && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Acknowledged $changed signals for this session')),
+        SnackBar(
+          content: Text('Acknowledged $changed signals for this session'),
+        ),
       );
     }
   }
@@ -478,7 +482,8 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
             EmptyState(
               icon: Icons.filter_alt_off_outlined,
               title: 'No matching signals',
-              body: 'Try a different search, severity or source. '
+              body:
+                  'Try a different search, severity or source. '
                   'The unfiltered incident count has not changed.',
               action: TextButton(
                 onPressed: _clearFilters,
