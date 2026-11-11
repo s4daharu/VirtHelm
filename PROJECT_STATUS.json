@@ -153,7 +153,7 @@
       "GET-only smoke testing against one PVE 9.2.26 server exercised HTTP schemas and actual gateway parsers, including server-side free/occupied VMID checks. No mutations were attempted; 8.4, restricted ACL, backend variants, physical-device and production gates remain open."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 308,
+    "current_flutter_tests_defined": 315,
     "current_flutter_runtime_tests_passed": 387,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
