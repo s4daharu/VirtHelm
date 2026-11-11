@@ -92,11 +92,15 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
   }
 
   List<IncidentTriageRecord> _visible(List<IncidentTriageRecord> records) =>
-      records.where((record) => _matches(record.incident)).toList(growable: false);
+      records
+          .where((record) => _matches(record.incident))
+          .toList(growable: false);
 
   List<IncidentHistoryEntry> _visibleHistory(
     List<IncidentHistoryEntry> entries,
-  ) => entries.where((entry) => _matches(entry.incident)).toList(growable: false);
+  ) => entries
+      .where((entry) => _matches(entry.incident))
+      .toList(growable: false);
 
   Future<void> _acknowledgeVisible(
     List<IncidentTriageRecord> records,
@@ -555,7 +559,8 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
               title: 'Nothing acknowledged',
               body: 'Use Acknowledge on a signal to mark it reviewed locally.',
             )
-          else if (!hasSelected && incidents.isNotEmpty &&
+          else if (!hasSelected &&
+              incidents.isNotEmpty &&
               view != _IncidentTriageView.history)
             EmptyState(
               icon: Icons.filter_alt_off_outlined,
@@ -622,7 +627,6 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
   }
 }
 
-
 class _IncidentHistoryCard extends StatelessWidget {
   const _IncidentHistoryCard({required this.entry});
 
@@ -661,11 +665,7 @@ class _IncidentHistoryCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
-                entry.detail,
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-              ),
+              Text(entry.detail, maxLines: 4, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 6),
               Text(
                 entry.lifecycleLabel,
