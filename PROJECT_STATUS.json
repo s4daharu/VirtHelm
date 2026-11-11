@@ -626,5 +626,16 @@
     "verification": "Pure ledger regression and mobile inbox widget regression added; pinned Flutter analyzer/format/test/Android CI required for merged-head proof.",
     "deferred": "Persistent alert history, quiet hours, cooldown, dedicated rule occurrence IDs, native notifications and relay remain gated. Full PVE 8.4/9.2/Android accessibility matrix still open.",
     "report": "docs/95-implementation-incident-triage.md"
+  },
+  "alert_incident_mobile_workflow": {
+    "status": "implemented_source_level_ci_pending",
+    "milestone": "ALERT-02 mobile operations follow-up",
+    "version": "0.1.50",
+    "behavior": "Loaded-signal search, source + severity chips and confirmation-bound batch acknowledgement limited to filtered needs-review keys; clear-filters recovery and readable severity on mobile cards.",
+    "safety": "Exact profile and generation recheck, selected-key intersection with current observable incidents and a single local notification; health, task outcomes, PVE server and incident badge counts unchanged.",
+    "privacy": "No PVE calls, background work, credential access, telemetry or persistence.",
+    "verification": "Pure ledger, controller and mobile widget/narrow-width regressions; pinned Flutter build/test CI and physical Android review still required.",
+    "deferred": "Durable history, quiet hours, cooldown, task correlation and native notifications remain gated.",
+    "report": "docs/96-implementation-mobile-incident-workflow.md"
   }
 }

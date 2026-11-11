@@ -98,4 +98,39 @@ void main() {
     ledger.observe([], complete: true);
     expect(ledger.setAcknowledged('node:pve1', true), isFalse);
   });
+  test('bulk acknowledgement changes only active selected unique signals', () {
+    final ledger = IncidentTriageLedger();
+    final now = DateTime.utc(2026, 11, 11, 12);
+    ledger.observe([
+      signal('node:one'),
+      signal('node:two'),
+      signal('task:old', source: CockpitIncidentSource.task),
+    ], now: now);
+    ledger.observe([
+      signal('node:one'),
+      signal('node:two'),
+    ], complete: true, now: now.add(const Duration(minutes: 1)));
+    expect(
+      ledger.acknowledgeCurrentKeys(
+        ['node:one', 'node:one', 'task:old', 'missing'],
+        now: now,
+      ),
+      1,
+    );
+    expect(
+      ledger.current
+          .singleWhere((record) => record.incident.key == 'node:one')
+          .isAcknowledged,
+      isTrue,
+    );
+    expect(
+      ledger.current
+          .singleWhere((record) => record.incident.key == 'node:two')
+          .isAcknowledged,
+      isFalse,
+    );
+    expect(ledger.earlier.single.isAcknowledged, isFalse);
+    expect(ledger.acknowledgeCurrentKeys(['node:one']), 0);
+  });
+
 }

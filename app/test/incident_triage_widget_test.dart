@@ -62,4 +62,89 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Acknowledged (0)'), findsOneWidget);
   });
+  testWidgets('search and source filters bulk review only shown signals', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = AppController(
+      repository: ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'a',
+      name: 'Test',
+      endpoint: 'https://example.invalid',
+    );
+    controller.inventory = Inventory.fromResources([
+      {'type': 'node', 'node': 'pve1', 'status': 'offline'},
+      {'type': 'node', 'node': 'pve2', 'status': 'offline'},
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: IncidentCenterTab(controller: controller)),
+      ),
+    );
+    expect(controller.incidents, hasLength(2));
+    await tester.enterText(find.byKey(const Key('incident-search')), 'pve1');
+    await tester.pumpAndSettle();
+    expect(find.text('Node pve1 is offline'), findsOneWidget);
+    expect(find.text('Node pve2 is offline'), findsNothing);
+    expect(find.text('Acknowledge shown (1)'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('incident-bulk-acknowledge')));
+    await tester.tap(find.byKey(const Key('incident-bulk-acknowledge')));
+    await tester.pumpAndSettle();
+    expect(find.text('Acknowledge 1 shown signals?'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('incident-bulk-confirm')));
+    await tester.pumpAndSettle();
+    expect(controller.incidents, hasLength(2));
+    expect(
+      controller.currentIncidentTriage.where((record) => record.isAcknowledged),
+      hasLength(1),
+    );
+    await tester.ensureVisible(find.byKey(const Key('incident-reset-filters')));
+    await tester.tap(find.byKey(const Key('incident-reset-filters')));
+    await tester.pumpAndSettle();
+    expect(find.text('Node pve2 is offline'), findsOneWidget);
+    await tester.ensureVisible(find.text('Tasks'));
+    await tester.tap(find.text('Tasks').last);
+    await tester.pumpAndSettle();
+    expect(find.text('No matching signals'), findsOneWidget);
+  });
+
+  testWidgets('320dp mobile inbox supports 200% text and readable severity', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(640, 1280);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = AppController(
+      repository: ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'a',
+      name: 'Test',
+      endpoint: 'https://example.invalid',
+    );
+    controller.inventory = Inventory.fromResources([
+      {'type': 'node', 'node': 'pve1', 'status': 'offline'},
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: Scaffold(body: IncidentCenterTab(controller: controller)),
+        ),
+      ),
+    );
+    await tester.ensureVisible(find.text('Node pve1 is offline'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('CRITICAL'), findsOneWidget);
+  });
+
 }

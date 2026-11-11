@@ -41,6 +41,16 @@ This is not the full persisted alert state machine described above. Quiet hours,
 cooldown, cross-session correlation, durable acknowledgement, notifications,
 background checks and relay integration remain proposed.
 
+## Mobile triage workflow follow-up (0.1.50)
+
+The foreground inbox adds source chips, an on-device text query against
+currently loaded incident details and an explicit confirmation to acknowledge
+only the filtered needs-review keys. Every batch rechecks the active profile,
+connection generation and current incident identities. Other incidents,
+underlying severities and badges are unchanged. Mobile cards present severity
+at a readable theme-scaled size. This introduces no network endpoint,
+persistence, background notification or server acknowledgement.
+
 ## Intelligence without unsafe automation
 F3 “Insights” are deterministic, explainable, local by default: suspicious CPU plateau, insufficient free space, frequent restart, failed task cluster, missing recent backup, irregular node load, capacity risk. A recommendation card includes: evidence and date range, uncertainty, why this matters, docs link, and **Review action** (never execute). Optional LLM/on-device natural-language interface is research-gated; no auto-remediation, no secret sharing, no cloud upload without explicit and revocable consent.
 

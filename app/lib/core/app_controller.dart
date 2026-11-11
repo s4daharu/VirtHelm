@@ -85,6 +85,28 @@ class AppController extends ChangeNotifier {
     return changed;
   }
 
+  /// The rendering profile/generation and current incident keys are checked
+  /// again after any UI confirmation; no server health is changed.
+  int acknowledgeIncidents(
+    Iterable<String> keys, {
+    required String expectedProfileId,
+    required int expectedGeneration,
+  }) {
+    if (_disposed ||
+        active?.id != expectedProfileId ||
+        expectedGeneration != _generation) {
+      return 0;
+    }
+    final observed = incidents;
+    _incidentTriage.observe(observed);
+    final visible = observed.map((incident) => incident.key).toSet();
+    final changed = _incidentTriage.acknowledgeCurrentKeys(
+      keys.toSet().where(visible.contains),
+    );
+    if (changed > 0) _notify();
+    return changed;
+  }
+
   Set<String> favoriteGuests = <String>{};
   List<SavedGuestView> guestSavedViews = [];
   String? storageMessage;

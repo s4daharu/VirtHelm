@@ -29,7 +29,7 @@ required = [
   'app/test/guest_operation_dialog_test.dart',
   'app/test/widget_test.dart','app/test/pve_tls_test.dart',
   'app/test/incident_center_test.dart','app/test/incident_triage_test.dart',
-  'app/test/incident_triage_widget_test.dart','app/test/alert_rules_test.dart',
+  'app/test/incident_triage_widget_test.dart','app/test/incident_triage_batch_test.dart','app/test/alert_rules_test.dart',
   'app/test/alert_rules_widget_test.dart',
   'app/test/ui_components_test.dart',
   'app/test/guest_list_filter_test.dart','app/test/task_history_filter_test.dart',
@@ -96,6 +96,7 @@ required = [
     'docs/92-implementation-restore-plan-preflight.md',
     'docs/93-whole-repository-cross-check-2026-11-11.md',
     'docs/94-implementation-guest-snapshot-lifecycle.md',
+    'docs/96-implementation-mobile-incident-workflow.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
@@ -109,6 +110,8 @@ assert 'class SparklineCard' in files['app/lib/ui/components.dart']
 assert "Key('overview-incident-summary')" in files['app/lib/ui/shell.dart']
 assert 'class IncidentTriageLedger' in files['app/lib/core/incident_triage.dart']
 assert 'setIncidentAcknowledged' in files['app/lib/core/app_controller.dart']
+assert 'acknowledgeIncidents' in files['app/lib/core/app_controller.dart']
+assert 'incident-bulk-acknowledge' in files['app/lib/ui/incident_center_tab.dart']
 assert 'incident-triage-view' in files['app/lib/ui/incident_center_tab.dart']
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
 assert 'android:allowBackup' in files['scripts/harden_android.py']

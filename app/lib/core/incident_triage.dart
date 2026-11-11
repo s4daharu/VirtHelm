@@ -100,6 +100,15 @@ class IncidentTriageLedger {
     }
   }
 
+  /// Review only the explicitly selected, still-current session observations.
+  int acknowledgeCurrentKeys(Iterable<String> keys, {DateTime? now}) {
+    var changed = 0;
+    for (final key in keys.toSet()) {
+      if (setAcknowledged(key, true, now: now)) changed++;
+    }
+    return changed;
+  }
+
   bool setAcknowledged(String key, bool value, {DateTime? now}) {
     final previous = _records[key];
     if (previous == null || !previous.isCurrent) return false;

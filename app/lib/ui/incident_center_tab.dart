@@ -17,6 +17,8 @@ enum _IncidentFilter { all, critical, warning }
 
 enum _IncidentTriageView { needsReview, acknowledged, earlier }
 
+enum _IncidentSourceFilter { all, nodes, tasks, rules }
+
 class IncidentCenterTab extends StatefulWidget {
   const IncidentCenterTab({super.key, required this.controller});
 
@@ -28,26 +30,109 @@ class IncidentCenterTab extends StatefulWidget {
 
 class _IncidentCenterTabState extends State<IncidentCenterTab> {
   _IncidentFilter filter = _IncidentFilter.all;
+  _IncidentSourceFilter source = _IncidentSourceFilter.all;
   _IncidentTriageView view = _IncidentTriageView.needsReview;
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  bool get _hasActiveFilters =>
+      filter != _IncidentFilter.all ||
+      source != _IncidentSourceFilter.all ||
+      _query.trim().isNotEmpty;
+
+  void _clearFilters() {
+    _searchController.clear();
+    setState(() {
+      _query = '';
+      filter = _IncidentFilter.all;
+      source = _IncidentSourceFilter.all;
+    });
+  }
 
   List<IncidentTriageRecord> _visible(List<IncidentTriageRecord> records) {
-    return switch (filter) {
-      _IncidentFilter.all => records,
-      _IncidentFilter.critical =>
-        records
-            .where(
-              (record) =>
-                  record.incident.severity == CockpitIncidentSeverity.critical,
-            )
-            .toList(growable: false),
-      _IncidentFilter.warning =>
-        records
-            .where(
-              (record) =>
-                  record.incident.severity == CockpitIncidentSeverity.warning,
-            )
-            .toList(growable: false),
-    };
+    final query = _query.trim().toLowerCase();
+    return records.where((record) {
+      final incident = record.incident;
+      if (filter == _IncidentFilter.critical &&
+          incident.severity != CockpitIncidentSeverity.critical) {
+        return false;
+      }
+      if (filter == _IncidentFilter.warning &&
+          incident.severity != CockpitIncidentSeverity.warning) {
+        return false;
+      }
+      if (source == _IncidentSourceFilter.nodes &&
+          incident.source != CockpitIncidentSource.node) {
+        return false;
+      }
+      if (source == _IncidentSourceFilter.tasks &&
+          incident.source != CockpitIncidentSource.task) {
+        return false;
+      }
+      if (source == _IncidentSourceFilter.rules &&
+          incident.source != CockpitIncidentSource.rule) {
+        return false;
+      }
+      if (query.isEmpty) return true;
+      final text = [
+        incident.title,
+        incident.detail,
+        incident.node ?? '',
+        incident.taskTitle ?? '',
+        incident.guestVmid?.toString() ?? '',
+        incident.storageId ?? '',
+        incident.sourceLabel,
+      ].join(' ').toLowerCase();
+      return text.contains(query);
+    }).toList(growable: false);
+  }
+
+  Future<void> _acknowledgeVisible(
+    List<IncidentTriageRecord> records,
+    String? profileId,
+    int generation,
+  ) async {
+    if (profileId == null || records.isEmpty) return;
+    final keys = records.map((record) => record.incident.key).toList();
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Acknowledge ${keys.length} shown signals?'),
+        content: const Text(
+          'Only the currently filtered signals will be marked reviewed '
+          'in this connection session. This does not dismiss alerts, '
+          'repair resources or change any task outcomes.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('incident-bulk-confirm'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Acknowledge shown'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || approved != true) return;
+    final changed = widget.controller.acknowledgeIncidents(
+      keys,
+      expectedProfileId: profileId,
+      expectedGeneration: generation,
+    );
+    if (changed > 0 && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Acknowledged $changed signals for this session')),
+      );
+    }
   }
 
   void _openIncident(BuildContext context, CockpitIncident incident) {
@@ -147,19 +232,19 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
     final renderingProfileId = controller.active?.id;
     final renderingGeneration = controller.connectionGeneration;
     final incidents = controller.incidents;
-    final current = _visible(controller.currentIncidentTriage);
-    final earlier = _visible(controller.earlierIncidentTriage);
+    final current = controller.currentIncidentTriage;
+    final earlier = controller.earlierIncidentTriage;
     final needsReview = current
         .where((record) => !record.isAcknowledged)
         .toList();
     final acknowledged = current
         .where((record) => record.isAcknowledged)
         .toList();
-    final selected = switch (view) {
+    final selected = _visible(switch (view) {
       _IncidentTriageView.needsReview => needsReview,
       _IncidentTriageView.acknowledged => acknowledged,
       _IncidentTriageView.earlier => earlier,
-    };
+    });
     final stale =
         controller.active != null &&
         (!controller.isInventoryFresh ||
@@ -274,6 +359,30 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
               ),
             ],
           ),
+          const SizedBox(height: 14),
+          TextField(
+            key: const Key('incident-search'),
+            controller: _searchController,
+            onChanged: (value) => setState(() => _query = value),
+            textInputAction: TextInputAction.search,
+            autocorrect: false,
+            decoration: InputDecoration(
+              labelText: 'Search incidents',
+              hintText: 'Name, node, task or source',
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      key: const Key('incident-clear-search'),
+                      tooltip: 'Clear incident search',
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _query = '');
+                      },
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+            ),
+          ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -298,12 +407,83 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          Wrap(
+            key: const Key('incident-source-filter'),
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('All sources'),
+                selected: source == _IncidentSourceFilter.all,
+                onSelected: (_) =>
+                    setState(() => source = _IncidentSourceFilter.all),
+              ),
+              ChoiceChip(
+                label: const Text('Nodes'),
+                selected: source == _IncidentSourceFilter.nodes,
+                onSelected: (_) =>
+                    setState(() => source = _IncidentSourceFilter.nodes),
+              ),
+              ChoiceChip(
+                label: const Text('Tasks'),
+                selected: source == _IncidentSourceFilter.tasks,
+                onSelected: (_) =>
+                    setState(() => source = _IncidentSourceFilter.tasks),
+              ),
+              ChoiceChip(
+                label: const Text('Rules'),
+                selected: source == _IncidentSourceFilter.rules,
+                onSelected: (_) =>
+                    setState(() => source = _IncidentSourceFilter.rules),
+              ),
+            ],
+          ),
+          if (_hasActiveFilters)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                key: const Key('incident-reset-filters'),
+                onPressed: _clearFilters,
+                icon: const Icon(Icons.filter_alt_off_outlined),
+                label: const Text('Reset filters'),
+              ),
+            ),
+          if (view == _IncidentTriageView.needsReview &&
+              selected.isNotEmpty &&
+              controller.active != null) ...[
+            const SizedBox(height: 14),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.tonalIcon(
+                key: const Key('incident-bulk-acknowledge'),
+                onPressed: () => _acknowledgeVisible(
+                  selected,
+                  renderingProfileId,
+                  renderingGeneration,
+                ),
+                icon: const Icon(Icons.done_all_rounded),
+                label: Text('Acknowledge shown (${selected.length})'),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           if (controller.active == null)
             const EmptyState(
               icon: Icons.notifications_off_outlined,
               title: 'No active connection',
               body: 'Open a connection to evaluate foreground incidents.',
+            )
+          else if (selected.isEmpty && _hasActiveFilters)
+            EmptyState(
+              icon: Icons.filter_alt_off_outlined,
+              title: 'No matching signals',
+              body: 'Try a different search, severity or source. '
+                  'The unfiltered incident count has not changed.',
+              action: TextButton(
+                onPressed: _clearFilters,
+                child: const Text('Reset filters'),
+              ),
             )
           else if (selected.isEmpty && view == _IncidentTriageView.earlier)
             const EmptyState(
@@ -524,27 +704,27 @@ class _IncidentCard extends StatelessWidget {
             ),
             subtitle: Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                '${incident.detail}\n'
-                '${incident.sourceLabel} • ${formatAge(incident.observedAt)}',
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    incident.severityLabel.toUpperCase(),
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${incident.detail}\n'
+                    '${incident.sourceLabel} • ${formatAge(incident.observedAt)}',
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             ),
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.chevron_right_rounded, color: color),
-                Text(
-                  incident.severityLabel.toUpperCase(),
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
+            trailing: Icon(Icons.chevron_right_rounded, color: color),
             onTap: onTap,
           ),
           Padding(
