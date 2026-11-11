@@ -51,7 +51,7 @@ void main() {
       severity: CockpitIncidentSeverity.critical,
       source: CockpitIncidentSource.task,
       title: 'Task failed: Backup VM 101',
-      detail: 'pve1 • Exit ERROR',
+      detail: 'pve1 • UPID:pve1:secret-task-id • Exit ERROR',
       observedAt: now,
       node: 'pve1',
       taskUpid: 'UPID:pve1:secret-task-id',
