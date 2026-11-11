@@ -569,6 +569,11 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
                 child: const Text('Show needs review'),
               ),
             )
+          else if (view == _IncidentTriageView.history)
+            for (final entry in selectedHistory) ...[
+              _IncidentHistoryCard(entry: entry),
+              const SizedBox(height: 10),
+            ]
           else if (incidents.isEmpty && (stale || taskCoverageIncomplete))
             EmptyState(
               icon: Icons.help_outline_rounded,
@@ -590,11 +595,6 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
                   'The current foreground inventory and visible recent task '
                   'history contain no node-state problems or failed tasks.',
             )
-          else if (view == _IncidentTriageView.history)
-            for (final entry in selectedHistory) ...[
-              _IncidentHistoryCard(entry: entry),
-              const SizedBox(height: 10),
-            ]
           else
             for (final record in selected) ...[
               if (record.isCurrent)
