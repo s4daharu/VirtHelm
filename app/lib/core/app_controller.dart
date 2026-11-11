@@ -7,6 +7,7 @@ import 'app_preferences.dart';
 import 'device_connectivity.dart';
 import 'guest_saved_view.dart';
 import 'incident_center.dart';
+import 'incident_history.dart';
 import 'incident_triage.dart';
 import 'models.dart';
 import 'offline_overview.dart';
@@ -43,6 +44,7 @@ class AppController extends ChangeNotifier {
   List<CockpitIncident> _retainedServerTaskIncidents =
       const <CockpitIncident>[];
   final IncidentTriageLedger _incidentTriage = IncidentTriageLedger();
+  List<IncidentHistoryEntry> incidentHistory = const <IncidentHistoryEntry>[];
 
   List<CockpitIncident> get incidents => buildCockpitIncidents(
     inventory: inventory,
@@ -81,7 +83,10 @@ class AppController extends ChangeNotifier {
     }
     _incidentTriage.observe(incidents);
     final changed = _incidentTriage.setAcknowledged(key, acknowledged);
-    if (changed) _notify();
+    if (changed) {
+      _captureIncidentHistory(complete: false);
+      _notify();
+    }
     return changed;
   }
 
@@ -103,8 +108,37 @@ class AppController extends ChangeNotifier {
     final changed = _incidentTriage.acknowledgeCurrentKeys(
       keys.toSet().where(visible.contains),
     );
-    if (changed > 0) _notify();
+    if (changed > 0) {
+      _captureIncidentHistory(complete: false);
+      _notify();
+    }
     return changed;
+  }
+
+  void _captureIncidentHistory({required bool complete}) {
+    final profile = active;
+    if (_disposed || profile == null) return;
+    incidentHistory = reconcileIncidentHistory(
+      incidentHistory,
+      <IncidentTriageRecord>[
+        ..._incidentTriage.current,
+        ..._incidentTriage.earlier,
+      ],
+      complete: complete,
+    );
+    unawaited(_persistIncidentHistory(profile.id, incidentHistory));
+  }
+
+  Future<void> _persistIncidentHistory(
+    String profileId,
+    List<IncidentHistoryEntry> entries,
+  ) async {
+    try {
+      await repository.saveIncidentHistory(profileId, entries);
+    } catch (_) {
+      // History is operator context only. A local persistence failure must not
+      // alter current health, task outcomes, authorization or write safety.
+    }
   }
 
   Set<String> favoriteGuests = <String>{};
@@ -1505,6 +1539,7 @@ class AppController extends ChangeNotifier {
     favoriteGuests = repository.readGuestFavorites(profile.id);
     guestSavedViews = repository.readGuestViews(profile.id);
     thresholdAlertRules = repository.readThresholdAlertRules(profile.id);
+    incidentHistory = repository.readIncidentHistory(profile.id);
     _thresholdAlertEngine.clear();
     _incidentTriage.clear();
     inventory = null;
@@ -1656,14 +1691,13 @@ class AppController extends ChangeNotifier {
           deviceNetworkState != DeviceNetworkState.unavailable) {
         // Only a complete authenticated snapshot can move missing signals
         // into the local earlier-observations timeline.
-        _incidentTriage.observe(
-          incidents,
-          complete:
-              message == null &&
-              inventoryWarning == null &&
-              storageMessage == null &&
-              serverTaskMessage == null,
-        );
+        final triageComplete =
+            message == null &&
+            inventoryWarning == null &&
+            storageMessage == null &&
+            serverTaskMessage == null;
+        _incidentTriage.observe(incidents, complete: triageComplete);
+        _captureIncidentHistory(complete: triageComplete);
       }
     } catch (e) {
       if (generation != _generation || _disposed) return;
@@ -3921,6 +3955,7 @@ class AppController extends ChangeNotifier {
       serverTasks = [];
       _retainedServerTaskIncidents = const <CockpitIncident>[];
       _incidentTriage.clear();
+      incidentHistory = const <IncidentHistoryEntry>[];
       storageMessage = null;
       serverTaskMessage = null;
       inventoryWarning = null;
@@ -3963,6 +3998,7 @@ class AppController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _incidentTriage.clear();
+    incidentHistory = const <IncidentHistoryEntry>[];
     _generation++;
     _pollTimer?.cancel();
     _autoRefreshTimer?.cancel();
