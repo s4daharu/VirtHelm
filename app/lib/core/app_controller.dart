@@ -3894,6 +3894,11 @@ class AppController extends ChangeNotifier {
       if (_pollingGeneration == generation) _pollingGeneration = null;
     }
     if (finished && generation == _generation) {
+      // Persist the newly terminal signal before any authoritative refresh.
+      // This is deliberately non-closing: timeout/auth/visibility failures are
+      // not evidence that any previously observed incident disappeared.
+      _incidentTriage.observe(incidents);
+      _captureIncidentHistory(complete: false);
       var reconciled = false;
       if (authenticationFailure == null || completedTargets.isNotEmpty) {
         reconciled = await _refreshAfterTask(generation);
