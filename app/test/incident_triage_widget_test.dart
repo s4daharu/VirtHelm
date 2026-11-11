@@ -39,9 +39,8 @@ void main() {
       MaterialApp(
         home: AnimatedBuilder(
           animation: controller,
-          builder: (context, _) => Scaffold(
-            body: IncidentCenterTab(controller: controller),
-          ),
+          builder: (context, _) =>
+              Scaffold(body: IncidentCenterTab(controller: controller)),
         ),
       ),
     );

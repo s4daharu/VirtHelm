@@ -2,15 +2,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:virthelm/core/incident_center.dart';
 import 'package:virthelm/core/incident_triage.dart';
 
-CockpitIncident signal(String key, {CockpitIncidentSource source = CockpitIncidentSource.node}) =>
-    CockpitIncident(
-      key: key,
-      severity: CockpitIncidentSeverity.critical,
-      source: source,
-      title: 'Attention',
-      detail: 'Check source data',
-      observedAt: DateTime.utc(2026, 11, 11),
-    );
+CockpitIncident signal(
+  String key, {
+  CockpitIncidentSource source = CockpitIncidentSource.node,
+}) => CockpitIncident(
+  key: key,
+  severity: CockpitIncidentSeverity.critical,
+  source: source,
+  title: 'Attention',
+  detail: 'Check source data',
+  observedAt: DateTime.utc(2026, 11, 11),
+);
 
 void main() {
   test('acknowledgment cannot change a signal or its server severity', () {
@@ -24,7 +26,9 @@ void main() {
       CockpitIncidentSeverity.critical,
     );
     expect(ledger.setAcknowledged('node:pve1', true), isFalse);
-    ledger.observe([signal('node:pve1')], now: now.add(const Duration(minutes: 1)));
+    ledger.observe([
+      signal('node:pve1'),
+    ], now: now.add(const Duration(minutes: 1)));
     expect(ledger.current.single.isAcknowledged, isTrue);
     expect(ledger.setAcknowledged('node:pve1', false), isTrue);
     expect(ledger.current.single.isAcknowledged, isFalse);
@@ -48,7 +52,9 @@ void main() {
     ledger.observe([signal('rule:cpu')], now: t0);
     ledger.setAcknowledged('rule:cpu', true, now: t0);
     ledger.observe([], complete: true, now: t0.add(const Duration(minutes: 1)));
-    ledger.observe([signal('rule:cpu')], now: t0.add(const Duration(minutes: 2)));
+    ledger.observe([
+      signal('rule:cpu'),
+    ], now: t0.add(const Duration(minutes: 2)));
     expect(ledger.current.single.isAcknowledged, isFalse);
     expect(ledger.current.single.firstSeen, t0.add(const Duration(minutes: 2)));
     expect(ledger.earlier, isEmpty);
@@ -58,26 +64,32 @@ void main() {
     final ledger = IncidentTriageLedger();
     ledger.observe([signal('task:1', source: CockpitIncidentSource.task)]);
     ledger.observe([], complete: true);
-    expect(ledger.earlier.single.departureLabel, contains('outcome is not changed'));
+    expect(
+      ledger.earlier.single.departureLabel,
+      contains('outcome is not changed'),
+    );
   });
 
-  test('earlier signal history is bounded, immutable, and cleared on reconnect', () {
-    final ledger = IncidentTriageLedger();
-    final t0 = DateTime.utc(2026, 11, 11);
-    for (var i = 0; i < 60; i++) {
-      ledger.observe(
-        [signal('node:$i')],
-        complete: true,
-        now: t0.add(Duration(minutes: i)),
-      );
-    }
-    ledger.observe([], complete: true, now: t0.add(const Duration(hours: 2)));
-    expect(ledger.earlier, hasLength(IncidentTriageLedger.maxEarlierSignals));
-    expect(() => ledger.earlier.clear(), throwsUnsupportedError);
-    ledger.clear();
-    expect(ledger.current, isEmpty);
-    expect(ledger.earlier, isEmpty);
-  });
+  test(
+    'earlier signal history is bounded, immutable, and cleared on reconnect',
+    () {
+      final ledger = IncidentTriageLedger();
+      final t0 = DateTime.utc(2026, 11, 11);
+      for (var i = 0; i < 60; i++) {
+        ledger.observe(
+          [signal('node:$i')],
+          complete: true,
+          now: t0.add(Duration(minutes: i)),
+        );
+      }
+      ledger.observe([], complete: true, now: t0.add(const Duration(hours: 2)));
+      expect(ledger.earlier, hasLength(IncidentTriageLedger.maxEarlierSignals));
+      expect(() => ledger.earlier.clear(), throwsUnsupportedError);
+      ledger.clear();
+      expect(ledger.current, isEmpty);
+      expect(ledger.earlier, isEmpty);
+    },
+  );
 
   test('cannot acknowledge an absent or departed signal', () {
     final ledger = IncidentTriageLedger();

@@ -84,6 +84,7 @@ class AppController extends ChangeNotifier {
     if (changed) _notify();
     return changed;
   }
+
   Set<String> favoriteGuests = <String>{};
   List<SavedGuestView> guestSavedViews = [];
   String? storageMessage;
@@ -1635,7 +1636,8 @@ class AppController extends ChangeNotifier {
         // into the local earlier-observations timeline.
         _incidentTriage.observe(
           incidents,
-          complete: message == null &&
+          complete:
+              message == null &&
               inventoryWarning == null &&
               storageMessage == null &&
               serverTaskMessage == null,

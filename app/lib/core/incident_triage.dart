@@ -43,10 +43,10 @@ class IncidentTriageLedger {
   }
 
   List<IncidentTriageRecord> get earlier {
-    final results = _records.values.where((record) => !record.isCurrent).toList()
-      ..sort(
-        (a, b) => b.noLongerObservedAt!.compareTo(a.noLongerObservedAt!),
-      );
+    final results =
+        _records.values.where((record) => !record.isCurrent).toList()..sort(
+          (a, b) => b.noLongerObservedAt!.compareTo(a.noLongerObservedAt!),
+        );
     return List<IncidentTriageRecord>.unmodifiable(results);
   }
 

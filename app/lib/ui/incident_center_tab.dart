@@ -149,8 +149,12 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
     final incidents = controller.incidents;
     final current = _visible(controller.currentIncidentTriage);
     final earlier = _visible(controller.earlierIncidentTriage);
-    final needsReview = current.where((record) => !record.isAcknowledged).toList();
-    final acknowledged = current.where((record) => record.isAcknowledged).toList();
+    final needsReview = current
+        .where((record) => !record.isAcknowledged)
+        .toList();
+    final acknowledged = current
+        .where((record) => record.isAcknowledged)
+        .toList();
     final selected = switch (view) {
       _IncidentTriageView.needsReview => needsReview,
       _IncidentTriageView.acknowledged => acknowledged,
@@ -253,23 +257,20 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
               ChoiceChip(
                 label: Text('Needs review (${needsReview.length})'),
                 selected: view == _IncidentTriageView.needsReview,
-                onSelected: (_) => setState(
-                  () => view = _IncidentTriageView.needsReview,
-                ),
+                onSelected: (_) =>
+                    setState(() => view = _IncidentTriageView.needsReview),
               ),
               ChoiceChip(
                 label: Text('Acknowledged (${acknowledged.length})'),
                 selected: view == _IncidentTriageView.acknowledged,
-                onSelected: (_) => setState(
-                  () => view = _IncidentTriageView.acknowledged,
-                ),
+                onSelected: (_) =>
+                    setState(() => view = _IncidentTriageView.acknowledged),
               ),
               ChoiceChip(
                 label: Text('Earlier (${earlier.length})'),
                 selected: view == _IncidentTriageView.earlier,
-                onSelected: (_) => setState(
-                  () => view = _IncidentTriageView.earlier,
-                ),
+                onSelected: (_) =>
+                    setState(() => view = _IncidentTriageView.earlier),
               ),
             ],
           ),
@@ -308,11 +309,11 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
             const EmptyState(
               icon: Icons.history_rounded,
               title: 'No earlier signals',
-              body: 'Only signals that disappear after a complete foreground '
+              body:
+                  'Only signals that disappear after a complete foreground '
                   'refresh appear here. This is not a recovery certificate.',
             )
-          else if (selected.isEmpty &&
-              view == _IncidentTriageView.acknowledged)
+          else if (selected.isEmpty && view == _IncidentTriageView.acknowledged)
             const EmptyState(
               icon: Icons.done_all_rounded,
               title: 'Nothing acknowledged',
@@ -554,11 +555,11 @@ class _IncidentCard extends StatelessWidget {
                 key: Key('incident-triage-action-${incident.key}'),
                 onPressed: onAcknowledge,
                 icon: Icon(
-                  acknowledged
-                      ? Icons.undo_rounded
-                      : Icons.done_all_rounded,
+                  acknowledged ? Icons.undo_rounded : Icons.done_all_rounded,
                 ),
-                label: Text(acknowledged ? 'Mark as unreviewed' : 'Acknowledge'),
+                label: Text(
+                  acknowledged ? 'Mark as unreviewed' : 'Acknowledge',
+                ),
               ),
             ),
           ),
