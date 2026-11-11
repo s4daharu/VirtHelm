@@ -21,6 +21,12 @@ void main() {
   testWidgets('mobile inbox acknowledges without hiding the incident itself', (
     tester,
   ) async {
+    // This test exercises triage transitions rather than scrolling; keep
+    // both the top-level view chips and card actions on screen.
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final controller = AppController(

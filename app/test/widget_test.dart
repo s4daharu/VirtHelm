@@ -1454,6 +1454,11 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Incidents'));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('incident-stale-warning')),
+        -200,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.byKey(const Key('incident-stale-warning')), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('Node pve1 is offline'),
