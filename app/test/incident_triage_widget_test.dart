@@ -197,53 +197,54 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('CRITICAL'), findsOneWidget);
   });
-  testWidgets('saved history is read-only and does not become a live incident', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
-    final controller = AppController(
-      repository: ProfileRepository(prefs, _EmptyVault()),
-    );
-    addTearDown(controller.dispose);
-    controller.active = const ConnectionProfile(
-      id: 'a',
-      name: 'Test',
-      endpoint: 'https://example.invalid',
-    );
-    controller.incidentHistory = [
-      IncidentHistoryEntry(
-        occurrenceId: 'occ-1-node',
-        fingerprint: 'node|pve-old',
-        severity: CockpitIncidentSeverity.warning,
-        source: CockpitIncidentSource.node,
-        title: 'Saved node event',
-        detail: 'Historical context only.',
-        firstSeen: DateTime.utc(2026, 11, 11, 1),
-        lastSeen: DateTime.utc(2026, 11, 11, 2),
-        noLongerObservedAt: DateTime.utc(2026, 11, 11, 3),
-        node: 'pve-old',
-      ),
-    ];
+  testWidgets(
+    'saved history is read-only and does not become a live incident',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = AppController(
+        repository: ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      controller.active = const ConnectionProfile(
+        id: 'a',
+        name: 'Test',
+        endpoint: 'https://example.invalid',
+      );
+      controller.incidentHistory = [
+        IncidentHistoryEntry(
+          occurrenceId: 'occ-1-node',
+          fingerprint: 'node|pve-old',
+          severity: CockpitIncidentSeverity.warning,
+          source: CockpitIncidentSource.node,
+          title: 'Saved node event',
+          detail: 'Historical context only.',
+          firstSeen: DateTime.utc(2026, 11, 11, 1),
+          lastSeen: DateTime.utc(2026, 11, 11, 2),
+          noLongerObservedAt: DateTime.utc(2026, 11, 11, 3),
+          node: 'pve-old',
+        ),
+      ];
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(body: IncidentCenterTab(controller: controller)),
-      ),
-    );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: IncidentCenterTab(controller: controller)),
+        ),
+      );
 
-    expect(controller.incidents, isEmpty);
-    expect(find.text('History (1)'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('incident-history-view')));
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Saved node event'),
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('Saved node event'), findsOneWidget);
-    expect(find.textContaining('recovery was not verified'), findsOneWidget);
-    expect(find.text('Acknowledge'), findsNothing);
-  });
+      expect(controller.incidents, isEmpty);
+      expect(find.text('History (1)'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('incident-history-view')));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Saved node event'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Saved node event'), findsOneWidget);
+      expect(find.textContaining('recovery was not verified'), findsOneWidget);
+      expect(find.text('Acknowledge'), findsNothing);
+    },
+  );
 
 }
