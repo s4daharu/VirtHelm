@@ -250,11 +250,7 @@ String incidentHistoryFingerprint(CockpitIncident incident) {
   return _bounded(value, _maxFingerprintLength);
 }
 
-String _historyText(
-  CockpitIncident incident,
-  String value,
-  int maxLength,
-) {
+String _historyText(CockpitIncident incident, String value, int maxLength) {
   final taskUpid = incident.taskUpid;
   final redacted = taskUpid == null || taskUpid.isEmpty
       ? value
