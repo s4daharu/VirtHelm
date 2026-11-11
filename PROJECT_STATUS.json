@@ -39,7 +39,7 @@
   "m1_validation": "Automated branch CI has passed source checks, analyzer, tests and Android debug APK build for the M1 safety implementation; live PVE/device release validation remains open.",
   "flutter_build_success": true,
   "ci_flutter_version": "3.44.4",
-  "android_build_evidence": "Docs and Android checks run 42913689940 and signed prerelease run 42914642302 passed for audited baseline fa41718a69e5083201f002ecc39c6e3e97420506. The 0.1.46 audit passed a throttled local debug APK build with pinned Flutter 3.44.4 and Java 17. The 0.1.48 snapshot lifecycle hardening slice passed local pinned formatting, analyze and 387 Flutter runtime tests; fresh current-head CI debug APK compilation is still required. Bounded 9.2.26 read-only evidence does not close mutation/8.4/device release gates.",
+  "android_build_evidence": "Docs and Android checks run 42913689940 and signed prerelease run 42914642302 passed for audited baseline fa41718a69e5083201f002ecc39c6e3e97420506. The 0.1.46 audit passed a throttled local debug APK build with pinned Flutter 3.44.4 and Java 17. The 0.1.48 snapshot lifecycle hardening slice passed local pinned formatting, analyze and 387 Flutter runtime tests. The 0.1.51 durable incident-history milestone passed exact-head PR run 43093767543 with pinned Flutter 3.44.4 formatting, analyze --fatal-infos, 381 passing Flutter tests and a debug APK build. Bounded 9.2.26 read-only evidence does not close mutation/8.4/device release gates.",
   "m1_safety_followup": "Implemented: per-guest single-flight, profile/snapshot revalidation, bounded task verification, ambiguous-outcome lockout, auth-revocation fail-closed handling and race regression tests.",
   "m2_read_cockpit": {
     "features": [
@@ -639,13 +639,13 @@
     "report": "docs/96-implementation-mobile-incident-workflow.md"
   },
   "alert_incident_durable_history": {
-    "status": "implemented_source_level_ci_pending",
+    "status": "implemented_ci_verified",
     "milestone": "ALERT-02 durable profile-scoped occurrence history",
     "version": "0.1.51",
     "behavior": "Up to 80 on-device occurrence summaries per saved profile, with a read-only mobile History view reusing incident search/source/severity filters. Session acknowledgement still resets on reconnect and live badges remain current-signal only.",
     "safety": "Only complete authenticated foreground evidence may close a missing occurrence; partial/offline evidence preserves it. History never feeds current health, task outcome, permission or mutation gates, and reappearance after closure creates a fresh local occurrence.",
     "privacy": "SharedPreferences metadata excludes task UPIDs, task logs, credentials, endpoints and request/response bodies; profile deletion purges history and Android app backup remains disabled.",
-    "verification": "New model/repository/widget regressions cover UPID exclusion, incomplete evidence, reappearance, 80-record bound, profile isolation/deletion and read-only mobile separation; pinned Flutter format/analyze/test/debug-APK CI still required.",
+    "verification": "Exact-head PR run 43093767543 passed source/docs checks, pinned Flutter 3.44.4 formatting, analyze --fatal-infos, 381 Flutter tests and debug APK build. New model/repository/widget regressions cover UPID exclusion, incomplete evidence, reappearance, 80-record bound, profile isolation/deletion and read-only mobile separation; physical Android/PVE release validation remains open.",
     "deferred": "Quiet hours, cooldown/suppression, authoritative event correlation, Android periodic/background checks, native notifications, relay and physical-device/PVE 8.4/9.2 release validation remain gated.",
     "report": "docs/97-implementation-durable-incident-history.md"
   }
