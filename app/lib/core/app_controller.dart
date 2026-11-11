@@ -7,6 +7,7 @@ import 'app_preferences.dart';
 import 'device_connectivity.dart';
 import 'guest_saved_view.dart';
 import 'incident_center.dart';
+import 'incident_triage.dart';
 import 'models.dart';
 import 'offline_overview.dart';
 import 'profile_repository.dart';
@@ -41,6 +42,7 @@ class AppController extends ChangeNotifier {
       ForegroundThresholdAlertEngine();
   List<CockpitIncident> _retainedServerTaskIncidents =
       const <CockpitIncident>[];
+  final IncidentTriageLedger _incidentTriage = IncidentTriageLedger();
 
   List<CockpitIncident> get incidents => buildCockpitIncidents(
     inventory: inventory,
@@ -49,6 +51,39 @@ class AppController extends ChangeNotifier {
     retainedTaskIncidents: _retainedServerTaskIncidents,
     foregroundRuleIncidents: _thresholdAlertEngine.incidents,
   );
+
+  List<IncidentTriageRecord> get currentIncidentTriage {
+    final observed = incidents;
+    _incidentTriage.observe(observed);
+    final visibleKeys = observed.map((incident) => incident.key).toSet();
+    return List<IncidentTriageRecord>.unmodifiable(
+      _incidentTriage.current.where(
+        (record) => visibleKeys.contains(record.incident.key),
+      ),
+    );
+  }
+
+  List<IncidentTriageRecord> get earlierIncidentTriage =>
+      _incidentTriage.earlier;
+
+  /// Acknowledgement is a session-local annotation, never remediation.
+  bool setIncidentAcknowledged(
+    String key,
+    bool acknowledged, {
+    required String expectedProfileId,
+    required int expectedGeneration,
+  }) {
+    if (_disposed ||
+        active?.id != expectedProfileId ||
+        expectedGeneration != _generation ||
+        !incidents.any((incident) => incident.key == key)) {
+      return false;
+    }
+    _incidentTriage.observe(incidents);
+    final changed = _incidentTriage.setAcknowledged(key, acknowledged);
+    if (changed) _notify();
+    return changed;
+  }
   Set<String> favoriteGuests = <String>{};
   List<SavedGuestView> guestSavedViews = [];
   String? storageMessage;
@@ -1448,6 +1483,7 @@ class AppController extends ChangeNotifier {
     guestSavedViews = repository.readGuestViews(profile.id);
     thresholdAlertRules = repository.readThresholdAlertRules(profile.id);
     _thresholdAlertEngine.clear();
+    _incidentTriage.clear();
     inventory = null;
     tasks.clear();
     storages = [];
@@ -1590,6 +1626,20 @@ class AppController extends ChangeNotifier {
           // Offline display is optional; cache failures cannot make live
           // inventory appear unsafe or block normal read operations.
         }
+      }
+      if (generation == _generation &&
+          networkEpoch == _networkEpoch &&
+          !_disposed &&
+          deviceNetworkState != DeviceNetworkState.unavailable) {
+        // Only a complete authenticated snapshot can move missing signals
+        // into the local earlier-observations timeline.
+        _incidentTriage.observe(
+          incidents,
+          complete: message == null &&
+              inventoryWarning == null &&
+              storageMessage == null &&
+              serverTaskMessage == null,
+        );
       }
     } catch (e) {
       if (generation != _generation || _disposed) return;
@@ -3846,6 +3896,7 @@ class AppController extends ChangeNotifier {
       storages = [];
       serverTasks = [];
       _retainedServerTaskIncidents = const <CockpitIncident>[];
+      _incidentTriage.clear();
       storageMessage = null;
       serverTaskMessage = null;
       inventoryWarning = null;
@@ -3887,6 +3938,7 @@ class AppController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _incidentTriage.clear();
     _generation++;
     _pollTimer?.cancel();
     _autoRefreshTimer?.cancel();
