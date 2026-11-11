@@ -100,7 +100,10 @@ void main() {
       now: t0.add(const Duration(minutes: 2)),
     );
     expect(history.single.isOpen, isFalse);
-    expect(history.single.lifecycleLabel, contains('recovery was not verified'));
+    expect(
+      history.single.lifecycleLabel,
+      contains('recovery was not verified'),
+    );
 
     final t1 = t0.add(const Duration(minutes: 3));
     history = reconcileIncidentHistory(
@@ -136,41 +139,44 @@ void main() {
     expect(history.last.node, 'pve20');
   });
 
-  test('repository isolates history by profile and purges it on deletion', () async {
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
-    final repository = ProfileRepository(prefs, _EmptyVault());
-    const credentials = ApiCredentials(
-      tokenId: 'root@pam!mobile',
-      secret: 'secret',
-    );
-    const one = ConnectionProfile(
-      id: 'one',
-      name: 'One',
-      endpoint: 'https://one.invalid',
-    );
-    const two = ConnectionProfile(
-      id: 'two',
-      name: 'Two',
-      endpoint: 'https://two.invalid',
-    );
-    await repository.save(one, credentials);
-    await repository.save(two, credentials);
+  test(
+    'repository isolates history by profile and purges it on deletion',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final repository = ProfileRepository(prefs, _EmptyVault());
+      const credentials = ApiCredentials(
+        tokenId: 'root@pam!mobile',
+        secret: 'secret',
+      );
+      const one = ConnectionProfile(
+        id: 'one',
+        name: 'One',
+        endpoint: 'https://one.invalid',
+      );
+      const two = ConnectionProfile(
+        id: 'two',
+        name: 'Two',
+        endpoint: 'https://two.invalid',
+      );
+      await repository.save(one, credentials);
+      await repository.save(two, credentials);
 
-    final now = DateTime.utc(2026, 11, 12, 2);
-    final history = reconcileIncidentHistory(
-      const <IncidentHistoryEntry>[],
-      [_record(_nodeIncident('pve1', now), now)],
-      complete: false,
-      now: now,
-    );
-    await repository.saveIncidentHistory(one.id, history);
+      final now = DateTime.utc(2026, 11, 12, 2);
+      final history = reconcileIncidentHistory(
+        const <IncidentHistoryEntry>[],
+        [_record(_nodeIncident('pve1', now), now)],
+        complete: false,
+        now: now,
+      );
+      await repository.saveIncidentHistory(one.id, history);
 
-    expect(repository.readIncidentHistory(one.id), hasLength(1));
-    expect(repository.readIncidentHistory(two.id), isEmpty);
+      expect(repository.readIncidentHistory(one.id), hasLength(1));
+      expect(repository.readIncidentHistory(two.id), isEmpty);
 
-    await repository.delete(one.id);
-    expect(repository.readIncidentHistory(one.id), isEmpty);
-    expect(repository.readIncidentHistory(two.id), isEmpty);
-  });
+      await repository.delete(one.id);
+      expect(repository.readIncidentHistory(one.id), isEmpty);
+      expect(repository.readIncidentHistory(two.id), isEmpty);
+    },
+  );
 }
