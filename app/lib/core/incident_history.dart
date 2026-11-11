@@ -54,7 +54,7 @@ class IncidentHistoryEntry {
   bool get wasReviewed => reviewedAt != null;
 
   CockpitIncident get incident => CockpitIncident(
-    key: 'history:${occurrenceId}',
+    key: 'history:$occurrenceId',
     severity: severity,
     source: source,
     title: title,
