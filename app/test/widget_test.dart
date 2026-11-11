@@ -1423,18 +1423,18 @@ void main() {
 
       expect(find.text('Incident inbox'), findsOneWidget);
       expect(find.text('Node pve1 is offline'), findsOneWidget);
-      expect(
-        find.text('Task failed: Shut down container • 202'),
-        findsOneWidget,
-      );
-      expect(find.textContaining('UPID:'), findsNothing);
-
       await tester.scrollUntilVisible(
         find.text('Task failed: Shut down container • 202'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
+      expect(
+        find.text('Task failed: Shut down container • 202'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('UPID:'), findsNothing);
+
       await tester.tap(find.text('Task failed: Shut down container • 202'));
       await tester.pumpAndSettle();
       expect(find.byType(TaskDetailsPage), findsOneWidget);

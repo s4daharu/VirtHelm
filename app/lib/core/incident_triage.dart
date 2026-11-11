@@ -21,7 +21,7 @@ class IncidentTriageRecord {
 
   String get departureLabel => incident.source == CockpitIncidentSource.task
       ? 'Left the bounded task view; the outcome is not changed.'
-      : 'No longer observed in a complete foreground refresh.';
+      : 'Signal not observed in a complete refresh; recovery not verified.';
 }
 
 /// Keeps acknowledgements and a bounded history in RAM for one connection
