@@ -86,8 +86,7 @@ class IncidentHistoryEntry {
     if (reviewedAt != null)
       'reviewed_at': reviewedAt!.toUtc().toIso8601String(),
     if (noLongerObservedAt != null)
-      'no_longer_observed_at':
-          noLongerObservedAt!.toUtc().toIso8601String(),
+      'no_longer_observed_at': noLongerObservedAt!.toUtc().toIso8601String(),
     if (node != null) 'node': node,
     if (taskTitle != null) 'task_title': taskTitle,
     if (guestKind != null) 'guest_kind': guestKind,
@@ -145,11 +144,7 @@ class IncidentHistoryEntry {
         _maxTitleLength,
         'task_title',
       ),
-      guestKind: _optionalText(
-        json['guest_kind'],
-        24,
-        'guest_kind',
-      ),
+      guestKind: _optionalText(json['guest_kind'], 24, 'guest_kind'),
       guestVmid: guestVmid as int?,
       storageId: _optionalText(
         json['storage_id'],
@@ -231,8 +226,7 @@ class IncidentHistoryEntry {
 /// Stable enough for local reconciliation without persisting a task UPID.
 String incidentHistoryFingerprint(CockpitIncident incident) {
   final value = switch (incident.source) {
-    CockpitIncidentSource.node =>
-      'node|${incident.node ?? incident.title}',
+    CockpitIncidentSource.node => 'node|${incident.node ?? incident.title}',
     CockpitIncidentSource.task =>
       'task|${incident.node ?? ''}|${incident.taskTitle ?? incident.title}|'
           '${incident.observedAt.toUtc().millisecondsSinceEpoch}',
