@@ -15,6 +15,7 @@ import 'package:virthelm/ui/connections_page.dart';
 import 'package:virthelm/ui/guest_page.dart';
 import 'package:virthelm/ui/node_page.dart';
 import 'package:virthelm/ui/shell.dart';
+import 'package:virthelm/ui/snapshot_action_dialog.dart';
 import 'package:virthelm/ui/storage_page.dart';
 import 'package:virthelm/ui/task_details_page.dart';
 import 'package:virthelm/ui/theme.dart';
@@ -97,6 +98,8 @@ class _GuestSnapshotController extends AppController {
   final List<int> requestedVmids = [];
   final List<String> requestedBackupStorages = [];
   final List<int> requestedRestoreVmids = [];
+  final List<GuestSnapshot> deletedSnapshots = [];
+  final List<GuestSnapshot> rolledBackSnapshots = [];
 
   @override
   Future<GuestBackupArchiveInventory?> inspectGuestBackupArchives({
@@ -170,6 +173,26 @@ class _GuestSnapshotController extends AppController {
       ],
       malformedRecords: 1,
     );
+  }
+
+  @override
+  Future<void> runGuestSnapshotDelete(
+    Guest source,
+    GuestSnapshot snapshot, {
+    required String profileId,
+    required int generation,
+  }) async {
+    deletedSnapshots.add(snapshot);
+  }
+
+  @override
+  Future<void> runGuestSnapshotRollback(
+    Guest source,
+    GuestSnapshot snapshot, {
+    required String profileId,
+    required int generation,
+  }) async {
+    rolledBackSnapshots.add(snapshot);
   }
 }
 
@@ -1099,6 +1122,173 @@ void main() {
       expect(find.text('Guest unavailable'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'guest snapshot actions expose mobile rollback/delete confirmation',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = _GuestSnapshotController(
+        ProfileRepository(prefs, _EmptyVault()),
+      );
+      addTearDown(controller.dispose);
+      controller.active = const ConnectionProfile(
+        id: 'a',
+        name: 'A',
+        endpoint: 'https://a.example',
+      );
+      controller.inventory = Inventory.fromResources([
+        {
+          'type': 'qemu',
+          'node': 'pve1',
+          'vmid': 101,
+          'name': 'Web',
+          'status': 'running',
+        },
+      ]);
+      final guest = controller.inventory!.guests.single;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: GuestPage(
+            controller: controller,
+            guest: guest,
+            profileId: 'a',
+            generation: controller.connectionGeneration,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('guest-recovery-tab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('guest-load-snapshots')));
+      await tester.pumpAndSettle();
+      final recoveryScroll = find.descendant(
+        of: find.byKey(const Key('guest-recovery-list')),
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('guest-snapshot-before-upgrade')),
+        240,
+        scrollable: recoveryScroll,
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('guest-snapshot-before-upgrade')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('guest-snapshot-actions')), findsOneWidget);
+      final rollbackTile = tester.widget<ListTile>(
+        find.byKey(const Key('guest-snapshot-rollback-action')),
+      );
+      expect(rollbackTile.enabled, isFalse);
+      expect(find.textContaining('Stop the guest'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('guest-snapshot-delete-action')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('snapshot-delete-dialog')), findsOneWidget);
+      FilledButton submit = tester.widget<FilledButton>(
+        find.byKey(const Key('snapshot-delete-submit')),
+      );
+      expect(submit.onPressed, isNull);
+
+      await tester.enterText(
+        find.byKey(const Key('snapshot-delete-confirm-name')),
+        'before-upgrade',
+      );
+      await tester.pump();
+      submit = tester.widget<FilledButton>(
+        find.byKey(const Key('snapshot-delete-submit')),
+      );
+      expect(submit.onPressed, isNotNull);
+      await tester.tap(find.byKey(const Key('snapshot-delete-submit')));
+      await tester.pumpAndSettle();
+
+      expect(controller.deletedSnapshots, hasLength(1));
+      expect(controller.deletedSnapshots.single.name, 'before-upgrade');
+      expect(controller.rolledBackSnapshots, isEmpty);
+      expect(
+        find.textContaining('Snapshot delete task submitted'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('snapshot confirmation fits a narrow phone at 200 percent text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = _GuestSnapshotController(
+      ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'a',
+      name: 'A',
+      endpoint: 'https://a.example',
+    );
+    controller.inventory = Inventory.fromResources([
+      {
+        'type': 'qemu',
+        'node': 'pve1',
+        'vmid': 101,
+        'name': 'Web',
+        'status': 'stopped',
+      },
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: virthelmTheme(Brightness.dark),
+        home: MediaQuery(
+          data: const MediaQueryData(
+            size: Size(320, 640),
+            textScaler: TextScaler.linear(2),
+          ),
+          child: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () => showDialog<bool>(
+                    context: context,
+                    builder: (_) => GuestSnapshotActionDialog(
+                      controller: controller,
+                      isCurrent: () => true,
+                      blockedReason: () => null,
+                      guest: controller.inventory!.guests.single,
+                      snapshot: const GuestSnapshot(
+                        name: 'before-upgrade',
+                        description: 'Before package update',
+                      ),
+                      action: GuestSnapshotAction.delete,
+                    ),
+                  ),
+                  child: const Text('Open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('snapshot-delete-dialog')), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('snapshot-delete-confirm-name')),
+      'before-upgrade',
+    );
+    await tester.pump();
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('snapshot-delete-submit')))
+          .onPressed,
+      isNotNull,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('task details open on demand and redact on profile switch', (
     tester,

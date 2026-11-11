@@ -1,5 +1,10 @@
 # Whole-repository cross-check — 2026-11-11
 
+> **Post-audit update:** the later [guarded snapshot lifecycle](94-implementation-guest-snapshot-lifecycle.md)
+> slice implements stopped-only non-RAM rollback and snapshot deletion. The
+> Recovery row and remaining-gap text below describe the audit-time baseline,
+> not the current implementation. `PROJECT_STATUS.json` remains authoritative.
+
 ## Outcome and evidence boundary
 
 Baseline: `fa41718a69e5083201f002ecc39c6e3e97420506` on `main` (restore planning, 0.1.45). This audit advances the application to **0.1.46** and fixes concrete safety, lifecycle, evidence-classification and status-documentation gaps. It is **not** a claim that every plan is implemented, that no defects can remain, or that production release gates are closed.

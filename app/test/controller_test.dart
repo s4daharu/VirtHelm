@@ -78,6 +78,7 @@ class _Gateway
         GuestPermissionGateway,
         GuestBackupGateway,
         GuestSnapshotCreateGateway,
+        GuestSnapshotMutationGateway,
         GuestCloneGateway,
         GuestMigrationGateway,
         GuestDeleteGateway,
@@ -104,6 +105,12 @@ class _Gateway
   GuestSnapshotCreateRequest? lastSnapshotRequest;
   PveFailure? snapshotCreateFailure;
   Completer<String>? snapshotCreateGate;
+  int snapshotDeleteSubmissions = 0;
+  int snapshotRollbackSubmissions = 0;
+  Guest? lastSnapshotMutationGuest;
+  GuestSnapshot? lastSnapshotMutation;
+  PveFailure? snapshotMutationFailure;
+  Completer<String>? snapshotMutationGate;
   int backupStorageCalls = 0;
   List<String> backupStorageResult = const ['backup'];
   PveFailure? backupStorageFailure;
@@ -382,6 +389,34 @@ class _Gateway
     if (snapshotCreateFailure != null) throw snapshotCreateFailure!;
     if (snapshotCreateGate != null) return snapshotCreateGate!.future;
     final worker = guest.kind == 'qemu' ? 'qmsnapshot' : 'vzsnapshot';
+    return 'UPID:${guest.node}:1234:123:abc:$worker:${guest.vmid}:operator@pve:';
+  }
+
+  @override
+  Future<String> deleteGuestSnapshot(
+    Guest guest,
+    GuestSnapshot snapshot,
+  ) async {
+    snapshotDeleteSubmissions++;
+    lastSnapshotMutationGuest = guest;
+    lastSnapshotMutation = snapshot;
+    if (snapshotMutationFailure != null) throw snapshotMutationFailure!;
+    if (snapshotMutationGate != null) return snapshotMutationGate!.future;
+    final worker = guest.kind == 'qemu' ? 'qmdelsnapshot' : 'vzdelsnapshot';
+    return 'UPID:${guest.node}:1234:123:abc:$worker:${guest.vmid}:operator@pve:';
+  }
+
+  @override
+  Future<String> rollbackGuestSnapshot(
+    Guest guest,
+    GuestSnapshot snapshot,
+  ) async {
+    snapshotRollbackSubmissions++;
+    lastSnapshotMutationGuest = guest;
+    lastSnapshotMutation = snapshot;
+    if (snapshotMutationFailure != null) throw snapshotMutationFailure!;
+    if (snapshotMutationGate != null) return snapshotMutationGate!.future;
+    final worker = guest.kind == 'qemu' ? 'qmrollback' : 'vzrollback';
     return 'UPID:${guest.node}:1234:123:abc:$worker:${guest.vmid}:operator@pve:';
   }
 
@@ -4522,6 +4557,254 @@ void main() {
         throwsA(isA<PveFailure>()),
       );
       expect(gateway.snapshotCreateSubmissions, 1);
+      expect(ctl.isGuestActionBlocked(refreshed), isTrue);
+    },
+  );
+
+  test(
+    'guest snapshot deletion submits once and tracks the delete task',
+    () async {
+      final (ctl, gateway) = await _auditController();
+      addTearDown(ctl.dispose);
+      final source = ctl.inventory!.guests.single;
+      final snapshot = gateway.guestSnapshotResult.snapshots.singleWhere(
+        (item) => item.name == 'before-upgrade',
+      );
+
+      await ctl.runGuestSnapshotDelete(
+        source,
+        snapshot,
+        profileId: ctl.active!.id,
+        generation: ctl.connectionGeneration,
+      );
+
+      expect(gateway.snapshotDeleteSubmissions, 1);
+      expect(gateway.snapshotRollbackSubmissions, 0);
+      expect(gateway.lastSnapshotMutation?.name, 'before-upgrade');
+      expect(ctl.tasks.single.title, contains('Delete snapshot Web (101)'));
+      expect(ctl.tasks.single.title, contains('before-upgrade'));
+      expect(ctl.tasks.single.outcome, OperationOutcome.running);
+      expect(ctl.isGuestActionBlocked(source), isTrue);
+    },
+  );
+
+  test('stopped non-RAM snapshot rollback submits once', () async {
+    final (ctl, gateway) = await _auditController(status: 'stopped');
+    addTearDown(ctl.dispose);
+    gateway.guestPermissionResult = const GuestPermissionSnapshot(
+      privileges: {'VM.Snapshot.Rollback'},
+    );
+    final source = ctl.inventory!.guests.single;
+    final snapshot = gateway.guestSnapshotResult.snapshots.singleWhere(
+      (item) => item.name == 'before-upgrade',
+    );
+
+    await ctl.runGuestSnapshotRollback(
+      source,
+      snapshot,
+      profileId: ctl.active!.id,
+      generation: ctl.connectionGeneration,
+    );
+
+    expect(gateway.snapshotRollbackSubmissions, 1);
+    expect(gateway.snapshotDeleteSubmissions, 0);
+    expect(gateway.lastSnapshotMutation?.name, 'before-upgrade');
+    expect(ctl.tasks.single.title, contains('Rollback Web (101)'));
+    expect(ctl.tasks.single.outcome, OperationOutcome.running);
+    expect(ctl.isGuestActionBlocked(source), isTrue);
+  });
+
+  test(
+    'snapshot rollback rejects running and RAM-state targets before I/O',
+    () async {
+      final (running, runningGateway) = await _auditController();
+      addTearDown(running.dispose);
+      runningGateway.guestPermissionResult = const GuestPermissionSnapshot(
+        privileges: {'VM.Snapshot.Rollback'},
+      );
+      final runningGuest = running.inventory!.guests.single;
+      await expectLater(
+        running.runGuestSnapshotRollback(
+          runningGuest,
+          const GuestSnapshot(name: 'before-upgrade'),
+          profileId: running.active!.id,
+          generation: running.connectionGeneration,
+        ),
+        throwsA(
+          isA<PveFailure>().having(
+            (error) => error.message,
+            'message',
+            contains('Stop the guest'),
+          ),
+        ),
+      );
+      expect(runningGateway.snapshotRollbackSubmissions, 0);
+
+      final (stopped, stoppedGateway) = await _auditController(
+        status: 'stopped',
+      );
+      addTearDown(stopped.dispose);
+      stoppedGateway.guestPermissionResult = const GuestPermissionSnapshot(
+        privileges: {'VM.Snapshot.Rollback'},
+      );
+      final stoppedGuest = stopped.inventory!.guests.single;
+      await expectLater(
+        stopped.runGuestSnapshotRollback(
+          stoppedGuest,
+          const GuestSnapshot(name: 'before-upgrade', includesMemory: true),
+          profileId: stopped.active!.id,
+          generation: stopped.connectionGeneration,
+        ),
+        throwsA(
+          isA<PveFailure>().having(
+            (error) => error.message,
+            'message',
+            contains('RAM state'),
+          ),
+        ),
+      );
+      expect(stoppedGateway.snapshotRollbackSubmissions, 0);
+    },
+  );
+
+  test(
+    'snapshot mutation enforces the exact rollback/delete privilege',
+    () async {
+      final (deleteController, deleteGateway) = await _auditController();
+      addTearDown(deleteController.dispose);
+      deleteGateway.guestPermissionResult = const GuestPermissionSnapshot(
+        privileges: {'VM.Audit'},
+      );
+      final deleteGuest = deleteController.inventory!.guests.single;
+      await expectLater(
+        deleteController.runGuestSnapshotDelete(
+          deleteGuest,
+          const GuestSnapshot(name: 'before-upgrade'),
+          profileId: deleteController.active!.id,
+          generation: deleteController.connectionGeneration,
+        ),
+        throwsA(
+          isA<PveFailure>().having((error) => error.status, 'status', 403),
+        ),
+      );
+      expect(deleteGateway.snapshotDeleteSubmissions, 0);
+      expect(deleteGateway.guestSnapshotCalls, 0);
+
+      final (rollbackController, rollbackGateway) = await _auditController(
+        status: 'stopped',
+      );
+      addTearDown(rollbackController.dispose);
+      rollbackGateway.guestPermissionResult = const GuestPermissionSnapshot(
+        privileges: {'VM.Snapshot'},
+      );
+      final rollbackGuest = rollbackController.inventory!.guests.single;
+      await expectLater(
+        rollbackController.runGuestSnapshotRollback(
+          rollbackGuest,
+          const GuestSnapshot(name: 'before-upgrade'),
+          profileId: rollbackController.active!.id,
+          generation: rollbackController.connectionGeneration,
+        ),
+        throwsA(
+          isA<PveFailure>().having((error) => error.status, 'status', 403),
+        ),
+      );
+      expect(rollbackGateway.snapshotRollbackSubmissions, 0);
+      expect(rollbackGateway.guestSnapshotCalls, 0);
+    },
+  );
+
+  test(
+    'snapshot mutation refuses missing or changed snapshot metadata',
+    () async {
+      final (missingController, missingGateway) = await _auditController();
+      addTearDown(missingController.dispose);
+      missingGateway.guestSnapshotResult = const GuestSnapshotInventory(
+        snapshots: [GuestSnapshot(name: 'current')],
+      );
+      final missingGuest = missingController.inventory!.guests.single;
+      await expectLater(
+        missingController.runGuestSnapshotDelete(
+          missingGuest,
+          const GuestSnapshot(name: 'before-upgrade'),
+          profileId: missingController.active!.id,
+          generation: missingController.connectionGeneration,
+        ),
+        throwsA(
+          isA<PveFailure>().having(
+            (error) => error.message,
+            'message',
+            contains('no longer exists'),
+          ),
+        ),
+      );
+      expect(missingGateway.snapshotDeleteSubmissions, 0);
+
+      final (changedController, changedGateway) = await _auditController();
+      addTearDown(changedController.dispose);
+      final changedGuest = changedController.inventory!.guests.single;
+      await expectLater(
+        changedController.runGuestSnapshotDelete(
+          changedGuest,
+          GuestSnapshot(
+            name: 'before-upgrade',
+            createdAt: DateTime.utc(2026, 1, 1),
+          ),
+          profileId: changedController.active!.id,
+          generation: changedController.connectionGeneration,
+        ),
+        throwsA(
+          isA<PveFailure>().having(
+            (error) => error.message,
+            'message',
+            contains('changed during verification'),
+          ),
+        ),
+      );
+      expect(changedGateway.snapshotDeleteSubmissions, 0);
+    },
+  );
+
+  test(
+    'ambiguous snapshot delete remains locked and cannot be retried',
+    () async {
+      final (ctl, gateway) = await _auditController();
+      addTearDown(ctl.dispose);
+      gateway.snapshotMutationFailure = const PveFailure(
+        'Response lost',
+        mayHaveExecuted: true,
+      );
+      final source = ctl.inventory!.guests.single;
+      await expectLater(
+        ctl.runGuestSnapshotDelete(
+          source,
+          const GuestSnapshot(name: 'before-upgrade'),
+          profileId: ctl.active!.id,
+          generation: ctl.connectionGeneration,
+        ),
+        throwsA(
+          isA<PveFailure>().having(
+            (error) => error.mayHaveExecuted,
+            'unknown outcome',
+            isTrue,
+          ),
+        ),
+      );
+      expect(gateway.snapshotDeleteSubmissions, 1);
+      expect(ctl.isGuestActionBlocked(source), isTrue);
+
+      await ctl.refresh();
+      final refreshed = ctl.inventory!.guests.single;
+      await expectLater(
+        ctl.runGuestSnapshotDelete(
+          refreshed,
+          const GuestSnapshot(name: 'before-upgrade'),
+          profileId: ctl.active!.id,
+          generation: ctl.connectionGeneration,
+        ),
+        throwsA(isA<PveFailure>()),
+      );
+      expect(gateway.snapshotDeleteSubmissions, 1);
       expect(ctl.isGuestActionBlocked(refreshed), isTrue);
     },
   );

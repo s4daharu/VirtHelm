@@ -690,6 +690,21 @@ String? _snapshotDescription(Object? value) {
   return cleaned.length <= 500 ? cleaned : '${cleaned.substring(0, 500)}…';
 }
 
+String? _snapshotMutationNameError(String value) {
+  final normalized = value.trim();
+  if (normalized.length < 2 || normalized.length > 40) {
+    return 'Snapshot name must be 2 to 40 characters.';
+  }
+  if (normalized.toLowerCase() == 'current') {
+    return 'Snapshot name "current" is reserved by Proxmox.';
+  }
+  if (!RegExp(r'^[A-Za-z][A-Za-z0-9_-]*$').hasMatch(normalized)) {
+    return 'Snapshot name must start with a letter and contain only '
+        'letters, numbers, underscores, and hyphens.';
+  }
+  return null;
+}
+
 /// Read-only guest snapshot metadata. The PVE "current" pseudo-entry is kept
 /// separate from real snapshots so the UI never presents it as a restore point.
 class GuestSnapshot {
@@ -708,6 +723,20 @@ class GuestSnapshot {
   final bool? includesMemory;
 
   bool get isCurrent => name == 'current';
+
+  /// Mutation targets must satisfy Proxmox's `pve-configid` snapshot name
+  /// format. List parsing stays permissive so malformed rows can be counted and
+  /// ignored without inventing a server-side action.
+  String? get mutationValidationError => isCurrent
+      ? 'The current state is not a snapshot target.'
+      : _snapshotMutationNameError(name);
+
+  bool sameMetadataAs(GuestSnapshot other) =>
+      name == other.name &&
+      parent == other.parent &&
+      description == other.description &&
+      createdAt == other.createdAt &&
+      includesMemory == other.includesMemory;
 
   factory GuestSnapshot.fromApi(Map<String, dynamic> json) {
     final name = _snapshotIdentityText(json['name']);

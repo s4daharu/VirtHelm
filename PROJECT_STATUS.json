@@ -14,7 +14,7 @@
   "framework": "Flutter",
   "primary_pve": "9.2",
   "regression_pve": "8.4",
-  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, create-only snapshot, one-off backup-start, exact-guest backup-archive visibility, evidence-limited backup validation confidence, and GET-only same-node alternate-VMID restore-plan/conflict-preflight operational slices",
+  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, snapshot creation/stopped-only non-RAM rollback/deletion, one-off backup-start, exact-guest backup-archive visibility, evidence-limited backup validation confidence, and GET-only same-node alternate-VMID restore-plan/conflict-preflight operational slices",
   "github_repository_url": "https://github.com/s4daharu/VirtHelm",
   "documentation_uploaded_and_verified": true,
   "docs_initial_remote_commit": "4fdfcd704aced213508f798533fd6370573ac284",
@@ -39,7 +39,7 @@
   "m1_validation": "Automated branch CI has passed source checks, analyzer, tests and Android debug APK build for the M1 safety implementation; live PVE/device release validation remains open.",
   "flutter_build_success": true,
   "ci_flutter_version": "3.44.4",
-  "android_build_evidence": "Docs and Android checks run 42913689940 and signed prerelease run 42914642302 passed for audited baseline fa41718a69e5083201f002ecc39c6e3e97420506. The 0.1.46 audit passed a throttled local debug APK build with pinned Flutter 3.44.4 and Java 17; fresh current-head CI is still required. Bounded 9.2.26 read-only evidence does not close mutation/8.4/device release gates.",
+  "android_build_evidence": "Docs and Android checks run 42913689940 and signed prerelease run 42914642302 passed for audited baseline fa41718a69e5083201f002ecc39c6e3e97420506. The 0.1.46 audit passed a throttled local debug APK build with pinned Flutter 3.44.4 and Java 17. The 0.1.47 snapshot lifecycle slice passed local pinned formatting, analyze and 382 Flutter runtime tests; fresh current-head CI debug APK compilation is still required. Bounded 9.2.26 read-only evidence does not close mutation/8.4/device release gates.",
   "m1_safety_followup": "Implemented: per-guest single-flight, profile/snapshot revalidation, bounded task verification, ambiguous-outcome lockout, auth-revocation fail-closed handling and race regression tests.",
   "m2_read_cockpit": {
     "features": [
@@ -141,7 +141,7 @@
       "GUEST-013 adds guarded unprivileged LXC creation from live-discovered vztmpl content and active rootdir storage, with VM/storage ACL hints, cluster-wide VMID reservation, typed confirmation, exactly one vzcreate POST, strict UPID tracking and uncertain-outcome lockout. Privileged/custom-rootfs/networked/richer provisioning remains gated.",
       "GUEST-06 partial adds guarded same-cluster QEMU/LXC migration with fresh source/online-target revalidation, VM.Migrate hints, Proxmox migration preflight, typed source-VMID confirmation, exactly one migration POST, strict qmigrate/vzmigrate/hamigrate UPID tracking and uncertain-outcome lockout. QEMU local-disk/host-resource migration, storage remapping, force/network tuning, bulk and cross-cluster migration remain gated.",
       "GUEST-07 first destructive slice adds stopped-only guarded QEMU/LXC deletion with exact identity/state revalidation, VM.Allocate hints, named guest + VMID typed confirmation, explicit recovery-backup acknowledgement, exactly one DELETE, strict qmdestroy/vzdestroy UPID tracking and uncertain-outcome lockout. skiplock/purge/unreferenced-disk knobs, template/running deletion and automated backup/quorum claims remain gated.",
-      "GUEST-02 partial adds guarded create-only QEMU/LXC snapshots with exact identity/state revalidation, VM.Snapshot hints, a fresh complete snapshot-name collision check, exactly one POST carrying only snapname, strict qmsnapshot/vzsnapshot UPID tracking and uncertain-outcome lockout. QEMU vmstate capture plus snapshot rollback/delete remain gated.",
+      "GUEST-02 partial adds guarded create-only QEMU/LXC snapshots with exact identity/state revalidation, VM.Snapshot hints, a fresh complete snapshot-name collision check, exactly one POST carrying only snapname, strict qmsnapshot/vzsnapshot UPID tracking and uncertain-outcome lockout. The companion GUEST-019/020 slice adds stopped-only non-RAM rollback and snapshot deletion with typed-name confirmation, exact fresh metadata revalidation and strict rollback/delete UPIDs; QEMU vmstate capture, RAM-state/running rollback, descriptions, retention and snapshot trees remain gated.",
       "GUEST-03 partial adds guarded one-off QEMU/LXC vzdump submission to a selected active backup-capable storage: exact guest/state revalidation, VM.Backup plus Datastore.AllocateSpace hints, exactly one snapshot-mode POST, strict vzdump UPID matching and uncertain-outcome lockout. Pruning/retention, hooks/tuning, archive verification and restore remain gated.",
       "BKP-002 partial adds on-demand exact-guest backup archive visibility from one current active backup-capable storage: content=backup plus exact-VMID GET, QEMU/LXC volume-ID identity filtering, bounded reviewed metadata, newest-first display, and session/storage redaction. Archive presence is not checksum/integrity verification or a restore test.",
       "BKP-009 partial adds a local backup validation confidence card over exact-guest archive visibility plus the newest recent vzdump task. States are only Not assessed, Insufficient evidence and Partial evidence; task success cannot replace archive presence, and archive presence can never become checksum/PBS verification or tested-restore evidence.",
@@ -153,8 +153,8 @@
       "GET-only smoke testing against one PVE 9.2.26 server exercised HTTP schemas and actual gateway parsers, including server-side free/occupied VMID checks. No mutations were attempted; 8.4, restricted ACL, backend variants, physical-device and production gates remain open."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 290,
-    "current_flutter_runtime_tests_passed": 347,
+    "current_flutter_tests_defined": 303,
+    "current_flutter_runtime_tests_passed": 382,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
     "p0_scope_complete": false,
@@ -443,9 +443,9 @@
       "on-demand read-only QEMU/LXC snapshot inventory with parent, creation time, description and VM-memory metadata when provided",
       "guest-scoped recent Proxmox vzdump task outcomes derived from the existing bounded recent task history"
     ],
-    "safety": "Exact active profile, connection generation and guest node/type/VMID are revalidated around the snapshot read. Snapshot reads remain GET-only and on demand; separate guarded snapshot-create and backup-start workflows now exist. Backup-task success is not presented as archive verification or restoreability.",
+    "safety": "Exact active profile, connection generation and guest node/type/VMID are revalidated around the snapshot read. Snapshot reads remain GET-only and on demand; separate guarded snapshot-create, stopped-only non-RAM rollback/delete and backup-start workflows now exist. Backup-task success is not presented as archive verification or restoreability.",
     "verification": "Model/gateway/controller/widget regressions are defined, including GET path/parsing, stale-session rejection, guest scoping and large-text tab coverage. Current-head Docs/Android CI remains authoritative.",
-    "limitations": "Bounded 9.2.26 read smoke evidence exists, not the complete 9.2/8.4 ACL/backend/device matrix. Archive discovery, one-off backup start, create-only snapshots, evidence-limited confidence and read-only restore planning are implemented separately. Schedules, retention, integrity verification, restore execution and snapshot rollback/delete remain gated.",
+    "limitations": "Bounded 9.2.26 read smoke evidence exists, not the complete 9.2/8.4 ACL/backend/device matrix. Archive discovery, one-off backup start, create-only snapshots, evidence-limited confidence and read-only restore planning are implemented separately. Schedules, retention, integrity verification, restore execution, RAM-state/running rollback and snapshot descriptions/retention remain gated.",
     "report": "docs/78-implementation-guest-recovery-readonly.md"
   },
   "m4_configuration_read_foundation": {
@@ -455,7 +455,7 @@
     "privacy": "Passwords, SSH keys, arbitrary args, hooks, descriptions and unknown future keys are intentionally withheld from the display model. Values shown are control-character sanitized and capped.",
     "safety": "Active profile ID, connection generation and exact guest node/type/VMID are checked before and after the read; explicit Android network loss blocks new reads; observed 401 invalidates authenticated live state.",
     "dependency": "Provides the reviewed read-only configuration prerequisite for later provisioning design; the separate template-clone workflow now consumes template/ACL/inventory inputs without editing source configuration.",
-    "limitations": "Bounded 9.2.26 read/parser smoke evidence exists; complete 8.4/9.2 config/ACL/device validation remains open. Configuration editing, richer provisioning, advanced migration variants, ticket/MFA, console, snapshot rollback/delete and restore execution remain gated; guarded snapshot creation and backup start are implemented separately.",
+    "limitations": "Bounded 9.2.26 read/parser smoke evidence exists; complete 8.4/9.2 config/ACL/device validation remains open. Configuration editing, richer provisioning, advanced migration variants, ticket/MFA, console, RAM-state/running rollback, snapshot descriptions/retention and restore execution remain gated; guarded snapshot creation, stopped-only non-RAM rollback/deletion and backup start are implemented separately.",
     "report": "docs/79-implementation-guest-configuration-read.md"
   },
   "m4_permission_hints_foundation": {
@@ -491,7 +491,7 @@
     "contract": "GET /cluster/nextid for suggestion/collision validation; GET /access/permissions on source and destination VMID paths; one POST /nodes/{node}/{qemu|lxc}/{vmid}/clone returning a UPID.",
     "safety": "Exact active profile/generation/template identity, fresh clean inventory, second live inventory check, destination collision recheck, source VM.Clone and destination VM.Allocate hints, synchronous single-flight reservation, exactly one POST, no mutation retry, UPID polling, unknown-outcome lockout and post-task inventory reconciliation.",
     "authorization_boundary": "Datastore.AllocateSpace and SDN.Use may also be required by Proxmox. This first slice does not claim those ACLs are fully preflighted; server 403 remains authoritative and is never replayed.",
-    "deferred": "Linked clone, cross-node target, explicit storage/pool selection, richer provisioning, advanced migration variants, template conversion, snapshot rollback/delete, backup retention/integrity verification and restore execution. Guarded snapshot create, backup start and stopped-guest deletion are implemented separately.",
+    "deferred": "Linked clone, cross-node target, explicit storage/pool selection, richer provisioning, advanced migration variants, template conversion, RAM-state/running snapshot rollback and snapshot descriptions/retention, backup retention/integrity verification and restore execution. Guarded snapshot create/rollback/delete, backup start and stopped-guest deletion are implemented separately.",
     "verification": "PR #36 exact-head CI run 42559102380 passed docs/source checks, Dart formatting, flutter analyze --fatal-infos, the complete Flutter test suite, and Android debug APK compilation. Live PVE 8.4/9.2 and physical Android validation remain open.",
     "report": "docs/82-implementation-template-clone.md",
     "pr_ci": {
@@ -510,7 +510,7 @@
     "safety": "Explicit originating profile/generation, foreground/default-network availability, fresh clean unchanged inventory, exact online destination-node revalidation, destination VMID absence plus server-side nextid collision recheck, VM.Allocate + VM.Config.CPU/Memory/Options hints, synchronous cluster-wide destination VMID reservation shared with cloning and power-action guards, one POST without retry, target-matched UPID polling, uncertain-outcome lockout, clean post-task inventory reconciliation and session-reactive typed confirmation with identity redaction.",
     "payload_boundary": "No disk, storage, ISO/media, NIC/bridge, cloud-init, pool, HA, restore/archive or start fields are sent. Therefore this slice does not request Datastore.AllocateSpace, SDN.Use or VM.PowerMgmt.",
     "lxc_boundary": "Guarded unprivileged LXC creation with reviewed vztmpl/rootdir discovery is implemented separately in docs/85. Privileged/custom-rootfs/networked/richer LXC provisioning remains gated.",
-    "deferred": "QEMU disk/storage/network/media/cloud-init/pool/HA/start provisioning, restore/import, linked/cross-node/explicit-storage clone, advanced migration variants, configuration editing, snapshot rollback/delete, backup scheduling/retention/integrity verification and restore execution.",
+    "deferred": "QEMU disk/storage/network/media/cloud-init/pool/HA/start provisioning, restore/import, linked/cross-node/explicit-storage clone, advanced migration variants, configuration editing, RAM-state/running snapshot rollback and snapshot descriptions/retention, backup scheduling/retention/integrity verification and restore execution.",
     "verification": "Pinned Flutter 3.44.4 local validation passed 258 synthetic Flutter tests (229 declarations), 14 Python delivery tests, format/analyzer and documentation/premium/source/hardening checks. Original merged main 44d9802 passed checks run 42617692428. Final follow-up PR/main CI remains authoritative; live PVE 8.4/9.2 create/ACL/quorum fixtures and physical Android validation remain open.",
     "report": "docs/83-implementation-qemu-create.md",
     "branch_audit_report": "docs/84-qemu-create-branch-cross-check-2026-11-09.md"
@@ -524,7 +524,7 @@
     "safety": "Explicit originating profile/generation, foreground/default-network availability, fresh clean unchanged inventory, exact online destination-node revalidation, live clean template/rootdir rediscovery, destination VMID absence plus server-side collision recheck, destination VM and storage privilege hints, synchronous cluster-wide VMID reservation shared with QEMU create/clone/power guards, one POST without retry, strict target-matched vzcreate UPID polling, uncertain-outcome lockout, and clean post-task inventory reconciliation.",
     "privileges": "Destination hints: VM.Allocate + VM.Config.CPU + VM.Config.Memory + VM.Config.Network + VM.Config.Options. Rootfs storage: Datastore.AllocateSpace. Template storage: Datastore.Audit or Datastore.AllocateSpace. Privileged containers requiring Sys.Modify are deliberately not exposed.",
     "payload_boundary": "No password, SSH public keys, netN, explicit rootfs sizing, privileged mode, start, pool, HA, restore, feature, hook or mount fields are sent.",
-    "deferred": "Privileged/custom-rootfs/networked LXC provisioning, credentials/SSH keys, pools/HA/start/restore, richer QEMU provisioning, linked/cross-node/explicit-storage clone, advanced migration variants, configuration editing, snapshot rollback/delete and backup scheduling/retention/integrity verification.",
+    "deferred": "Privileged/custom-rootfs/networked LXC provisioning, credentials/SSH keys, pools/HA/start/restore, richer QEMU provisioning, linked/cross-node/explicit-storage clone, advanced migration variants, configuration editing, RAM-state/running rollback, snapshot descriptions/retention and backup scheduling/retention/integrity verification.",
     "verification": "Synthetic model/API/controller/source regressions added; full pinned Flutter/analyzer/Android CI and live PVE 8.4/9.2 mutation fixtures remain authoritative gates.",
     "report": "docs/85-implementation-lxc-create.md"
   },
@@ -550,20 +550,32 @@
     "safety": "Explicit originating profile/generation, foreground/default-network availability, fresh clean unchanged inventory, exact stopped guest identity/state revalidation, synchronous guest plus cluster-wide VMID reservation, VM.Allocate hint, exactly one DELETE without retry, strict source-node/VMID/worker validation, uncertain-outcome lockout and post-terminal authoritative inventory reconciliation.",
     "destructive_boundary": "No skiplock, purge, destroy-unreferenced-disks or equivalent optional deletion parameters are exposed. Templates and running guests are rejected. The UI warns that used/owned volumes and snapshots may be destroyed and requires the operator to acknowledge recovery-backup verification; VirtHelm does not infer backup recoverability.",
     "verification": "New API and controller regressions cover QEMU/LXC DELETE method/worker validation, stopped-state and privilege enforcement, task registration and ambiguous-outcome lockout. Current-head pinned CI and disposable PVE 8.4/9.2 destructive fixtures remain authoritative gates.",
-    "deferred": "Automated backup/quorum/HA safety proof, template deletion, running deletion, skiplock/purge/unreferenced-disk controls, disk-detach/remove, snapshot rollback/delete, backup retention/pruning and bulk destructive operations.",
+    "deferred": "Automated backup/quorum/HA safety proof, template deletion, running deletion, skiplock/purge/unreferenced-disk controls, disk-detach/remove, RAM-state/running snapshot rollback and snapshot descriptions/retention, backup retention/pruning and bulk destructive operations.",
     "report": "docs/87-implementation-guest-deletion.md"
   },
   "m4_guest_snapshot_creation_workflow": {
     "status": "implemented_source_level_reviewed_live_gates_open",
     "feature_id": "GUEST-02 partial / M4 recovery operations",
     "version": "0.1.41",
-    "behavior": "Non-template QEMU/LXC guest Recovery exposes guarded create-only snapshots for guests whose live state is still exactly running or stopped. Snapshot inventory remains on-demand and rollback/delete are not exposed.",
+    "behavior": "Non-template QEMU/LXC guest Recovery exposes guarded snapshot creation for guests whose live state is still exactly running or stopped. A separate companion slice exposes stopped-only non-RAM rollback and guarded deletion for existing snapshots. Snapshot inventory remains on-demand.",
     "contract": "GET /access/permissions on exact /vms/{vmid} for VM.Snapshot; GET /nodes/{node}/{qemu|lxc}/{vmid}/snapshot for a complete collision check; exactly one POST to the same snapshot collection with snapname only, returning qmsnapshot/vzsnapshot UPID.",
     "safety": "Explicit originating profile/generation, foreground/default-network availability, fresh clean unchanged inventory, exact source identity/state revalidation, synchronous guest plus cluster-wide VMID reservation, VM.Snapshot hint, complete non-truncated snapshot-name recheck, one POST without retry, strict source-node/VMID/worker validation, uncertain-outcome lockout and existing task-state reconciliation.",
-    "boundary": "This slice sends only snapname. It does not request QEMU vmstate/RAM capture, descriptions, rollback, snapshot deletion, retention, backup/archive verification, or restore. Snapshots are explicitly not presented as backups.",
+    "boundary": "The creation slice sends only snapname and does not request QEMU vmstate/RAM capture, descriptions, retention, backup/archive verification, or restore. Rollback/deletion are separate mutation paths with their own permissions and confirmations. Snapshots are explicitly not presented as backups.",
     "verification": "Synthetic gateway and controller regressions cover exact QEMU/LXC POST payloads, strict workers, name validation/collision refusal, VM.Snapshot enforcement, task registration and ambiguous-outcome lockout. Current-head pinned CI and disposable PVE 8.4/9.2 snapshot/storage fixtures remain authoritative gates.",
-    "deferred": "QEMU RAM-state snapshots, snapshot descriptions, rollback/delete, retention, scheduled snapshots, archive integrity verification, restore execution and physical-device certification.",
+    "deferred": "QEMU RAM-state snapshots, snapshot descriptions, retention, scheduled snapshots, archive integrity verification, restore execution and physical-device certification.",
     "report": "docs/88-implementation-guest-snapshot-create.md"
+  },
+  "m4_guest_snapshot_lifecycle_workflow": {
+    "status": "implemented_source_level_reviewed_live_gates_open",
+    "feature_id": "GUEST-019 / GUEST-020 / GUEST-02",
+    "version": "0.1.47",
+    "behavior": "Existing non-current QEMU/LXC snapshots in Recovery open a mobile action sheet for stopped-only non-RAM rollback or deletion. Both actions require typing the exact snapshot name and remain session-reactive.",
+    "contract": "POST /nodes/{node}/{qemu|lxc}/{vmid}/snapshot/{snapname}/rollback with VM.Snapshot.Rollback and no start field; DELETE /nodes/{node}/{qemu|lxc}/{vmid}/snapshot/{snapname} with VM.Snapshot and no force field. Returned tasks must be qmrollback/vzrollback or qmdelsnapshot/vzdelsnapshot with exact node/VMID.",
+    "safety": "Exact originating profile/generation, foreground/default-network availability, clean unchanged inventory, exact guest state revalidation, stopped-only rollback, explicit RAM-state rollback rejection, complete fresh snapshot-list verification with exact name/parent/description/creation-time/memory metadata identity, final live status preflight, one POST/DELETE without retry, per-guest single-flight, uncertain-outcome lockout and post-terminal task reconciliation.",
+    "name_boundary": "Mutation targets use Proxmox pve-configid snapshot names (2-40 characters, start with a letter, then letters/numbers/underscore/hyphen) and are URL-encoded. The current pseudo-entry is never actionable.",
+    "deferred": "Running or QEMU RAM-state rollback, auto-start behavior, snapshot description editing, retention, scheduled snapshots, snapshot trees, archive integrity verification, restore execution and physical-device certification.",
+    "verification": "Synthetic gateway/controller/widget regressions cover exact DELETE/POST payloads, strict workers, permission denial, stopped/RAM-state rejection, missing/changed metadata, task registration, ambiguous-DELETE lockout and the typed-name mobile action flow. Current-head pinned CI and disposable PVE 8.4/9.2 snapshot/storage/ACL/fault fixtures remain authoritative gates.",
+    "report": "docs/94-implementation-guest-snapshot-lifecycle.md"
   },
   "m4_guest_backup_start_workflow": {
     "status": "implemented_source_level_reviewed_live_gates_open",

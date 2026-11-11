@@ -94,7 +94,10 @@ required = [
    'docs/91-implementation-backup-validation-confidence.md',
     'docs/92-implementation-restore-plan-preflight.md',
     'docs/93-whole-repository-cross-check-2026-11-11.md',
-   'app/test/guest_backup_start_test.dart']
+    'docs/94-implementation-guest-snapshot-lifecycle.md',
+   'app/test/guest_backup_start_test.dart',
+   'app/test/guest_snapshot_lifecycle_test.dart',
+   'app/lib/ui/snapshot_action_dialog.dart']
 assert all((root/p).is_file() for p in required), 'Required app source missing'
 files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)
@@ -277,6 +280,18 @@ assert "Key('guest-create-snapshot')" in files['app/lib/ui/guest_page.dart']
 assert "Key('guest-snapshot-create-submit')" in files['app/lib/ui/guest_page.dart']
 assert 'create-only snapshots' in files['docs/88-implementation-guest-snapshot-create.md']
 assert 'QEMU snapshot creation posts only snapname' in files['app/test/guest_snapshot_create_test.dart']
+assert 'abstract class GuestSnapshotMutationGateway' in files['app/lib/core/pve_api.dart']
+assert "'qmdelsnapshot'" in files['app/lib/core/pve_api.dart']
+assert "'vzdelsnapshot'" in files['app/lib/core/pve_api.dart']
+assert "'qmrollback'" in files['app/lib/core/pve_api.dart']
+assert "'vzrollback'" in files['app/lib/core/pve_api.dart']
+assert 'runGuestSnapshotDelete' in files['app/lib/core/app_controller.dart']
+assert 'runGuestSnapshotRollback' in files['app/lib/core/app_controller.dart']
+assert 'VM.Snapshot.Rollback' in files['app/lib/core/app_controller.dart']
+assert "Key('guest-snapshot-delete-action')" in files['app/lib/ui/guest_page.dart']
+assert "Key('$prefix-submit')" in files['app/lib/ui/snapshot_action_dialog.dart']
+assert 'RAM-state' in files['docs/94-implementation-guest-snapshot-lifecycle.md']
+assert 'QEMU snapshot deletion uses one DELETE' in files['app/test/guest_snapshot_lifecycle_test.dart']
 assert 'class GuestBackupRequest' in files['app/lib/core/models.dart']
 assert 'abstract class GuestBackupGateway' in files['app/lib/core/pve_api.dart']
 assert "'mode': 'snapshot'" in files['app/lib/core/pve_api.dart']

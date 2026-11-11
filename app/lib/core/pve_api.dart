@@ -26,6 +26,13 @@ abstract class GuestSnapshotCreateGateway {
   );
 }
 
+abstract class GuestSnapshotMutationGateway {
+  Future<GuestPermissionSnapshot> guestPermissions(Guest guest);
+  Future<GuestSnapshotInventory> guestSnapshots(Guest guest);
+  Future<String> deleteGuestSnapshot(Guest guest, GuestSnapshot snapshot);
+  Future<String> rollbackGuestSnapshot(Guest guest, GuestSnapshot snapshot);
+}
+
 abstract class GuestCloneGateway {
   Future<int> nextFreeVmid();
   Future<void> assertVmidAvailable(int vmid);
@@ -104,6 +111,7 @@ class DioPveGateway
         GuestPermissionGateway,
         GuestBackupGateway,
         GuestSnapshotCreateGateway,
+        GuestSnapshotMutationGateway,
         GuestCloneGateway,
         GuestMigrationGateway,
         GuestDeleteGateway,
@@ -489,6 +497,34 @@ class DioPveGateway
     return '/nodes/${_segment(guest.node)}/${guest.kind}/${guest.vmid}';
   }
 
+  String _validateGuestTaskUpid(
+    Object? value,
+    Guest guest,
+    String expectedWorker,
+    String label,
+  ) {
+    if (value is! String || !value.startsWith('UPID:')) {
+      throw PveFailure(
+        'Server returned an unexpected $label task identifier. Check task history.',
+        mayHaveExecuted: true,
+      );
+    }
+    final parts = value.split(':');
+    if (parts.length != 9 ||
+        parts[1] != guest.node ||
+        !parts.skip(2).take(3).every(RegExp(r'^[0-9A-Fa-f]+$').hasMatch) ||
+        parts[5] != expectedWorker ||
+        parts[6] != guest.vmid.toString() ||
+        parts[7].trim().isEmpty ||
+        parts[8].isNotEmpty) {
+      throw PveFailure(
+        'Server returned a mismatched $label task identifier. Check task history.',
+        mayHaveExecuted: true,
+      );
+    }
+    return value;
+  }
+
   @override
   Future<String> guestStatus(Guest guest) async {
     final value = await _request('${_guestPath(guest)}/status/current');
@@ -788,28 +824,79 @@ class DioPveGateway
       mutation: true,
       mutationData: {'snapname': normalized.name},
     );
-    if (value is! String || !value.startsWith('UPID:')) {
-      throw const PveFailure(
-        'Server returned an unexpected snapshot task identifier. Check task history.',
-        mayHaveExecuted: true,
+    final expectedWorker = guest.kind == 'qemu' ? 'qmsnapshot' : 'vzsnapshot';
+    return _validateGuestTaskUpid(value, guest, expectedWorker, 'snapshot');
+  }
+
+  @override
+  Future<String> deleteGuestSnapshot(
+    Guest guest,
+    GuestSnapshot snapshot,
+  ) async {
+    if (guest.isTemplate) {
+      throw const FormatException(
+        'Templates cannot use this snapshot workflow.',
+      );
+    }
+    if (!guest.isRunning && !guest.isStopped) {
+      throw const FormatException(
+        'Guest state must be running or stopped before deleting a snapshot.',
+      );
+    }
+    final validationError = snapshot.mutationValidationError;
+    if (validationError != null) throw FormatException(validationError);
+
+    final value = await _request(
+      '${_guestPath(guest)}/snapshot/${_segment(snapshot.name)}',
+      mutation: true,
+      deleteMutation: true,
+    );
+    final expectedWorker = guest.kind == 'qemu'
+        ? 'qmdelsnapshot'
+        : 'vzdelsnapshot';
+    return _validateGuestTaskUpid(
+      value,
+      guest,
+      expectedWorker,
+      'snapshot delete',
+    );
+  }
+
+  @override
+  Future<String> rollbackGuestSnapshot(
+    Guest guest,
+    GuestSnapshot snapshot,
+  ) async {
+    if (guest.isTemplate) {
+      throw const FormatException(
+        'Templates cannot use this snapshot workflow.',
+      );
+    }
+    if (!guest.isStopped) {
+      throw const FormatException(
+        'Guest must be stopped before rolling back a snapshot.',
+      );
+    }
+    final validationError = snapshot.mutationValidationError;
+    if (validationError != null) throw FormatException(validationError);
+    if (snapshot.includesMemory == true) {
+      throw const FormatException(
+        'Snapshots that include QEMU RAM state require a separate '
+        'power-aware rollback workflow.',
       );
     }
 
-    final parts = value.split(':');
-    final expectedWorker = guest.kind == 'qemu' ? 'qmsnapshot' : 'vzsnapshot';
-    if (parts.length != 9 ||
-        parts[1] != guest.node ||
-        !parts.skip(2).take(3).every(RegExp(r'^[0-9A-Fa-f]+$').hasMatch) ||
-        parts[5] != expectedWorker ||
-        parts[6] != guest.vmid.toString() ||
-        parts[7].trim().isEmpty ||
-        parts[8].isNotEmpty) {
-      throw const PveFailure(
-        'Server returned a mismatched snapshot task identifier. Check task history.',
-        mayHaveExecuted: true,
-      );
-    }
-    return value;
+    final value = await _request(
+      '${_guestPath(guest)}/snapshot/${_segment(snapshot.name)}/rollback',
+      mutation: true,
+    );
+    final expectedWorker = guest.kind == 'qemu' ? 'qmrollback' : 'vzrollback';
+    return _validateGuestTaskUpid(
+      value,
+      guest,
+      expectedWorker,
+      'snapshot rollback',
+    );
   }
 
   @override

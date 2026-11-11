@@ -12,6 +12,8 @@ import 'offline_overview.dart';
 import 'profile_repository.dart';
 import 'pve_api.dart';
 
+enum _GuestSnapshotLifecycleAction { delete, rollback }
+
 class AppController extends ChangeNotifier {
   AppController({
     required this.repository,
@@ -2742,6 +2744,272 @@ class AppController extends ChangeNotifier {
       }
       if (generation == _generation &&
           (error is PveFailure ? error.mayHaveExecuted : postAttempted)) {
+        _uncertainGuestOperations.addAll(keys);
+      }
+      rethrow;
+    } finally {
+      if (generation == _generation &&
+          !_taskTargets.values.any((targets) => targets.contains(key))) {
+        _pendingGuestOperations.removeAll(keys);
+      }
+      if (generation == _generation) _notify();
+    }
+  }
+
+  Future<void> runGuestSnapshotDelete(
+    Guest source,
+    GuestSnapshot snapshot, {
+    required String profileId,
+    required int generation,
+  }) => _runGuestSnapshotLifecycle(
+    source,
+    snapshot,
+    profileId: profileId,
+    generation: generation,
+    action: _GuestSnapshotLifecycleAction.delete,
+  );
+
+  Future<void> runGuestSnapshotRollback(
+    Guest source,
+    GuestSnapshot snapshot, {
+    required String profileId,
+    required int generation,
+  }) => _runGuestSnapshotLifecycle(
+    source,
+    snapshot,
+    profileId: profileId,
+    generation: generation,
+    action: _GuestSnapshotLifecycleAction.rollback,
+  );
+
+  Future<void> _runGuestSnapshotLifecycle(
+    Guest source,
+    GuestSnapshot snapshot, {
+    required String profileId,
+    required int generation,
+    required _GuestSnapshotLifecycleAction action,
+  }) async {
+    final gateway = _gateway;
+    final GuestSnapshotMutationGateway? mutationGateway =
+        gateway is GuestSnapshotMutationGateway
+        ? gateway as GuestSnapshotMutationGateway
+        : null;
+    final rollback = action == _GuestSnapshotLifecycleAction.rollback;
+    final actionVerb = rollback ? 'rolling back' : 'deleting';
+    final actionLabel = rollback ? 'rollback' : 'delete';
+    final permission = rollback ? 'VM.Snapshot.Rollback' : 'VM.Snapshot';
+
+    if (_disposed || generation != _generation || active?.id != profileId) {
+      throw PveFailure(
+        'Connection changed; return to the guest before $actionVerb a snapshot.',
+      );
+    }
+    if (source.isTemplate) {
+      throw const PveFailure(
+        'Template snapshots are not exposed by this guarded workflow.',
+      );
+    }
+    if (rollback && !source.isStopped) {
+      throw const PveFailure(
+        'Stop the guest and refresh before rolling back a snapshot.',
+      );
+    }
+    if (!rollback && !source.isRunning && !source.isStopped) {
+      throw const PveFailure(
+        'Refresh the guest before deleting a snapshot; its state is unknown.',
+      );
+    }
+    final validationError = snapshot.mutationValidationError;
+    if (validationError != null) throw PveFailure(validationError);
+    if (rollback && snapshot.includesMemory == true) {
+      throw const PveFailure(
+        'Snapshots that include QEMU RAM state require a separate '
+        'power-aware rollback workflow.',
+      );
+    }
+    if (!_foreground ||
+        gateway == null ||
+        mutationGateway == null ||
+        !isInventoryWriteSafe ||
+        refreshing ||
+        deviceNetworkState == DeviceNetworkState.unavailable) {
+      throw PveFailure(
+        'Refresh a clean live inventory before $actionVerb this snapshot.',
+      );
+    }
+
+    final inventorySnapshot = inventory!;
+    final sourceMatches = inventorySnapshot.guests
+        .where(
+          (item) =>
+              item.kind == source.kind &&
+              item.vmid == source.vmid &&
+              item.node == source.node,
+        )
+        .toList();
+    if (sourceMatches.length != 1 ||
+        !identical(sourceMatches.single, source) ||
+        sourceMatches.single.status != source.status ||
+        sourceMatches.single.isTemplate) {
+      throw const PveFailure(
+        'Guest inventory changed. Refresh and review the snapshot target again.',
+      );
+    }
+
+    final key = _guestKey(source);
+    final vmidKey = _provisioningVmidKey(source.vmid);
+    final keys = {key, vmidKey};
+    if (keys.any(_uncertainGuestOperations.contains)) {
+      throw const PveFailure(
+        'An earlier operation for this guest has an unknown outcome. '
+        'Verify server task history and inventory before reconnecting and trying again.',
+        mayHaveExecuted: true,
+      );
+    }
+    if (keys.any(_pendingGuestOperations.contains)) {
+      throw const PveFailure(
+        'An operation is already pending for this guest. Check Tasks.',
+      );
+    }
+
+    bool stillCurrent() =>
+        generation == _generation &&
+        active?.id == profileId &&
+        !_disposed &&
+        _foreground &&
+        deviceNetworkState != DeviceNetworkState.unavailable &&
+        identical(inventorySnapshot, inventory) &&
+        !refreshing &&
+        isInventoryWriteSafe;
+
+    _pendingGuestOperations.addAll(keys);
+    _notify();
+    var mutationAttempted = false;
+    try {
+      final live = await gateway.inventory();
+      if (!stillCurrent()) {
+        throw PveFailure('Connection changed; snapshot $actionLabel canceled.');
+      }
+      if (live.malformedGuestRecords != 0) {
+        throw PveFailure(
+          'Live inventory verification is incomplete. Snapshot $actionLabel was not submitted.',
+        );
+      }
+
+      final liveSources = live.guests
+          .where(
+            (item) =>
+                item.kind == source.kind &&
+                item.vmid == source.vmid &&
+                item.node == source.node,
+          )
+          .toList();
+      if (liveSources.length != 1 ||
+          liveSources.single.isTemplate ||
+          liveSources.single.status != source.status) {
+        throw PveFailure(
+          'The guest moved, disappeared, or changed state during verification. '
+          'Snapshot $actionLabel was not submitted.',
+        );
+      }
+      final liveSource = liveSources.single;
+      if (rollback && !liveSource.isStopped) {
+        throw const PveFailure(
+          'The guest is no longer stopped. Snapshot rollback was not submitted.',
+        );
+      }
+
+      final permissions = await mutationGateway.guestPermissions(liveSource);
+      if (!stillCurrent()) {
+        throw PveFailure(
+          'Connection or inventory changed during snapshot $actionLabel verification.',
+        );
+      }
+      if (!permissions.has(permission)) {
+        throw PveFailure(
+          'The active token does not report $permission on this guest.',
+          status: 403,
+        );
+      }
+
+      final currentSnapshots = await mutationGateway.guestSnapshots(liveSource);
+      if (!stillCurrent()) {
+        throw PveFailure(
+          'Connection or inventory changed during snapshot $actionLabel verification.',
+        );
+      }
+      if (currentSnapshots.malformedRecords != 0 ||
+          currentSnapshots.truncated) {
+        throw PveFailure(
+          'Snapshot inventory verification is incomplete. '
+          'Snapshot $actionLabel was not submitted.',
+        );
+      }
+      final freshMatches = currentSnapshots.snapshots
+          .where((item) => !item.isCurrent && item.name == snapshot.name)
+          .toList();
+      if (freshMatches.length != 1) {
+        throw PveFailure(
+          'Snapshot "${snapshot.name}" no longer exists. Refresh before retrying.',
+        );
+      }
+      final freshSnapshot = freshMatches.single;
+      if (!freshSnapshot.sameMetadataAs(snapshot)) {
+        throw PveFailure(
+          'Snapshot "${snapshot.name}" changed during verification. '
+          'Refresh and review it again.',
+        );
+      }
+      if (rollback && freshSnapshot.includesMemory == true) {
+        throw const PveFailure(
+          'The snapshot now reports QEMU RAM state and cannot use this '
+          'stopped-only workflow.',
+        );
+      }
+
+      await _verifyGuestStatusBeforeMutation(gateway, liveSource, stillCurrent);
+      mutationAttempted = true;
+      final upid = rollback
+          ? await mutationGateway.rollbackGuestSnapshot(
+              liveSource,
+              freshSnapshot,
+            )
+          : await mutationGateway.deleteGuestSnapshot(
+              liveSource,
+              freshSnapshot,
+            );
+      if (generation != _generation || active?.id != profileId || _disposed) {
+        throw PveFailure(
+          'Connection changed after snapshot $actionLabel submission. '
+          'Check server task history.',
+          mayHaveExecuted: true,
+        );
+      }
+
+      _taskTargets[upid] = keys;
+      tasks.insert(
+        0,
+        TrackedTask(
+          upid: upid,
+          node: source.node,
+          title: rollback
+              ? 'Rollback ${source.name} (${source.vmid}) • ${snapshot.name}'
+              : 'Delete snapshot ${source.name} (${source.vmid}) • ${snapshot.name}',
+          startedAt: DateTime.now(),
+          outcome: OperationOutcome.running,
+        ),
+      );
+      _notify();
+      if (_foreground) _startPolling();
+    } catch (error) {
+      if (generation == _generation &&
+          error is PveFailure &&
+          error.status == 401) {
+        message = error.message;
+        unawaited(_clearOfflineAfterAuth(generation));
+      }
+      if (generation == _generation &&
+          (error is PveFailure ? error.mayHaveExecuted : mutationAttempted)) {
         _uncertainGuestOperations.addAll(keys);
       }
       rethrow;

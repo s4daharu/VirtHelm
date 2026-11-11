@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/app_controller.dart';
 import '../core/models.dart';
 import 'components.dart';
+import 'snapshot_action_dialog.dart';
 import 'template_clone_page.dart';
 import 'theme.dart';
 
@@ -458,6 +459,241 @@ class _GuestPageState extends State<GuestPage> {
       final message = error is PveFailure
           ? error.message
           : 'Could not submit snapshot.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted && _currentSession) setState(() => submitting = false);
+    }
+  }
+
+  String? _snapshotMutationBlockedReason(
+    Guest guest,
+    GuestSnapshot snapshot,
+    GuestSnapshotAction action,
+  ) {
+    if (!_currentSession) return 'Connection or guest changed.';
+    if (snapshot.isCurrent) {
+      return 'The current state is not a snapshot target.';
+    }
+    final validationError = snapshot.mutationValidationError;
+    if (validationError != null) return validationError;
+    if (guest.isTemplate) {
+      return 'Template snapshots are not exposed by this guarded workflow.';
+    }
+    if (submitting) return 'Another snapshot action is already submitting.';
+    if (widget.controller.refreshing) {
+      return 'Wait for the live refresh to finish before acting on a snapshot.';
+    }
+    if (!widget.controller.isInventoryWriteSafe) {
+      return 'Refresh a clean live inventory before acting on a snapshot.';
+    }
+    if (widget.controller.isGuestActionBlocked(guest)) {
+      return 'An operation for this guest is pending or has an unknown outcome.';
+    }
+    if (action == GuestSnapshotAction.rollback) {
+      if (!guest.isStopped) {
+        return 'Stop the guest and refresh before rolling back a snapshot.';
+      }
+      if (snapshot.includesMemory == true) {
+        return 'QEMU RAM-state snapshots require a separate power-aware '
+            'rollback workflow.';
+      }
+    } else if (!guest.isRunning && !guest.isStopped) {
+      return 'Refresh the guest before deleting a snapshot; its state is unknown.';
+    }
+    return null;
+  }
+
+  Future<void> _openSnapshotActions(Guest guest, GuestSnapshot snapshot) async {
+    if (snapshot.isCurrent || !_currentSession || submitting) return;
+    final action = await showModalBottomSheet<GuestSnapshotAction>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => AnimatedBuilder(
+        animation: widget.controller,
+        builder: (context, _) {
+          if (!_currentSession || currentGuest() == null) {
+            return SafeArea(
+              key: const Key('guest-snapshot-actions-expired'),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Snapshot actions expired'),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Connection or guest changed. Reopen the guest from the '
+                      'active connection.',
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(sheetContext),
+                        child: const Text('Close'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+          final scheme = Theme.of(context).colorScheme;
+          final current = currentGuest() ?? guest;
+          final rollbackReason = _snapshotMutationBlockedReason(
+            current,
+            snapshot,
+            GuestSnapshotAction.rollback,
+          );
+          final deleteReason = _snapshotMutationBlockedReason(
+            current,
+            snapshot,
+            GuestSnapshotAction.delete,
+          );
+          return SafeArea(
+            child: Column(
+              key: const Key('guest-snapshot-actions'),
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.history_rounded),
+                  title: Text(snapshot.name),
+                  subtitle: Text(_snapshotSubtitle(snapshot)),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  key: const Key('guest-snapshot-rollback-action'),
+                  enabled: rollbackReason == null,
+                  leading: Icon(
+                    Icons.settings_backup_restore_rounded,
+                    color: rollbackReason == null ? scheme.error : null,
+                  ),
+                  title: const Text('Roll back to this snapshot'),
+                  subtitle: Text(
+                    rollbackReason ??
+                        'Discards changes made after this snapshot. The guest '
+                            'must stay stopped.',
+                  ),
+                  onTap: rollbackReason == null
+                      ? () => Navigator.pop(
+                          sheetContext,
+                          GuestSnapshotAction.rollback,
+                        )
+                      : null,
+                ),
+                ListTile(
+                  key: const Key('guest-snapshot-delete-action'),
+                  enabled: deleteReason == null,
+                  leading: Icon(
+                    Icons.delete_outline_rounded,
+                    color: deleteReason == null ? scheme.error : null,
+                  ),
+                  title: const Text('Delete this snapshot'),
+                  subtitle: Text(
+                    deleteReason ??
+                        'Permanently removes the snapshot point. This cannot be '
+                            'undone.',
+                  ),
+                  onTap: deleteReason == null
+                      ? () => Navigator.pop(
+                          sheetContext,
+                          GuestSnapshotAction.delete,
+                        )
+                      : null,
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+    if (!mounted || !_currentSession || action == null) return;
+    await _openSnapshotConfirmation(guest, snapshot, action);
+  }
+
+  Future<void> _openSnapshotConfirmation(
+    Guest guest,
+    GuestSnapshot snapshot,
+    GuestSnapshotAction action,
+  ) async {
+    final initialBlocked = _snapshotMutationBlockedReason(
+      guest,
+      snapshot,
+      action,
+    );
+    if (!_currentSession || initialBlocked != null) {
+      if (initialBlocked != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(initialBlocked)));
+      }
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => GuestSnapshotActionDialog(
+        controller: widget.controller,
+        isCurrent: () => _currentSession && currentGuest() != null,
+        blockedReason: () {
+          final current = currentGuest();
+          return current == null
+              ? 'Guest is no longer current.'
+              : _snapshotMutationBlockedReason(current, snapshot, action);
+        },
+        guest: guest,
+        snapshot: snapshot,
+        action: action,
+      ),
+    );
+    if (!mounted || !_currentSession || confirmed != true) return;
+    final current = currentGuest();
+    if (current == null) return;
+
+    setState(() => submitting = true);
+    try {
+      if (action == GuestSnapshotAction.rollback) {
+        await widget.controller.runGuestSnapshotRollback(
+          current,
+          snapshot,
+          profileId: widget.profileId,
+          generation: widget.generation,
+        );
+      } else {
+        await widget.controller.runGuestSnapshotDelete(
+          current,
+          snapshot,
+          profileId: widget.profileId,
+          generation: widget.generation,
+        );
+      }
+      if (!mounted || !_currentSession) return;
+      setState(() {
+        snapshotInventory = null;
+        snapshotsLoadedAt = null;
+        snapshotError = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            action == GuestSnapshotAction.rollback
+                ? 'Rollback task submitted. Check Tasks; the guest may remain '
+                      'stopped until you start it.'
+                : 'Snapshot delete task submitted. Check Tasks, then refresh '
+                      'snapshots after completion.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted || !_currentSession) return;
+      final message = error is PveFailure
+          ? error.message
+          : 'Could not submit the snapshot action.';
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
@@ -1529,10 +1765,11 @@ class _GuestPageState extends State<GuestPage> {
       const SizedBox(height: 14),
       Text(
         'Read-only reviewed configuration fields are available in the '
-        'Configuration tab. Guarded snapshot creation and backup submission '
-        'are available in Recovery; migration and stopped-guest deletion are '
-        'available below. Console, snapshot rollback/delete, restore execution, '
-        'and configuration editing remain gated.',
+        'Configuration tab. Guarded snapshot creation, stopped-only non-RAM '
+        'rollback, snapshot deletion and backup submission are available in '
+        'Recovery; migration and stopped-guest deletion are available below. '
+        'Console, RAM-state rollback, restore execution and configuration '
+        'editing remain gated.',
         style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
       ),
     ],
@@ -2097,17 +2334,18 @@ class _GuestPageState extends State<GuestPage> {
       key: const Key('guest-recovery-list'),
       children: [
         Text(
-          'Recovery visibility',
+          'Snapshots and backups',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 6),
         Text(
           'Snapshots are not backups. Snapshot inventory and exact-guest backup '
-          'archive visibility are loaded only when requested. Guarded create-only '
-          'snapshots and one-off vzdump backup submission are available. A GET-only '
-          'same-node alternate-VMID restore plan/conflict preflight is available for '
-          'visible archives; snapshot rollback/delete, archive integrity verification, '
-          'overwrite/cross-node restore, and the restore mutation remain unavailable.',
+          'archive visibility are loaded only when requested. Guarded snapshot '
+          'creation, stopped-only non-RAM rollback and snapshot deletion are '
+          'available, as is one-off vzdump backup submission. A GET-only same-node '
+          'alternate-VMID restore plan/conflict preflight is available for visible '
+          'archives; archive integrity verification, overwrite/cross-node restore, '
+          'and the restore mutation remain unavailable.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 10),
@@ -2155,7 +2393,7 @@ class _GuestPageState extends State<GuestPage> {
           const SizedBox(height: 10),
           Text(snapshotError!, style: TextStyle(color: scheme.error)),
         ],
-        if (visibleSnapshots != null) ...[
+        if (visibleSnapshots != null && guest != null) ...[
           const SizedBox(height: 10),
           Text(
             '$recoveryPoints snapshot${recoveryPoints == 1 ? '' : 's'}'
@@ -2178,6 +2416,10 @@ class _GuestPageState extends State<GuestPage> {
           for (final snapshot in snapshots)
             Card(
               child: ListTile(
+                key: Key('guest-snapshot-${snapshot.name}'),
+                onTap: snapshot.isCurrent
+                    ? null
+                    : () => _openSnapshotActions(guest, snapshot),
                 leading: Icon(
                   snapshot.isCurrent
                       ? Icons.radio_button_checked_rounded
@@ -2186,7 +2428,15 @@ class _GuestPageState extends State<GuestPage> {
                 title: Text(
                   snapshot.isCurrent ? 'Current state' : snapshot.name,
                 ),
-                subtitle: Text(_snapshotSubtitle(snapshot)),
+                subtitle: Text(
+                  snapshot.isCurrent
+                      ? _snapshotSubtitle(snapshot)
+                      : '${_snapshotSubtitle(snapshot)}\n'
+                            'Tap for rollback or delete',
+                ),
+                trailing: snapshot.isCurrent
+                    ? null
+                    : const Icon(Icons.chevron_right_rounded),
               ),
             ),
         ],
