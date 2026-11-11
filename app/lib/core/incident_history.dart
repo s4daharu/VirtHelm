@@ -162,14 +162,18 @@ class IncidentHistoryEntry {
       fingerprint: fingerprint,
       severity: incident.severity,
       source: incident.source,
-      title: _bounded(incident.title, _maxTitleLength),
-      detail: _bounded(incident.detail, _maxDetailLength),
+      title: _historyText(incident, incident.title, _maxTitleLength),
+      detail: _historyText(incident, incident.detail, _maxDetailLength),
       firstSeen: firstSeen,
       lastSeen: record.lastSeen.toUtc(),
       reviewedAt: record.acknowledgedAt?.toUtc() ?? reviewedAt,
       noLongerObservedAt: record.noLongerObservedAt?.toUtc(),
       node: _boundedOptional(incident.node, _maxIdentityLength),
-      taskTitle: _boundedOptional(incident.taskTitle, _maxTitleLength),
+      taskTitle: _historyOptionalText(
+        incident,
+        incident.taskTitle,
+        _maxTitleLength,
+      ),
       guestKind: _boundedOptional(incident.guestKind, 24),
       guestVmid: incident.guestVmid,
       storageId: _boundedOptional(incident.storageId, _maxIdentityLength),
@@ -214,7 +218,11 @@ class IncidentHistoryEntry {
       reviewedAt: record.acknowledgedAt?.toUtc(),
       noLongerObservedAt: record.noLongerObservedAt?.toUtc(),
       node: _boundedOptional(incident.node, _maxIdentityLength),
-      taskTitle: _boundedOptional(incident.taskTitle, _maxTitleLength),
+      taskTitle: _historyOptionalText(
+        incident,
+        incident.taskTitle,
+        _maxTitleLength,
+      ),
       guestKind: _boundedOptional(incident.guestKind, 24),
       guestVmid: incident.guestVmid,
       storageId: _boundedOptional(incident.storageId, _maxIdentityLength),
@@ -225,17 +233,43 @@ class IncidentHistoryEntry {
 
 /// Stable enough for local reconciliation without persisting a task UPID.
 String incidentHistoryFingerprint(CockpitIncident incident) {
+  final safeTitle = _historyText(incident, incident.title, _maxTitleLength);
+  final safeTaskTitle =
+      _historyOptionalText(incident, incident.taskTitle, _maxTitleLength) ??
+      safeTitle;
   final value = switch (incident.source) {
-    CockpitIncidentSource.node => 'node|${incident.node ?? incident.title}',
+    CockpitIncidentSource.node => 'node|${incident.node ?? safeTitle}',
     CockpitIncidentSource.task =>
-      'task|${incident.node ?? ''}|${incident.taskTitle ?? incident.title}|'
+      'task|${incident.node ?? ''}|$safeTaskTitle|'
           '${incident.observedAt.toUtc().millisecondsSinceEpoch}',
     CockpitIncidentSource.rule =>
       'rule|${incident.ruleId ?? ''}|${incident.node ?? ''}|'
           '${incident.guestKind ?? ''}|${incident.guestVmid ?? ''}|'
-          '${incident.storageId ?? ''}|${incident.title}',
+          '${incident.storageId ?? ''}|$safeTitle',
   };
   return _bounded(value, _maxFingerprintLength);
+}
+
+String _historyText(
+  CockpitIncident incident,
+  String value,
+  int maxLength,
+) {
+  final taskUpid = incident.taskUpid;
+  final redacted = taskUpid == null || taskUpid.isEmpty
+      ? value
+      : value.replaceAll(taskUpid, '[task id omitted]');
+  return _bounded(redacted, maxLength);
+}
+
+String? _historyOptionalText(
+  CockpitIncident incident,
+  String? value,
+  int maxLength,
+) {
+  if (value == null) return null;
+  final redacted = _historyText(incident, value, maxLength);
+  return redacted.isEmpty ? null : redacted;
 }
 
 /// Merge one connection session into the bounded durable history.
