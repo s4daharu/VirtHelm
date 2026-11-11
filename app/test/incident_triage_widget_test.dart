@@ -245,4 +245,5 @@ void main() {
       expect(find.textContaining('recovery was not verified'), findsOneWidget);
       expect(find.text('Acknowledge'), findsNothing);
     },
-  )}
+  );
+}
