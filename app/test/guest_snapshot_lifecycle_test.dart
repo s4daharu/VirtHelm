@@ -91,6 +91,129 @@ void main() {
     expect(request.queryParameters, isEmpty);
   });
 
+  test('QEMU snapshot rollback validates qmrollback UPID', () async {
+    const guest = Guest(
+      node: 'pve1',
+      vmid: 101,
+      kind: 'qemu',
+      name: 'Web',
+      status: 'stopped',
+    );
+    late RequestOptions request;
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          request = options;
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'data':
+                    'UPID:pve1:00000001:00000002:00000003:qmrollback:101:test-user:',
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(profile, credentials, http: dio);
+    addTearDown(gateway.close);
+
+    final upid = await gateway.rollbackGuestSnapshot(
+      guest,
+      const GuestSnapshot(name: 'before-upgrade'),
+    );
+
+    expect(upid, contains(':qmrollback:101:'));
+    expect(request.method, 'POST');
+    expect(
+      request.path,
+      '/nodes/pve1/qemu/101/snapshot/before-upgrade/rollback',
+    );
+    expect(request.data, isNull);
+  });
+
+  test('LXC snapshot deletion validates vzdelsnapshot UPID', () async {
+    const guest = Guest(
+      node: 'pve1',
+      vmid: 202,
+      kind: 'lxc',
+      name: 'API',
+      status: 'stopped',
+    );
+    late RequestOptions request;
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          request = options;
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'data':
+                    'UPID:pve1:00000001:00000002:00000003:vzdelsnapshot:202:test-user:',
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(profile, credentials, http: dio);
+    addTearDown(gateway.close);
+
+    final upid = await gateway.deleteGuestSnapshot(
+      guest,
+      const GuestSnapshot(name: 'before-upgrade'),
+    );
+
+    expect(upid, contains(':vzdelsnapshot:202:'));
+    expect(request.method, 'DELETE');
+    expect(request.path, '/nodes/pve1/lxc/202/snapshot/before-upgrade');
+    expect(request.data, isNull);
+  });
+
+  test('snapshot mutation path uses the normalized name', () async {
+    const guest = Guest(
+      node: 'pve1',
+      vmid: 101,
+      kind: 'qemu',
+      name: 'Web',
+      status: 'running',
+    );
+    late RequestOptions request;
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          request = options;
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'data':
+                    'UPID:pve1:00000001:00000002:00000003:qmdelsnapshot:101:test-user:',
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final gateway = DioPveGateway(profile, credentials, http: dio);
+    addTearDown(gateway.close);
+
+    await gateway.deleteGuestSnapshot(
+      guest,
+      const GuestSnapshot(name: ' before-upgrade '),
+    );
+
+    expect(request.path, '/nodes/pve1/qemu/101/snapshot/before-upgrade');
+  });
+
   test('rollback refuses a running guest and a RAM-state snapshot', () async {
     const running = Guest(
       node: 'pve1',
@@ -187,6 +310,15 @@ void main() {
         reason: name,
       );
     }
+    const pending = GuestSnapshot(name: 'before-upgrade', snapstate: 'delete');
+    await expectLater(
+      gateway.rollbackGuestSnapshot(guest, pending),
+      throwsFormatException,
+    );
+    await expectLater(
+      gateway.deleteGuestSnapshot(guest, pending),
+      throwsFormatException,
+    );
     expect(requests, 0);
   });
 

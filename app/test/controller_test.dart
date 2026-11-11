@@ -4667,52 +4667,59 @@ void main() {
     },
   );
 
-  test(
-    'snapshot mutation enforces the exact rollback/delete privilege',
-    () async {
-      final (deleteController, deleteGateway) = await _auditController();
-      addTearDown(deleteController.dispose);
-      deleteGateway.guestPermissionResult = const GuestPermissionSnapshot(
-        privileges: {'VM.Audit'},
-      );
-      final deleteGuest = deleteController.inventory!.guests.single;
-      await expectLater(
-        deleteController.runGuestSnapshotDelete(
-          deleteGuest,
-          const GuestSnapshot(name: 'before-upgrade'),
-          profileId: deleteController.active!.id,
-          generation: deleteController.connectionGeneration,
-        ),
-        throwsA(
-          isA<PveFailure>().having((error) => error.status, 'status', 403),
-        ),
-      );
-      expect(deleteGateway.snapshotDeleteSubmissions, 0);
-      expect(deleteGateway.guestSnapshotCalls, 0);
+  test('snapshot mutation enforces rollback/delete privileges', () async {
+    final (deleteController, deleteGateway) = await _auditController();
+    addTearDown(deleteController.dispose);
+    deleteGateway.guestPermissionResult = const GuestPermissionSnapshot(
+      privileges: {'VM.Audit'},
+    );
+    final deleteGuest = deleteController.inventory!.guests.single;
+    await expectLater(
+      deleteController.runGuestSnapshotDelete(
+        deleteGuest,
+        const GuestSnapshot(name: 'before-upgrade'),
+        profileId: deleteController.active!.id,
+        generation: deleteController.connectionGeneration,
+      ),
+      throwsA(isA<PveFailure>().having((error) => error.status, 'status', 403)),
+    );
+    expect(deleteGateway.snapshotDeleteSubmissions, 0);
+    expect(deleteGateway.guestSnapshotCalls, 0);
 
-      final (rollbackController, rollbackGateway) = await _auditController(
-        status: 'stopped',
-      );
-      addTearDown(rollbackController.dispose);
-      rollbackGateway.guestPermissionResult = const GuestPermissionSnapshot(
-        privileges: {'VM.Snapshot'},
-      );
-      final rollbackGuest = rollbackController.inventory!.guests.single;
-      await expectLater(
-        rollbackController.runGuestSnapshotRollback(
-          rollbackGuest,
-          const GuestSnapshot(name: 'before-upgrade'),
-          profileId: rollbackController.active!.id,
-          generation: rollbackController.connectionGeneration,
-        ),
-        throwsA(
-          isA<PveFailure>().having((error) => error.status, 'status', 403),
-        ),
-      );
-      expect(rollbackGateway.snapshotRollbackSubmissions, 0);
-      expect(rollbackGateway.guestSnapshotCalls, 0);
-    },
-  );
+    final (rollbackController, rollbackGateway) = await _auditController(
+      status: 'stopped',
+    );
+    addTearDown(rollbackController.dispose);
+    rollbackGateway.guestPermissionResult = const GuestPermissionSnapshot(
+      privileges: {'VM.Audit'},
+    );
+    final rollbackGuest = rollbackController.inventory!.guests.single;
+    await expectLater(
+      rollbackController.runGuestSnapshotRollback(
+        rollbackGuest,
+        const GuestSnapshot(name: 'before-upgrade'),
+        profileId: rollbackController.active!.id,
+        generation: rollbackController.connectionGeneration,
+      ),
+      throwsA(isA<PveFailure>().having((error) => error.status, 'status', 403)),
+    );
+    expect(rollbackGateway.snapshotRollbackSubmissions, 0);
+    expect(rollbackGateway.guestSnapshotCalls, 0);
+
+    // Upstream rollback accepts either VM.Snapshot or the dedicated
+    // VM.Snapshot.Rollback privilege.
+    rollbackGateway.guestPermissionResult = const GuestPermissionSnapshot(
+      privileges: {'VM.Snapshot'},
+    );
+    await rollbackController.runGuestSnapshotRollback(
+      rollbackGuest,
+      const GuestSnapshot(name: 'before-upgrade'),
+      profileId: rollbackController.active!.id,
+      generation: rollbackController.connectionGeneration,
+    );
+    expect(rollbackGateway.snapshotRollbackSubmissions, 1);
+    expect(rollbackGateway.guestSnapshotCalls, 1);
+  });
 
   test(
     'snapshot mutation refuses missing or changed snapshot metadata',
@@ -4762,6 +4769,43 @@ void main() {
         ),
       );
       expect(changedGateway.snapshotDeleteSubmissions, 0);
+    },
+  );
+
+  test(
+    'snapshot mutation rejects a renamed live guest before submission',
+    () async {
+      final (ctl, gateway) = await _auditController();
+      addTearDown(ctl.dispose);
+      gateway.inventoryResources = [
+        {'type': 'node', 'node': 'pve1', 'status': 'online'},
+        {'type': 'node', 'node': 'pve2', 'status': 'online'},
+        {
+          'type': 'qemu',
+          'vmid': 101,
+          'node': 'pve1',
+          'name': 'Renamed Web',
+          'status': 'running',
+        },
+      ];
+      final source = ctl.inventory!.guests.single;
+      await expectLater(
+        ctl.runGuestSnapshotDelete(
+          source,
+          const GuestSnapshot(name: 'before-upgrade'),
+          profileId: ctl.active!.id,
+          generation: ctl.connectionGeneration,
+        ),
+        throwsA(
+          isA<PveFailure>().having(
+            (error) => error.message,
+            'message',
+            contains('renamed'),
+          ),
+        ),
+      );
+      expect(gateway.snapshotDeleteSubmissions, 0);
+      expect(gateway.guestSnapshotCalls, 0);
     },
   );
 

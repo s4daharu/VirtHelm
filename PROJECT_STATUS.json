@@ -39,7 +39,7 @@
   "m1_validation": "Automated branch CI has passed source checks, analyzer, tests and Android debug APK build for the M1 safety implementation; live PVE/device release validation remains open.",
   "flutter_build_success": true,
   "ci_flutter_version": "3.44.4",
-  "android_build_evidence": "Docs and Android checks run 42913689940 and signed prerelease run 42914642302 passed for audited baseline fa41718a69e5083201f002ecc39c6e3e97420506. The 0.1.46 audit passed a throttled local debug APK build with pinned Flutter 3.44.4 and Java 17. The 0.1.47 snapshot lifecycle slice passed local pinned formatting, analyze and 382 Flutter runtime tests; fresh current-head CI debug APK compilation is still required. Bounded 9.2.26 read-only evidence does not close mutation/8.4/device release gates.",
+  "android_build_evidence": "Docs and Android checks run 42913689940 and signed prerelease run 42914642302 passed for audited baseline fa41718a69e5083201f002ecc39c6e3e97420506. The 0.1.46 audit passed a throttled local debug APK build with pinned Flutter 3.44.4 and Java 17. The 0.1.48 snapshot lifecycle hardening slice passed local pinned formatting, analyze and 387 Flutter runtime tests; fresh current-head CI debug APK compilation is still required. Bounded 9.2.26 read-only evidence does not close mutation/8.4/device release gates.",
   "m1_safety_followup": "Implemented: per-guest single-flight, profile/snapshot revalidation, bounded task verification, ambiguous-outcome lockout, auth-revocation fail-closed handling and race regression tests.",
   "m2_read_cockpit": {
     "features": [
@@ -153,8 +153,8 @@
       "GET-only smoke testing against one PVE 9.2.26 server exercised HTTP schemas and actual gateway parsers, including server-side free/occupied VMID checks. No mutations were attempted; 8.4, restricted ACL, backend variants, physical-device and production gates remain open."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 303,
-    "current_flutter_runtime_tests_passed": 382,
+    "current_flutter_tests_defined": 308,
+    "current_flutter_runtime_tests_passed": 387,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
     "p0_scope_complete": false,
@@ -568,13 +568,13 @@
   "m4_guest_snapshot_lifecycle_workflow": {
     "status": "implemented_source_level_reviewed_live_gates_open",
     "feature_id": "GUEST-019 / GUEST-020 / GUEST-02",
-    "version": "0.1.47",
+    "version": "0.1.48",
     "behavior": "Existing non-current QEMU/LXC snapshots in Recovery open a mobile action sheet for stopped-only non-RAM rollback or deletion. Both actions require typing the exact snapshot name and remain session-reactive.",
-    "contract": "POST /nodes/{node}/{qemu|lxc}/{vmid}/snapshot/{snapname}/rollback with VM.Snapshot.Rollback and no start field; DELETE /nodes/{node}/{qemu|lxc}/{vmid}/snapshot/{snapname} with VM.Snapshot and no force field. Returned tasks must be qmrollback/vzrollback or qmdelsnapshot/vzdelsnapshot with exact node/VMID.",
-    "safety": "Exact originating profile/generation, foreground/default-network availability, clean unchanged inventory, exact guest state revalidation, stopped-only rollback, explicit RAM-state rollback rejection, complete fresh snapshot-list verification with exact name/parent/description/creation-time/memory metadata identity, final live status preflight, one POST/DELETE without retry, per-guest single-flight, uncertain-outcome lockout and post-terminal task reconciliation.",
-    "name_boundary": "Mutation targets use Proxmox pve-configid snapshot names (2-40 characters, start with a letter, then letters/numbers/underscore/hyphen) and are URL-encoded. The current pseudo-entry is never actionable.",
+    "contract": "POST /nodes/{node}/{qemu|lxc}/{vmid}/snapshot/{snapname}/rollback with VM.Snapshot or VM.Snapshot.Rollback (upstream any-of) and no start field; DELETE /nodes/{node}/{qemu|lxc}/{vmid}/snapshot/{snapname} with VM.Snapshot and no force field. Returned tasks must be qmrollback/vzrollback or qmdelsnapshot/vzdelsnapshot with exact node/VMID.",
+    "safety": "Exact originating profile/generation, foreground/default-network availability, clean unchanged inventory, exact guest state and live-name revalidation, stopped-only rollback, explicit RAM-state rollback rejection, complete fresh snapshot-list verification with normalized name/parent/description/creation-time/memory/snapstate identity, final live status preflight, one POST/DELETE without retry, per-guest single-flight, uncertain-outcome lockout and post-terminal task reconciliation.",
+    "name_boundary": "Mutation targets use Proxmox pve-configid snapshot names (2-40 characters, start with a letter, then letters/numbers/underscore/hyphen), are trimmed and URL-encoded. The current pseudo-entry and snapshots carrying a pending snapstate are never actionable.",
     "deferred": "Running or QEMU RAM-state rollback, auto-start behavior, snapshot description editing, retention, scheduled snapshots, snapshot trees, archive integrity verification, restore execution and physical-device certification.",
-    "verification": "Synthetic gateway/controller/widget regressions cover exact DELETE/POST payloads, strict workers, permission denial, stopped/RAM-state rejection, missing/changed metadata, task registration, ambiguous-DELETE lockout and the typed-name mobile action flow. Current-head pinned CI and disposable PVE 8.4/9.2 snapshot/storage/ACL/fault fixtures remain authoritative gates.",
+    "verification": "Synthetic gateway/controller/widget/model regressions cover exact DELETE/POST payloads for QEMU/LXC, strict workers, permission alternatives and denial, stopped/RAM-state rejection, live guest rename, missing/changed/pending metadata, normalized path identity, task registration, ambiguous-DELETE lockout and the typed-name mobile action flow. The fresh list read requires VM.Audit. Current-head pinned CI and disposable PVE 8.4/9.2 snapshot/storage/ACL/fault fixtures remain authoritative gates.",
     "report": "docs/94-implementation-guest-snapshot-lifecycle.md"
   },
   "m4_guest_backup_start_workflow": {

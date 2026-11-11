@@ -2797,7 +2797,6 @@ class AppController extends ChangeNotifier {
     final rollback = action == _GuestSnapshotLifecycleAction.rollback;
     final actionVerb = rollback ? 'rolling back' : 'deleting';
     final actionLabel = rollback ? 'rollback' : 'delete';
-    final permission = rollback ? 'VM.Snapshot.Rollback' : 'VM.Snapshot';
 
     if (_disposed || generation != _generation || active?.id != profileId) {
       throw PveFailure(
@@ -2906,10 +2905,11 @@ class AppController extends ChangeNotifier {
           .toList();
       if (liveSources.length != 1 ||
           liveSources.single.isTemplate ||
-          liveSources.single.status != source.status) {
+          liveSources.single.status != source.status ||
+          liveSources.single.name != source.name) {
         throw PveFailure(
-          'The guest moved, disappeared, or changed state during verification. '
-          'Snapshot $actionLabel was not submitted.',
+          'The guest moved, disappeared, was renamed, or changed state during '
+          'verification. Snapshot $actionLabel was not submitted.',
         );
       }
       final liveSource = liveSources.single;
@@ -2925,9 +2925,16 @@ class AppController extends ChangeNotifier {
           'Connection or inventory changed during snapshot $actionLabel verification.',
         );
       }
-      if (!permissions.has(permission)) {
+      final hasPermission = rollback
+          ? permissions.has('VM.Snapshot') ||
+                permissions.has('VM.Snapshot.Rollback')
+          : permissions.has('VM.Snapshot');
+      if (!hasPermission) {
         throw PveFailure(
-          'The active token does not report $permission on this guest.',
+          rollback
+              ? 'The active token does not report VM.Snapshot or '
+                    'VM.Snapshot.Rollback on this guest.'
+              : 'The active token does not report VM.Snapshot on this guest.',
           status: 403,
         );
       }

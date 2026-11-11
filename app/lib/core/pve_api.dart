@@ -847,7 +847,7 @@ class DioPveGateway
     if (validationError != null) throw FormatException(validationError);
 
     final value = await _request(
-      '${_guestPath(guest)}/snapshot/${_segment(snapshot.name)}',
+      '${_guestPath(guest)}/snapshot/${_segment(snapshot.normalizedName)}',
       mutation: true,
       deleteMutation: true,
     );
@@ -887,7 +887,7 @@ class DioPveGateway
     }
 
     final value = await _request(
-      '${_guestPath(guest)}/snapshot/${_segment(snapshot.name)}/rollback',
+      '${_guestPath(guest)}/snapshot/${_segment(snapshot.normalizedName)}/rollback',
       mutation: true,
     );
     final expectedWorker = guest.kind == 'qemu' ? 'qmrollback' : 'vzrollback';

@@ -690,6 +690,15 @@ String? _snapshotDescription(Object? value) {
   return cleaned.length <= 500 ? cleaned : '${cleaned.substring(0, 500)}…';
 }
 
+String? _snapshotState(Object? value) {
+  final text = asText(value)?.trim();
+  if (text == null || text.isEmpty) return null;
+  if (text.length > 40 || RegExp(r'[\x00-\x1F\x7F]').hasMatch(text)) {
+    return 'unknown';
+  }
+  return text;
+}
+
 String? _snapshotMutationNameError(String value) {
   final normalized = value.trim();
   if (normalized.length < 2 || normalized.length > 40) {
@@ -714,6 +723,7 @@ class GuestSnapshot {
     this.description,
     this.createdAt,
     this.includesMemory,
+    this.snapstate,
   });
 
   final String name;
@@ -722,21 +732,34 @@ class GuestSnapshot {
   final DateTime? createdAt;
   final bool? includesMemory;
 
+  /// PVE may expose a temporary snapshot state such as `prepare` or `delete`
+  /// while another operation owns the config lock. Such snapshots are not safe
+  /// mutation targets from this client.
+  final String? snapstate;
+
   bool get isCurrent => name == 'current';
+
+  String get normalizedName => name.trim();
 
   /// Mutation targets must satisfy Proxmox's `pve-configid` snapshot name
   /// format. List parsing stays permissive so malformed rows can be counted and
   /// ignored without inventing a server-side action.
-  String? get mutationValidationError => isCurrent
-      ? 'The current state is not a snapshot target.'
-      : _snapshotMutationNameError(name);
+  String? get mutationValidationError {
+    if (isCurrent) return 'The current state is not a snapshot target.';
+    if (snapstate != null) {
+      return 'Snapshot has a pending Proxmox state ("$snapstate"). '
+          'Refresh after the server operation finishes.';
+    }
+    return _snapshotMutationNameError(normalizedName);
+  }
 
   bool sameMetadataAs(GuestSnapshot other) =>
-      name == other.name &&
+      normalizedName == other.normalizedName &&
       parent == other.parent &&
       description == other.description &&
       createdAt == other.createdAt &&
-      includesMemory == other.includesMemory;
+      includesMemory == other.includesMemory &&
+      snapstate == other.snapstate;
 
   factory GuestSnapshot.fromApi(Map<String, dynamic> json) {
     final name = _snapshotIdentityText(json['name']);
@@ -749,6 +772,7 @@ class GuestSnapshot {
       description: _snapshotDescription(json['description']),
       createdAt: asUnixSeconds(json['snaptime']),
       includesMemory: asFlag(json['vmstate']),
+      snapstate: _snapshotState(json['snapstate']),
     );
   }
 }

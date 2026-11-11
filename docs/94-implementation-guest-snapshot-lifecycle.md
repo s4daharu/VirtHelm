@@ -47,12 +47,15 @@ uncertain-outcome machinery:
    dirty or refreshing inventory, templates and unknown guest states.
 2. Re-read a clean live inventory and require the exact node/type/VMID identity
    and unchanged state. Rollback additionally requires a stopped guest.
-3. Check the exact guest permission hint: `VM.Snapshot` for delete and
-   `VM.Snapshot.Rollback` for rollback.
+3. Check the guest permission hint: `VM.Snapshot` for delete and either
+   `VM.Snapshot` or `VM.Snapshot.Rollback` for rollback, matching the upstream
+   any-of check. The fresh snapshot-list read also requires `VM.Audit`; a token
+   with only mutation privileges is conservatively blocked before submission.
 4. Re-read a complete snapshot list and require exactly one target with the same
-   name, parent, description, creation time and QEMU memory-state flag shown to
-   the operator. A disappeared, renamed or replaced snapshot blocks the
-   mutation.
+   normalized name, parent, description, creation time, QEMU memory-state flag
+   and pending `snapstate` shown to the operator. A disappeared, renamed,
+   replaced or still-pending snapshot blocks the mutation. The guest name is
+   re-read and must match the confirmation-target name.
 5. Reject rollback when the snapshot reports QEMU RAM state (`vmstate`). Those
    snapshots can auto-start the guest under Proxmox semantics and need a
    separate power-aware workflow.
@@ -67,7 +70,10 @@ uncertain-outcome machinery:
 
 Stopping the guest is deliberately the operator's job before rollback. The
 upstream rollback worker can stop a running guest, but this slice does not
-silently invoke that power side effect or request `VM.PowerMgmt`.
+silently invoke that power side effect or request `VM.PowerMgmt`. This is a
+best-effort client preflight, not an atomic server guarantee: another client
+can start the guest after the final status read, in which case Proxmox's
+rollback worker remains authoritative.
 
 Snapshots are not backups. A successful rollback or delete task is not evidence
 that the guest boots, that an application is healthy, or that a backup can be
@@ -79,8 +85,8 @@ restored.
   hiding actions behind a tiny overflow control.
 - The action sheet uses full-width list rows with explicit consequences and
   disables an action with a plain-language reason when the guest is running,
-  the snapshot includes RAM state, inventory is stale or another operation is
-  pending.
+  the snapshot includes RAM state or a pending `snapstate`, inventory is stale
+  or another operation is pending.
 - Confirmation content is scrollable for narrow phones and large text. The
   typed field is owned by the dialog route and is disposed with it.
 - The Recovery copy now distinguishes implemented snapshot lifecycle actions
@@ -89,19 +95,22 @@ restored.
 
 ## Automated coverage
 
-- Gateway tests verify the exact DELETE/POST paths, empty mutation payloads,
-  strict worker and VMID matching, safe snapshot-name validation, and
-  pre-I/O rejection of running/RAM-state rollback.
-- Controller tests cover delete/rollback submission, permission denial,
-  running/RAM-state preflight rejection, missing/changed snapshot metadata,
-  task registration and ambiguous-outcome lockout after a failed DELETE.
+- Gateway tests verify QEMU/LXC DELETE and rollback paths, normalized path
+  names, empty mutation payloads, strict worker and VMID matching, safe
+  snapshot-name validation, pending-`snapstate` rejection, and pre-I/O
+  rejection of running/RAM-state rollback.
+- Controller tests cover delete/rollback submission, permission denial and the
+  upstream any-of rollback privilege, running/RAM-state preflight rejection,
+  live guest rename, missing/changed/pending snapshot metadata, task
+  registration and ambiguous-outcome lockout after a failed DELETE.
+- Model coverage verifies `snapstate` parsing and normalized snapshot names.
 - Widget coverage opens the mobile action sheet, verifies a running guest's
   rollback action is disabled with a reason, and completes the typed-name
-  delete confirmation.
+  delete confirmation plus a 320dp/200%-text layout check.
 - Existing profile/reconnect redaction, inventory freshness, single-flight and
   post-terminal reconciliation regressions remain in the full suite.
-- At implementation time, the pinned Flutter 3.44.4 suite passed **382 runtime
-  tests from 303 declarations** locally. Current-head CI remains authoritative.
+- At implementation time, the pinned Flutter 3.44.4 suite passed **387 runtime
+  tests from 308 declarations** locally. Current-head CI remains authoritative.
 
 ## Deferred and release gates
 
@@ -112,4 +121,8 @@ restored.
   descriptions, retention and snapshot trees.
 - Archive integrity verification, PBS verification, tested restore and any
   restore mutation.
+- Same-second snapshot delete/recreate with identical metadata cannot be
+  distinguished client-side because PVE exposes second-resolution `snaptime`
+  and no snapshot digest; the PVE config lock and task state remain
+  authoritative.
 - Physical Android confirmation/accessibility/network-transition testing.

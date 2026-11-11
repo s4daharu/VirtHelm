@@ -937,4 +937,33 @@ void main() {
       isTrue,
     );
   });
+
+  test('guest snapshots parse pending state and normalize names', () {
+    final snapshot = GuestSnapshot.fromApi({
+      'name': ' before-upgrade ',
+      'parent': 'baseline',
+      'description': 'Before package update',
+      'snaptime': 1700000000,
+      'vmstate': 0,
+      'snapstate': 'delete',
+    });
+
+    expect(snapshot.name, 'before-upgrade');
+    expect(snapshot.normalizedName, 'before-upgrade');
+    expect(snapshot.snapstate, 'delete');
+    expect(snapshot.mutationValidationError, contains('pending'));
+    expect(
+      snapshot.sameMetadataAs(
+        GuestSnapshot.fromApi({
+          'name': 'before-upgrade',
+          'parent': 'baseline',
+          'description': 'Before package update',
+          'snaptime': 1700000000,
+          'vmstate': 0,
+          'snapstate': 'delete',
+        }),
+      ),
+      isTrue,
+    );
+  });
 }

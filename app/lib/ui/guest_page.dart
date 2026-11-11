@@ -1078,6 +1078,9 @@ class _GuestPageState extends State<GuestPage> {
     }
     if (snapshot.parent != null) lines.add('Parent: ${snapshot.parent}');
     if (snapshot.includesMemory == true) lines.add('Includes VM memory state');
+    if (snapshot.snapstate != null) {
+      lines.add('Pending Proxmox state: ${snapshot.snapstate}');
+    }
     if (snapshot.description != null) lines.add(snapshot.description!);
     return lines.join('\n');
   }
