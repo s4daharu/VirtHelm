@@ -30,6 +30,17 @@ Different interval/bucketing and availability must be normalized without false p
 ## Alert rule model
 Rule(id, profileId, resourceSelector, metric, comparator, threshold, window, consecutiveSamples, severity, quietHours, cooldown, dedupKey, locale, enabled). State machine OK -> Pending -> Firing -> Acknowledged -> Resolved with hysteresis and per-profile dedup. Suppress repeats during known maintenance, stale data, permission errors and missing samples; **unknown is not healthy**. Alert payload redacted: alias, severity, generic resource display, timestamp; no secrets or customer-sensitive guest names on lock screen by default.
 
+## Current bounded ALERT-02 triage slice (0.1.49)
+The Android foreground inbox now supports session-local needs-review/acknowledged
+and earlier-signal views. Acknowledgement is strictly a local annotation and
+does not affect severity, server tasks, rule firing or health status. Only a
+complete authenticated foreground refresh can move a missing observation to
+the earlier list; failed or partial reads do not prove resolution. The history
+is capped at 40 entries in memory and is cleared on reconnect/profile change.
+This is not the full persisted alert state machine described above. Quiet hours,
+cooldown, cross-session correlation, durable acknowledgement, notifications,
+background checks and relay integration remain proposed.
+
 ## Intelligence without unsafe automation
 F3 “Insights” are deterministic, explainable, local by default: suspicious CPU plateau, insufficient free space, frequent restart, failed task cluster, missing recent backup, irregular node load, capacity risk. A recommendation card includes: evidence and date range, uncertainty, why this matters, docs link, and **Review action** (never execute). Optional LLM/on-device natural-language interface is research-gated; no auto-remediation, no secret sharing, no cloud upload without explicit and revocable consent.
 

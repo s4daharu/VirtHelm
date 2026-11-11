@@ -10,7 +10,7 @@ required = [
   'app/lib/core/offline_overview.dart','app/lib/core/device_connectivity.dart',
   'app/lib/core/guest_list_filter.dart','app/lib/core/task_history_filter.dart',
   'app/lib/core/guest_saved_view.dart','app/lib/core/alert_rules.dart',
-  'app/lib/core/incident_center.dart',
+  'app/lib/core/incident_center.dart','app/lib/core/incident_triage.dart',
   'app/lib/ui/theme.dart',
   'app/lib/ui/components.dart',
   'app/lib/core/app_info.dart',
@@ -28,7 +28,8 @@ required = [
   'app/test/guest_migration_test.dart',
   'app/test/guest_operation_dialog_test.dart',
   'app/test/widget_test.dart','app/test/pve_tls_test.dart',
-  'app/test/incident_center_test.dart','app/test/alert_rules_test.dart',
+  'app/test/incident_center_test.dart','app/test/incident_triage_test.dart',
+  'app/test/incident_triage_widget_test.dart','app/test/alert_rules_test.dart',
   'app/test/alert_rules_widget_test.dart',
   'app/test/ui_components_test.dart',
   'app/test/guest_list_filter_test.dart','app/test/task_history_filter_test.dart',
@@ -106,6 +107,9 @@ assert f"virthelmDisplayVersion = '{version_match.group(1)}'" in files['app/lib/
 assert 'class VirtHelmStatusColors' in files['app/lib/ui/theme.dart']
 assert 'class SparklineCard' in files['app/lib/ui/components.dart']
 assert "Key('overview-incident-summary')" in files['app/lib/ui/shell.dart']
+assert 'class IncidentTriageLedger' in files['app/lib/core/incident_triage.dart']
+assert 'setIncidentAcknowledged' in files['app/lib/core/app_controller.dart']
+assert 'incident-triage-view' in files['app/lib/ui/incident_center_tab.dart']
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
 assert 'android:allowBackup' in files['scripts/harden_android.py']
 assert 'android:usesCleartextTraffic' in files['scripts/harden_android.py']

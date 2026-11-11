@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/app_controller.dart';
 import '../core/device_connectivity.dart';
 import '../core/incident_center.dart';
+import '../core/incident_triage.dart';
 import '../core/models.dart';
 import 'alert_rules_page.dart';
 import 'components.dart';
@@ -13,6 +14,8 @@ import 'task_details_page.dart';
 import 'theme.dart';
 
 enum _IncidentFilter { all, critical, warning }
+
+enum _IncidentTriageView { needsReview, acknowledged, earlier }
 
 class IncidentCenterTab extends StatefulWidget {
   const IncidentCenterTab({super.key, required this.controller});
@@ -25,22 +28,23 @@ class IncidentCenterTab extends StatefulWidget {
 
 class _IncidentCenterTabState extends State<IncidentCenterTab> {
   _IncidentFilter filter = _IncidentFilter.all;
+  _IncidentTriageView view = _IncidentTriageView.needsReview;
 
-  List<CockpitIncident> _visible(List<CockpitIncident> incidents) {
+  List<IncidentTriageRecord> _visible(List<IncidentTriageRecord> records) {
     return switch (filter) {
-      _IncidentFilter.all => incidents,
+      _IncidentFilter.all => records,
       _IncidentFilter.critical =>
-        incidents
+        records
             .where(
-              (incident) =>
-                  incident.severity == CockpitIncidentSeverity.critical,
+              (record) =>
+                  record.incident.severity == CockpitIncidentSeverity.critical,
             )
             .toList(growable: false),
       _IncidentFilter.warning =>
-        incidents
+        records
             .where(
-              (incident) =>
-                  incident.severity == CockpitIncidentSeverity.warning,
+              (record) =>
+                  record.incident.severity == CockpitIncidentSeverity.warning,
             )
             .toList(growable: false),
     };
@@ -140,8 +144,22 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
+    final renderingProfileId = controller.active?.id;
+    final renderingGeneration = controller.connectionGeneration;
     final incidents = controller.incidents;
-    final visible = _visible(incidents);
+    final current = _visible(controller.currentIncidentTriage);
+    final earlier = _visible(controller.earlierIncidentTriage);
+    final needsReview = current
+        .where((record) => !record.isAcknowledged)
+        .toList();
+    final acknowledged = current
+        .where((record) => record.isAcknowledged)
+        .toList();
+    final selected = switch (view) {
+      _IncidentTriageView.needsReview => needsReview,
+      _IncidentTriageView.acknowledged => acknowledged,
+      _IncidentTriageView.earlier => earlier,
+    };
     final stale =
         controller.active != null &&
         (!controller.isInventoryFresh ||
@@ -198,10 +216,11 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Foreground-only signals from the current connection. '
-            'Threshold rules are profile-scoped local metadata; incidents '
-            'still have no persisted history, background checks, or Android '
-            'notifications.',
+            'Foreground-only signals. Acknowledgement changes only your '
+            'current session view, not server health or task outcomes. '
+            'Earlier signals are kept in memory until you reconnect; '
+            'there is no persistent history, background monitoring or '
+            'Android notification delivery.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           if (incidents.isNotEmpty) ...[
@@ -230,6 +249,32 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
             ),
           ],
           const SizedBox(height: 18),
+          Wrap(
+            key: const Key('incident-triage-view'),
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                label: Text('Needs review (${needsReview.length})'),
+                selected: view == _IncidentTriageView.needsReview,
+                onSelected: (_) =>
+                    setState(() => view = _IncidentTriageView.needsReview),
+              ),
+              ChoiceChip(
+                label: Text('Acknowledged (${acknowledged.length})'),
+                selected: view == _IncidentTriageView.acknowledged,
+                onSelected: (_) =>
+                    setState(() => view = _IncidentTriageView.acknowledged),
+              ),
+              ChoiceChip(
+                label: Text('Earlier (${earlier.length})'),
+                selected: view == _IncidentTriageView.earlier,
+                onSelected: (_) =>
+                    setState(() => view = _IncidentTriageView.earlier),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -260,14 +305,31 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
               title: 'No active connection',
               body: 'Open a connection to evaluate foreground incidents.',
             )
-          else if (visible.isEmpty && incidents.isNotEmpty)
+          else if (selected.isEmpty && view == _IncidentTriageView.earlier)
+            const EmptyState(
+              icon: Icons.history_rounded,
+              title: 'No earlier signals',
+              body:
+                  'Only signals that disappear after a complete foreground '
+                  'refresh appear here. This is not a recovery certificate.',
+            )
+          else if (selected.isEmpty && view == _IncidentTriageView.acknowledged)
+            const EmptyState(
+              icon: Icons.done_all_rounded,
+              title: 'Nothing acknowledged',
+              body: 'Use Acknowledge on a signal to mark it reviewed locally.',
+            )
+          else if (selected.isEmpty && incidents.isNotEmpty)
             EmptyState(
               icon: Icons.filter_alt_off_outlined,
-              title: 'No incidents in this filter',
-              body: 'Choose another severity to see retained incidents.',
+              title: 'No signals in this view',
+              body: 'Choose another triage view or severity to see incidents.',
               action: TextButton(
-                onPressed: () => setState(() => filter = _IncidentFilter.all),
-                child: const Text('Show all incidents'),
+                onPressed: () => setState(() {
+                  filter = _IncidentFilter.all;
+                  view = _IncidentTriageView.needsReview;
+                }),
+                child: const Text('Show needs review'),
               ),
             )
           else if (incidents.isEmpty && (stale || taskCoverageIncomplete))
@@ -292,11 +354,24 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
                   'history contain no node-state problems or failed tasks.',
             )
           else
-            for (final incident in visible) ...[
-              _IncidentCard(
-                incident: incident,
-                onTap: () => _openIncident(context, incident),
-              ),
+            for (final record in selected) ...[
+              if (record.isCurrent)
+                _IncidentCard(
+                  incident: record.incident,
+                  acknowledged: record.isAcknowledged,
+                  onTap: () => _openIncident(context, record.incident),
+                  onAcknowledge: () {
+                    if (renderingProfileId == null) return;
+                    controller.setIncidentAcknowledged(
+                      record.incident.key,
+                      !record.isAcknowledged,
+                      expectedProfileId: renderingProfileId,
+                      expectedGeneration: renderingGeneration,
+                    );
+                  },
+                )
+              else
+                _EarlierIncidentCard(record: record),
               const SizedBox(height: 10),
             ],
         ],
@@ -410,10 +485,17 @@ class _IncidentSummaryTile extends StatelessWidget {
 }
 
 class _IncidentCard extends StatelessWidget {
-  const _IncidentCard({required this.incident, required this.onTap});
+  const _IncidentCard({
+    required this.incident,
+    required this.onTap,
+    required this.onAcknowledge,
+    required this.acknowledged,
+  });
 
   final CockpitIncident incident;
   final VoidCallback onTap;
+  final VoidCallback onAcknowledge;
+  final bool acknowledged;
 
   @override
   Widget build(BuildContext context) {
@@ -421,48 +503,88 @@ class _IncidentCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final color = critical ? scheme.error : scheme.tertiary;
     return Card(
-      child: ListTile(
-        contentPadding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
-        leading: CircleAvatar(
-          backgroundColor: color.withValues(alpha: 0.14),
-          foregroundColor: color,
-          child: Icon(switch (incident.source) {
-            CockpitIncidentSource.node => Icons.dns_outlined,
-            CockpitIncidentSource.task => Icons.error_outline_rounded,
-            CockpitIncidentSource.rule => Icons.speed_outlined,
-          }),
-        ),
-        title: Text(
-          incident.title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Text(
-            '${incident.detail}\n'
-            '${incident.sourceLabel} • ${formatAge(incident.observedAt)}',
-            maxLines: 4,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.chevron_right_rounded, color: color),
-            Text(
-              incident.severityLabel.toUpperCase(),
-              style: TextStyle(
-                color: color,
-                fontSize: 9,
-                fontWeight: FontWeight.w800,
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding: const EdgeInsets.fromLTRB(16, 10, 12, 6),
+            leading: CircleAvatar(
+              backgroundColor: color.withValues(alpha: 0.14),
+              foregroundColor: color,
+              child: Icon(switch (incident.source) {
+                CockpitIncidentSource.node => Icons.dns_outlined,
+                CockpitIncidentSource.task => Icons.error_outline_rounded,
+                CockpitIncidentSource.rule => Icons.speed_outlined,
+              }),
+            ),
+            title: Text(
+              incident.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                '${incident.detail}\n'
+                '${incident.sourceLabel} • ${formatAge(incident.observedAt)}',
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-          ],
-        ),
-        onTap: onTap,
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.chevron_right_rounded, color: color),
+                Text(
+                  incident.severityLabel.toUpperCase(),
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            onTap: onTap,
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 12, bottom: 8),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                key: Key('incident-triage-action-${incident.key}'),
+                onPressed: onAcknowledge,
+                icon: Icon(
+                  acknowledged ? Icons.undo_rounded : Icons.done_all_rounded,
+                ),
+                label: Text(
+                  acknowledged ? 'Mark as unreviewed' : 'Acknowledge',
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+class _EarlierIncidentCard extends StatelessWidget {
+  const _EarlierIncidentCard({required this.record});
+
+  final IncidentTriageRecord record;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: ListTile(
+      leading: const Icon(Icons.history_rounded),
+      title: Text(record.incident.title),
+      subtitle: Text(
+        '${record.departureLabel}\n'
+        'Last observed ${formatAge(record.lastSeen)} • '
+        '${record.isAcknowledged ? 'Acknowledged' : 'Not acknowledged'}',
+      ),
+      isThreeLine: true,
+    ),
+  );
 }
