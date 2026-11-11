@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'alert_rules.dart';
 import 'app_preferences.dart';
 import 'guest_saved_view.dart';
+import 'incident_history.dart';
 import 'models.dart';
 import 'offline_overview.dart';
 
@@ -46,6 +47,7 @@ class ProfileRepository {
   static const _favoritesKey = 'guest_favorites_v1';
   static const _guestViewsKey = 'guest_saved_views_v1';
   static const _thresholdRulesKey = 'foreground_threshold_rules_v1';
+  static const _incidentHistoryKey = 'incident_history_v1';
   static const _themeKey = 'ui_theme_v1';
   static const _refreshKey = 'ui_refresh_v1';
   static const _nodeMetricsKey = 'ui_node_metrics_v1';
@@ -353,6 +355,108 @@ class ProfileRepository {
     }
   }
 
+  List<IncidentHistoryEntry> readIncidentHistory(String profileId) {
+    final raw = _storedString(_incidentHistoryKey);
+    if (raw == null) return const <IncidentHistoryEntry>[];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        return const <IncidentHistoryEntry>[];
+      }
+      final items = decoded[profileId];
+      if (items is! List) return const <IncidentHistoryEntry>[];
+      final entries = <IncidentHistoryEntry>[];
+      final ids = <String>{};
+      for (final item in items) {
+        if (item is! Map) continue;
+        try {
+          final entry = IncidentHistoryEntry.fromJson(
+            Map<String, dynamic>.from(item),
+          );
+          if (!ids.add(entry.occurrenceId)) continue;
+          entries.add(entry);
+          if (entries.length == maxPersistedIncidentHistory) break;
+        } on FormatException {
+          continue;
+        }
+      }
+      entries.sort((a, b) => b.lastSeen.compareTo(a.lastSeen));
+      return List<IncidentHistoryEntry>.unmodifiable(entries);
+    } catch (_) {
+      return const <IncidentHistoryEntry>[];
+    }
+  }
+
+  Future<void> saveIncidentHistory(
+    String profileId,
+    Iterable<IncidentHistoryEntry> entries,
+  ) => _mutate(() async {
+    // A queued best-effort history save must never resurrect metadata for a
+    // connection that was deleted while the write was waiting.
+    if (!readProfiles().any((profile) => profile.id == profileId)) return;
+    final root = _readIncidentHistoryRoot();
+    final validated = <IncidentHistoryEntry>[];
+    final ids = <String>{};
+    for (final entry in entries) {
+      try {
+        final item = IncidentHistoryEntry.fromJson(entry.toJson());
+        if (!ids.add(item.occurrenceId)) continue;
+        validated.add(item);
+        if (validated.length == maxPersistedIncidentHistory) break;
+      } on FormatException {
+        continue;
+      }
+    }
+    if (validated.isEmpty) {
+      root.remove(profileId);
+    } else {
+      root[profileId] = validated.map((entry) => entry.toJson()).toList();
+    }
+    final saved = root.isEmpty
+        ? await _prefs.remove(_incidentHistoryKey)
+        : await _prefs.setString(_incidentHistoryKey, jsonEncode(root));
+    if (!saved) throw StateError('Could not save incident history.');
+  });
+
+  Map<String, dynamic> _readIncidentHistoryRoot() {
+    final raw = _storedString(_incidentHistoryKey);
+    if (raw == null) return <String, dynamic>{};
+    try {
+      final decoded = jsonDecode(raw);
+      return decoded is Map<String, dynamic>
+          ? Map<String, dynamic>.from(decoded)
+          : <String, dynamic>{};
+    } catch (_) {
+      return <String, dynamic>{};
+    }
+  }
+
+  Future<void> _clearIncidentHistory(String profileId) async {
+    final raw = _prefs.get(_incidentHistoryKey);
+    if (raw == null) return;
+    Map<String, dynamic> root;
+    try {
+      final decoded = raw is String ? jsonDecode(raw) : null;
+      if (decoded is! Map<String, dynamic>) {
+        final removed = await _prefs.remove(_incidentHistoryKey);
+        if (!removed) throw StateError('Could not clear incident history.');
+        return;
+      }
+      root = Map<String, dynamic>.from(decoded);
+    } catch (error) {
+      if (error is StateError) rethrow;
+      final removed = await _prefs.remove(_incidentHistoryKey);
+      if (!removed) throw StateError('Could not clear incident history.');
+      return;
+    }
+    if (!root.containsKey(profileId)) return;
+    root.remove(profileId);
+    final saved = root.isEmpty
+        ? await _prefs.remove(_incidentHistoryKey)
+        : await _prefs.setString(_incidentHistoryKey, jsonEncode(root));
+    if (!saved) throw StateError('Could not clear incident history.');
+  }
+
   Set<String> readGuestFavorites(String profileId) {
     final raw = _storedString(_favoritesKey);
     if (raw == null) return <String>{};
@@ -658,6 +762,9 @@ class ProfileRepository {
     } catch (_) {}
     try {
       await _clearThresholdAlertRules(id);
+    } catch (_) {}
+    try {
+      await _clearIncidentHistory(id);
     } catch (_) {}
     try {
       await _clearOfflineOverview(id);
