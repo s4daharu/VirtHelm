@@ -1422,6 +1422,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Incident inbox'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Node pve1 is offline'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('Node pve1 is offline'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('Task failed: Shut down container • 202'),
@@ -1450,6 +1455,11 @@ void main() {
       await tester.tap(find.text('Incidents'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('incident-stale-warning')), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Node pve1 is offline'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('Node pve1 is offline'), findsOneWidget);
     },
   );

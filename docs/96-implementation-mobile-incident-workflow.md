@@ -14,7 +14,9 @@ and connection generation after the dialog, intersects selected identities
 with currently observable incidents, deduplicates keys, and updates the
 session-only ledger once. Signals that departed, disappeared from the
 current live view or belong to another session are not batch-acknowledged.
-A reset-filters action prevents misleading empty views. Mobile incident cards
+A collapsed, accessible Refine results panel keeps severity/source chips off
+the initial viewport until needed. A reset-filters action prevents misleading
+empty views. Mobile incident cards
 now show severity as normal-size theme-scaled text rather than a 9px label
 beside the navigation chevron.
 

@@ -51,15 +51,30 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('incident-triage-action-node:pve1')));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.textContaining('Needs review (0)'),
+      -200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.textContaining('Needs review (0)'), findsOneWidget);
     expect(controller.incidents, hasLength(1));
 
     await tester.tap(find.textContaining('Acknowledged (1)'));
     await tester.pumpAndSettle();
     expect(find.text('Node pve1 is offline'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Mark as unreviewed'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Mark as unreviewed'), findsOneWidget);
     await tester.tap(find.text('Mark as unreviewed'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.textContaining('Acknowledged (0)'),
+      -200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.textContaining('Acknowledged (0)'), findsOneWidget);
   });
   testWidgets('search and source filters bulk review only shown signals', (
@@ -88,6 +103,11 @@ void main() {
     expect(controller.incidents, hasLength(2));
     await tester.enterText(find.byKey(const Key('incident-search')), 'pve1');
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Node pve1 is offline'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Node pve1 is offline'), findsOneWidget);
     expect(find.text('Node pve2 is offline'), findsNothing);
     expect(find.text('Acknowledge shown (1)'), findsOneWidget);
@@ -107,10 +127,27 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('incident-reset-filters')));
     await tester.tap(find.byKey(const Key('incident-reset-filters')));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Node pve2 is offline'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Node pve2 is offline'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('incident-refine-filters')),
+      -200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('incident-refine-filters')));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Tasks'));
     await tester.tap(find.text('Tasks').last);
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('No matching signals'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('No matching signals'), findsOneWidget);
   });
 
@@ -143,7 +180,11 @@ void main() {
         ),
       ),
     );
-    await tester.ensureVisible(find.text('Node pve1 is offline'));
+    await tester.scrollUntilVisible(
+      find.text('Node pve1 is offline'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('CRITICAL'), findsOneWidget);

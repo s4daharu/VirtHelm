@@ -387,59 +387,79 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
                     ),
             ),
           ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          ExpansionTile(
+            key: const Key('incident-refine-filters'),
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(bottom: 8),
+            title: const Text('Refine results'),
+            subtitle: Text(
+              filter != _IncidentFilter.all ||
+                      source != _IncidentSourceFilter.all
+                  ? 'Severity or source filters active'
+                  : 'All severities and sources',
+            ),
             children: [
-              ChoiceChip(
-                label: const Text('All'),
-                selected: filter == _IncidentFilter.all,
-                onSelected: (_) => setState(() => filter = _IncidentFilter.all),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('All'),
+                      selected: filter == _IncidentFilter.all,
+                      onSelected: (_) =>
+                          setState(() => filter = _IncidentFilter.all),
+                    ),
+                    ChoiceChip(
+                      label: const Text('Critical'),
+                      selected: filter == _IncidentFilter.critical,
+                      onSelected: (_) =>
+                          setState(() => filter = _IncidentFilter.critical),
+                    ),
+                    ChoiceChip(
+                      label: const Text('Warnings'),
+                      selected: filter == _IncidentFilter.warning,
+                      onSelected: (_) =>
+                          setState(() => filter = _IncidentFilter.warning),
+                    ),
+                  ],
+                ),
               ),
-              ChoiceChip(
-                label: const Text('Critical'),
-                selected: filter == _IncidentFilter.critical,
-                onSelected: (_) =>
-                    setState(() => filter = _IncidentFilter.critical),
-              ),
-              ChoiceChip(
-                label: const Text('Warnings'),
-                selected: filter == _IncidentFilter.warning,
-                onSelected: (_) =>
-                    setState(() => filter = _IncidentFilter.warning),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            key: const Key('incident-source-filter'),
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              ChoiceChip(
-                label: const Text('All sources'),
-                selected: source == _IncidentSourceFilter.all,
-                onSelected: (_) =>
-                    setState(() => source = _IncidentSourceFilter.all),
-              ),
-              ChoiceChip(
-                label: const Text('Nodes'),
-                selected: source == _IncidentSourceFilter.nodes,
-                onSelected: (_) =>
-                    setState(() => source = _IncidentSourceFilter.nodes),
-              ),
-              ChoiceChip(
-                label: const Text('Tasks'),
-                selected: source == _IncidentSourceFilter.tasks,
-                onSelected: (_) =>
-                    setState(() => source = _IncidentSourceFilter.tasks),
-              ),
-              ChoiceChip(
-                label: const Text('Rules'),
-                selected: source == _IncidentSourceFilter.rules,
-                onSelected: (_) =>
-                    setState(() => source = _IncidentSourceFilter.rules),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  key: const Key('incident-source-filter'),
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('All sources'),
+                      selected: source == _IncidentSourceFilter.all,
+                      onSelected: (_) =>
+                          setState(() => source = _IncidentSourceFilter.all),
+                    ),
+                    ChoiceChip(
+                      label: const Text('Nodes'),
+                      selected: source == _IncidentSourceFilter.nodes,
+                      onSelected: (_) =>
+                          setState(() => source = _IncidentSourceFilter.nodes),
+                    ),
+                    ChoiceChip(
+                      label: const Text('Tasks'),
+                      selected: source == _IncidentSourceFilter.tasks,
+                      onSelected: (_) =>
+                          setState(() => source = _IncidentSourceFilter.tasks),
+                    ),
+                    ChoiceChip(
+                      label: const Text('Rules'),
+                      selected: source == _IncidentSourceFilter.rules,
+                      onSelected: (_) =>
+                          setState(() => source = _IncidentSourceFilter.rules),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
