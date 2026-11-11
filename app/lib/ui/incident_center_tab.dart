@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/app_controller.dart';
 import '../core/device_connectivity.dart';
 import '../core/incident_center.dart';
+import '../core/incident_history.dart';
 import '../core/incident_triage.dart';
 import '../core/models.dart';
 import 'alert_rules_page.dart';
@@ -15,7 +16,7 @@ import 'theme.dart';
 
 enum _IncidentFilter { all, critical, warning }
 
-enum _IncidentTriageView { needsReview, acknowledged, earlier }
+enum _IncidentTriageView { needsReview, acknowledged, earlier, history }
 
 enum _IncidentSourceFilter { all, nodes, tasks, rules }
 
@@ -55,45 +56,51 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
     });
   }
 
-  List<IncidentTriageRecord> _visible(List<IncidentTriageRecord> records) {
+  bool _matches(CockpitIncident incident) {
+    if (filter == _IncidentFilter.critical &&
+        incident.severity != CockpitIncidentSeverity.critical) {
+      return false;
+    }
+    if (filter == _IncidentFilter.warning &&
+        incident.severity != CockpitIncidentSeverity.warning) {
+      return false;
+    }
+    if (source == _IncidentSourceFilter.nodes &&
+        incident.source != CockpitIncidentSource.node) {
+      return false;
+    }
+    if (source == _IncidentSourceFilter.tasks &&
+        incident.source != CockpitIncidentSource.task) {
+      return false;
+    }
+    if (source == _IncidentSourceFilter.rules &&
+        incident.source != CockpitIncidentSource.rule) {
+      return false;
+    }
     final query = _query.trim().toLowerCase();
-    return records
-        .where((record) {
-          final incident = record.incident;
-          if (filter == _IncidentFilter.critical &&
-              incident.severity != CockpitIncidentSeverity.critical) {
-            return false;
-          }
-          if (filter == _IncidentFilter.warning &&
-              incident.severity != CockpitIncidentSeverity.warning) {
-            return false;
-          }
-          if (source == _IncidentSourceFilter.nodes &&
-              incident.source != CockpitIncidentSource.node) {
-            return false;
-          }
-          if (source == _IncidentSourceFilter.tasks &&
-              incident.source != CockpitIncidentSource.task) {
-            return false;
-          }
-          if (source == _IncidentSourceFilter.rules &&
-              incident.source != CockpitIncidentSource.rule) {
-            return false;
-          }
-          if (query.isEmpty) return true;
-          final text = [
-            incident.title,
-            incident.detail,
-            incident.node ?? '',
-            incident.taskTitle ?? '',
-            incident.guestVmid?.toString() ?? '',
-            incident.storageId ?? '',
-            incident.sourceLabel,
-          ].join(' ').toLowerCase();
-          return text.contains(query);
-        })
-        .toList(growable: false);
+    if (query.isEmpty) return true;
+    final text = [
+      incident.title,
+      incident.detail,
+      incident.node ?? '',
+      incident.taskTitle ?? '',
+      incident.guestVmid?.toString() ?? '',
+      incident.storageId ?? '',
+      incident.sourceLabel,
+    ].join(' ').toLowerCase();
+    return text.contains(query);
   }
+
+  List<IncidentTriageRecord> _visible(List<IncidentTriageRecord> records) =>
+      records
+          .where((record) => _matches(record.incident))
+          .toList(growable: false);
+
+  List<IncidentHistoryEntry> _visibleHistory(
+    List<IncidentHistoryEntry> entries,
+  ) => entries
+      .where((entry) => _matches(entry.incident))
+      .toList(growable: false);
 
   Future<void> _acknowledgeVisible(
     List<IncidentTriageRecord> records,
@@ -244,11 +251,21 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
     final acknowledged = current
         .where((record) => record.isAcknowledged)
         .toList();
-    final selected = _visible(switch (view) {
-      _IncidentTriageView.needsReview => needsReview,
-      _IncidentTriageView.acknowledged => acknowledged,
-      _IncidentTriageView.earlier => earlier,
-    });
+    final history = controller.incidentHistory;
+    final selected = view == _IncidentTriageView.history
+        ? const <IncidentTriageRecord>[]
+        : _visible(switch (view) {
+            _IncidentTriageView.needsReview => needsReview,
+            _IncidentTriageView.acknowledged => acknowledged,
+            _IncidentTriageView.earlier => earlier,
+            _IncidentTriageView.history => const <IncidentTriageRecord>[],
+          });
+    final selectedHistory = view == _IncidentTriageView.history
+        ? _visibleHistory(history)
+        : const <IncidentHistoryEntry>[];
+    final hasSelected = view == _IncidentTriageView.history
+        ? selectedHistory.isNotEmpty
+        : selected.isNotEmpty;
     final stale =
         controller.active != null &&
         (!controller.isInventoryFresh ||
@@ -307,9 +324,12 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
           Text(
             'Foreground-only signals. Acknowledgement changes only your '
             'current session view, not server health or task outcomes. '
-            'Earlier signals are kept in memory until you reconnect; '
-            'there is no persistent history, background monitoring or '
-            'Android notification delivery.',
+            'Earlier is session-only; History keeps up to '
+            '$maxPersistedIncidentHistory profile-scoped occurrence summaries '
+            'on this device. Task UPIDs and task logs are never stored. '
+            'Saved history is context, not recovery proof or current health, '
+            'and there is no background monitoring or Android notification '
+            'delivery.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           if (incidents.isNotEmpty) ...[
@@ -360,6 +380,13 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
                 selected: view == _IncidentTriageView.earlier,
                 onSelected: (_) =>
                     setState(() => view = _IncidentTriageView.earlier),
+              ),
+              ChoiceChip(
+                key: const Key('incident-history-view'),
+                label: Text('History (${history.length})'),
+                selected: view == _IncidentTriageView.history,
+                onSelected: (_) =>
+                    setState(() => view = _IncidentTriageView.history),
               ),
             ],
           ),
@@ -498,7 +525,7 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
               title: 'No active connection',
               body: 'Open a connection to evaluate foreground incidents.',
             )
-          else if (selected.isEmpty && _hasActiveFilters)
+          else if (!hasSelected && _hasActiveFilters)
             EmptyState(
               icon: Icons.filter_alt_off_outlined,
               title: 'No matching signals',
@@ -510,7 +537,7 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
                 child: const Text('Reset filters'),
               ),
             )
-          else if (selected.isEmpty && view == _IncidentTriageView.earlier)
+          else if (!hasSelected && view == _IncidentTriageView.earlier)
             const EmptyState(
               icon: Icons.history_rounded,
               title: 'No earlier signals',
@@ -518,13 +545,23 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
                   'Only signals that disappear after a complete foreground '
                   'refresh appear here. This is not a recovery certificate.',
             )
-          else if (selected.isEmpty && view == _IncidentTriageView.acknowledged)
+          else if (!hasSelected && view == _IncidentTriageView.history)
+            const EmptyState(
+              icon: Icons.history_toggle_off_rounded,
+              title: 'No saved history',
+              body:
+                  'A bounded on-device history appears after this profile '
+                  'observes incidents. It never replaces live health checks.',
+            )
+          else if (!hasSelected && view == _IncidentTriageView.acknowledged)
             const EmptyState(
               icon: Icons.done_all_rounded,
               title: 'Nothing acknowledged',
               body: 'Use Acknowledge on a signal to mark it reviewed locally.',
             )
-          else if (selected.isEmpty && incidents.isNotEmpty)
+          else if (!hasSelected &&
+              incidents.isNotEmpty &&
+              view != _IncidentTriageView.history)
             EmptyState(
               icon: Icons.filter_alt_off_outlined,
               title: 'No signals in this view',
@@ -537,6 +574,11 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
                 child: const Text('Show needs review'),
               ),
             )
+          else if (view == _IncidentTriageView.history)
+            for (final entry in selectedHistory) ...[
+              _IncidentHistoryCard(entry: entry),
+              const SizedBox(height: 10),
+            ]
           else if (incidents.isEmpty && (stale || taskCoverageIncomplete))
             EmptyState(
               icon: Icons.help_outline_rounded,
@@ -580,6 +622,64 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
               const SizedBox(height: 10),
             ],
         ],
+      ),
+    );
+  }
+}
+
+class _IncidentHistoryCard extends StatelessWidget {
+  const _IncidentHistoryCard({required this.entry});
+
+  final IncidentHistoryEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = entry.severity == CockpitIncidentSeverity.critical
+        ? scheme.error
+        : scheme.tertiary;
+    return Card(
+      child: ListTile(
+        contentPadding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+        leading: CircleAvatar(
+          backgroundColor: color.withValues(alpha: 0.12),
+          foregroundColor: color,
+          child: const Icon(Icons.history_rounded),
+        ),
+        title: Text(
+          entry.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                entry.severity.name.toUpperCase(),
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(entry.detail, maxLines: 4, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 6),
+              Text(
+                entry.lifecycleLabel,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Last observed ${formatAge(entry.lastSeen)} • '
+                '${entry.wasReviewed ? 'Reviewed in a prior session' : 'Not reviewed'}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
