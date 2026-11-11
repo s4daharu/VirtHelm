@@ -615,5 +615,16 @@
     "verification": "Synthetic model regressions cover unassessed/insufficient/partial states and newest mixed task outcome selection. Recovery widget coverage verifies explicit transition after archive loading plus PBS-verification/restore disclaimers. Current-head pinned CI remains authoritative; real PVE/PBS evidence remains a release gate.",
     "deferred": "PBS authenticated connector and per-snapshot verification state, checksum/integrity verification, backup freshness policy, tested-restore declaration/history, actual restore and physical-device certification.",
     "report": "docs/91-implementation-backup-validation-confidence.md"
+  },
+  "alert_incident_triage": {
+    "status": "implemented_source_level_ci_pending",
+    "milestone": "ALERT-02 partial / mobile foreground triage",
+    "version": "0.1.49",
+    "behavior": "Session-local acknowledgement with Needs review, Acknowledged and Earlier views in mobile incident inbox; keeps existing severity filters, task/node drill-down and active incident counters.",
+    "safety": "Acknowledge never marks resources healthy, changes task outcomes, dismisses server signals or authorizes mutations. Only complete authenticated foreground snapshots mark missing signals as no longer observed; incomplete reads retain them. Task history departure is never called recovery.",
+    "privacy": "No PVE calls, no background operations, no task-log persistence, no SharedPreferences history. In-memory earlier-signal observations capped at 40 and reset on reconnect/profile switch, active profile removal and dispose.",
+    "verification": "Pure ledger regression and mobile inbox widget regression added; pinned Flutter analyzer/format/test/Android CI required for merged-head proof.",
+    "deferred": "Persistent alert history, quiet hours, cooldown, dedicated rule occurrence IDs, native notifications and relay remain gated. Full PVE 8.4/9.2/Android accessibility matrix still open.",
+    "report": "docs/95-implementation-incident-triage.md"
   }
 }

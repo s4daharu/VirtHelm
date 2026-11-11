@@ -144,6 +144,8 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
+    final renderingProfileId = controller.active?.id;
+    final renderingGeneration = controller.connectionGeneration;
     final incidents = controller.incidents;
     final current = _visible(controller.currentIncidentTriage);
     final earlier = _visible(controller.earlierIncidentTriage);
@@ -358,13 +360,12 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
                   acknowledged: record.isAcknowledged,
                   onTap: () => _openIncident(context, record.incident),
                   onAcknowledge: () {
-                    final profileId = controller.active?.id;
-                    if (profileId == null) return;
+                    if (renderingProfileId == null) return;
                     controller.setIncidentAcknowledged(
                       record.incident.key,
                       !record.isAcknowledged,
-                      expectedProfileId: profileId,
-                      expectedGeneration: controller.connectionGeneration,
+                      expectedProfileId: renderingProfileId,
+                      expectedGeneration: renderingGeneration,
                     );
                   },
                 )
