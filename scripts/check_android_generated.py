@@ -70,6 +70,12 @@ if worker_template.is_file():
     assert 'task-incident-active:' in worker_text
     assert 'task-watermark:' in worker_text
     assert 'endTimeSeconds > previousWatermarkSeconds' in worker_text
+    assert 'MAX_BACKGROUND_NODE_CPU_RULES = 32' in worker_text
+    assert 'nodeCpuThresholdChecksEnabled' in worker_text
+    assert 'nodeCpuThresholdRules' in worker_text
+    assert 'node-cpu-threshold-state:' in worker_text
+    assert 'evaluateNodeCpuThresholds' in worker_text
+    assert 'IncidentNotificationDeliveryLedger.profileKey(ruleId)' in worker_text
     navigation_intent = worker_text.split('internal object IncidentNotificationNavigation', 1)[1].split('internal data class ScheduledPolicy', 1)[0]
     assert 'putExtra(' not in navigation_intent
     assert 'instanceFollowRedirects = false' in worker_text
