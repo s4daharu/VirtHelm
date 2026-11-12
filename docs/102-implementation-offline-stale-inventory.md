@@ -104,9 +104,11 @@ key, non-interactive stale UI markers, authentication-loss purge wiring and the
 absence of any `Inventory.fromResources` reconstruction in the offline cache
 implementation.
 
-Pinned formatting, analyzer, Flutter runtime tests and debug APK compilation
-remain the merge gates. Physical-device process-death, radio/VPN transition and
-storage inspection remain release-validation work.
+Exact-head PR run **43164552217** passed repository source/docs checks,
+generated Android checks, pinned Dart formatting,
+`flutter analyze --fatal-infos`, **403 Flutter runtime tests**, and debug APK
+compilation. These source/build checks do not replace physical-device
+process-death, radio/VPN transition and storage-inspection release validation.
 
 ## Remaining scope
 
