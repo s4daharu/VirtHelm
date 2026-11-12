@@ -108,7 +108,9 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
         }
         final scheduler = widget.scheduler;
         if (scheduler is ThresholdAwareBackgroundCheckScheduler) {
-          await scheduler.configureWithThresholdRules(
+          final thresholdScheduler =
+              scheduler as ThresholdAwareBackgroundCheckScheduler;
+          await thresholdScheduler.configureWithThresholdRules(
             profile,
             credentials,
             validated,
