@@ -14,7 +14,7 @@
   "framework": "Flutter",
   "primary_pve": "9.2",
   "regression_pve": "8.4",
-  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, snapshot creation/stopped-only non-RAM rollback/deletion, one-off backup-start, exact-guest backup-archive visibility, evidence-limited backup validation confidence, and GET-only same-node alternate-VMID restore-plan/conflict-preflight operational slices + ALERT-007 foreground notification quiet-hours/cooldown delivery policy + ALERT-009 opt-in Android WorkManager node-state checks + ALERT-010 device-wide notification lock-screen privacy + AND-010 generic Android notification deep link to unlocked Incidents + AND-011 separate opt-in bounded stale node/guest inventory cache",
+  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, snapshot creation/stopped-only non-RAM rollback/deletion, one-off backup-start, exact-guest backup-archive visibility, evidence-limited backup validation confidence, and GET-only same-node alternate-VMID restore-plan/conflict-preflight operational slices + ALERT-007 foreground notification quiet-hours/cooldown delivery policy + ALERT-009 opt-in Android WorkManager node-state checks + ALERT-010 device-wide notification lock-screen privacy + AND-010 generic Android notification deep link to unlocked Incidents + AND-011 separate opt-in bounded stale node/guest inventory cache + shared cross-mode foreground/scheduled notification delivery deduplication",
   "github_repository_url": "https://github.com/s4daharu/VirtHelm",
   "documentation_uploaded_and_verified": true,
   "docs_initial_remote_commit": "4fdfcd704aced213508f798533fd6370573ac284",
@@ -39,7 +39,7 @@
   "m1_validation": "Automated branch CI has passed source checks, analyzer, tests and Android debug APK build for the M1 safety implementation; live PVE/device release validation remains open.",
   "flutter_build_success": true,
   "ci_flutter_version": "3.44.4",
-  "android_build_evidence": "Docs and Android checks run 42913689940 and signed prerelease run 42914642302 passed for audited baseline fa41718a69e5083201f002ecc39c6e3e97420506. The 0.1.46 audit passed a throttled local debug APK build with pinned Flutter 3.44.4 and Java 17. The 0.1.48 snapshot lifecycle hardening slice passed local pinned formatting, analyze and 387 Flutter runtime tests. The 0.1.51 durable incident-history milestone passed exact-head PR run 43093767543 with pinned Flutter 3.44.4 formatting, analyze --fatal-infos, 381 passing Flutter tests and a debug APK build. The 0.1.53 ALERT-009 branch passed exact-head PR run 43153754048 with source/docs checks, generated Android hardening checks, pinned formatting, analyze --fatal-infos, the full Flutter suite and debug APK compilation. The 0.1.54 ALERT-010 branch passed exact-head PR run 43156373238 with repository source/docs checks, generated Android privacy hardening checks, pinned formatting, flutter analyze --fatal-infos, 391 passing Flutter runtime tests and debug APK compilation. The 0.1.55 AND-010 branch passed exact-head PR run 43159936358 with repository source/docs checks, generated Android deep-link hardening checks, pinned formatting, flutter analyze --fatal-infos, 395 passing Flutter runtime tests and debug APK compilation. The 0.1.56 AND-011 stale-inventory branch passed exact-head PR run 43164552217 with repository source/docs checks, generated Android checks, pinned formatting, flutter analyze --fatal-infos, 403 passing Flutter runtime tests and debug APK compilation. Bounded 9.2.26 read-only evidence does not close mutation/8.4/device release gates.",
+  "android_build_evidence": "Docs and Android checks run 42913689940 and signed prerelease run 42914642302 passed for audited baseline fa41718a69e5083201f002ecc39c6e3e97420506. The 0.1.46 audit passed a throttled local debug APK build with pinned Flutter 3.44.4 and Java 17. The 0.1.48 snapshot lifecycle hardening slice passed local pinned formatting, analyze and 387 Flutter runtime tests. The 0.1.51 durable incident-history milestone passed exact-head PR run 43093767543 with pinned Flutter 3.44.4 formatting, analyze --fatal-infos, 381 passing Flutter tests and a debug APK build. The 0.1.53 ALERT-009 branch passed exact-head PR run 43153754048 with source/docs checks, generated Android hardening checks, pinned formatting, analyze --fatal-infos, the full Flutter suite and debug APK compilation. The 0.1.54 ALERT-010 branch passed exact-head PR run 43156373238 with repository source/docs checks, generated Android privacy hardening checks, pinned formatting, flutter analyze --fatal-infos, 391 passing Flutter runtime tests and debug APK compilation. The 0.1.55 AND-010 branch passed exact-head PR run 43159936358 with repository source/docs checks, generated Android deep-link hardening checks, pinned formatting, flutter analyze --fatal-infos, 395 passing Flutter runtime tests and debug APK compilation. The 0.1.56 AND-011 stale-inventory branch passed exact-head PR run 43164552217 with repository source/docs checks, generated Android checks, pinned formatting, flutter analyze --fatal-infos, 403 passing Flutter runtime tests and debug APK compilation. Bounded 9.2.26 read-only evidence does not close mutation/8.4/device release gates. The 0.1.57 cross-mode notification delivery deduplication branch passed exact-head PR run 43168287847 at 5206e7c91be6cf36e58d7a52aaf10a4a13467c31 with repository source/docs checks, generated Android delivery-ledger hardening checks, pinned Dart formatting, flutter analyze --fatal-infos, 405 passing Flutter runtime tests and debug APK compilation.",
   "m1_safety_followup": "Implemented: per-guest single-flight, profile/snapshot revalidation, bounded task verification, ambiguous-outcome lockout, auth-revocation fail-closed handling and race regression tests.",
   "m2_read_cockpit": {
     "features": [
@@ -155,8 +155,8 @@
       "GET-only smoke testing against one PVE 9.2.26 server exercised HTTP schemas and actual gateway parsers, including server-side free/occupied VMID checks. No mutations were attempted; 8.4, restricted ACL, backend variants, physical-device and production gates remain open."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 346,
-    "current_flutter_runtime_tests_passed": 403,
+    "current_flutter_tests_defined": 348,
+    "current_flutter_runtime_tests_passed": 405,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
     "p0_scope_complete": false,
@@ -661,7 +661,7 @@
     "android": "POST_NOTIFICATIONS requested on Android 13+ only when enabling; deterministic native notification channel/small icon installed through the hardened generated-runner path",
     "safety": "notification failures/permission denial never change incident severity, acknowledgement, durable history, current health, PVE I/O or mutation authorization",
     "followup": "docs/98-implementation-foreground-alert-notifications.md",
-    "deferred": "authoritative cross-resource correlation, cross-mode notification deduplication, notification deep links, relay/webhooks and physical-device/PVE release validation remain gated; ALERT-009 and ALERT-010 bounded source slices are implemented"
+    "deferred": "background failed-task/threshold parity, authoritative cross-resource correlation, resource-specific notification links, relay/webhooks and physical-device/PVE release validation remain gated; ALERT-009, ALERT-010, AND-010 and the 0.1.57 cross-mode delivery follow-up are implemented"
   },
   "alert_android_periodic_checks": {
     "status": "implemented_ci_verified",
@@ -675,7 +675,7 @@
     "tls_boundary": "Scheduled mode is unavailable for profiles that disable certificate/hostname verification; HttpsURLConnection uses platform certificate and hostname validation with redirects disabled.",
     "verification": "Exact-head PR run 43153754048 passed repository source/docs tests, generated Android runner checks, pinned Dart formatting, flutter analyze --fatal-infos, the full Flutter test suite and debug APK compilation. Physical-device/PVE 8.4/9.2 background-execution validation remains a release gate.",
     "report": "docs/99-implementation-android-periodic-alert-checks.md",
-    "deferred": "background failed-task/threshold parity, authoritative cross-resource incident correlation, cross-mode notification deduplication, notification deep links, relay/webhooks and production critical-alert guarantees"
+    "deferred": "background failed-task/threshold parity, authoritative cross-resource incident correlation, resource-specific notification links, relay/webhooks and production critical-alert guarantees"
   },
   "alert_notification_lock_screen_privacy": {
     "status": "implemented_ci_verified",
@@ -701,7 +701,7 @@
     "safety": "Navigation never switches profiles, acknowledges/resolves incidents, submits PVE I/O, bypasses Android unlock policy, weakens ALERT-010 lock-screen privacy, or authorizes resource drill-down.",
     "verification": "Exact-head PR run 43159936358 passed repository source/docs checks, generated Android deep-link/privacy assertions, pinned Dart formatting, flutter analyze --fatal-infos, 395 Flutter runtime tests and debug APK compilation. Regression coverage includes native pending-target consumption, pre-shell requests, warm existing-shell switching and one-shot consumption across shell recreation. Physical-device secure-lock-screen/cold-warm notification-tap validation remains a release gate.",
     "report": "docs/101-implementation-notification-incident-deep-link.md",
-    "deferred": "physical-device secure-lock-screen/cold-warm tap validation, resource-specific notification links, background failed-task/threshold parity, cross-mode notification deduplication, authoritative correlation, relay/webhooks and production critical-alert guarantees"
+    "deferred": "physical-device secure-lock-screen/cold-warm tap validation, resource-specific notification links, background failed-task/threshold parity, authoritative correlation, relay/webhooks and production critical-alert guarantees"
   },
   "android_offline_stale_inventory": {
     "status": "implemented_ci_verified",
@@ -715,5 +715,16 @@
     "verification": "Exact-head PR run 43164552217 passed repository source/docs checks, generated Android checks, pinned Dart formatting, flutter analyze --fatal-infos, 403 Flutter runtime tests and debug APK compilation. Model/repository/controller/widget regressions cover allowlist serialization, expiry/corruption/ambiguity rejection, consent/purge, live snapshot save/erase, non-interactive cached Home cards, dedicated cached Guests search and the separate Settings opt-in. Physical-device process-death/radio/VPN/storage inspection remains a release gate.",
     "report": "docs/102-implementation-offline-stale-inventory.md",
     "deferred": "physical-device process-death/radio/VPN/storage inspection, persistent node/guest detail/metrics/config/storage/task caches, PVE 8.4/9.2 ACL fixture matrix, production signing/device verification and independent security review"
+  },
+  "alert_cross_mode_notification_deduplication": {
+    "status": "implemented_ci_verified",
+    "milestone": "EP-ALERT cross-mode notification delivery deduplication",
+    "version": "0.1.57",
+    "behavior": "Foreground and scheduled Android notification paths share one native per-profile last-successful-delivery ledger. Each mode applies its own configured cooldown against the most recent successful notification from either mode; quiet hours remain mode-specific and suppression is never queued.",
+    "privacy": "The native ledger stores only a SHA-256-derived profile key and last-delivery timestamp in private app preferences. It stores no raw profile ID in its key, names/endpoints, incident/resource IDs, VMIDs, UPIDs, logs, credentials or PVE responses.",
+    "synchronization": "One in-process native lock serializes cooldown check plus notification posting for MainActivity and the WorkManager Worker. Profile/scheduled lifecycle purge clears the shared ledger; foreground durable history and scheduled occurrence state remain separate.",
+    "verification": "Exact-head PR run 43168287847 at 5206e7c91be6cf36e58d7a52aaf10a4a13467c31 passed repository source/docs checks, generated Android delivery-ledger hardening checks, pinned Dart formatting, flutter analyze --fatal-infos, 405 Flutter runtime tests and debug APK compilation. Bridge regressions cover exact metadata and invalid-input fail-closed behavior; physical-device foreground/background race, process-death and OEM validation remain release gates.",
+    "report": "docs/103-implementation-cross-mode-notification-deduplication.md",
+    "deferred": "physical-device foreground/background race/process-death/OEM validation, background failed-task/threshold parity, authoritative incident correlation, resource-specific notification links, relay/webhooks and production critical-alert guarantees"
   }
 }

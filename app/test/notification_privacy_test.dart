@@ -64,7 +64,11 @@ class _Notifier implements ForegroundIncidentNotifier {
   }
 
   @override
-  Future<bool> showIncidentSummary({required bool critical}) async => true;
+  Future<bool> showIncidentSummary({
+    required bool critical,
+    required String profileId,
+    required int cooldownMinutes,
+  }) async => true;
 }
 
 void main() {

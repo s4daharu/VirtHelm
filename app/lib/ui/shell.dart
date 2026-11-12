@@ -2738,7 +2738,9 @@ class _SettingsTab extends StatelessWidget {
                   },
                 ),
                 const Text(
-                  'Quiet hours use this device’s local time. Suppressed '
+                  'Quiet hours use this device’s local time. The foreground '
+                  'cooldown is checked against the last successful foreground '
+                  'or scheduled notification for this connection. Suppressed '
                   'notifications are not queued for later delivery.',
                 ),
               ],

@@ -32,6 +32,8 @@ assert 'com.s4daharu.virthelm/incident_navigation' in activity
 assert 'onNewIntent' in activity
 assert 'takePendingIncidentNavigation' in activity
 assert 'IncidentNotificationNavigation.contentIntent(this)' in activity
+assert 'IncidentNotificationDeliveryLedger.profileKey(profileId)' in activity
+assert 'cooldownMinutes = cooldownMinutes' in activity
 assert (root / 'app/android/app/src/main/res/drawable/virthelm_notification.xml').is_file()
 assert 'android:allowBackup="false"' in manifest_text
 assert 'android:usesCleartextTraffic="false"' in manifest_text
@@ -55,6 +57,12 @@ if worker_template.is_file():
     assert 'ACTION_OPEN_INCIDENTS' in worker_text
     assert 'PendingIntent.FLAG_IMMUTABLE' in worker_text
     assert 'IncidentNotificationNavigation.contentIntent(context)' in worker_text
+    assert 'internal object IncidentNotificationDeliveryLedger' in worker_text
+    assert 'virthelm_incident_delivery_v1' in worker_text
+    assert 'Context.MODE_PRIVATE' in worker_text
+    assert 'synchronized(lock)' in worker_text
+    assert 'IncidentNotificationDeliveryLedger.clearKey(context, key)' in worker_text
+    assert 'cooldownMinutes = policy.cooldownMinutes' in worker_text
     navigation_intent = worker_text.split('internal object IncidentNotificationNavigation', 1)[1].split('internal data class ScheduledPolicy', 1)[0]
     assert 'putExtra(' not in navigation_intent
     assert 'instanceFollowRedirects = false' in worker_text

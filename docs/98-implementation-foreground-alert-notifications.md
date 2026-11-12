@@ -44,8 +44,10 @@ operator/system controlled and still require physical-device validation.
   notification; critical severity changes only the generic title.
 - Quiet hours use the Android device's local clock and support intervals that
   cross midnight.
-- Cooldown is measured from the last successfully displayed notification for
-  that profile. Suppressed occurrences are not queued for delayed delivery.
+- From 0.1.57, cooldown is measured against the last successfully displayed
+  foreground **or scheduled** notification for that profile through one shared
+  native delivery ledger. Suppressed occurrences are not queued for delayed
+  delivery.
 - Notification delivery failure is best-effort and cannot alter incident
   lifecycle, current health, durable history or write authorization.
 - Profile/generation checks are retained around delivery. The persisted
@@ -82,9 +84,10 @@ Android notification-permission, lock-screen, OEM, TalkBack or battery signoff.
 
 ## Still gated
 
-ALERT-009 scheduled node-state checks and ALERT-010 lock-screen privacy are now
-implemented as bounded follow-up slices. Background failed-task/threshold parity,
-cross-mode notification deduplication, notification deep links, authoritative
-cross-resource correlation, relay/webhook delivery and production release
-certification remain gated. Android scheduled work remains inexact and
-unsuitable for critical paging.
+ALERT-009 scheduled node-state checks, ALERT-010 lock-screen privacy, AND-010
+generic Incidents navigation and 0.1.57 cross-mode notification delivery
+deduplication are implemented as bounded follow-up slices. Background
+failed-task/threshold parity, resource-specific notification links,
+authoritative cross-resource correlation, relay/webhook delivery and
+production release certification remain gated. Android scheduled work remains
+inexact and unsuitable for critical paging.

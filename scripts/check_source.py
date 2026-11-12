@@ -37,6 +37,7 @@ required = [
   'app/test/incident_history_test.dart','app/test/foreground_notifications_test.dart',
   'app/test/notification_privacy_test.dart',
   'app/test/notification_navigation_test.dart',
+  'app/test/notification_deduplication_test.dart',
   'app/test/alert_rules_test.dart',
   'app/test/alert_rules_widget_test.dart',
   'app/test/ui_components_test.dart',
@@ -113,6 +114,7 @@ required = [
     'docs/100-implementation-notification-lock-screen-privacy.md',
     'docs/101-implementation-notification-incident-deep-link.md',
     'docs/102-implementation-offline-stale-inventory.md',
+    'docs/103-implementation-cross-mode-notification-deduplication.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
@@ -141,6 +143,11 @@ assert 'requestIncidentCenter' in files['app/lib/core/app_controller.dart']
 assert 'takeIncidentCenterNavigationRequest' in files['app/lib/core/app_controller.dart']
 assert 'takeIncidentCenterNavigationRequest' in files['app/lib/ui/shell.dart']
 assert 'setForegroundNotificationPolicy' in files['app/lib/core/app_controller.dart']
+assert 'cross-mode notification delivery deduplication' in files['docs/103-implementation-cross-mode-notification-deduplication.md'].lower()
+assert "'profileId': profileId" in files['app/lib/core/foreground_notifications.dart']
+assert "'cooldownMinutes': cooldownMinutes" in files['app/lib/core/foreground_notifications.dart']
+assert 'profileId: profileId' in files['app/lib/core/app_controller.dart']
+assert 'cooldownMinutes: policy.cooldownMinutes' in files['app/lib/core/app_controller.dart']
 assert "Key('foreground-incident-notifications')" in files['app/lib/ui/shell.dart']
 assert "Key('incident-notification-quiet-hours')" in files['app/lib/ui/shell.dart']
 assert "Key('incident-notification-cooldown')" in files['app/lib/ui/shell.dart']
@@ -441,6 +448,8 @@ assert 'com.s4daharu.virthelm/incident_navigation' in main_activity
 assert 'onNewIntent' in main_activity
 assert 'takePendingIncidentNavigation' in main_activity
 assert 'IncidentNotificationNavigation.contentIntent(this)' in main_activity
+assert 'IncidentNotificationDeliveryLedger.profileKey(profileId)' in main_activity
+assert 'cooldownMinutes = cooldownMinutes' in main_activity
 worker = files['scripts/android/BackgroundIncidentWorker.kt']
 assert 'PeriodicWorkRequest.Builder' in worker
 assert 'NetworkType.CONNECTED' in worker
@@ -453,6 +462,12 @@ assert 'Notification.VISIBILITY_PUBLIC' not in worker
 assert 'ACTION_OPEN_INCIDENTS' in worker
 assert 'PendingIntent.FLAG_IMMUTABLE' in worker
 assert 'IncidentNotificationNavigation.contentIntent(context)' in worker
+assert 'internal object IncidentNotificationDeliveryLedger' in worker
+assert 'virthelm_incident_delivery_v1' in worker
+assert 'Context.MODE_PRIVATE' in worker
+assert 'synchronized(lock)' in worker
+assert 'IncidentNotificationDeliveryLedger.clearKey(context, key)' in worker
+assert 'cooldownMinutes = policy.cooldownMinutes' in worker
 navigation_intent = worker.split('internal object IncidentNotificationNavigation', 1)[1].split('internal data class ScheduledPolicy', 1)[0]
 assert 'putExtra(' not in navigation_intent
 assert 'instanceFollowRedirects = false' in worker

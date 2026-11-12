@@ -197,6 +197,8 @@ class AppController extends ChangeNotifier {
         critical: newOccurrences.any(
           (entry) => entry.severity == CockpitIncidentSeverity.critical,
         ),
+        profileId: profileId,
+        cooldownMinutes: policy.cooldownMinutes,
       );
       if (!shown) return;
       final deliveredAt = now.toUtc();

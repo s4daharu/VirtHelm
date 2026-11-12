@@ -70,6 +70,60 @@ internal object IncidentNotificationPrivacy {
     }
 }
 
+internal object IncidentNotificationDeliveryLedger {
+    private const val PREFS_NAME = "virthelm_incident_delivery_v1"
+    private const val KEY_PREFIX = "last:"
+    private val lock = Any()
+
+    fun profileKey(profileId: String): String {
+        require(profileId.isNotBlank() && profileId.length <= 256)
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(profileId.toByteArray(Charsets.UTF_8))
+        return digest.joinToString("") { "%02x".format(it) }
+    }
+
+    fun deliver(
+        context: Context,
+        profileKey: String,
+        cooldownMinutes: Int,
+        nowMs: Long = System.currentTimeMillis(),
+        post: () -> Boolean,
+    ): Boolean {
+        require(profileKey.matches(Regex("^[0-9a-f]{64}$")))
+        require(cooldownMinutes in 0..24 * 60)
+        return synchronized(lock) {
+            val storage =
+                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val key = KEY_PREFIX + profileKey
+            val previous = storage.getLong(key, 0L)
+            if (previous > nowMs) {
+                storage.edit().remove(key).apply()
+            } else if (cooldownMinutes > 0 && previous > 0L) {
+                val cooldownMs =
+                    TimeUnit.MINUTES.toMillis(cooldownMinutes.toLong())
+                if (nowMs - previous < cooldownMs) return@synchronized false
+            }
+            val shown = post()
+            if (shown) {
+                // apply() updates the in-memory value immediately and avoids
+                // synchronous disk I/O on the activity main thread.
+                storage.edit().putLong(key, nowMs).apply()
+            }
+            shown
+        }
+    }
+
+    fun clearKey(context: Context, profileKey: String) {
+        if (!profileKey.matches(Regex("^[0-9a-f]{64}$"))) return
+        synchronized(lock) {
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .remove(KEY_PREFIX + profileKey)
+                .apply()
+        }
+    }
+}
+
 internal object IncidentNotificationNavigation {
     const val ACTION_OPEN_INCIDENTS =
         "com.s4daharu.virthelm.action.OPEN_INCIDENTS"
@@ -174,12 +228,8 @@ internal object BackgroundCheckCoordinator {
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    private fun profileKey(profileId: String): String {
-        require(profileId.isNotBlank() && profileId.length <= 256)
-        val digest = MessageDigest.getInstance("SHA-256")
-            .digest(profileId.toByteArray(Charsets.UTF_8))
-        return digest.joinToString("") { "%02x".format(it) }
-    }
+    private fun profileKey(profileId: String): String =
+        IncidentNotificationDeliveryLedger.profileKey(profileId)
 
     private fun workName(key: String) = "virthelm-periodic-node-check-$key"
     private fun policyKey(key: String) = "policy:$key"
@@ -283,6 +333,9 @@ internal object BackgroundCheckCoordinator {
         if (!editor.commit()) {
             throw IllegalStateException("Could not clear scheduled-check state.")
         }
+        if (clearPolicy) {
+            IncidentNotificationDeliveryLedger.clearKey(context, key)
+        }
     }
 
     fun status(context: Context, profileId: String): Map<String, Any?> {
@@ -357,13 +410,14 @@ internal object BackgroundCheckCoordinator {
         if (!result.incident || previouslyActive) return
         if (policy.isQuietNow()) return
 
-        val previousDelivery = storage.getLong(lastNotificationKey(key), 0L)
-        if (policy.cooldownMinutes > 0 && previousDelivery > 0L) {
-            val elapsed = now - previousDelivery
-            val cooldownMs = TimeUnit.MINUTES.toMillis(policy.cooldownMinutes.toLong())
-            if (elapsed in 0 until cooldownMs) return
-        }
-        if (showScheduledIncidentNotification(context)) {
+        if (
+            showScheduledIncidentNotification(
+                context = context,
+                profileKey = key,
+                cooldownMinutes = policy.cooldownMinutes,
+                nowMs = now,
+            )
+        ) {
             storage.edit().putLong(lastNotificationKey(key), now).apply()
         }
     }
@@ -474,38 +528,50 @@ internal object BackgroundCheckCoordinator {
         return output.toString(Charsets.UTF_8.name())
     }
 
-    private fun showScheduledIncidentNotification(context: Context): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
-                PackageManager.PERMISSION_GRANTED
+    private fun showScheduledIncidentNotification(
+        context: Context,
+        profileKey: String,
+        cooldownMinutes: Int,
+        nowMs: Long,
+    ): Boolean {
+        return IncidentNotificationDeliveryLedger.deliver(
+            context = context,
+            profileKey = profileKey,
+            cooldownMinutes = cooldownMinutes,
+            nowMs = nowMs,
         ) {
-            return false
-        }
-        val manager =
-            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val visibility = IncidentNotificationPrivacy.visibility(context)
-        val channel = NotificationChannel(
-            INCIDENT_CHANNEL_ID,
-            "Incident alerts",
-            NotificationManager.IMPORTANCE_DEFAULT,
-        ).apply {
-            description = "VirtHelm incident summaries"
-            lockscreenVisibility = visibility
-        }
-        manager.createNotificationChannel(channel)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                    PackageManager.PERMISSION_GRANTED
+            ) {
+                return@deliver false
+            }
+            val manager =
+                context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val visibility = IncidentNotificationPrivacy.visibility(context)
+            val channel = NotificationChannel(
+                INCIDENT_CHANNEL_ID,
+                "Incident alerts",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                description = "VirtHelm incident summaries"
+                lockscreenVisibility = visibility
+            }
+            manager.createNotificationChannel(channel)
 
-        val contentIntent = IncidentNotificationNavigation.contentIntent(context)
-        val notification = Notification.Builder(context, INCIDENT_CHANNEL_ID)
-            .setSmallIcon(R.drawable.virthelm_notification)
-            .setContentTitle("VirtHelm scheduled incident")
-            .setContentText("Open VirtHelm to review current incidents.")
-            .setContentIntent(contentIntent)
-            .setAutoCancel(true)
-            .setCategory(Notification.CATEGORY_STATUS)
-            .setVisibility(visibility)
-            .build()
-        manager.notify(INCIDENT_NOTIFICATION_ID, notification)
-        return true
+            val contentIntent = IncidentNotificationNavigation.contentIntent(context)
+            val notification = Notification.Builder(context, INCIDENT_CHANNEL_ID)
+                .setSmallIcon(R.drawable.virthelm_notification)
+                .setContentTitle("VirtHelm scheduled incident")
+                .setContentText("Open VirtHelm to review current incidents.")
+                .setContentIntent(contentIntent)
+                .setAutoCancel(true)
+                .setCategory(Notification.CATEGORY_STATUS)
+                .setVisibility(visibility)
+                .build()
+            manager.notify(INCIDENT_NOTIFICATION_ID, notification)
+            true
+        }
     }
 
     private fun encryptSecret(profileKey: String, cleartext: String): String {
