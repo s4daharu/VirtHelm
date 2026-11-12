@@ -89,7 +89,7 @@ notifications are generic and private. Profiles using the insecure TLS
 exception cannot enable this mode.
 
 Mode B now also has an optional bounded failed-task slice in 0.1.58. When
-separately enabled, the worker checks up to 20 recent tasks on at most 32 nodes
+separately enabled, the worker checks up to 20 recent tasks on at most 16 nodes
 and retains only generic per-profile category state. Incomplete task reads do
 not clear an earlier task incident, and enabling the option does not disable
 independently complete node-state transitions.
