@@ -487,7 +487,7 @@ class _OverviewTab extends StatelessWidget {
               _MetricCard(
                 title: 'Nodes online',
                 value: hasCounts
-                    ? '$nodeOnline / ${inv?.nodes.length ?? cached!.totalNodes}'
+                    ? '$nodeOnline / ${inv?.nodes.length ?? cached?.totalNodes ?? cachedInventory?.nodes.length ?? 0}'
                     : '—',
                 icon: Icons.hub_outlined,
                 color: const Color(0xFF20BFAF),
