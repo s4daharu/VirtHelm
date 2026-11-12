@@ -44,6 +44,32 @@ private const val MIN_BACKGROUND_INTERVAL_MINUTES = 15
 private const val MAX_BACKGROUND_INTERVAL_MINUTES = 24 * 60
 private const val MAX_RESPONSE_BYTES = 512 * 1024
 
+internal object IncidentNotificationPrivacy {
+    private const val PREFS_NAME = "virthelm_notification_privacy_v1"
+    private const val KEY_LOCK_SCREEN = "lock_screen"
+
+    fun set(context: Context, raw: String?): Boolean {
+        val normalized = when (raw) {
+            "hidden", "generic" -> raw
+            else -> return false
+        }
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_LOCK_SCREEN, normalized)
+            .commit()
+    }
+
+    fun visibility(context: Context): Int {
+        val value = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_LOCK_SCREEN, null)
+        return if (value == "generic") {
+            Notification.VISIBILITY_PRIVATE
+        } else {
+            Notification.VISIBILITY_SECRET
+        }
+    }
+}
+
 internal data class ScheduledPolicy(
     val enabled: Boolean,
     val intervalMinutes: Int,
@@ -435,13 +461,14 @@ internal object BackgroundCheckCoordinator {
         }
         val manager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val visibility = IncidentNotificationPrivacy.visibility(context)
         val channel = NotificationChannel(
             INCIDENT_CHANNEL_ID,
             "Incident alerts",
             NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
             description = "VirtHelm incident summaries"
-            lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+            lockscreenVisibility = visibility
         }
         manager.createNotificationChannel(channel)
 
@@ -461,7 +488,7 @@ internal object BackgroundCheckCoordinator {
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .setCategory(Notification.CATEGORY_STATUS)
-            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .setVisibility(visibility)
             .build()
         manager.notify(INCIDENT_NOTIFICATION_ID, notification)
         return true
