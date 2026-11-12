@@ -114,6 +114,7 @@ required = [
     'docs/100-implementation-notification-lock-screen-privacy.md',
     'docs/101-implementation-notification-incident-deep-link.md',
     'docs/102-implementation-offline-stale-inventory.md',
+    'docs/103-implementation-cross-mode-notification-deduplication.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
@@ -142,6 +143,7 @@ assert 'requestIncidentCenter' in files['app/lib/core/app_controller.dart']
 assert 'takeIncidentCenterNavigationRequest' in files['app/lib/core/app_controller.dart']
 assert 'takeIncidentCenterNavigationRequest' in files['app/lib/ui/shell.dart']
 assert 'setForegroundNotificationPolicy' in files['app/lib/core/app_controller.dart']
+assert 'Cross-mode notification delivery deduplication' in files['docs/103-implementation-cross-mode-notification-deduplication.md']
 assert "'profileId': profileId" in files['app/lib/core/foreground_notifications.dart']
 assert "'cooldownMinutes': cooldownMinutes" in files['app/lib/core/foreground_notifications.dart']
 assert 'profileId: profileId' in files['app/lib/core/app_controller.dart']
