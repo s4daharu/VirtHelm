@@ -220,7 +220,7 @@ internal data class ScheduledPolicy(
     }
 }
 
-private data class ScheduledNodeCpuRule(
+internal data class ScheduledNodeCpuRule(
     val id: String,
     val node: String,
     val thresholdPercent: Int,
