@@ -1084,6 +1084,7 @@ class AppController extends ChangeNotifier {
     thresholdAlertRules = repository.readThresholdAlertRules(profile.id);
     _thresholdAlertEngine.reconcileRules(thresholdAlertRules);
     _notify();
+    await _syncScheduledNodeCpuThresholdRules(profile);
   }
 
   Future<void> deleteThresholdAlertRule(
@@ -1099,6 +1100,25 @@ class AppController extends ChangeNotifier {
     thresholdAlertRules = repository.readThresholdAlertRules(profile.id);
     _thresholdAlertEngine.reconcileRules(thresholdAlertRules);
     _notify();
+    await _syncScheduledNodeCpuThresholdRules(profile);
+  }
+
+  Future<void> _syncScheduledNodeCpuThresholdRules(
+    ConnectionProfile profile,
+  ) async {
+    try {
+      await _backgroundCheckScheduler.syncNodeCpuThresholdRules(
+        profile.id,
+        thresholdAlertRules,
+      );
+    } on BackgroundCheckException {
+      try {
+        await _backgroundCheckScheduler.disable(profile.id);
+      } catch (_) {
+        // The original synchronization failure remains authoritative.
+      }
+      rethrow;
+    }
   }
 
   void _evaluateThresholdAlerts() {
