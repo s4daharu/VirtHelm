@@ -156,7 +156,7 @@
     ],
     "full_premium_scope_complete": false,
     "current_flutter_tests_defined": 351,
-    "current_flutter_runtime_tests_passed": 405,
+    "current_flutter_runtime_tests_passed": 408,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
     "p0_scope_complete": false,
@@ -729,14 +729,14 @@
     "deferred": "physical-device foreground/background race/process-death/OEM validation, scheduled threshold-rule parity, authoritative incident correlation, resource-specific notification links, relay/webhooks and production critical-alert guarantees; bounded failed-task checks are implemented in 0.1.58"
   },
   "alert_background_failed_task_checks": {
-    "status": "implemented_source_pending_ci",
+    "status": "implemented_ci_verified",
     "milestone": "EP-ALERT bounded Android scheduled failed-task parity",
     "version": "0.1.58",
     "behavior": "For a certificate-verified saved connection with scheduled checks enabled, the operator may separately opt into bounded recent-task scanning. Each eligible WorkManager run reuses the authenticated node list, checks at most 16 nodes and requests at most 20 recent task rows per node. The option defaults off for legacy policies. New definite failures are detected relative to the last complete task end-time watermark, so a later failure can notify while an older failure remains visible.",
     "contract": "GET /api2/json/cluster/resources?type=node plus optional GET /api2/json/nodes/{node}/tasks?limit=20&source=all only; redirects disabled; no mutation methods; 10-second connect/read timeouts; 512 KiB cap per successful response; no immediate WorkManager retry.",
     "semantics": "RUNNING is non-incident; terminal OK is healthy; explicit terminal non-OK results are incidents. Bare stopped without exit status and unknown status remain unknown rather than becoming failed-task incidents, matching the foreground RecentServerTask parser. A definite failure also requires a positive endtime for occurrence ordering. Complete scans advance a per-profile latest-terminal-endtime watermark; a failure is newly observed only when newer than the previous complete watermark. Incomplete task reads never advance that watermark or clear prior task incident state. Independently complete node-state transitions remain effective when task reads are incomplete.",
     "privacy": "Native occurrence state stores profile-scoped node/task category booleans plus one latest complete task end-time integer watermark. No UPID, task type, resource ID, node/guest name, VMID, log, credential or raw PVE response is persisted or inserted into notifications/navigation.",
-    "verification": "Repository source/generated-runner assertions and three Flutter bridge/policy contract tests are added. Exact-head CI, physical-device execution and live PVE 8.4/9.2 task/ACL/pagination validation remain open at this source-status snapshot.",
+    "verification": "PR implementation run 43185078434 at edfaea4277f00ae6ce60f18723a64f6cf5726c0e passed documentation/source checks, generated Android runner hardening, pinned Dart formatting, flutter analyze --fatal-infos, 408 Flutter runtime tests and debug APK compilation. The subsequent verification-record-only PR head is required to pass the same workflow before merge. Physical-device execution and live PVE 8.4/9.2 task/ACL/pagination validation remain release gates.",
     "report": "docs/104-implementation-background-failed-task-checks.md",
     "deferred": "scheduled threshold-rule parity, richer failed-task windowing/correlation, authoritative cross-resource incident correlation, resource-specific notification links, relay/webhooks, production critical-alert guarantees and release certification"
   }
