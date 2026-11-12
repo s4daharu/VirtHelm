@@ -70,6 +70,28 @@ internal object IncidentNotificationPrivacy {
     }
 }
 
+internal object IncidentNotificationNavigation {
+    const val ACTION_OPEN_INCIDENTS =
+        "com.s4daharu.virthelm.action.OPEN_INCIDENTS"
+    private const val REQUEST_CODE = 4109
+
+    fun contentIntent(context: Context): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            action = ACTION_OPEN_INCIDENTS
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        return PendingIntent.getActivity(
+            context,
+            REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    fun targetsIncidents(intent: Intent?): Boolean =
+        intent?.action == ACTION_OPEN_INCIDENTS
+}
+
 internal data class ScheduledPolicy(
     val enabled: Boolean,
     val intervalMinutes: Int,
@@ -472,15 +494,7 @@ internal object BackgroundCheckCoordinator {
         }
         manager.createNotificationChannel(channel)
 
-        val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
-        val contentIntent = PendingIntent.getActivity(
-            context,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+        val contentIntent = IncidentNotificationNavigation.contentIntent(context)
         val notification = Notification.Builder(context, INCIDENT_CHANNEL_ID)
             .setSmallIcon(R.drawable.virthelm_notification)
             .setContentTitle("VirtHelm scheduled incident")

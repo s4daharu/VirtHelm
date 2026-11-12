@@ -28,6 +28,10 @@ assert 'BackgroundCheckBridge.register' in activity
 assert 'setLockScreenPrivacy' in activity
 assert 'IncidentNotificationPrivacy.visibility' in activity
 assert 'Notification.VISIBILITY_PUBLIC' not in activity
+assert 'com.s4daharu.virthelm/incident_navigation' in activity
+assert 'onNewIntent' in activity
+assert 'takePendingIncidentNavigation' in activity
+assert 'IncidentNotificationNavigation.contentIntent(this)' in activity
 assert (root / 'app/android/app/src/main/res/drawable/virthelm_notification.xml').is_file()
 assert 'android:allowBackup="false"' in manifest_text
 assert 'android:usesCleartextTraffic="false"' in manifest_text
@@ -48,6 +52,11 @@ if worker_template.is_file():
     assert 'Notification.VISIBILITY_PRIVATE' in worker_text
     assert 'IncidentNotificationPrivacy.visibility' in worker_text
     assert 'Notification.VISIBILITY_PUBLIC' not in worker_text
+    assert 'ACTION_OPEN_INCIDENTS' in worker_text
+    assert 'PendingIntent.FLAG_IMMUTABLE' in worker_text
+    assert 'IncidentNotificationNavigation.contentIntent(context)' in worker_text
+    navigation_intent = worker_text.split('internal object IncidentNotificationNavigation', 1)[1].split('internal data class ScheduledPolicy', 1)[0]
+    assert 'putExtra(' not in navigation_intent
     assert 'instanceFollowRedirects = false' in worker_text
     assert 'requestMethod = "GET"' in worker_text
     assert 'Open VirtHelm to review current incidents.' in worker_text

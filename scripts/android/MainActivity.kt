@@ -4,7 +4,6 @@ import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -24,6 +23,8 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private var networkEvents: NetworkEvents? = null
     private var notificationPermissionResult: MethodChannel.Result? = null
+    private var incidentNavigationChannel: MethodChannel? = null
+    private var pendingIncidentNavigation = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -56,7 +57,60 @@ class MainActivity : FlutterActivity() {
             }
         }
 
+        val navigationChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            INCIDENT_NAVIGATION_CHANNEL,
+        )
+        incidentNavigationChannel = navigationChannel
+        navigationChannel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "takePendingIncidentIntent" ->
+                    result.success(takePendingIncidentNavigation())
+                else -> result.notImplemented()
+            }
+        }
+
         BackgroundCheckBridge.register(applicationContext, flutterEngine)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (!IncidentNotificationNavigation.targetsIncidents(intent)) return
+        intent.action = null
+        pendingIncidentNavigation = true
+        incidentNavigationChannel?.invokeMethod(
+            "openIncidents",
+            null,
+            object : MethodChannel.Result {
+                override fun success(result: Any?) {
+                    pendingIncidentNavigation = false
+                }
+
+                override fun error(
+                    errorCode: String,
+                    errorMessage: String?,
+                    errorDetails: Any?,
+                ) {
+                    // Keep the request pending for the Dart resume fallback.
+                }
+
+                override fun notImplemented() {
+                    // Keep the request pending for the Dart resume fallback.
+                }
+            },
+        )
+    }
+
+    private fun takePendingIncidentNavigation(): Boolean {
+        val currentIntentTargetsIncidents =
+            IncidentNotificationNavigation.targetsIncidents(intent)
+        if (currentIntentTargetsIncidents) {
+            intent?.action = null
+        }
+        val shouldOpen = pendingIncidentNavigation || currentIntentTargetsIncidents
+        pendingIncidentNavigation = false
+        return shouldOpen
     }
 
     override fun onRequestPermissionsResult(
@@ -121,15 +175,7 @@ class MainActivity : FlutterActivity() {
         }
         manager.createNotificationChannel(channel)
 
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
-        val contentIntent = PendingIntent.getActivity(
-            this,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+        val contentIntent = IncidentNotificationNavigation.contentIntent(this)
         val notification = Notification.Builder(this, INCIDENT_CHANNEL_ID)
             .setSmallIcon(R.drawable.virthelm_notification)
             .setContentTitle(
@@ -150,6 +196,8 @@ class MainActivity : FlutterActivity() {
         networkEvents = null
         notificationPermissionResult?.success(false)
         notificationPermissionResult = null
+        incidentNavigationChannel?.setMethodCallHandler(null)
+        incidentNavigationChannel = null
         super.onDestroy()
     }
 
@@ -205,6 +253,8 @@ class MainActivity : FlutterActivity() {
         private const val NOTIFICATION_METHOD_CHANNEL =
             "com.s4daharu.virthelm/incident_notifications"
         private const val NOTIFICATION_PERMISSION_REQUEST = 4107
+        private const val INCIDENT_NAVIGATION_CHANNEL =
+            "com.s4daharu.virthelm/incident_navigation"
         private const val INCIDENT_CHANNEL_ID = "virthelm_incidents"
         private const val INCIDENT_NOTIFICATION_ID = 4108
     }

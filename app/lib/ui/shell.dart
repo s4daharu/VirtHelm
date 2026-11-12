@@ -33,7 +33,38 @@ class ShellPage extends StatefulWidget {
 }
 
 class _ShellPageState extends State<ShellPage> {
-  int selectedIndex = 0;
+  late int selectedIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    selectedIndex = widget.controller.takeIncidentCenterNavigationRequest()
+        ? 3
+        : 0;
+    widget.controller.addListener(_handleControllerNavigation);
+  }
+
+  @override
+  void didUpdateWidget(covariant ShellPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_handleControllerNavigation);
+      widget.controller.addListener(_handleControllerNavigation);
+      _handleControllerNavigation();
+    }
+  }
+
+  void _handleControllerNavigation() {
+    if (!widget.controller.takeIncidentCenterNavigationRequest()) return;
+    if (!mounted || selectedIndex == 3) return;
+    setState(() => selectedIndex = 3);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_handleControllerNavigation);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2489,6 +2520,8 @@ class _SettingsTab extends StatelessWidget {
               const Text(
                 'Notification text is generic and excludes profile names, '
                 'infrastructure names, VMIDs, task IDs and task logs. '
+                'Tapping an incident notification opens the Incidents tab only; '
+                'the Android intent carries no profile or resource selector. '
                 'Scheduled monitoring, when enabled for a connection, uses the same lock-screen privacy setting.',
               ),
             ],

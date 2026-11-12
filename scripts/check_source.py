@@ -12,7 +12,7 @@ required = [
   'app/lib/core/guest_saved_view.dart','app/lib/core/alert_rules.dart',
   'app/lib/core/incident_center.dart','app/lib/core/incident_triage.dart',
   'app/lib/core/incident_history.dart','app/lib/core/foreground_notifications.dart',
-  'app/lib/core/background_checks.dart',
+  'app/lib/core/background_checks.dart','app/lib/core/notification_navigation.dart',
   'app/lib/ui/theme.dart',
   'app/lib/ui/components.dart',
   'app/lib/core/app_info.dart',
@@ -35,6 +35,7 @@ required = [
   'app/test/incident_triage_widget_test.dart','app/test/incident_triage_batch_test.dart',
   'app/test/incident_history_test.dart','app/test/foreground_notifications_test.dart',
   'app/test/notification_privacy_test.dart',
+  'app/test/notification_navigation_test.dart',
   'app/test/alert_rules_test.dart',
   'app/test/alert_rules_widget_test.dart',
   'app/test/ui_components_test.dart',
@@ -108,6 +109,7 @@ required = [
     'docs/98-implementation-foreground-alert-notifications.md',
     'docs/99-implementation-android-periodic-alert-checks.md',
     'docs/100-implementation-notification-lock-screen-privacy.md',
+    'docs/101-implementation-notification-incident-deep-link.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
@@ -130,6 +132,11 @@ assert 'IncidentNotificationLockScreenPrivacy' in files['app/lib/core/foreground
 assert 'setLockScreenPrivacy' in files['app/lib/core/foreground_notifications.dart']
 assert 'setNotificationLockScreenPrivacy' in files['app/lib/core/app_controller.dart']
 assert 'notificationLockScreenPrivacy' in files['app/lib/core/profile_repository.dart']
+assert 'com.s4daharu.virthelm/incident_navigation' in files['app/lib/core/notification_navigation.dart']
+assert 'takePendingIncidentIntent' in files['app/lib/core/notification_navigation.dart']
+assert 'requestIncidentCenter' in files['app/lib/core/app_controller.dart']
+assert 'takeIncidentCenterNavigationRequest' in files['app/lib/core/app_controller.dart']
+assert 'takeIncidentCenterNavigationRequest' in files['app/lib/ui/shell.dart']
 assert 'setForegroundNotificationPolicy' in files['app/lib/core/app_controller.dart']
 assert "Key('foreground-incident-notifications')" in files['app/lib/ui/shell.dart']
 assert "Key('incident-notification-quiet-hours')" in files['app/lib/ui/shell.dart']
@@ -407,7 +414,12 @@ assert 'com.s4daharu.virthelm/incident_notifications' in (root/'scripts/android/
 assert 'Open VirtHelm to review current incidents.' in (root/'scripts/android/MainActivity.kt').read_text()
 assert 'setLockScreenPrivacy' in (root/'scripts/android/MainActivity.kt').read_text()
 assert 'IncidentNotificationPrivacy.visibility' in (root/'scripts/android/MainActivity.kt').read_text()
-assert 'Notification.VISIBILITY_PUBLIC' not in (root/'scripts/android/MainActivity.kt').read_text()
+main_activity = (root/'scripts/android/MainActivity.kt').read_text()
+assert 'Notification.VISIBILITY_PUBLIC' not in main_activity
+assert 'com.s4daharu.virthelm/incident_navigation' in main_activity
+assert 'onNewIntent' in main_activity
+assert 'takePendingIncidentNavigation' in main_activity
+assert 'IncidentNotificationNavigation.contentIntent(this)' in main_activity
 worker = files['scripts/android/BackgroundIncidentWorker.kt']
 assert 'PeriodicWorkRequest.Builder' in worker
 assert 'NetworkType.CONNECTED' in worker
@@ -417,6 +429,11 @@ assert 'Notification.VISIBILITY_SECRET' in worker
 assert 'Notification.VISIBILITY_PRIVATE' in worker
 assert 'IncidentNotificationPrivacy.visibility' in worker
 assert 'Notification.VISIBILITY_PUBLIC' not in worker
+assert 'ACTION_OPEN_INCIDENTS' in worker
+assert 'PendingIntent.FLAG_IMMUTABLE' in worker
+assert 'IncidentNotificationNavigation.contentIntent(context)' in worker
+navigation_intent = worker.split('internal object IncidentNotificationNavigation', 1)[1].split('internal data class ScheduledPolicy', 1)[0]
+assert 'putExtra(' not in navigation_intent
 assert 'instanceFollowRedirects = false' in worker
 assert 'requestMethod = "GET"' in worker
 assert 'PVEAPIToken=' in worker

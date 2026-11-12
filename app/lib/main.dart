@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/app_controller.dart';
 import 'core/app_preferences.dart';
 import 'core/device_connectivity.dart';
+import 'core/notification_navigation.dart';
 import 'core/profile_repository.dart';
 import 'ui/connect_page.dart';
 import 'ui/connections_page.dart';
@@ -23,8 +24,14 @@ Future<void> main() async {
 }
 
 class VirtHelmApp extends StatefulWidget {
-  const VirtHelmApp({super.key, required this.repository});
+  const VirtHelmApp({
+    super.key,
+    required this.repository,
+    this.incidentNavigation,
+  });
+
   final ProfileRepository repository;
+  final IncidentNotificationNavigation? incidentNavigation;
 
   @override
   State<VirtHelmApp> createState() => _VirtHelmAppState();
@@ -36,12 +43,18 @@ class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
   late final ValueNotifier<bool> _highContrast;
   late final ValueNotifier<bool> _reduceMotion;
   late final StreamSubscription<DeviceNetworkState> _networkSubscription;
+  late final IncidentNotificationNavigation _incidentNavigation;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     controller = AppController(repository: widget.repository);
+    _incidentNavigation =
+        widget.incidentNavigation ??
+        const AndroidIncidentNotificationNavigation();
+    _incidentNavigation.listen(controller.requestIncidentCenter);
+    unawaited(_consumePendingIncidentNavigation());
     _themePreference = ValueNotifier(controller.themePreference);
     _highContrast = ValueNotifier(controller.highContrast);
     _reduceMotion = ValueNotifier(controller.reduceMotion);
@@ -52,6 +65,12 @@ class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
           controller.setDeviceNetworkState(DeviceNetworkState.unknown),
     );
     unawaited(controller.initialize());
+  }
+
+  Future<void> _consumePendingIncidentNavigation() async {
+    if (await _incidentNavigation.takePendingIncidentIntent()) {
+      controller.requestIncidentCenter();
+    }
   }
 
   // Keep the MaterialApp rebuild scoped to rare theme changes. Inventory,
@@ -71,6 +90,9 @@ class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     controller.setForeground(state == AppLifecycleState.resumed);
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_consumePendingIncidentNavigation());
+    }
   }
 
   @override
@@ -81,6 +103,7 @@ class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
     _highContrast.dispose();
     _reduceMotion.dispose();
     unawaited(_networkSubscription.cancel());
+    _incidentNavigation.dispose();
     controller.dispose();
     super.dispose();
   }

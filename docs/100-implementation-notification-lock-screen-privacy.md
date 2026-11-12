@@ -64,8 +64,9 @@ Android and the operator can retain or override channel-level lock-screen
 settings. Per-notification visibility is still set for every new VirtHelm
 incident notification.
 
-The notification content intent continues to open VirtHelm only. This
-milestone does not add a resource-specific deep link, background unlock bypass,
+AND-010 now follows this milestone with a generic deep link to the unlocked
+Incidents destination. The intent still carries no profile/resource selector,
+and there remains no resource-specific deep link, background unlock bypass,
 full-screen intent, action button or notification-carried infrastructure
 identifier.
 
@@ -97,7 +98,7 @@ supported API levels and representative OEMs, including operator channel
 overrides. Wear OS mirroring and other companion surfaces remain outside this
 milestone's certification.
 
-Notification deep links to a specific unlocked incident view remain gated
-under Android polish / ALERT follow-up work. Background failed-task and
+The generic unlocked Incidents deep link is implemented separately by AND-010.
+Resource-specific notification links remain gated. Background failed-task and
 threshold-rule parity, authoritative incident correlation, optional relay
 delivery and production critical-alert guarantees also remain gated.
