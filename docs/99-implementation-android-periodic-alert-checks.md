@@ -63,7 +63,13 @@ A scheduled notification is emitted only for a new transition into a complete no
 
 No profile name, endpoint, node name, guest name, VMID, task ID, task log, credential, raw response or authorization result is included.
 
-Scheduled-mode occurrence state and cooldown are native and profile-scoped. Foreground durable incident history and foreground notification cooldown remain separate in this slice. Cross-mode notification deduplication is therefore still gated and must not be inferred.
+Scheduled-mode occurrence state remains native and profile-scoped. From
+0.1.57, foreground and scheduled notification delivery share one native
+per-profile last-delivery ledger. Each mode applies its own configured cooldown
+against the last successful notification from either mode. The ledger stores a
+SHA-256-derived profile key plus a timestamp only; it does not store an
+incident/resource identifier. Foreground durable incident history remains
+separate and authoritative for the in-app lifecycle.
 
 ## Generated Android runner
 
@@ -81,4 +87,9 @@ Repository checks assert the scheduled-check source and generated-runner safety 
 
 This is source-level implementation evidence until exact-head CI passes. Physical Android validation must still cover Doze/app-standby timing, reboot persistence, VPN/network transitions, notification permission changes, OEM battery restrictions and profile edit/delete cleanup. Disposable PVE 8.4 and 9.2 environments remain required for endpoint/ACL/incident behavior evidence.
 
-Deferred work includes background failed-task and threshold-rule parity, authoritative incident correlation, cross-mode notification deduplication, notification deep links, optional relay delivery and any production critical-alert guarantee. Secure-lock-screen hidden-or-generic privacy is implemented separately by ALERT-010.
+Deferred work includes background failed-task and threshold-rule parity,
+authoritative incident correlation, resource-specific notification links,
+optional relay delivery and any production critical-alert guarantee.
+Secure-lock-screen hidden-or-generic privacy is implemented by ALERT-010,
+generic Incidents navigation by AND-010, and cross-mode delivery deduplication
+by the 0.1.57 follow-up.
