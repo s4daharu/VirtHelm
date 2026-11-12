@@ -76,6 +76,11 @@ if worker_template.is_file():
     assert 'node-cpu-threshold-state:' in worker_text
     assert 'evaluateNodeCpuThresholds' in worker_text
     assert 'IncidentNotificationDeliveryLedger.profileKey(ruleId)' in worker_text
+    threshold_state = worker_text.split('private fun encodeThresholdState', 1)[1].split('private fun reconcileThresholdState', 1)[0]
+    assert '.put("node"' not in threshold_state
+    assert '.put("thresholdPercent"' not in threshold_state
+    assert '.put("pending"' in threshold_state and '.put("active"' in threshold_state
+    assert 'stateJson = null' in worker_text
     navigation_intent = worker_text.split('internal object IncidentNotificationNavigation', 1)[1].split('internal data class ScheduledPolicy', 1)[0]
     assert 'putExtra(' not in navigation_intent
     assert 'instanceFollowRedirects = false' in worker_text
