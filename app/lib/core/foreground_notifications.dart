@@ -101,7 +101,11 @@ abstract class ForegroundIncidentNotifier {
   Future<bool> setLockScreenPrivacy(
     IncidentNotificationLockScreenPrivacy privacy,
   );
-  Future<bool> showIncidentSummary({required bool critical});
+  Future<bool> showIncidentSummary({
+    required bool critical,
+    required String profileId,
+    required int cooldownMinutes,
+  });
 }
 
 class AndroidForegroundIncidentNotifier implements ForegroundIncidentNotifier {
@@ -139,10 +143,22 @@ class AndroidForegroundIncidentNotifier implements ForegroundIncidentNotifier {
   }
 
   @override
-  Future<bool> showIncidentSummary({required bool critical}) async {
+  Future<bool> showIncidentSummary({
+    required bool critical,
+    required String profileId,
+    required int cooldownMinutes,
+  }) async {
+    if (profileId.trim().isEmpty ||
+        profileId.length > 256 ||
+        cooldownMinutes < 0 ||
+        cooldownMinutes > _minutesPerDay) {
+      return false;
+    }
     try {
       return await _channel.invokeMethod<bool>('showIncidentSummary', {
             'critical': critical,
+            'profileId': profileId,
+            'cooldownMinutes': cooldownMinutes,
           }) ??
           false;
     } on PlatformException {
