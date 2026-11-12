@@ -477,6 +477,8 @@ assert 'failedTaskChecksEnabled' in worker
 assert 'MAX_BACKGROUND_TASK_NODES = 16' in worker
 assert '/tasks?limit=20&source=all' in worker
 assert 'task-incident-active:' in worker
+assert 'task-watermark:' in worker
+assert 'endTimeSeconds > previousWatermarkSeconds' in worker
 navigation_intent = worker.split('internal object IncidentNotificationNavigation', 1)[1].split('internal data class ScheduledPolicy', 1)[0]
 assert 'putExtra(' not in navigation_intent
 assert 'instanceFollowRedirects = false' in worker
