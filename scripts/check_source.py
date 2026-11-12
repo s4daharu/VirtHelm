@@ -38,6 +38,7 @@ required = [
   'app/test/notification_privacy_test.dart',
   'app/test/notification_navigation_test.dart',
   'app/test/notification_deduplication_test.dart',
+  'app/test/background_failed_task_checks_test.dart',
   'app/test/alert_rules_test.dart',
   'app/test/alert_rules_widget_test.dart',
   'app/test/ui_components_test.dart',
@@ -115,6 +116,7 @@ required = [
     'docs/101-implementation-notification-incident-deep-link.md',
     'docs/102-implementation-offline-stale-inventory.md',
     'docs/103-implementation-cross-mode-notification-deduplication.md',
+    'docs/104-implementation-background-failed-task-checks.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
@@ -157,6 +159,9 @@ assert 'minimumBackgroundCheckIntervalMinutes = 15' in files['app/lib/core/backg
 assert 'com.s4daharu.virthelm/background_checks' in files['app/lib/core/background_checks.dart']
 assert "Key('periodic-incident-checks')" in files['app/lib/ui/background_checks_page.dart']
 assert "Key('periodic-check-interval')" in files['app/lib/ui/background_checks_page.dart']
+assert "Key('periodic-failed-task-checks')" in files['app/lib/ui/background_checks_page.dart']
+assert 'failedTaskChecksEnabled' in files['app/lib/core/background_checks.dart']
+assert 'background failed-task checks' in files['docs/104-implementation-background-failed-task-checks.md'].lower()
 assert 'BackgroundCheckScheduler' in files['app/lib/core/app_controller.dart']
 assert 'clearPolicy: true' in files['app/lib/core/app_controller.dart']
 assert 'AndroidBackgroundCheckScheduler' in files['app/lib/ui/background_checks_page.dart']
@@ -468,6 +473,10 @@ assert 'Context.MODE_PRIVATE' in worker
 assert 'synchronized(lock)' in worker
 assert 'IncidentNotificationDeliveryLedger.clearKey(context, key)' in worker
 assert 'cooldownMinutes = policy.cooldownMinutes' in worker
+assert 'failedTaskChecksEnabled' in worker
+assert 'MAX_BACKGROUND_TASK_NODES = 32' in worker
+assert '/tasks?limit=20&source=all' in worker
+assert 'task-incident-active:' in worker
 navigation_intent = worker.split('internal object IncidentNotificationNavigation', 1)[1].split('internal data class ScheduledPolicy', 1)[0]
 assert 'putExtra(' not in navigation_intent
 assert 'instanceFollowRedirects = false' in worker
