@@ -725,7 +725,7 @@ internal object BackgroundCheckCoordinator {
                 complete = false,
                 incident = false,
                 newIncident = false,
-                stateJson = encodeThresholdState(rules, emptyMap()),
+                stateJson = null,
             )
         var complete = true
         var newIncident = false
