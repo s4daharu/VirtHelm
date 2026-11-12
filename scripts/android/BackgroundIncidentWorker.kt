@@ -692,14 +692,12 @@ internal object BackgroundCheckCoordinator {
                             incident = false,
                         )
                     }
-                    if (rawStatus.equals("RUNNING", ignoreCase = true)) continue
-                    val explicitExitStatus = item.optString("exitstatus").trim()
-                    if (rawStatus.equals("unknown", ignoreCase = true)) {
-                        if (item.optLong("endtime", 0L) > 0L) incident = true
+                    if (rawStatus.equals("RUNNING", ignoreCase = true) ||
+                        rawStatus.equals("unknown", ignoreCase = true)
+                    ) {
                         continue
                     }
-                    val terminal = !rawStatus.equals("RUNNING", ignoreCase = true)
-                    if (!terminal) continue
+                    val explicitExitStatus = item.optString("exitstatus").trim()
                     val exitStatus = if (explicitExitStatus.isNotEmpty()) {
                         explicitExitStatus
                     } else if (rawStatus.equals("stopped", ignoreCase = true)) {
@@ -707,7 +705,7 @@ internal object BackgroundCheckCoordinator {
                     } else {
                         rawStatus
                     }
-                    if (exitStatus == null ||
+                    if (exitStatus != null &&
                         !exitStatus.equals("OK", ignoreCase = true)
                     ) {
                         incident = true
