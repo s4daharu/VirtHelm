@@ -954,7 +954,6 @@ internal object BackgroundCheckCoordinator {
             val nodes = mutableListOf<String>()
             val cpuByNode = mutableMapOf<String, Double>()
             val seenCpuNodeIds = mutableSetOf<String>()
-            val ambiguousCpuNodes = mutableSetOf<String>()
             for (index in 0 until data.length()) {
                 val item = data.optJSONObject(index) ?: continue
                 if (item.optString("type") != "node") continue
@@ -979,7 +978,6 @@ internal object BackgroundCheckCoordinator {
                 if (cpuIdentityUsable) {
                     if (!seenCpuNodeIds.add(nodeName)) {
                         cpuByNode.remove(nodeName)
-                        ambiguousCpuNodes.add(nodeName)
                     } else if (
                         cpu != null &&
                         cpu.isFinite() &&
