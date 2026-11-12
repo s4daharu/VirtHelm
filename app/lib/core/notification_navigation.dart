@@ -32,13 +32,15 @@ class AndroidIncidentNotificationNavigation
 
   @override
   void listen(IncidentNavigationHandler handler) {
-    unawaited(_channel.setMethodCallHandler((call) async {
-      if (call.method == 'openIncidents') {
-        handler();
-        return true;
-      }
-      return null;
-    }));
+    unawaited(
+      _channel.setMethodCallHandler((call) async {
+        if (call.method == 'openIncidents') {
+          handler();
+          return true;
+        }
+        return null;
+      }),
+    );
   }
 
   @override
