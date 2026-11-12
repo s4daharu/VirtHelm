@@ -953,6 +953,7 @@ internal object BackgroundCheckCoordinator {
             var taskNodesComplete = true
             val nodes = mutableListOf<String>()
             val cpuByNode = mutableMapOf<String, Double>()
+            val seenCpuNodeIds = mutableSetOf<String>()
             val ambiguousCpuNodes = mutableSetOf<String>()
             for (index in 0 until data.length()) {
                 val item = data.optJSONObject(index) ?: continue
@@ -975,17 +976,15 @@ internal object BackgroundCheckCoordinator {
                     nodeName.isNotEmpty() &&
                         nodeName.length <= 120 &&
                         !nodeName.any { it.code < 0x20 || it.code == 0x7f }
-                if (cpuIdentityUsable &&
-                    cpu != null &&
-                    cpu.isFinite() &&
-                    cpu in 0.0..1.0
-                ) {
-                    if (cpuByNode.containsKey(nodeName) ||
-                        ambiguousCpuNodes.contains(nodeName)
-                    ) {
+                if (cpuIdentityUsable) {
+                    if (!seenCpuNodeIds.add(nodeName)) {
                         cpuByNode.remove(nodeName)
                         ambiguousCpuNodes.add(nodeName)
-                    } else {
+                    } else if (
+                        cpu != null &&
+                        cpu.isFinite() &&
+                        cpu in 0.0..1.0
+                    ) {
                         cpuByNode[nodeName] = cpu
                     }
                 }
