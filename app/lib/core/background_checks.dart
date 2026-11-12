@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 
+import 'alert_rules.dart';
 import 'models.dart';
 
 const int _minutesPerDay = 24 * 60;
@@ -24,6 +25,7 @@ class BackgroundCheckPolicy {
     this.quietEndMinute = 7 * 60,
     this.cooldownMinutes = 30,
     this.failedTaskChecksEnabled = false,
+    this.nodeCpuThresholdChecksEnabled = false,
   });
 
   final bool enabled;
@@ -33,6 +35,7 @@ class BackgroundCheckPolicy {
   final int quietEndMinute;
   final int cooldownMinutes;
   final bool failedTaskChecksEnabled;
+  final bool nodeCpuThresholdChecksEnabled;
 
   BackgroundCheckPolicy validated() {
     if (intervalMinutes < minimumBackgroundCheckIntervalMinutes ||
@@ -57,6 +60,7 @@ class BackgroundCheckPolicy {
     int? quietEndMinute,
     int? cooldownMinutes,
     bool? failedTaskChecksEnabled,
+    bool? nodeCpuThresholdChecksEnabled,
   }) => BackgroundCheckPolicy(
     enabled: enabled ?? this.enabled,
     intervalMinutes: intervalMinutes ?? this.intervalMinutes,
@@ -66,6 +70,8 @@ class BackgroundCheckPolicy {
     cooldownMinutes: cooldownMinutes ?? this.cooldownMinutes,
     failedTaskChecksEnabled:
         failedTaskChecksEnabled ?? this.failedTaskChecksEnabled,
+    nodeCpuThresholdChecksEnabled:
+        nodeCpuThresholdChecksEnabled ?? this.nodeCpuThresholdChecksEnabled,
   );
 
   factory BackgroundCheckPolicy.fromChannel(Map<Object?, Object?> map) =>
@@ -77,6 +83,8 @@ class BackgroundCheckPolicy {
         quietEndMinute: _channelInt(map['quietEndMinute']) ?? 7 * 60,
         cooldownMinutes: _channelInt(map['cooldownMinutes']) ?? 30,
         failedTaskChecksEnabled: map['failedTaskChecksEnabled'] == true,
+        nodeCpuThresholdChecksEnabled:
+            map['nodeCpuThresholdChecksEnabled'] == true,
       ).validated();
 }
 
@@ -121,6 +129,18 @@ abstract class BackgroundCheckScheduler {
     BackgroundCheckPolicy policy,
   );
 
+  Future<void> configureWithThresholdRules(
+    ConnectionProfile profile,
+    ApiCredentials credentials,
+    BackgroundCheckPolicy policy,
+    Iterable<ForegroundThresholdAlertRule> rules,
+  ) => configure(profile, credentials, policy);
+
+  Future<void> syncNodeCpuThresholdRules(
+    String profileId,
+    Iterable<ForegroundThresholdAlertRule> rules,
+  ) async {}
+
   Future<void> disable(String profileId, {bool clearPolicy = false});
 }
 
@@ -153,6 +173,21 @@ class AndroidBackgroundCheckScheduler implements BackgroundCheckScheduler {
     ConnectionProfile profile,
     ApiCredentials credentials,
     BackgroundCheckPolicy policy,
+  ) => _configure(profile, credentials, policy, const []);
+
+  @override
+  Future<void> configureWithThresholdRules(
+    ConnectionProfile profile,
+    ApiCredentials credentials,
+    BackgroundCheckPolicy policy,
+    Iterable<ForegroundThresholdAlertRule> rules,
+  ) => _configure(profile, credentials, policy, rules);
+
+  Future<void> _configure(
+    ConnectionProfile profile,
+    ApiCredentials credentials,
+    BackgroundCheckPolicy policy,
+    Iterable<ForegroundThresholdAlertRule> rules,
   ) async {
     final validated = policy.validated();
     if (!validated.enabled) {
@@ -180,6 +215,11 @@ class AndroidBackgroundCheckScheduler implements BackgroundCheckScheduler {
             'quietEndMinute': validated.quietEndMinute,
             'cooldownMinutes': validated.cooldownMinutes,
             'failedTaskChecksEnabled': validated.failedTaskChecksEnabled,
+            'nodeCpuThresholdChecksEnabled':
+                validated.nodeCpuThresholdChecksEnabled,
+            'nodeCpuThresholdRules': validated.nodeCpuThresholdChecksEnabled
+                ? _nodeCpuRuleChannelPayload(rules)
+                : const <Map<String, Object?>>[],
           }) ??
           false;
       if (!configured) {
@@ -194,6 +234,32 @@ class AndroidBackgroundCheckScheduler implements BackgroundCheckScheduler {
     } on PlatformException catch (error) {
       throw BackgroundCheckException(
         error.message ?? 'Android could not schedule periodic checks.',
+      );
+    }
+  }
+
+  @override
+  Future<void> syncNodeCpuThresholdRules(
+    String profileId,
+    Iterable<ForegroundThresholdAlertRule> rules,
+  ) async {
+    try {
+      final synced =
+          await _channel.invokeMethod<bool>('syncNodeCpuThresholdRules', {
+            'profileId': profileId,
+            'nodeCpuThresholdRules': _nodeCpuRuleChannelPayload(rules),
+          }) ??
+          false;
+      if (!synced) {
+        throw const BackgroundCheckException(
+          'Android could not update scheduled threshold rules.',
+        );
+      }
+    } on MissingPluginException {
+      // Unit/widget hosts have no native worker state to synchronize.
+    } on PlatformException catch (error) {
+      throw BackgroundCheckException(
+        error.message ?? 'Android could not update scheduled threshold rules.',
       );
     }
   }
@@ -223,3 +289,23 @@ DateTime? _channelDate(Object? value) {
   if (milliseconds == null || milliseconds <= 0) return null;
   return DateTime.fromMillisecondsSinceEpoch(milliseconds, isUtc: true);
 }
+
+List<Map<String, Object?>> _nodeCpuRuleChannelPayload(
+  Iterable<ForegroundThresholdAlertRule> rules,
+) =>
+    rules
+        .where(
+          (rule) =>
+              rule.enabled && rule.metric == ForegroundThresholdMetric.nodeCpu,
+        )
+        .take(maxForegroundThresholdRules)
+        .map(
+          (rule) => <String, Object?>{
+            'id': rule.id,
+            'node': rule.node,
+            'thresholdPercent': rule.thresholdPercent,
+            'consecutiveSamples': rule.consecutiveSamples,
+            'hysteresisPercent': rule.hysteresisPercent,
+          },
+        )
+        .toList(growable: false);
