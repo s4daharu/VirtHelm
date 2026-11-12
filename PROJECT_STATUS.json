@@ -676,7 +676,7 @@
     "verification": "Exact-head PR run 43153754048 passed repository source/docs tests, generated Android runner checks, pinned Dart formatting, flutter analyze --fatal-infos, the full Flutter test suite and debug APK compilation. Physical-device/PVE 8.4/9.2 background-execution validation remains a release gate.",
     "report": "docs/99-implementation-android-periodic-alert-checks.md",
     "deferred": "scheduled threshold-rule parity, authoritative cross-resource incident correlation, resource-specific notification links, relay/webhooks and production critical-alert guarantees; bounded failed-task checks are implemented separately in 0.1.58",
-    "failed_task_followup": "VirtHelm 0.1.58 adds a separately opted-in GET-only recent failed-task scan over at most 32 visible nodes and 20 task rows per node. Incomplete task reads do not clear prior task incident state; only generic category booleans are retained natively."
+    "failed_task_followup": "VirtHelm 0.1.58 adds a separately opted-in GET-only recent failed-task scan over at most 16 visible nodes and 20 task rows per node. Incomplete task reads do not clear prior task incident state; only generic category booleans are retained natively."
   },
   "alert_notification_lock_screen_privacy": {
     "status": "implemented_ci_verified",
@@ -732,7 +732,7 @@
     "status": "implemented_source_pending_ci",
     "milestone": "EP-ALERT bounded Android scheduled failed-task parity",
     "version": "0.1.58",
-    "behavior": "For a certificate-verified saved connection with scheduled checks enabled, the operator may separately opt into bounded recent-task scanning. Each eligible WorkManager run reuses the authenticated node list, checks at most 32 nodes and requests at most 20 recent task rows per node. The option defaults off for legacy policies.",
+    "behavior": "For a certificate-verified saved connection with scheduled checks enabled, the operator may separately opt into bounded recent-task scanning. Each eligible WorkManager run reuses the authenticated node list, checks at most 16 nodes and requests at most 20 recent task rows per node. The option defaults off for legacy policies.",
     "contract": "GET /api2/json/cluster/resources?type=node plus optional GET /api2/json/nodes/{node}/tasks?limit=20&source=all only; redirects disabled; no mutation methods; 10-second connect/read timeouts; 512 KiB cap per successful response; no immediate WorkManager retry.",
     "semantics": "RUNNING is non-incident; terminal OK is healthy; explicit terminal non-OK results are incidents. Bare stopped without exit status and unknown status remain unknown rather than becoming failed-task incidents, matching the foreground RecentServerTask parser. Malformed, denied, redirected or failed task reads are incomplete evidence and never clear an already active task incident. Independently complete node-state transitions remain effective when task reads are incomplete.",
     "privacy": "Native occurrence state stores only profile-scoped node-incident-active and task-incident-active booleans. No UPID, task type, resource ID, node/guest name, VMID, task timestamp, log, credential or raw PVE response is persisted or inserted into notifications/navigation.",
