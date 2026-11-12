@@ -156,7 +156,7 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
     'healthy' => 'Completed: no scheduled incident found',
     'incident' => 'Completed: node-state incident found',
     'node_incident' => 'Completed: node-state incident found',
-    'task_incident' => 'Completed: recent failed/unknown task incident found',
+    'task_incident' => 'Completed: recent failed task incident found',
     'node_and_task_incident' =>
       'Completed: node-state and recent task incidents found',
     'task_authorization_denied' =>
