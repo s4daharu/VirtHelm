@@ -14,7 +14,7 @@
   "framework": "Flutter",
   "primary_pve": "9.2",
   "regression_pve": "8.4",
-  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, snapshot creation/stopped-only non-RAM rollback/deletion, one-off backup-start, exact-guest backup-archive visibility, evidence-limited backup validation confidence, and GET-only same-node alternate-VMID restore-plan/conflict-preflight operational slices + ALERT-007 foreground notification quiet-hours/cooldown delivery policy + ALERT-009 opt-in Android WorkManager node-state checks + ALERT-010 device-wide notification lock-screen privacy + AND-010 generic Android notification deep link to unlocked Incidents",
+  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, snapshot creation/stopped-only non-RAM rollback/deletion, one-off backup-start, exact-guest backup-archive visibility, evidence-limited backup validation confidence, and GET-only same-node alternate-VMID restore-plan/conflict-preflight operational slices + ALERT-007 foreground notification quiet-hours/cooldown delivery policy + ALERT-009 opt-in Android WorkManager node-state checks + ALERT-010 device-wide notification lock-screen privacy + AND-010 generic Android notification deep link to unlocked Incidents + AND-011 separate opt-in bounded stale node/guest inventory cache",
   "github_repository_url": "https://github.com/s4daharu/VirtHelm",
   "documentation_uploaded_and_verified": true,
   "docs_initial_remote_commit": "4fdfcd704aced213508f798533fd6370573ac284",
@@ -155,13 +155,13 @@
       "GET-only smoke testing against one PVE 9.2.26 server exercised HTTP schemas and actual gateway parsers, including server-side free/occupied VMID checks. No mutations were attempted; 8.4, restricted ACL, backend variants, physical-device and production gates remain open."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 338,
+    "current_flutter_tests_defined": 346,
     "current_flutter_runtime_tests_passed": 395,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
     "p0_scope_complete": false,
     "p0_gaps": [
-      "Full persistent offline guest/node detail cache is not implemented; only optional last-known aggregate counts are cached",
+      "Full persistent offline guest/node detail/metrics/config/task cache remains unimplemented; AND-011 implements only a separate opt-in 24-hour display-only node/guest identity/status list",
       "Android default-network observation remains unverified on physical Android devices, especially isolated LAN and VPN transitions"
     ],
     "unverified_repository_controls": [
@@ -702,5 +702,18 @@
     "verification": "Exact-head PR run 43159936358 passed repository source/docs checks, generated Android deep-link/privacy assertions, pinned Dart formatting, flutter analyze --fatal-infos, 395 Flutter runtime tests and debug APK compilation. Regression coverage includes native pending-target consumption, pre-shell requests, warm existing-shell switching and one-shot consumption across shell recreation. Physical-device secure-lock-screen/cold-warm notification-tap validation remains a release gate.",
     "report": "docs/101-implementation-notification-incident-deep-link.md",
     "deferred": "physical-device secure-lock-screen/cold-warm tap validation, resource-specific notification links, background failed-task/threshold parity, cross-mode notification deduplication, authoritative correlation, relay/webhooks and production critical-alert guarantees"
+  },
+  "android_offline_stale_inventory": {
+    "status": "implemented_source_level_ci_pending",
+    "milestone": "AND-011 offline stale-aware inventory",
+    "version": "0.1.56",
+    "behavior": "A separate per-profile opt-in stores a bounded last-known node/guest inventory for display when no live inventory exists after Android network-unavailable state or typed transport failure. Home and Guests label it CACHED / NOT LIVE; the Guests cache browser supports local search only.",
+    "privacy": "Stored fields are timestamp, node name/status, and guest name/VMID/QEMU-or-LXC type/node/status/template marker. Metrics, uptime, I/O, tags, pools, storage, configuration, snapshots, backups, permissions, task history/UPIDs/logs, endpoints, credentials and raw PVE responses are excluded.",
+    "bounds": "Schema v1; maximum age 24 hours; maximum 256 nodes, 5000 guest rows and 512 KiB serialized payload. Control-character/oversized identities, duplicate node names/VMIDs, unknown versions, extra fields, future timestamps, malformed and expired records are rejected.",
+    "consent": "Detailed inventory consent is separate from the existing counts-only offline overview and is off by default. Opt-out purges the detailed cache; profile edit/credential replacement, profile deletion and observed HTTP 401 also purge it.",
+    "safety": "Cached identities are never converted back into live Inventory. Cached node/guest cards have no tap handlers; cached Guests omits create, favorites, saved-view/filter editing and all detail/action routes. isInventoryFresh/isInventoryWriteSafe and every server read/mutation authorization remain live-session only.",
+    "verification": "Model/repository/controller/widget regressions cover allowlist serialization, expiry/corruption/ambiguity rejection, consent/purge, live snapshot save/erase, non-interactive cached Home cards, dedicated cached Guests search and the separate Settings opt-in. Exact-head pinned CI is required before merge.",
+    "report": "docs/102-implementation-offline-stale-inventory.md",
+    "deferred": "physical-device process-death/radio/VPN/storage inspection, persistent node/guest detail/metrics/config/storage/task caches, PVE 8.4/9.2 ACL fixture matrix, production signing/device verification and independent security review"
   }
 }
