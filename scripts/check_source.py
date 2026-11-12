@@ -407,6 +407,7 @@ assert 'com.s4daharu.virthelm/incident_notifications' in (root/'scripts/android/
 assert 'Open VirtHelm to review current incidents.' in (root/'scripts/android/MainActivity.kt').read_text()
 assert 'setLockScreenPrivacy' in (root/'scripts/android/MainActivity.kt').read_text()
 assert 'IncidentNotificationPrivacy.visibility' in (root/'scripts/android/MainActivity.kt').read_text()
+assert 'Notification.VISIBILITY_PUBLIC' not in (root/'scripts/android/MainActivity.kt').read_text()
 worker = files['scripts/android/BackgroundIncidentWorker.kt']
 assert 'PeriodicWorkRequest.Builder' in worker
 assert 'NetworkType.CONNECTED' in worker
@@ -415,6 +416,7 @@ assert 'AndroidKeyStore' in worker
 assert 'Notification.VISIBILITY_SECRET' in worker
 assert 'Notification.VISIBILITY_PRIVATE' in worker
 assert 'IncidentNotificationPrivacy.visibility' in worker
+assert 'Notification.VISIBILITY_PUBLIC' not in worker
 assert 'instanceFollowRedirects = false' in worker
 assert 'requestMethod = "GET"' in worker
 assert 'PVEAPIToken=' in worker
