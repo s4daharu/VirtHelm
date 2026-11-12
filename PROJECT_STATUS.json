@@ -154,7 +154,7 @@
       "GET-only smoke testing against one PVE 9.2.26 server exercised HTTP schemas and actual gateway parsers, including server-side free/occupied VMID checks. No mutations were attempted; 8.4, restricted ACL, backend variants, physical-device and production gates remain open."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 324,
+    "current_flutter_tests_defined": 329,
     "current_flutter_runtime_tests_passed": 387,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
@@ -309,7 +309,7 @@
       "feature_id": "ALERT-001",
       "behavior": "A fifth Incidents tab shows a badge and locally filters critical/warning signals derived from explicit node offline/unknown states, failed recent server tasks, and failed/unknown session tasks. Node/task incidents drill into existing session-scoped detail routes.",
       "conservative_refresh": "Inventory failures retain the previous node snapshot. Partial task-history reads retain up to 60 previously observed failed-task incidents until a later complete task read; full task-history failures leave prior task data unchanged. Unknown is never presented as healthy.",
-      "privacy": "Foreground in-app only. No notification permission/channel, lock-screen payload, WorkManager job, relay registration, persistent incident history, task-log copy or additional PVE endpoint.",
+      "privacy": "The ALERT-001 inbox itself remains foreground in-app and does not copy task logs or add PVE endpoints. Generic foreground Android notification delivery is implemented separately under ALERT-007; no WorkManager/background job or relay is added.",
       "deferred": "Android scheduled/background checks, authoritative event correlation, certificate/backup reminders and relay/webhooks remain unimplemented. Durable history and foreground quiet-hours/cooldown delivery are implemented separately.",
       "limitations": "Live PVE 9.2/8.4 node/task fixtures, ACL/partial multi-node behavior, 200-guest/task performance and physical Android accessibility/lifecycle/network testing remain open.",
       "report": "docs/64-implementation-alert-incident-inbox.md"
@@ -322,7 +322,7 @@
       ],
       "behavior": "Up to 32 profile-scoped enabled/disabled percentage rules for exact node CPU, guest CPU and per-node storage usage targets; firing rules appear in the existing incident inbox and drill into matching session-scoped details.",
       "conservative_refresh": "A usable below-threshold sample resolves an in-memory firing. Missing node/guest samples and incomplete/failed storage refreshes do not falsely resolve prior firings.",
-      "persistence": "SharedPreferences non-secret metadata only; credentials remain in secure storage and incident history is not persisted.",
+      "persistence": "SharedPreferences non-secret rule metadata only; credentials remain in secure storage. Durable privacy-bounded incident occurrence history and foreground notification policy are separate profile-scoped stores.",
       "deferred": "Android scheduled/background checks, authoritative correlation and relay/webhook work remain deferred. ALERT-006 duration/hysteresis and foreground quiet-hours/cooldown notification delivery are implemented separately.",
       "limitations": "Live PVE 9.2/8.4 field/ACL fixtures, physical Android lifecycle/accessibility/network behavior and performance validation remain pending.",
       "report": "docs/65-implementation-foreground-threshold-alert-rules.md"
@@ -333,7 +333,7 @@
       "behavior": "Profile-scoped foreground threshold rules may require 1-10 consecutive usable live samples before firing and 0-20 percentage points of clear hysteresis. The UI exposes 1-10 samples and 0-20 percentage points.",
       "conservative_semantics": "Missing/unusable samples reset pending confirmation, but an active firing remains unresolved until a usable sample reaches the lower clear threshold. Reconnect/profile changes clear runtime pending/firing state.",
       "compatibility": "Existing saved rules without the new fields decode as one sample and zero hysteresis.",
-      "limitations": "No wall-clock duration SLA, quiet hours, cooldown, acknowledgement/history, WorkManager, Android notifications or relay/webhook delivery. Live PVE 8.4/9.2 and physical Android validation remain open.",
+      "limitations": "This slice itself adds no wall-clock duration SLA, WorkManager/background job or relay/webhook delivery. Session triage/durable history and foreground quiet-hours/cooldown notification delivery are implemented in later slices; live PVE 8.4/9.2 and physical Android validation remain open.",
       "report": "docs/66-implementation-alert-duration-hysteresis.md"
     },
     "ui_foundation_followup": "docs/67-ui-overhaul-foundation.md",

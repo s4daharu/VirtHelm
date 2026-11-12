@@ -2144,9 +2144,9 @@ class _SettingsTab extends StatelessWidget {
   }
 
   String _formatMinute(BuildContext context, int minute) =>
-      MaterialLocalizations.of(context).formatTimeOfDay(
-        TimeOfDay(hour: minute ~/ 60, minute: minute % 60),
-      );
+      MaterialLocalizations.of(
+        context,
+      ).formatTimeOfDay(TimeOfDay(hour: minute ~/ 60, minute: minute % 60));
 
   void _showPreferenceError(BuildContext context) {
     if (context.mounted) {
@@ -2351,9 +2351,8 @@ class _SettingsTab extends StatelessWidget {
                     'Suppress Android delivery only. Incidents remain visible '
                     'and continue to count toward current health.',
                   ),
-                  value: controller
-                      .foregroundNotificationPolicy
-                      .quietHoursEnabled,
+                  value:
+                      controller.foregroundNotificationPolicy.quietHoursEnabled,
                   onChanged: (value) => unawaited(
                     _updateForegroundNotificationPolicy(
                       context,
@@ -2378,9 +2377,8 @@ class _SettingsTab extends StatelessWidget {
                             .quietStartMinute,
                       ),
                     ),
-                    onTap: () => unawaited(
-                      _pickQuietTime(context, start: true),
-                    ),
+                    onTap: () =>
+                        unawaited(_pickQuietTime(context, start: true)),
                   ),
                   ListTile(
                     key: const Key('incident-notification-quiet-end'),
@@ -2389,14 +2387,11 @@ class _SettingsTab extends StatelessWidget {
                     trailing: Text(
                       _formatMinute(
                         context,
-                        controller
-                            .foregroundNotificationPolicy
-                            .quietEndMinute,
+                        controller.foregroundNotificationPolicy.quietEndMinute,
                       ),
                     ),
-                    onTap: () => unawaited(
-                      _pickQuietTime(context, start: false),
-                    ),
+                    onTap: () =>
+                        unawaited(_pickQuietTime(context, start: false)),
                   ),
                 ],
                 const Divider(),
@@ -2406,16 +2401,19 @@ class _SettingsTab extends StatelessWidget {
                   value:
                       controller.foregroundNotificationPolicy.cooldownMinutes,
                   isExpanded: true,
-                  items: _cooldownOptions(
-                    controller.foregroundNotificationPolicy.cooldownMinutes,
-                  )
-                      .map(
-                        (minutes) => DropdownMenuItem<int>(
-                          value: minutes,
-                          child: Text(_cooldownLabel(minutes)),
-                        ),
-                      )
-                      .toList(),
+                  items:
+                      _cooldownOptions(
+                            controller
+                                .foregroundNotificationPolicy
+                                .cooldownMinutes,
+                          )
+                          .map(
+                            (minutes) => DropdownMenuItem<int>(
+                              value: minutes,
+                              child: Text(_cooldownLabel(minutes)),
+                            ),
+                          )
+                          .toList(),
                   onChanged: (value) {
                     if (value != null) {
                       unawaited(

@@ -124,9 +124,7 @@ class AppController extends ChangeNotifier {
     return changed;
   }
 
-  List<IncidentHistoryEntry> _captureIncidentHistory({
-    required bool complete,
-  }) {
+  List<IncidentHistoryEntry> _captureIncidentHistory({required bool complete}) {
     final profile = active;
     if (_disposed || profile == null) return const <IncidentHistoryEntry>[];
     final previousIds = incidentHistory
@@ -187,9 +185,7 @@ class AppController extends ChangeNotifier {
       } catch (_) {
         // Notification state is best-effort local metadata only.
       }
-      if (!_disposed &&
-          active?.id == profileId &&
-          generation == _generation) {
+      if (!_disposed && active?.id == profileId && generation == _generation) {
         _lastForegroundNotificationAt = deliveredAt;
       }
     } catch (_) {
@@ -1646,8 +1642,9 @@ class AppController extends ChangeNotifier {
     foregroundNotificationPolicy = repository.readForegroundNotificationPolicy(
       profile.id,
     );
-    _lastForegroundNotificationAt = repository
-        .readLastForegroundNotificationAt(profile.id);
+    _lastForegroundNotificationAt = repository.readLastForegroundNotificationAt(
+      profile.id,
+    );
     _thresholdAlertEngine.clear();
     _incidentTriage.clear();
     inventory = null;
