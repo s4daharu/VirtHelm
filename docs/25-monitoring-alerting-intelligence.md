@@ -92,3 +92,17 @@ This does not implement full Mode B parity: background failed-task/threshold
 rules, authoritative correlation, cross-mode notification deduplication and
 relay delivery remain gated. The feature remains best-effort Android
 scheduling, never critical paging or 24/7 monitoring.
+
+## Notification lock-screen privacy follow-up (0.1.54)
+
+ALERT-010 adds one device-wide privacy choice shared by Mode A and Mode B.
+The default requests Android secret visibility so no part of an incident
+notification is revealed on a secure lock screen. Operators may instead allow
+the already-generic VirtHelm alert with private visibility. No public mode is
+exposed, and payloads still exclude infrastructure identifiers, task details,
+credentials and raw responses.
+
+The preference is synchronized into native Android storage for WorkManager.
+Unknown or missing values fail closed to hidden. Android and operator channel
+settings remain authoritative and may further restrict lock-screen display.
+Resource-specific notification deep links and any unlock bypass remain gated.
