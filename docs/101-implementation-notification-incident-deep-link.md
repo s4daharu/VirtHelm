@@ -44,11 +44,12 @@ generic `openIncidents` event over the private app method channel. If Dart is
 not ready to receive the event, native code retains a pending boolean and
 Flutter also checks for a pending request when it resumes.
 
-The Flutter controller stores only a monotonic in-memory navigation request
-counter. No incident identifier or profile ID is persisted. `ShellPage`
-listens for a new request and selects the Incidents navigation destination.
+The Flutter controller stores only a consumable in-memory pending-navigation
+boolean. No incident identifier or profile ID is persisted. `ShellPage`
+consumes a request once and selects the Incidents navigation destination.
 A request received before the shell exists is honored when the shell is first
-constructed after connection selection/initialization.
+constructed after connection selection/initialization; an already consumed
+request cannot reopen Incidents after a later shell recreation.
 
 ## Security and privacy boundary
 
