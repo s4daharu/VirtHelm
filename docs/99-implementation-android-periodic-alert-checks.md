@@ -56,7 +56,7 @@ If native encrypted credential state becomes unavailable or undecryptable, the s
 
 ## Notification privacy and deduplication boundary
 
-A scheduled notification is emitted only for a new transition into a complete non-online node-state observation. The Android notification is private and generic:
+A scheduled notification is emitted only for a new transition into a complete non-online node-state observation. The Android notification is generic, and ALERT-010 applies the same device-wide secure-lock-screen privacy setting used by foreground delivery:
 
 - title: `VirtHelm scheduled incident`;
 - body: `Open VirtHelm to review current incidents.`
@@ -81,4 +81,4 @@ Repository checks assert the scheduled-check source and generated-runner safety 
 
 This is source-level implementation evidence until exact-head CI passes. Physical Android validation must still cover Doze/app-standby timing, reboot persistence, VPN/network transitions, notification permission changes, OEM battery restrictions and profile edit/delete cleanup. Disposable PVE 8.4 and 9.2 environments remain required for endpoint/ACL/incident behavior evidence.
 
-Deferred work includes background failed-task and threshold-rule parity, authoritative incident correlation, cross-mode notification deduplication, richer lock-screen privacy/deep links, optional relay delivery and any production critical-alert guarantee.
+Deferred work includes background failed-task and threshold-rule parity, authoritative incident correlation, cross-mode notification deduplication, notification deep links, optional relay delivery and any production critical-alert guarantee. Secure-lock-screen hidden-or-generic privacy is implemented separately by ALERT-010.
