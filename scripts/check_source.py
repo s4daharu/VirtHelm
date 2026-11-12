@@ -7,7 +7,8 @@ required = [
   'app/pubspec.yaml','app/pubspec.lock','app/lib/main.dart','app/lib/core/models.dart',
   'app/lib/core/profile_repository.dart','app/lib/core/pve_api.dart',
   'app/lib/core/app_controller.dart','app/lib/core/app_preferences.dart',
-  'app/lib/core/offline_overview.dart','app/lib/core/device_connectivity.dart',
+  'app/lib/core/offline_overview.dart','app/lib/core/offline_inventory.dart',
+  'app/lib/core/device_connectivity.dart',
   'app/lib/core/guest_list_filter.dart','app/lib/core/task_history_filter.dart',
   'app/lib/core/guest_saved_view.dart','app/lib/core/alert_rules.dart',
   'app/lib/core/incident_center.dart','app/lib/core/incident_triage.dart',
@@ -42,6 +43,7 @@ required = [
   'app/test/guest_list_filter_test.dart','app/test/task_history_filter_test.dart',
   'app/test/saved_guest_view_test.dart',
   'app/test/app_preferences_test.dart','app/test/offline_overview_test.dart',
+  'app/test/offline_inventory_test.dart',
   'scripts/bootstrap_android.sh','scripts/harden_android.py',
   'scripts/check_android_generated.py','scripts/android/BackgroundIncidentWorker.kt',
   'scripts/android/branding/virthelm_icon.svg',
@@ -110,6 +112,7 @@ required = [
     'docs/99-implementation-android-periodic-alert-checks.md',
     'docs/100-implementation-notification-lock-screen-privacy.md',
     'docs/101-implementation-notification-incident-deep-link.md',
+    'docs/102-implementation-offline-stale-inventory.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
@@ -176,6 +179,22 @@ assert "Key('manage-connections')" in files['app/lib/ui/shell.dart']
 assert 'lastServerVersion' in files['app/lib/core/models.dart']
 assert 'Future<void> updateMetadata' in files['app/lib/core/profile_repository.dart']
 assert "last observed" in files['app/lib/ui/connections_page.dart']
+offline_inventory = files['app/lib/core/offline_inventory.dart']
+assert 'Duration(hours: 24)' in offline_inventory
+assert 'maxOfflineInventoryNodes = 256' in offline_inventory
+assert 'maxOfflineInventoryGuests = 5000' in offline_inventory
+assert 'maxOfflineInventorySerializedBytes = 512 * 1024' in offline_inventory
+assert 'Inventory.fromResources' not in offline_inventory
+assert 'cpu' not in offline_inventory.lower() or "CPU" in offline_inventory
+assert 'offline_inventory_enabled_v1:' in files['app/lib/core/profile_repository.dart']
+assert 'clearOfflineInventory' in files['app/lib/core/profile_repository.dart']
+assert 'cachedInventory = null' in files['app/lib/core/app_controller.dart']
+assert 'repository.clearOfflineInventory(profileId)' in files['app/lib/core/app_controller.dart']
+assert "Key('offline-inventory-preference')" in files['app/lib/ui/shell.dart']
+assert "Key('offline-inventory-banner')" in files['app/lib/ui/shell.dart']
+assert 'class _OfflineGuestTile' in files['app/lib/ui/shell.dart']
+assert 'class _OfflineNodeTile' in files['app/lib/ui/shell.dart']
+assert 'Details and actions require a fresh live connection.' in files['app/lib/ui/shell.dart']
 assert 'mayHaveExecuted' in files['app/lib/core/pve_api.dart']
 assert 'setThemePreference' in files['app/lib/core/app_controller.dart']
 assert 'AppThemePreference.amoled' in files['app/lib/main.dart']
