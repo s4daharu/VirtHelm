@@ -1777,6 +1777,13 @@ class AppController extends ChangeNotifier {
     message = null;
     refreshing = false;
     _notify();
+    try {
+      await _syncScheduledNodeCpuThresholdRules(profile);
+    } on BackgroundCheckException {
+      // Fail-closed helper already disables the schedule. Foreground
+      // connection activation remains independent from optional monitoring.
+    }
+    if (generation != _generation || _disposed) return;
     if (deviceNetworkState == DeviceNetworkState.unavailable) {
       cachedOverview = repository.readOfflineOverview(profile.id);
       cachedInventory = repository.readOfflineInventory(profile.id);
