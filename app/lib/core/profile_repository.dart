@@ -152,7 +152,10 @@ class ProfileRepository {
   Future<void> setNotificationLockScreenPrivacy(
     IncidentNotificationLockScreenPrivacy value,
   ) => _mutate(() async {
-    if (!await _prefs.setString(_notificationLockScreenPrivacyKey, value.name)) {
+    if (!await _prefs.setString(
+      _notificationLockScreenPrivacyKey,
+      value.name,
+    )) {
       throw StateError('Could not save notification privacy preference.');
     }
   });
