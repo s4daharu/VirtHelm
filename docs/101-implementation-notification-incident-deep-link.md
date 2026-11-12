@@ -98,6 +98,7 @@ multiple taps, OEM notification behavior and operator channel overrides.
 
 This milestone intentionally stops at the generic Incidents destination.
 Resource-specific notification payloads/deep links remain out of scope.
-Background failed-task/threshold parity, cross-mode notification
-deduplication, authoritative cross-resource correlation, optional relay
-delivery and production critical-alert guarantees remain gated.
+Background failed-task/threshold parity, authoritative cross-resource
+correlation, optional relay delivery and production critical-alert guarantees
+remain gated. Cross-mode notification delivery deduplication is implemented by
+the 0.1.57 follow-up.
