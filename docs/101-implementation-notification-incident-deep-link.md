@@ -75,6 +75,7 @@ Tests and source assertions cover:
   created;
 - a warm notification switching an existing shell from another tab to
   Incidents;
+- consumed requests not reopening Incidents after a later shell recreation;
 - the Flutter/native navigation channel contract;
 - generated Android source handling `onNewIntent()` and cold pending intent
   consumption;
