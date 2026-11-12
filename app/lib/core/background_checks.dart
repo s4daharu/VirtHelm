@@ -292,20 +292,19 @@ DateTime? _channelDate(Object? value) {
 
 List<Map<String, Object?>> _nodeCpuRuleChannelPayload(
   Iterable<ForegroundThresholdAlertRule> rules,
-) =>
-    rules
-        .where(
-          (rule) =>
-              rule.enabled && rule.metric == ForegroundThresholdMetric.nodeCpu,
-        )
-        .take(maxForegroundThresholdRules)
-        .map(
-          (rule) => <String, Object?>{
-            'id': rule.id,
-            'node': rule.node,
-            'thresholdPercent': rule.thresholdPercent,
-            'consecutiveSamples': rule.consecutiveSamples,
-            'hysteresisPercent': rule.hysteresisPercent,
-          },
-        )
-        .toList(growable: false);
+) => rules
+    .where(
+      (rule) =>
+          rule.enabled && rule.metric == ForegroundThresholdMetric.nodeCpu,
+    )
+    .take(maxForegroundThresholdRules)
+    .map(
+      (rule) => <String, Object?>{
+        'id': rule.id,
+        'node': rule.node,
+        'thresholdPercent': rule.thresholdPercent,
+        'consecutiveSamples': rule.consecutiveSamples,
+        'hysteresisPercent': rule.hysteresisPercent,
+      },
+    )
+    .toList(growable: false);
