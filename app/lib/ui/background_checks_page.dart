@@ -376,7 +376,7 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
               ),
             ),
             const SizedBox(height: 16),
-            const MessageCard(
+            MessageCard(
               icon: Icons.privacy_tip_outlined,
               title: 'Privacy and safety boundary',
               text:
@@ -385,8 +385,11 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                   'disabled. The API token copy is encrypted with Android '
                   'Keystore for this opt-in worker. Notifications are generic: '
                   'no connection name, endpoint, node name, guest name, VMID, '
-                  'task ID or task log is included. Editing or removing the '
-                  'connection clears the worker credential copy and schedule.',
+                  'task ID or task log is included. Lock-screen exposure follows '
+                  'Settings > Incident notifications and is currently '
+                  '${widget.controller.notificationLockScreenPrivacy == IncidentNotificationLockScreenPrivacy.hidden ? 'hidden on secure lock screens' : 'generic alert only'}. '
+                  'Editing or removing the connection clears the worker credential '
+                  'copy and schedule.',
             ),
           ],
         ),
