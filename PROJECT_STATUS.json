@@ -14,7 +14,7 @@
   "framework": "Flutter",
   "primary_pve": "9.2",
   "regression_pve": "8.4",
-  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, snapshot creation/stopped-only non-RAM rollback/deletion, one-off backup-start, exact-guest backup-archive visibility, evidence-limited backup validation confidence, and GET-only same-node alternate-VMID restore-plan/conflict-preflight operational slices + ALERT-007 foreground notification quiet-hours/cooldown delivery policy + ALERT-009 opt-in Android WorkManager node-state checks + ALERT-010 device-wide notification lock-screen privacy",
+  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, snapshot creation/stopped-only non-RAM rollback/deletion, one-off backup-start, exact-guest backup-archive visibility, evidence-limited backup validation confidence, and GET-only same-node alternate-VMID restore-plan/conflict-preflight operational slices + ALERT-007 foreground notification quiet-hours/cooldown delivery policy + ALERT-009 opt-in Android WorkManager node-state checks + ALERT-010 device-wide notification lock-screen privacy + AND-010 generic Android notification deep link to unlocked Incidents",
   "github_repository_url": "https://github.com/s4daharu/VirtHelm",
   "documentation_uploaded_and_verified": true,
   "docs_initial_remote_commit": "4fdfcd704aced213508f798533fd6370573ac284",
@@ -155,7 +155,7 @@
       "GET-only smoke testing against one PVE 9.2.26 server exercised HTTP schemas and actual gateway parsers, including server-side free/occupied VMID checks. No mutations were attempted; 8.4, restricted ACL, backend variants, physical-device and production gates remain open."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 334,
+    "current_flutter_tests_defined": 337,
     "current_flutter_runtime_tests_passed": 391,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
@@ -688,6 +688,19 @@
     "synchronization": "AppController loads and synchronizes the preference at initialization. User changes are persisted only after the native bridge reports successful application, preventing false UI state.",
     "verification": "Exact-head PR run 43156373238 passed repository source/docs checks, generated Android runner privacy assertions, pinned Dart formatting, flutter analyze --fatal-infos, 391 Flutter runtime tests and debug APK compilation. Regression coverage includes fail-closed parsing, initialization sync, failed/successful native apply, controller-shutdown rollback and rollback to the prior native mode when local persistence fails. Physical-device/OEM secure-lock-screen validation remains a release gate.",
     "report": "docs/100-implementation-notification-lock-screen-privacy.md",
-    "deferred": "physical-device/OEM secure-lock-screen validation, notification deep links to unlocked incident views, background failed-task/threshold parity, authoritative correlation, relay/webhooks and production critical-alert guarantees"
+    "deferred": "physical-device/OEM secure-lock-screen validation, resource-specific notification links, background failed-task/threshold parity, authoritative correlation, relay/webhooks and production critical-alert guarantees; AND-010 generic unlocked Incidents navigation is implemented as a bounded follow-up"
+  },
+  "android_notification_incident_deep_link": {
+    "status": "implemented_source_level_ci_pending",
+    "milestone": "AND-010 generic incident notification deep link",
+    "version": "0.1.55",
+    "behavior": "Foreground and scheduled incident notifications open the in-app Incidents destination for the current connection. Cold launch and warm onNewIntent delivery are both handled; a request received before ShellPage exists is honored when the shell is created.",
+    "android": "Both notification paths share one explicit immutable PendingIntent targeting MainActivity with FLAG_ACTIVITY_CLEAR_TOP | FLAG_ACTIVITY_SINGLE_TOP and the package-scoped OPEN_INCIDENTS action. No notification trampoline, broadcast receiver, implicit URI or full-screen intent is introduced.",
+    "privacy": "The navigation intent contains no putExtra payload and carries no profile ID, endpoint, node/resource name, VMID, storage ID, task UPID, rule ID, credentials, raw response or other infrastructure selector. It only selects the generic Incidents tab after Android opens the app.",
+    "flutter": "A private method-channel bridge consumes cold pending intent state and receives warm openIncidents events. AppController stores only an in-memory monotonic request counter; ShellPage switches to navigation index 3 and existing incident drill-down remains guarded by the current profile/generation/live state.",
+    "safety": "Navigation never switches profiles, acknowledges/resolves incidents, submits PVE I/O, bypasses Android unlock policy, weakens ALERT-010 lock-screen privacy, or authorizes resource drill-down.",
+    "verification": "Source/widget tests cover native pending-target consumption, pre-shell requests and warm existing-shell switching. Generated-runner/source assertions enforce the shared immutable intent, warm/cold handlers and absence of putExtra in the navigation intent builder. Exact-head pinned CI remains required before merge.",
+    "report": "docs/101-implementation-notification-incident-deep-link.md",
+    "deferred": "physical-device secure-lock-screen/cold-warm tap validation, resource-specific notification links, background failed-task/threshold parity, cross-mode notification deduplication, authoritative correlation, relay/webhooks and production critical-alert guarantees"
   }
 }
