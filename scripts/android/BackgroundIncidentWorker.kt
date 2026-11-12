@@ -252,7 +252,9 @@ internal object BackgroundCheckCoordinator {
                 cooldownMinutes = 30,
             ),
         )
-        val enabled = policy.enabled && storage.contains(secretKey(key))
+        val secretAvailable =
+            readSecret(storage.getString(secretKey(key), null), key) != null
+        val enabled = policy.enabled && secretAvailable
         return mapOf(
             "enabled" to enabled,
             "intervalMinutes" to policy.intervalMinutes,
@@ -263,7 +265,11 @@ internal object BackgroundCheckCoordinator {
             "lastAttemptMs" to storage.getLong(lastAttemptKey(key), 0L),
             "lastSuccessMs" to storage.getLong(lastSuccessKey(key), 0L),
             "lastNotificationMs" to storage.getLong(lastNotificationKey(key), 0L),
-            "lastOutcome" to storage.getString(lastOutcomeKey(key), null),
+            "lastOutcome" to if (policy.enabled && !secretAvailable) {
+                "configuration_unavailable"
+            } else {
+                storage.getString(lastOutcomeKey(key), null)
+            },
         )
     }
 
