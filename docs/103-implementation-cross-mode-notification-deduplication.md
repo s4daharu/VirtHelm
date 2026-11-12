@@ -111,10 +111,12 @@ Regression/static coverage verifies:
 - generic payload, immutable navigation and no-public-visibility assertions
   remain enforced.
 
-Exact-head CI evidence is pending until the feature PR runs the repository
-source/docs checks, generated Android hardening checks, pinned Dart formatting,
-flutter analyze --fatal-infos, the full Flutter test suite and debug APK
-build.
+Exact-head PR run **43168287847** at
+**5206e7c91be6cf36e58d7a52aaf10a4a13467c31** passed repository source/docs
+checks, generated Android delivery-ledger hardening checks, pinned Dart
+formatting, `flutter analyze --fatal-infos`, **405 Flutter runtime tests**, and
+debug APK compilation. These checks establish source/build integration; they
+do not replace the physical-device gates below.
 
 ## Remaining gates
 
