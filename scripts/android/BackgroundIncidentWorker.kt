@@ -44,6 +44,7 @@ private const val MIN_BACKGROUND_INTERVAL_MINUTES = 15
 private const val MAX_BACKGROUND_INTERVAL_MINUTES = 24 * 60
 private const val MAX_RESPONSE_BYTES = 512 * 1024
 private const val MAX_BACKGROUND_TASK_NODES = 16
+private const val MAX_BACKGROUND_NODE_CPU_RULES = 32
 
 internal object IncidentNotificationPrivacy {
     private const val PREFS_NAME = "virthelm_notification_privacy_v1"
@@ -155,6 +156,7 @@ internal data class ScheduledPolicy(
     val quietEndMinute: Int,
     val cooldownMinutes: Int,
     val failedTaskChecksEnabled: Boolean,
+    val nodeCpuThresholdChecksEnabled: Boolean,
 ) {
     fun validate() {
         require(intervalMinutes in MIN_BACKGROUND_INTERVAL_MINUTES..MAX_BACKGROUND_INTERVAL_MINUTES)
@@ -183,6 +185,7 @@ internal data class ScheduledPolicy(
         .put("quietEndMinute", quietEndMinute)
         .put("cooldownMinutes", cooldownMinutes)
         .put("failedTaskChecksEnabled", failedTaskChecksEnabled)
+        .put("nodeCpuThresholdChecksEnabled", nodeCpuThresholdChecksEnabled)
         .toString()
 
     companion object {
@@ -196,6 +199,7 @@ internal data class ScheduledPolicy(
                     quietEndMinute = 7 * 60,
                     cooldownMinutes = 30,
                     failedTaskChecksEnabled = false,
+                    nodeCpuThresholdChecksEnabled = false,
                 )
             }
             val json = JSONObject(raw)
@@ -208,6 +212,61 @@ internal data class ScheduledPolicy(
                 cooldownMinutes = json.optInt("cooldownMinutes", 30),
                 failedTaskChecksEnabled =
                     json.optBoolean("failedTaskChecksEnabled", false),
+                nodeCpuThresholdChecksEnabled =
+                    json.optBoolean("nodeCpuThresholdChecksEnabled", false),
+            ).also { it.validate() }
+        }
+    }
+}
+
+private data class ScheduledNodeCpuRule(
+    val id: String,
+    val node: String,
+    val thresholdPercent: Int,
+    val consecutiveSamples: Int,
+    val hysteresisPercent: Int,
+) {
+    fun validate() {
+        require(id.isNotBlank() && id.length <= 80)
+        require(node.isNotBlank() && node.length <= 120)
+        require(!node.any { it.code < 0x20 || it.code == 0x7f })
+        require(thresholdPercent in 1..100)
+        require(consecutiveSamples in 1..10)
+        require(hysteresisPercent in 0..20)
+        require(hysteresisPercent < thresholdPercent)
+    }
+
+    fun toJson(): JSONObject = JSONObject()
+        .put("id", id)
+        .put("node", node)
+        .put("thresholdPercent", thresholdPercent)
+        .put("consecutiveSamples", consecutiveSamples)
+        .put("hysteresisPercent", hysteresisPercent)
+
+    companion object {
+        fun fromJson(json: JSONObject): ScheduledNodeCpuRule =
+            ScheduledNodeCpuRule(
+                id = json.getString("id"),
+                node = json.getString("node").trim(),
+                thresholdPercent = json.getInt("thresholdPercent"),
+                consecutiveSamples = json.getInt("consecutiveSamples"),
+                hysteresisPercent = json.getInt("hysteresisPercent"),
+            ).also { it.validate() }
+
+        fun fromChannel(raw: Any?): ScheduledNodeCpuRule {
+            val map = raw as? Map<*, *>
+                ?: throw IllegalArgumentException("Invalid threshold rule")
+            return ScheduledNodeCpuRule(
+                id = map["id"] as? String
+                    ?: throw IllegalArgumentException("Missing rule id"),
+                node = (map["node"] as? String)?.trim()
+                    ?: throw IllegalArgumentException("Missing rule node"),
+                thresholdPercent = map["thresholdPercent"] as? Int
+                    ?: throw IllegalArgumentException("Missing rule threshold"),
+                consecutiveSamples = map["consecutiveSamples"] as? Int
+                    ?: throw IllegalArgumentException("Missing rule samples"),
+                hysteresisPercent = map["hysteresisPercent"] as? Int
+                    ?: throw IllegalArgumentException("Missing rule hysteresis"),
             ).also { it.validate() }
         }
     }
@@ -216,6 +275,7 @@ internal data class ScheduledPolicy(
 private data class ScheduledSecret(
     val endpoint: String,
     val authorization: String,
+    val nodeCpuThresholdRules: List<ScheduledNodeCpuRule> = emptyList(),
 )
 
 private data class NodeStateReadResult(
@@ -276,6 +336,7 @@ internal object BackgroundCheckCoordinator {
         endpoint: String,
         authorization: String,
         policy: ScheduledPolicy,
+        nodeCpuThresholdRules: List<ScheduledNodeCpuRule>,
     ): Boolean {
         policy.validate()
         require(policy.enabled)
@@ -283,14 +344,23 @@ internal object BackgroundCheckCoordinator {
         require(authorization.startsWith("PVEAPIToken="))
         require(authorization.length in 16..4096)
         require(!authorization.any { it == '\n' || it == '\r' })
+        val effectiveRules =
+            if (policy.nodeCpuThresholdChecksEnabled) {
+                validateNodeCpuRules(nodeCpuThresholdRules)
+            } else {
+                emptyList()
+            }
 
         val key = profileKey(profileId)
         val encrypted = encryptSecret(
             key,
-            JSONObject()
-                .put("endpoint", endpoint)
-                .put("authorization", authorization)
-                .toString(),
+            encodeSecret(
+                ScheduledSecret(
+                    endpoint = endpoint,
+                    authorization = authorization,
+                    nodeCpuThresholdRules = effectiveRules,
+                ),
+            ),
         )
         val storage = prefs(context)
         val committed = storage.edit()
@@ -360,6 +430,7 @@ internal object BackgroundCheckCoordinator {
                     quietEndMinute = 7 * 60,
                     cooldownMinutes = 30,
                     failedTaskChecksEnabled = false,
+                    nodeCpuThresholdChecksEnabled = false,
                 ),
             )
             editor.putString(policyKey(key), policy.copy(enabled = false).toJson())
@@ -386,6 +457,7 @@ internal object BackgroundCheckCoordinator {
                 quietEndMinute = 7 * 60,
                 cooldownMinutes = 30,
                 failedTaskChecksEnabled = false,
+                nodeCpuThresholdChecksEnabled = false,
             ),
         )
         val secretAvailable =
@@ -399,6 +471,8 @@ internal object BackgroundCheckCoordinator {
             "quietEndMinute" to policy.quietEndMinute,
             "cooldownMinutes" to policy.cooldownMinutes,
             "failedTaskChecksEnabled" to policy.failedTaskChecksEnabled,
+            "nodeCpuThresholdChecksEnabled" to
+                policy.nodeCpuThresholdChecksEnabled,
             "lastAttemptMs" to storage.getLong(lastAttemptKey(key), 0L),
             "lastSuccessMs" to storage.getLong(lastSuccessKey(key), 0L),
             "lastNotificationMs" to storage.getLong(lastNotificationKey(key), 0L),
@@ -962,6 +1036,10 @@ internal object BackgroundCheckBridge {
                             cooldownMinutes = call.requireInt("cooldownMinutes"),
                             failedTaskChecksEnabled =
                                 call.argument<Boolean>("failedTaskChecksEnabled") == true,
+                            nodeCpuThresholdChecksEnabled =
+                                call.argument<Boolean>(
+                                    "nodeCpuThresholdChecksEnabled",
+                                ) == true,
                         )
                         result.success(
                             BackgroundCheckCoordinator.configure(
@@ -970,6 +1048,18 @@ internal object BackgroundCheckBridge {
                                 endpoint = call.requireString("endpoint"),
                                 authorization = call.requireString("authorization"),
                                 policy = policy,
+                                nodeCpuThresholdRules =
+                                    call.nodeCpuThresholdRules(),
+                            ),
+                        )
+                    }
+                    "syncNodeCpuThresholdRules" -> {
+                        result.success(
+                            BackgroundCheckCoordinator.syncNodeCpuThresholdRules(
+                                context = context,
+                                profileId = call.requireString("profileId"),
+                                nodeCpuThresholdRules =
+                                    call.nodeCpuThresholdRules(),
                             ),
                         )
                     }
@@ -1011,4 +1101,11 @@ internal object BackgroundCheckBridge {
 
     private fun io.flutter.plugin.common.MethodCall.requireInt(name: String): Int =
         argument<Int>(name) ?: throw IllegalArgumentException("Missing $name")
+
+    private fun io.flutter.plugin.common.MethodCall.nodeCpuThresholdRules():
+        List<ScheduledNodeCpuRule> {
+        val raw = argument<List<*>>("nodeCpuThresholdRules") ?: emptyList<Any?>()
+        require(raw.size <= MAX_BACKGROUND_NODE_CPU_RULES)
+        return raw.map { ScheduledNodeCpuRule.fromChannel(it) }
+    }
 }
