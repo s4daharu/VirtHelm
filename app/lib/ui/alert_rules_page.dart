@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/alert_rules.dart';
 import '../core/app_controller.dart';
+import '../core/background_checks.dart';
 
 class ForegroundThresholdAlertRulesPage extends StatefulWidget {
   const ForegroundThresholdAlertRulesPage({
@@ -101,6 +102,16 @@ class _ForegroundThresholdAlertRulesPageState
         result,
         expectedProfileId: widget.profileId,
       );
+    } on BackgroundCheckException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Rule saved, but scheduled checks were disabled because the '
+            'background rule copy could not be synchronized.',
+          ),
+        ),
+      );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -118,6 +129,16 @@ class _ForegroundThresholdAlertRulesPageState
         rule.copyWith(enabled: enabled),
         expectedProfileId: widget.profileId,
       );
+    } on BackgroundCheckException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Rule updated, but scheduled checks were disabled because the '
+            'background rule copy could not be synchronized.',
+          ),
+        ),
+      );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -131,6 +152,16 @@ class _ForegroundThresholdAlertRulesPageState
       await widget.controller.deleteThresholdAlertRule(
         rule.id,
         expectedProfileId: widget.profileId,
+      );
+    } on BackgroundCheckException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Rule deleted, but scheduled checks were disabled because the '
+            'background rule copy could not be synchronized.',
+          ),
+        ),
       );
     } catch (_) {
       if (!mounted) return;
@@ -150,7 +181,7 @@ class _ForegroundThresholdAlertRulesPageState
             ? widget.controller.thresholdAlertRules
             : const <ForegroundThresholdAlertRule>[];
         return Scaffold(
-          appBar: AppBar(title: const Text('Foreground threshold rules')),
+          appBar: AppBar(title: const Text('Threshold rules')),
           floatingActionButton:
               current && rules.length < maxForegroundThresholdRules
               ? FloatingActionButton.extended(
@@ -180,8 +211,9 @@ class _ForegroundThresholdAlertRulesPageState
                           'Rules are saved only for this connection profile. '
                           'CPU rules use the current node/guest inventory; '
                           'storage rules use the current per-node storage '
-                          'overview. No background worker or Android '
-                          'notification is created.',
+                          'overview. Node CPU rules can also be evaluated by '
+                          'Scheduled checks when separately enabled. Guest CPU '
+                          'and storage thresholds remain foreground-only.',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ),
@@ -363,9 +395,10 @@ class _ThresholdRuleEditorPageState extends State<_ThresholdRuleEditorPage> {
         padding: const EdgeInsets.fromLTRB(18, 16, 18, 30),
         children: [
           Text(
-            'This rule is evaluated only during foreground live refreshes. '
-            'Missing samples reset pending confirmation but never resolve a '
-            'prior firing.',
+            'This rule is evaluated during foreground live refreshes. Node CPU '
+            'rules can also be evaluated by Scheduled checks when separately '
+            'enabled. Missing samples reset pending confirmation but never '
+            'resolve a prior firing.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 16),
