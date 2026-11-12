@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 
 typedef IncidentNavigationHandler = void Function();
@@ -30,17 +32,17 @@ class AndroidIncidentNotificationNavigation
 
   @override
   void listen(IncidentNavigationHandler handler) {
-    _channel.setMethodCallHandler((call) async {
+    unawaited(_channel.setMethodCallHandler((call) async {
       if (call.method == 'openIncidents') {
         handler();
         return true;
       }
       return null;
-    });
+    }));
   }
 
   @override
   void dispose() {
-    _channel.setMethodCallHandler(null);
+    unawaited(_channel.setMethodCallHandler(null));
   }
 }
