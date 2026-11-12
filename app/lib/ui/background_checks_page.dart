@@ -61,11 +61,11 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
     }
   }
 
-  String _message(Object caught) => switch (caught) {
-    BackgroundCheckException() => caught.message,
-    FormatException() => caught.message,
-    _ => 'Could not update scheduled checks.',
-  };
+  String _message(Object caught) => caught is BackgroundCheckException
+      ? caught.message
+      : caught is FormatException
+      ? caught.message
+      : 'Could not update scheduled checks.';
 
   Future<void> _apply(BackgroundCheckPolicy next) async {
     if (_busy) return;
