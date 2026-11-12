@@ -279,16 +279,24 @@ void main() {
     );
 
     expect(find.textContaining('CACHED INVENTORY'), findsOneWidget);
+
+    final overviewList = find.byType(ListView).first;
+    await tester.drag(overviewList, const Offset(0, -750));
+    await tester.pump();
     expect(find.byKey(const ValueKey('offline-node-node-a')), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('offline-guest-qemu-101')),
-      findsOneWidget,
-    );
     final cachedNodeTile = tester.widget<ListTile>(
       find.descendant(
         of: find.byKey(const ValueKey('offline-node-node-a')),
         matching: find.byType(ListTile),
       ),
+    );
+    expect(cachedNodeTile.onTap, isNull);
+
+    await tester.drag(overviewList, const Offset(0, -900));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('offline-guest-qemu-101')),
+      findsOneWidget,
     );
     final cachedGuestTile = tester.widget<ListTile>(
       find.descendant(
@@ -296,7 +304,6 @@ void main() {
         matching: find.byType(ListTile),
       ),
     );
-    expect(cachedNodeTile.onTap, isNull);
     expect(cachedGuestTile.onTap, isNull);
   });
 
