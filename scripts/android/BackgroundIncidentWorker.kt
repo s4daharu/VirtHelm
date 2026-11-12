@@ -679,6 +679,8 @@ internal object BackgroundCheckCoordinator {
                     outcome = "task_incomplete",
                     complete = false,
                     incident = false,
+                    newIncident = false,
+                    watermarkSeconds = previousWatermarkSeconds,
                 )
             }
             val url = URL(
@@ -700,6 +702,8 @@ internal object BackgroundCheckCoordinator {
                         outcome = "task_redirect_blocked",
                         complete = false,
                         incident = false,
+                        newIncident = false,
+                        watermarkSeconds = previousWatermarkSeconds,
                     )
                 }
                 if (code == HttpURLConnection.HTTP_UNAUTHORIZED ||
@@ -709,6 +713,8 @@ internal object BackgroundCheckCoordinator {
                         outcome = "task_authorization_denied",
                         complete = false,
                         incident = false,
+                        newIncident = false,
+                        watermarkSeconds = previousWatermarkSeconds,
                     )
                 }
                 if (code !in 200..299) {
@@ -716,6 +722,8 @@ internal object BackgroundCheckCoordinator {
                         outcome = "task_read_failed",
                         complete = false,
                         incident = false,
+                        newIncident = false,
+                        watermarkSeconds = previousWatermarkSeconds,
                     )
                 }
                 val body = connection.inputStream.use { readLimited(it) }
@@ -726,6 +734,8 @@ internal object BackgroundCheckCoordinator {
                         outcome = "task_incomplete",
                         complete = false,
                         incident = false,
+                        newIncident = false,
+                        watermarkSeconds = previousWatermarkSeconds,
                     )
                 }
                 for (index in 0 until data.length()) {
@@ -734,6 +744,8 @@ internal object BackgroundCheckCoordinator {
                             outcome = "task_incomplete",
                             complete = false,
                             incident = false,
+                            newIncident = false,
+                            watermarkSeconds = previousWatermarkSeconds,
                         )
                     val rawStatus = item.optString("status").trim()
                     if (rawStatus.isEmpty()) {
@@ -741,6 +753,8 @@ internal object BackgroundCheckCoordinator {
                             outcome = "task_incomplete",
                             complete = false,
                             incident = false,
+                            newIncident = false,
+                            watermarkSeconds = previousWatermarkSeconds,
                         )
                     }
                     if (rawStatus.equals("RUNNING", ignoreCase = true)) {
