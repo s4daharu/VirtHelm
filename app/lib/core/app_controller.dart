@@ -61,14 +61,18 @@ class AppController extends ChangeNotifier {
       IncidentNotificationLockScreenPrivacy.hidden;
   DateTime? _lastForegroundNotificationAt;
   bool _notificationDeliveryInFlight = false;
-  int _incidentCenterNavigationRequest = 0;
-
-  int get incidentCenterNavigationRequest => _incidentCenterNavigationRequest;
+  bool _incidentCenterNavigationPending = false;
 
   void requestIncidentCenter() {
     if (_disposed) return;
-    _incidentCenterNavigationRequest += 1;
+    _incidentCenterNavigationPending = true;
     _notify();
+  }
+
+  bool takeIncidentCenterNavigationRequest() {
+    if (!_incidentCenterNavigationPending) return false;
+    _incidentCenterNavigationPending = false;
+    return true;
   }
 
   List<CockpitIncident> get incidents => buildCockpitIncidents(
