@@ -39,7 +39,7 @@
   "m1_validation": "Automated branch CI has passed source checks, analyzer, tests and Android debug APK build for the M1 safety implementation; live PVE/device release validation remains open.",
   "flutter_build_success": true,
   "ci_flutter_version": "3.44.4",
-  "android_build_evidence": "Docs and Android checks run 42913689940 and signed prerelease run 42914642302 passed for audited baseline fa41718a69e5083201f002ecc39c6e3e97420506. The 0.1.46 audit passed a throttled local debug APK build with pinned Flutter 3.44.4 and Java 17. The 0.1.48 snapshot lifecycle hardening slice passed local pinned formatting, analyze and 387 Flutter runtime tests. The 0.1.51 durable incident-history milestone passed exact-head PR run 43093767543 with pinned Flutter 3.44.4 formatting, analyze --fatal-infos, 381 passing Flutter tests and a debug APK build. The 0.1.53 ALERT-009 branch passed exact-head PR run 43153754048 with source/docs checks, generated Android hardening checks, pinned formatting, analyze --fatal-infos, the full Flutter suite and debug APK compilation. The 0.1.54 ALERT-010 branch passed exact-head PR run 43156373238 with repository source/docs checks, generated Android privacy hardening checks, pinned formatting, flutter analyze --fatal-infos, 391 passing Flutter runtime tests and debug APK compilation. The 0.1.55 AND-010 branch passed exact-head PR run 43159936358 with repository source/docs checks, generated Android deep-link hardening checks, pinned formatting, flutter analyze --fatal-infos, 395 passing Flutter runtime tests and debug APK compilation. Bounded 9.2.26 read-only evidence does not close mutation/8.4/device release gates.",
+  "android_build_evidence": "Docs and Android checks run 42913689940 and signed prerelease run 42914642302 passed for audited baseline fa41718a69e5083201f002ecc39c6e3e97420506. The 0.1.46 audit passed a throttled local debug APK build with pinned Flutter 3.44.4 and Java 17. The 0.1.48 snapshot lifecycle hardening slice passed local pinned formatting, analyze and 387 Flutter runtime tests. The 0.1.51 durable incident-history milestone passed exact-head PR run 43093767543 with pinned Flutter 3.44.4 formatting, analyze --fatal-infos, 381 passing Flutter tests and a debug APK build. The 0.1.53 ALERT-009 branch passed exact-head PR run 43153754048 with source/docs checks, generated Android hardening checks, pinned formatting, analyze --fatal-infos, the full Flutter suite and debug APK compilation. The 0.1.54 ALERT-010 branch passed exact-head PR run 43156373238 with repository source/docs checks, generated Android privacy hardening checks, pinned formatting, flutter analyze --fatal-infos, 391 passing Flutter runtime tests and debug APK compilation. The 0.1.55 AND-010 branch passed exact-head PR run 43159936358 with repository source/docs checks, generated Android deep-link hardening checks, pinned formatting, flutter analyze --fatal-infos, 395 passing Flutter runtime tests and debug APK compilation. The 0.1.56 AND-011 stale-inventory branch passed exact-head PR run 43164552217 with repository source/docs checks, generated Android checks, pinned formatting, flutter analyze --fatal-infos, 403 passing Flutter runtime tests and debug APK compilation. Bounded 9.2.26 read-only evidence does not close mutation/8.4/device release gates.",
   "m1_safety_followup": "Implemented: per-guest single-flight, profile/snapshot revalidation, bounded task verification, ambiguous-outcome lockout, auth-revocation fail-closed handling and race regression tests.",
   "m2_read_cockpit": {
     "features": [
@@ -156,7 +156,7 @@
     ],
     "full_premium_scope_complete": false,
     "current_flutter_tests_defined": 346,
-    "current_flutter_runtime_tests_passed": 395,
+    "current_flutter_runtime_tests_passed": 403,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
     "p0_scope_complete": false,
@@ -704,7 +704,7 @@
     "deferred": "physical-device secure-lock-screen/cold-warm tap validation, resource-specific notification links, background failed-task/threshold parity, cross-mode notification deduplication, authoritative correlation, relay/webhooks and production critical-alert guarantees"
   },
   "android_offline_stale_inventory": {
-    "status": "implemented_source_level_ci_pending",
+    "status": "implemented_ci_verified",
     "milestone": "AND-011 offline stale-aware inventory",
     "version": "0.1.56",
     "behavior": "A separate per-profile opt-in stores a bounded last-known node/guest inventory for display when no live inventory exists after Android network-unavailable state or typed transport failure. Home and Guests label it CACHED / NOT LIVE; the Guests cache browser supports local search only.",
@@ -712,7 +712,7 @@
     "bounds": "Schema v1; maximum age 24 hours; maximum 256 nodes, 5000 guest rows and 512 KiB serialized payload. Control-character/oversized identities, duplicate node names/VMIDs, unknown versions, extra fields, future timestamps, malformed and expired records are rejected.",
     "consent": "Detailed inventory consent is separate from the existing counts-only offline overview and is off by default. Opt-out purges the detailed cache; profile edit/credential replacement, profile deletion and observed HTTP 401 also purge it.",
     "safety": "Cached identities are never converted back into live Inventory. Cached node/guest cards have no tap handlers; cached Guests omits create, favorites, saved-view/filter editing and all detail/action routes. isInventoryFresh/isInventoryWriteSafe and every server read/mutation authorization remain live-session only.",
-    "verification": "Model/repository/controller/widget regressions cover allowlist serialization, expiry/corruption/ambiguity rejection, consent/purge, live snapshot save/erase, non-interactive cached Home cards, dedicated cached Guests search and the separate Settings opt-in. Exact-head pinned CI is required before merge.",
+    "verification": "Exact-head PR run 43164552217 passed repository source/docs checks, generated Android checks, pinned Dart formatting, flutter analyze --fatal-infos, 403 Flutter runtime tests and debug APK compilation. Model/repository/controller/widget regressions cover allowlist serialization, expiry/corruption/ambiguity rejection, consent/purge, live snapshot save/erase, non-interactive cached Home cards, dedicated cached Guests search and the separate Settings opt-in. Physical-device process-death/radio/VPN/storage inspection remains a release gate.",
     "report": "docs/102-implementation-offline-stale-inventory.md",
     "deferred": "physical-device process-death/radio/VPN/storage inspection, persistent node/guest detail/metrics/config/storage/task caches, PVE 8.4/9.2 ACL fixture matrix, production signing/device verification and independent security review"
   }
