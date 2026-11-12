@@ -160,34 +160,37 @@ void main() {
     },
   );
 
-  test('controller shutdown rolls an in-flight native privacy change back', () async {
-    final prefs = await SharedPreferences.getInstance();
-    final repository = ProfileRepository(prefs, _Vault());
-    final notifier = _PausedPrivacyNotifier();
-    final controller = AppController(
-      repository: repository,
-      incidentNotifier: notifier,
-    );
-    await controller.initialize();
+  test(
+    'controller shutdown rolls an in-flight native privacy change back',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final repository = ProfileRepository(prefs, _Vault());
+      final notifier = _PausedPrivacyNotifier();
+      final controller = AppController(
+        repository: repository,
+        incidentNotifier: notifier,
+      );
+      await controller.initialize();
 
-    final change = controller.setNotificationLockScreenPrivacy(
-      IncidentNotificationLockScreenPrivacy.generic,
-    );
-    await notifier.secondCallStarted.future;
-    controller.dispose();
-    notifier.secondCallGate.complete();
+      final change = controller.setNotificationLockScreenPrivacy(
+        IncidentNotificationLockScreenPrivacy.generic,
+      );
+      await notifier.secondCallStarted.future;
+      controller.dispose();
+      notifier.secondCallGate.complete();
 
-    expect(await change, isFalse);
-    expect(
-      repository.notificationLockScreenPrivacy,
-      IncidentNotificationLockScreenPrivacy.hidden,
-    );
-    expect(notifier.privacyChanges, [
-      IncidentNotificationLockScreenPrivacy.hidden,
-      IncidentNotificationLockScreenPrivacy.generic,
-      IncidentNotificationLockScreenPrivacy.hidden,
-    ]);
-  });
+      expect(await change, isFalse);
+      expect(
+        repository.notificationLockScreenPrivacy,
+        IncidentNotificationLockScreenPrivacy.hidden,
+      );
+      expect(notifier.privacyChanges, [
+        IncidentNotificationLockScreenPrivacy.hidden,
+        IncidentNotificationLockScreenPrivacy.generic,
+        IncidentNotificationLockScreenPrivacy.hidden,
+      ]);
+    },
+  );
 
   test('persistence failure rolls native privacy back to prior mode', () async {
     final prefs = await SharedPreferences.getInstance();
