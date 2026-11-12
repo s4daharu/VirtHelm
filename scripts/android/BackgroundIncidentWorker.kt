@@ -26,6 +26,7 @@ import io.flutter.plugin.common.MethodChannel
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
@@ -43,7 +44,7 @@ private const val MIN_BACKGROUND_INTERVAL_MINUTES = 15
 private const val MAX_BACKGROUND_INTERVAL_MINUTES = 24 * 60
 private const val MAX_RESPONSE_BYTES = 512 * 1024
 
-private data class ScheduledPolicy(
+internal data class ScheduledPolicy(
     val enabled: Boolean,
     val intervalMinutes: Int,
     val quietHoursEnabled: Boolean,
@@ -368,7 +369,7 @@ internal object BackgroundCheckCoordinator {
                     incident = false,
                 )
             }
-            val body = readLimited(connection.inputStream.readBytes())
+            val body = connection.inputStream.use { readLimited(it) }
             val root = JSONObject(body)
             val data = root.opt("data")
             if (data !is JSONArray) {
@@ -405,9 +406,18 @@ internal object BackgroundCheckCoordinator {
         }
     }
 
-    private fun readLimited(bytes: ByteArray): String {
-        require(bytes.size <= MAX_RESPONSE_BYTES)
-        return bytes.toString(Charsets.UTF_8)
+    private fun readLimited(stream: InputStream): String {
+        val output = ByteArrayOutputStream()
+        val buffer = ByteArray(8 * 1024)
+        var total = 0
+        while (true) {
+            val count = stream.read(buffer)
+            if (count < 0) break
+            total += count
+            require(total <= MAX_RESPONSE_BYTES)
+            output.write(buffer, 0, count)
+        }
+        return output.toString(Charsets.UTF_8.name())
     }
 
     private fun showScheduledIncidentNotification(context: Context): Boolean {
