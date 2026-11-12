@@ -325,6 +325,7 @@ internal object BackgroundCheckCoordinator {
     private fun nodeIncidentKey(key: String) = "node-incident-active:$key"
     private fun taskIncidentKey(key: String) = "task-incident-active:$key"
     private fun taskWatermarkKey(key: String) = "task-watermark:$key"
+    private fun thresholdStateKey(key: String) = "node-cpu-threshold-state:$key"
     private fun lastAttemptKey(key: String) = "last-attempt:$key"
     private fun lastSuccessKey(key: String) = "last-success:$key"
     private fun lastOutcomeKey(key: String) = "last-outcome:$key"
@@ -368,6 +369,7 @@ internal object BackgroundCheckCoordinator {
             .putString(secretKey(key), encrypted)
             .commit()
         if (!committed) return false
+        reconcileThresholdState(storage, key, effectiveRules)
 
         return try {
             val request = PeriodicWorkRequest.Builder(
@@ -395,10 +397,45 @@ internal object BackgroundCheckCoordinator {
         } catch (_: RuntimeException) {
             storage.edit()
                 .remove(secretKey(key))
+                .remove(thresholdStateKey(key))
                 .putString(policyKey(key), policy.copy(enabled = false).toJson())
                 .apply()
             false
         }
+    }
+
+    fun syncNodeCpuThresholdRules(
+        context: Context,
+        profileId: String,
+        nodeCpuThresholdRules: List<ScheduledNodeCpuRule>,
+    ): Boolean {
+        val key = profileKey(profileId)
+        val storage = prefs(context)
+        val policy = runCatching {
+            ScheduledPolicy.fromJson(storage.getString(policyKey(key), null))
+        }.getOrNull() ?: return false
+        if (!policy.enabled) {
+            storage.edit().remove(thresholdStateKey(key)).apply()
+            return true
+        }
+        val existing =
+            readSecret(storage.getString(secretKey(key), null), key)
+                ?: return false
+        val effectiveRules =
+            if (policy.nodeCpuThresholdChecksEnabled) {
+                validateNodeCpuRules(nodeCpuThresholdRules)
+            } else {
+                emptyList()
+            }
+        val encrypted = encryptSecret(
+            key,
+            encodeSecret(existing.copy(nodeCpuThresholdRules = effectiveRules)),
+        )
+        if (!storage.edit().putString(secretKey(key), encrypted).commit()) {
+            return false
+        }
+        reconcileThresholdState(storage, key, effectiveRules)
+        return true
     }
 
     fun disable(context: Context, profileId: String, clearPolicy: Boolean) {
@@ -411,6 +448,7 @@ internal object BackgroundCheckCoordinator {
             .remove(nodeIncidentKey(key))
             .remove(taskIncidentKey(key))
             .remove(taskWatermarkKey(key))
+            .remove(thresholdStateKey(key))
         if (clearPolicy) {
             editor
                 .remove(policyKey(key))
@@ -943,6 +981,30 @@ internal object BackgroundCheckCoordinator {
         }
     }
 
+    private fun validateNodeCpuRules(
+        rules: List<ScheduledNodeCpuRule>,
+    ): List<ScheduledNodeCpuRule> {
+        require(rules.size <= MAX_BACKGROUND_NODE_CPU_RULES)
+        val ids = mutableSetOf<String>()
+        for (rule in rules) {
+            rule.validate()
+            require(ids.add(rule.id))
+        }
+        return rules.toList()
+    }
+
+    private fun encodeSecret(secret: ScheduledSecret): String {
+        val rules = JSONArray()
+        for (rule in secret.nodeCpuThresholdRules) {
+            rules.put(rule.toJson())
+        }
+        return JSONObject()
+            .put("endpoint", secret.endpoint)
+            .put("authorization", secret.authorization)
+            .put("nodeCpuThresholdRules", rules)
+            .toString()
+    }
+
     private fun encryptSecret(profileKey: String, cleartext: String): String {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
@@ -970,9 +1032,22 @@ internal object BackgroundCheckCoordinator {
             cipher.updateAAD(profileKey.toByteArray(Charsets.UTF_8))
             val cleartext = cipher.doFinal(encrypted).toString(Charsets.UTF_8)
             val decoded = JSONObject(cleartext)
+            val rulesJson = decoded.optJSONArray("nodeCpuThresholdRules")
+            val rules = mutableListOf<ScheduledNodeCpuRule>()
+            if (rulesJson != null) {
+                require(rulesJson.length() <= MAX_BACKGROUND_NODE_CPU_RULES)
+                for (index in 0 until rulesJson.length()) {
+                    rules.add(
+                        ScheduledNodeCpuRule.fromJson(
+                            rulesJson.getJSONObject(index),
+                        ),
+                    )
+                }
+            }
             ScheduledSecret(
                 endpoint = decoded.getString("endpoint"),
                 authorization = decoded.getString("authorization"),
+                nodeCpuThresholdRules = validateNodeCpuRules(rules),
             ).also {
                 validateEndpoint(it.endpoint)
                 require(it.authorization.startsWith("PVEAPIToken="))
