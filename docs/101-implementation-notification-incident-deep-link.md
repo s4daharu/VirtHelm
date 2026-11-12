@@ -84,8 +84,11 @@ Tests and source assertions cover:
 - absence of `putExtra` in the notification-navigation intent builder;
 - continued absence of public lock-screen visibility.
 
-Pinned formatting, analyzer, Flutter runtime tests and debug APK compilation are
-the authoritative merge checks.
+Exact-head PR run **43159936358** passed repository source/docs checks,
+generated Android deep-link/privacy assertions, pinned Dart formatting,
+`flutter analyze --fatal-infos`, **395 Flutter runtime tests**, and debug APK
+compilation. These checks verify source/build integration; they do not replace
+the physical-device notification-tap gates below.
 
 ## Remaining gates
 
