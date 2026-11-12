@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import 'alert_rules.dart';
 import 'app_preferences.dart';
+import 'background_checks.dart';
 import 'device_connectivity.dart';
 import 'foreground_notifications.dart';
 import 'guest_saved_view.dart';
@@ -22,9 +23,12 @@ class AppController extends ChangeNotifier {
     required this.repository,
     GatewayFactory? gatewayFactory,
     ForegroundIncidentNotifier? incidentNotifier,
+    BackgroundCheckScheduler? backgroundCheckScheduler,
     this.taskVerificationTtl = const Duration(minutes: 15),
   }) : _incidentNotifier =
            incidentNotifier ?? const AndroidForegroundIncidentNotifier(),
+       _backgroundCheckScheduler =
+           backgroundCheckScheduler ?? const AndroidBackgroundCheckScheduler(),
        _factory =
            gatewayFactory ??
            ((profile, credentials) => DioPveGateway(profile, credentials));
@@ -32,6 +36,7 @@ class AppController extends ChangeNotifier {
   final ProfileRepository repository;
   final GatewayFactory _factory;
   final ForegroundIncidentNotifier _incidentNotifier;
+  final BackgroundCheckScheduler _backgroundCheckScheduler;
   final Duration taskVerificationTtl;
 
   List<ConnectionProfile> profiles = [];
@@ -1570,6 +1575,17 @@ class AppController extends ChangeNotifier {
       await candidate.inventory();
       _checkConnectionSetup(generation);
       final validatedProfile = profile.withServerVersion(serverVersion);
+      try {
+        await _backgroundCheckScheduler.disable(
+          existing.id,
+          clearPolicy: true,
+        );
+      } on BackgroundCheckException {
+        throw const PveFailure(
+          'Could not clear scheduled checks before updating this connection.',
+        );
+      }
+      _checkConnectionSetup(generation);
       if (tokenChanged) {
         await repository.update(validatedProfile, credential);
       } else {
@@ -4105,6 +4121,7 @@ class AppController extends ChangeNotifier {
     // silently restoring a session whose credential state is uncertain.
     final generation = _generation;
     try {
+      await _backgroundCheckScheduler.disable(id, clearPolicy: true);
       await repository.delete(id);
       if (_disposed) return;
       profiles = repository.readProfiles();
