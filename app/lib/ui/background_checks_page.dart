@@ -419,7 +419,7 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                   'The worker performs GET only against the saved HTTPS origin '
                   'with normal certificate and hostname validation and redirects '
                   'disabled. Failed-task scanning is separately opted in, is '
-                  'bounded to 32 nodes and 20 recent task rows per node, and '
+                  'bounded to 16 nodes and 20 recent task rows per node, and '
                   'never persists task identifiers or resource names. The API '
                   'token copy is encrypted with Android Keystore for this opt-in '
                   'worker. Notifications are generic: '
