@@ -105,4 +105,4 @@ credentials and raw responses.
 The preference is synchronized into native Android storage for WorkManager.
 Unknown or missing values fail closed to hidden. Android and operator channel
 settings remain authoritative and may further restrict lock-screen display.
-Resource-specific notification deep links and any unlock bypass remain gated.
+AND-010 adds a generic notification deep link to the unlocked Incidents destination without carrying any resource selector. Resource-specific notification links and any unlock bypass remain gated.
