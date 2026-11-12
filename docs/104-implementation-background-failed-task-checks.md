@@ -22,7 +22,7 @@ When on, each eligible WorkManager run:
 
 - performs the existing bounded cluster node-state GET;
 - uses only the node identifiers returned by that authenticated node response;
-- checks at most 32 nodes;
+- checks at most 16 nodes;
 - requests at most 20 recent task rows per node;
 - emits only the existing generic incident notification when a node-state or
   failed/unknown terminal-task category newly becomes active.
