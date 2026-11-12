@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:virthelm/core/app_controller.dart';
@@ -24,6 +26,25 @@ class _FailingPrivacyRepository extends ProfileRepository {
     IncidentNotificationLockScreenPrivacy value,
   ) async {
     throw StateError('privacy persistence failed');
+  }
+}
+
+class _PausedPrivacyNotifier extends _Notifier {
+  final Completer<void> secondCallStarted = Completer<void>();
+  final Completer<void> secondCallGate = Completer<void>();
+  int calls = 0;
+
+  @override
+  Future<bool> setLockScreenPrivacy(
+    IncidentNotificationLockScreenPrivacy privacy,
+  ) async {
+    privacyChanges.add(privacy);
+    calls++;
+    if (calls == 2) {
+      secondCallStarted.complete();
+      await secondCallGate.future;
+    }
+    return true;
   }
 }
 
@@ -138,6 +159,35 @@ void main() {
       controller.dispose();
     },
   );
+
+  test('controller shutdown rolls an in-flight native privacy change back', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repository = ProfileRepository(prefs, _Vault());
+    final notifier = _PausedPrivacyNotifier();
+    final controller = AppController(
+      repository: repository,
+      incidentNotifier: notifier,
+    );
+    await controller.initialize();
+
+    final change = controller.setNotificationLockScreenPrivacy(
+      IncidentNotificationLockScreenPrivacy.generic,
+    );
+    await notifier.secondCallStarted.future;
+    controller.dispose();
+    notifier.secondCallGate.complete();
+
+    expect(await change, isFalse);
+    expect(
+      repository.notificationLockScreenPrivacy,
+      IncidentNotificationLockScreenPrivacy.hidden,
+    );
+    expect(notifier.privacyChanges, [
+      IncidentNotificationLockScreenPrivacy.hidden,
+      IncidentNotificationLockScreenPrivacy.generic,
+      IncidentNotificationLockScreenPrivacy.hidden,
+    ]);
+  });
 
   test('persistence failure rolls native privacy back to prior mode', () async {
     final prefs = await SharedPreferences.getInstance();
