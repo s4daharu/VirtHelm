@@ -24,8 +24,9 @@ When on, each eligible WorkManager run:
 - uses only the node identifiers returned by that authenticated node response;
 - checks at most 16 nodes;
 - requests at most 20 recent task rows per node;
-- emits only the existing generic incident notification when a node-state or
-  failed/unknown terminal-task category newly becomes active.
+- emits only the existing generic incident notification when node state newly
+  becomes incident or a definite failed task is newly observed after the last
+  complete task-scan watermark.
 
 The task option is disabled by default for existing saved scheduled policies.
 Quiet hours, notification cooldown, lock-screen privacy, generic Incidents
@@ -62,20 +63,30 @@ The worker mirrors the foreground failed-server-task contract conservatively:
 - missing/malformed task records, denied authorization, redirects and request
   failures make the task side incomplete.
 
-An incomplete task read never clears a previously active task incident and does
-not update the "last complete check" timestamp. The independently complete node
-side can still transition and notify during a task-read failure, so enabling
-task checks does not disable previously working node-state monitoring.
+A definite failed task must also provide a positive terminal `endtime`; without
+that ordering evidence the task side is incomplete. A complete task scan keeps
+the latest observed terminal task `endtime` as a per-profile watermark. A
+failure is a new scheduled occurrence only when its terminal time is newer than
+that prior complete watermark. This allows a later failure to notify even when
+an older failure is still among the recent rows.
 
-Native occurrence state stores only two per-profile booleans: node incident
-active and task incident active. It does not persist UPIDs, task types, resource
-IDs, node names, guest names, VMIDs, timestamps from task rows, logs or raw API
-responses.
+An incomplete task read never clears a previously active task incident, never
+advances the task watermark and does not update the "last complete check"
+timestamp. The independently complete node side can still transition and notify
+during a task-read failure, so enabling task checks does not disable previously
+working node-state monitoring.
+
+Native occurrence state stores only two per-profile category booleans plus the
+latest complete task end-time watermark as an integer timestamp. It does not
+persist UPIDs, task types, resource IDs, node names, guest names, VMIDs, logs or
+raw API responses.
 
 ## Notification and privacy boundary
 
-A notification is eligible only when a fully evaluated category transitions
-from inactive to active. The notification remains:
+A notification is eligible only for a complete new node-category transition or
+a newly observed definite failed task newer than the prior complete task
+watermark. Quiet-hour/cooldown suppression is still not queued for later. The
+notification remains:
 
 - title: `VirtHelm scheduled incident`;
 - body: `Open VirtHelm to review current incidents.`
@@ -94,7 +105,8 @@ opt-in and source/generated-runner assertions for:
 - explicit bridge serialization;
 - the 32-node bound;
 - the 20-row GET-only task endpoint;
-- separate native task occurrence state;
+- separate native task occurrence state and non-identifying end-time watermark;
+- incomplete reads cannot advance that watermark;
 - unchanged no-POST/no-PUT/no-DELETE Android safety checks.
 
 Source/build CI is required before this milestone is treated as exact-head
