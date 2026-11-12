@@ -84,8 +84,11 @@ Source/runtime tests cover:
 - absence of a public lock-screen visibility path;
 - Settings UI wiring for the privacy selector.
 
-Pinned Flutter formatting, analyzer, runtime tests and debug APK compilation are
-the authoritative merge checks.
+Exact-head PR run **43156373238** passed repository source/docs checks,
+generated Android privacy assertions, pinned Dart formatting,
+`flutter analyze --fatal-infos`, **391 Flutter runtime tests**, and debug APK
+compilation. These checks verify source/build integration; they do not replace
+the physical-device lock-screen gates below.
 
 ## Remaining gates
 
