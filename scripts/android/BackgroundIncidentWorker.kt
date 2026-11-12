@@ -43,6 +43,7 @@ import javax.net.ssl.HttpsURLConnection
 private const val MIN_BACKGROUND_INTERVAL_MINUTES = 15
 private const val MAX_BACKGROUND_INTERVAL_MINUTES = 24 * 60
 private const val MAX_RESPONSE_BYTES = 512 * 1024
+private const val MAX_BACKGROUND_TASK_NODES = 32
 
 internal object IncidentNotificationPrivacy {
     private const val PREFS_NAME = "virthelm_notification_privacy_v1"
@@ -153,6 +154,7 @@ internal data class ScheduledPolicy(
     val quietStartMinute: Int,
     val quietEndMinute: Int,
     val cooldownMinutes: Int,
+    val failedTaskChecksEnabled: Boolean,
 ) {
     fun validate() {
         require(intervalMinutes in MIN_BACKGROUND_INTERVAL_MINUTES..MAX_BACKGROUND_INTERVAL_MINUTES)
@@ -180,6 +182,7 @@ internal data class ScheduledPolicy(
         .put("quietStartMinute", quietStartMinute)
         .put("quietEndMinute", quietEndMinute)
         .put("cooldownMinutes", cooldownMinutes)
+        .put("failedTaskChecksEnabled", failedTaskChecksEnabled)
         .toString()
 
     companion object {
@@ -192,6 +195,7 @@ internal data class ScheduledPolicy(
                     quietStartMinute = 22 * 60,
                     quietEndMinute = 7 * 60,
                     cooldownMinutes = 30,
+                    failedTaskChecksEnabled = false,
                 )
             }
             val json = JSONObject(raw)
@@ -202,6 +206,8 @@ internal data class ScheduledPolicy(
                 quietStartMinute = json.optInt("quietStartMinute", 22 * 60),
                 quietEndMinute = json.optInt("quietEndMinute", 7 * 60),
                 cooldownMinutes = json.optInt("cooldownMinutes", 30),
+                failedTaskChecksEnabled =
+                    json.optBoolean("failedTaskChecksEnabled", false),
             ).also { it.validate() }
         }
     }
@@ -212,10 +218,26 @@ private data class ScheduledSecret(
     val authorization: String,
 )
 
-private data class ScheduledCheckResult(
+private data class NodeStateReadResult(
     val outcome: String,
     val complete: Boolean,
     val incident: Boolean,
+    val nodes: List<String> = emptyList(),
+)
+
+private data class FailedTaskReadResult(
+    val outcome: String,
+    val complete: Boolean,
+    val incident: Boolean,
+)
+
+private data class ScheduledCheckResult(
+    val outcome: String,
+    val complete: Boolean,
+    val nodeComplete: Boolean,
+    val nodeIncident: Boolean,
+    val taskComplete: Boolean,
+    val taskIncident: Boolean,
 )
 
 internal object BackgroundCheckCoordinator {
@@ -234,7 +256,9 @@ internal object BackgroundCheckCoordinator {
     private fun workName(key: String) = "virthelm-periodic-node-check-$key"
     private fun policyKey(key: String) = "policy:$key"
     private fun secretKey(key: String) = "secret:$key"
-    private fun incidentKey(key: String) = "incident-active:$key"
+    private fun legacyIncidentKey(key: String) = "incident-active:$key"
+    private fun nodeIncidentKey(key: String) = "node-incident-active:$key"
+    private fun taskIncidentKey(key: String) = "task-incident-active:$key"
     private fun lastAttemptKey(key: String) = "last-attempt:$key"
     private fun lastSuccessKey(key: String) = "last-success:$key"
     private fun lastOutcomeKey(key: String) = "last-outcome:$key"
@@ -307,7 +331,9 @@ internal object BackgroundCheckCoordinator {
         val storage = prefs(context)
         val editor = storage.edit()
             .remove(secretKey(key))
-            .remove(incidentKey(key))
+            .remove(legacyIncidentKey(key))
+            .remove(nodeIncidentKey(key))
+            .remove(taskIncidentKey(key))
         if (clearPolicy) {
             editor
                 .remove(policyKey(key))
@@ -326,6 +352,7 @@ internal object BackgroundCheckCoordinator {
                     quietStartMinute = 22 * 60,
                     quietEndMinute = 7 * 60,
                     cooldownMinutes = 30,
+                    failedTaskChecksEnabled = false,
                 ),
             )
             editor.putString(policyKey(key), policy.copy(enabled = false).toJson())
@@ -363,6 +390,7 @@ internal object BackgroundCheckCoordinator {
             "quietStartMinute" to policy.quietStartMinute,
             "quietEndMinute" to policy.quietEndMinute,
             "cooldownMinutes" to policy.cooldownMinutes,
+            "failedTaskChecksEnabled" to policy.failedTaskChecksEnabled,
             "lastAttemptMs" to storage.getLong(lastAttemptKey(key), 0L),
             "lastSuccessMs" to storage.getLong(lastSuccessKey(key), 0L),
             "lastNotificationMs" to storage.getLong(lastNotificationKey(key), 0L),
@@ -391,23 +419,37 @@ internal object BackgroundCheckCoordinator {
         }
 
         val result = try {
-            readNodeState(secret)
+            readScheduledState(secret, policy)
         } catch (_: Exception) {
             ScheduledCheckResult(
                 outcome = "read_failed",
                 complete = false,
-                incident = false,
+                nodeComplete = false,
+                nodeIncident = false,
+                taskComplete = false,
+                taskIncident = false,
             )
         }
 
         val editor = storage.edit().putString(lastOutcomeKey(key), result.outcome)
         if (result.complete) editor.putLong(lastSuccessKey(key), now)
-        editor.apply()
 
-        if (!result.complete) return
-        val previouslyActive = storage.getBoolean(incidentKey(key), false)
-        storage.edit().putBoolean(incidentKey(key), result.incident).apply()
-        if (!result.incident || previouslyActive) return
+        val legacyNodeActive = storage.getBoolean(legacyIncidentKey(key), false)
+        val previousNodeActive =
+            storage.getBoolean(nodeIncidentKey(key), legacyNodeActive)
+        val previousTaskActive = storage.getBoolean(taskIncidentKey(key), false)
+        var newlyActive = false
+        if (result.nodeComplete) {
+            editor.putBoolean(nodeIncidentKey(key), result.nodeIncident)
+            if (result.nodeIncident && !previousNodeActive) newlyActive = true
+        }
+        if (result.taskComplete) {
+            editor.putBoolean(taskIncidentKey(key), result.taskIncident)
+            if (result.taskIncident && !previousTaskActive) newlyActive = true
+        }
+        editor.remove(legacyIncidentKey(key)).apply()
+
+        if (!newlyActive) return
         if (policy.isQuietNow()) return
 
         if (
@@ -439,7 +481,51 @@ internal object BackgroundCheckCoordinator {
         require(uri.port in 1..65535)
     }
 
-    private fun readNodeState(secret: ScheduledSecret): ScheduledCheckResult {
+    private fun readScheduledState(
+        secret: ScheduledSecret,
+        policy: ScheduledPolicy,
+    ): ScheduledCheckResult {
+        val node = readNodeState(secret)
+        if (!node.complete) {
+            return ScheduledCheckResult(
+                outcome = node.outcome,
+                complete = false,
+                nodeComplete = false,
+                nodeIncident = false,
+                taskComplete = !policy.failedTaskChecksEnabled,
+                taskIncident = false,
+            )
+        }
+        if (!policy.failedTaskChecksEnabled) {
+            return ScheduledCheckResult(
+                outcome = if (node.incident) "incident" else "healthy",
+                complete = true,
+                nodeComplete = true,
+                nodeIncident = node.incident,
+                taskComplete = true,
+                taskIncident = false,
+            )
+        }
+
+        val tasks = readFailedTaskState(secret, node.nodes)
+        val combinedOutcome = when {
+            !tasks.complete -> tasks.outcome
+            node.incident && tasks.incident -> "node_and_task_incident"
+            node.incident -> "node_incident"
+            tasks.incident -> "task_incident"
+            else -> "healthy"
+        }
+        return ScheduledCheckResult(
+            outcome = combinedOutcome,
+            complete = tasks.complete,
+            nodeComplete = true,
+            nodeIncident = node.incident,
+            taskComplete = tasks.complete,
+            taskIncident = tasks.incident,
+        )
+    }
+
+    private fun readNodeState(secret: ScheduledSecret): NodeStateReadResult {
         val url = URL(
             secret.endpoint.trimEnd('/') +
                 "/api2/json/cluster/resources?type=node",
@@ -455,7 +541,7 @@ internal object BackgroundCheckCoordinator {
         try {
             val code = connection.responseCode
             if (code in 300..399) {
-                return ScheduledCheckResult(
+                return NodeStateReadResult(
                     outcome = "redirect_blocked",
                     complete = false,
                     incident = false,
@@ -464,14 +550,14 @@ internal object BackgroundCheckCoordinator {
             if (code == HttpURLConnection.HTTP_UNAUTHORIZED ||
                 code == HttpURLConnection.HTTP_FORBIDDEN
             ) {
-                return ScheduledCheckResult(
+                return NodeStateReadResult(
                     outcome = "authorization_denied",
                     complete = false,
                     incident = false,
                 )
             }
             if (code !in 200..299) {
-                return ScheduledCheckResult(
+                return NodeStateReadResult(
                     outcome = "read_failed",
                     complete = false,
                     incident = false,
@@ -481,37 +567,160 @@ internal object BackgroundCheckCoordinator {
             val root = JSONObject(body)
             val data = root.opt("data")
             if (data !is JSONArray) {
-                return ScheduledCheckResult(
+                return NodeStateReadResult(
                     outcome = "incomplete",
                     complete = false,
                     incident = false,
                 )
             }
-            var usableNodes = 0
             var incident = false
+            val nodes = mutableListOf<String>()
             for (index in 0 until data.length()) {
                 val item = data.optJSONObject(index) ?: continue
                 if (item.optString("type") != "node") continue
+                val nodeName = item.optString("node").trim()
                 val status = item.optString("status").trim().lowercase()
-                if (status.isEmpty()) continue
-                usableNodes += 1
+                if (nodeName.isEmpty() || status.isEmpty()) continue
+                if (!nodeName.matches(Regex("^[A-Za-z0-9._-]{1,128}$"))) {
+                    return NodeStateReadResult(
+                        outcome = "incomplete",
+                        complete = false,
+                        incident = false,
+                    )
+                }
+                nodes.add(nodeName)
                 if (status != "online") incident = true
             }
-            if (usableNodes == 0) {
-                return ScheduledCheckResult(
+            if (nodes.isEmpty()) {
+                return NodeStateReadResult(
                     outcome = "incomplete",
                     complete = false,
                     incident = false,
                 )
             }
-            return ScheduledCheckResult(
+            return NodeStateReadResult(
                 outcome = if (incident) "incident" else "healthy",
                 complete = true,
                 incident = incident,
+                nodes = nodes.distinct(),
             )
         } finally {
             connection.disconnect()
         }
+    }
+
+    private fun readFailedTaskState(
+        secret: ScheduledSecret,
+        nodes: List<String>,
+    ): FailedTaskReadResult {
+        if (nodes.isEmpty() || nodes.size > MAX_BACKGROUND_TASK_NODES) {
+            return FailedTaskReadResult(
+                outcome = "task_incomplete",
+                complete = false,
+                incident = false,
+            )
+        }
+        var incident = false
+        for (node in nodes) {
+            if (!node.matches(Regex("^[A-Za-z0-9._-]{1,128}$"))) {
+                return FailedTaskReadResult(
+                    outcome = "task_incomplete",
+                    complete = false,
+                    incident = false,
+                )
+            }
+            val url = URL(
+                secret.endpoint.trimEnd('/') +
+                    "/api2/json/nodes/$node/tasks?limit=20&source=all",
+            )
+            val connection = url.openConnection() as HttpsURLConnection
+            connection.requestMethod = "GET"
+            connection.instanceFollowRedirects = false
+            connection.connectTimeout = 10_000
+            connection.readTimeout = 10_000
+            connection.useCaches = false
+            connection.setRequestProperty("Accept", "application/json")
+            connection.setRequestProperty("Authorization", secret.authorization)
+            try {
+                val code = connection.responseCode
+                if (code in 300..399) {
+                    return FailedTaskReadResult(
+                        outcome = "task_redirect_blocked",
+                        complete = false,
+                        incident = false,
+                    )
+                }
+                if (code == HttpURLConnection.HTTP_UNAUTHORIZED ||
+                    code == HttpURLConnection.HTTP_FORBIDDEN
+                ) {
+                    return FailedTaskReadResult(
+                        outcome = "task_authorization_denied",
+                        complete = false,
+                        incident = false,
+                    )
+                }
+                if (code !in 200..299) {
+                    return FailedTaskReadResult(
+                        outcome = "task_read_failed",
+                        complete = false,
+                        incident = false,
+                    )
+                }
+                val body = connection.inputStream.use { readLimited(it) }
+                val root = JSONObject(body)
+                val data = root.opt("data")
+                if (data !is JSONArray) {
+                    return FailedTaskReadResult(
+                        outcome = "task_incomplete",
+                        complete = false,
+                        incident = false,
+                    )
+                }
+                for (index in 0 until data.length()) {
+                    val item = data.optJSONObject(index)
+                        ?: return FailedTaskReadResult(
+                            outcome = "task_incomplete",
+                            complete = false,
+                            incident = false,
+                        )
+                    val rawStatus = item.optString("status").trim()
+                    if (rawStatus.isEmpty()) {
+                        return FailedTaskReadResult(
+                            outcome = "task_incomplete",
+                            complete = false,
+                            incident = false,
+                        )
+                    }
+                    if (rawStatus.equals("RUNNING", ignoreCase = true)) continue
+                    val explicitExitStatus = item.optString("exitstatus").trim()
+                    if (rawStatus.equals("unknown", ignoreCase = true)) {
+                        if (item.optLong("endtime", 0L) > 0L) incident = true
+                        continue
+                    }
+                    val terminal = !rawStatus.equals("RUNNING", ignoreCase = true)
+                    if (!terminal) continue
+                    val exitStatus = if (explicitExitStatus.isNotEmpty()) {
+                        explicitExitStatus
+                    } else if (rawStatus.equals("stopped", ignoreCase = true)) {
+                        null
+                    } else {
+                        rawStatus
+                    }
+                    if (exitStatus == null ||
+                        !exitStatus.equals("OK", ignoreCase = true)
+                    ) {
+                        incident = true
+                    }
+                }
+            } finally {
+                connection.disconnect()
+            }
+        }
+        return FailedTaskReadResult(
+            outcome = if (incident) "task_incident" else "healthy",
+            complete = true,
+            incident = incident,
+        )
     }
 
     private fun readLimited(stream: InputStream): String {
@@ -665,6 +874,8 @@ internal object BackgroundCheckBridge {
                             quietStartMinute = call.requireInt("quietStartMinute"),
                             quietEndMinute = call.requireInt("quietEndMinute"),
                             cooldownMinutes = call.requireInt("cooldownMinutes"),
+                            failedTaskChecksEnabled =
+                                call.argument<Boolean>("failedTaskChecksEnabled") == true,
                         )
                         result.success(
                             BackgroundCheckCoordinator.configure(
