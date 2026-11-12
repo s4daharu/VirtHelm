@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
-import '../core/background_checks.dart';
 import '../core/models.dart';
 import 'components.dart';
 
@@ -80,8 +79,6 @@ class _ConnectPageState extends State<ConnectPage> {
   }
 
   String _errorMessage(Object caught) => caught is PveFailure
-      ? caught.message
-      : caught is BackgroundCheckException
       ? caught.message
       : caught is FormatException
       ? caught.message
@@ -193,13 +190,6 @@ class _ConnectPageState extends State<ConnectPage> {
     try {
       final address = normalizePveEndpoint(endpoint.text);
       if (editing) {
-        // A scheduled worker keeps a separate Android-Keystore-encrypted copy
-        // of the opted-in token. Clear it before editing so changed connection
-        // settings can never leave a stale background credential behind.
-        await const AndroidBackgroundCheckScheduler().disable(
-          widget.profile!.id,
-          clearPolicy: true,
-        );
         await widget.controller.updateConnection(
           profileId: widget.profile!.id,
           name: alias.text,
