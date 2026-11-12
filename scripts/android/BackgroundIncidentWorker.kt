@@ -498,6 +498,11 @@ internal object BackgroundCheckCoordinator {
         require(uri.port in 1..65535)
     }
 
+    private fun isSafeNodePathSegment(value: String): Boolean =
+        value != "." &&
+            value != ".." &&
+            value.matches(Regex("^[A-Za-z0-9._-]{1,128}$"))
+
     private fun readScheduledState(
         secret: ScheduledSecret,
         policy: ScheduledPolicy,
@@ -625,9 +630,7 @@ internal object BackgroundCheckCoordinator {
                 if (status != "online") incident = true
 
                 val nodeName = item.optString("node").trim()
-                if (nodeName.isEmpty() ||
-                    !nodeName.matches(Regex("^[A-Za-z0-9._-]{1,128}$"))
-                ) {
+                if (!isSafeNodePathSegment(nodeName)) {
                     taskNodesComplete = false
                 } else {
                     nodes.add(nodeName)
@@ -674,7 +677,7 @@ internal object BackgroundCheckCoordinator {
         var newIncident = false
         var watermarkSeconds = previousWatermarkSeconds
         for (node in nodes) {
-            if (!node.matches(Regex("^[A-Za-z0-9._-]{1,128}$"))) {
+            if (!isSafeNodePathSegment(node)) {
                 return FailedTaskReadResult(
                     outcome = "task_incomplete",
                     complete = false,
