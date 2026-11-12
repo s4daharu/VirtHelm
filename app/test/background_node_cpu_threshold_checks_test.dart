@@ -97,23 +97,27 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
-  test('scheduled node CPU threshold policy defaults off for legacy status', () {
-    final legacy = BackgroundCheckPolicy.fromChannel(<Object?, Object?>{
-      'enabled': true,
-      'intervalMinutes': 30,
-      'quietHoursEnabled': false,
-      'quietStartMinute': 1320,
-      'quietEndMinute': 420,
-      'cooldownMinutes': 30,
-    });
+  test(
+    'scheduled node CPU threshold policy defaults off for legacy status',
+    () {
+      final legacy = BackgroundCheckPolicy.fromChannel(<Object?, Object?>{
+        'enabled': true,
+        'intervalMinutes': 30,
+        'quietHoursEnabled': false,
+        'quietStartMinute': 1320,
+        'quietEndMinute': 420,
+        'cooldownMinutes': 30,
+      });
 
-    expect(legacy.nodeCpuThresholdChecksEnabled, isFalse);
-    expect(
-      legacy.copyWith(nodeCpuThresholdChecksEnabled: true)
-          .nodeCpuThresholdChecksEnabled,
-      isTrue,
-    );
-  });
+      expect(legacy.nodeCpuThresholdChecksEnabled, isFalse);
+      expect(
+        legacy
+            .copyWith(nodeCpuThresholdChecksEnabled: true)
+            .nodeCpuThresholdChecksEnabled,
+        isTrue,
+      );
+    },
+  );
 
   test('Android configure sends only enabled node CPU rules', () async {
     MethodCall? observed;
@@ -155,16 +159,13 @@ void main() {
       arguments['nodeCpuThresholdRules'] as List<Object?>,
     );
     expect(rules, hasLength(1));
-    expect(
-      Map<String, Object?>.from(rules.single as Map),
-      <String, Object?>{
-        'id': 'node-rule',
-        'node': 'pve-a',
-        'thresholdPercent': 80,
-        'consecutiveSamples': 3,
-        'hysteresisPercent': 5,
-      },
-    );
+    expect(Map<String, Object?>.from(rules.single as Map), <String, Object?>{
+      'id': 'node-rule',
+      'node': 'pve-a',
+      'thresholdPercent': 80,
+      'consecutiveSamples': 3,
+      'hysteresisPercent': 5,
+    });
   });
 
   test('Android rule sync filters unsupported threshold targets', () async {
@@ -186,10 +187,7 @@ void main() {
       arguments['nodeCpuThresholdRules'] as List<Object?>,
     );
     expect(rules, hasLength(1));
-    expect(
-      Map<String, Object?>.from(rules.single as Map)['id'],
-      'node-rule',
-    );
+    expect(Map<String, Object?>.from(rules.single as Map)['id'], 'node-rule');
   });
 
   test('controller resynchronizes worker rules after a rule edit', () async {
