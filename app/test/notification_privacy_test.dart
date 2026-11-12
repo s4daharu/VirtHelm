@@ -16,6 +16,17 @@ class _Vault implements CredentialVault {
   Future<void> remove(String id) async {}
 }
 
+class _FailingPrivacyRepository extends ProfileRepository {
+  _FailingPrivacyRepository(SharedPreferences prefs) : super(prefs, _Vault());
+
+  @override
+  Future<void> setNotificationLockScreenPrivacy(
+    IncidentNotificationLockScreenPrivacy value,
+  ) async {
+    throw StateError('privacy persistence failed');
+  }
+}
+
 class _Notifier implements ForegroundIncidentNotifier {
   final List<IncidentNotificationLockScreenPrivacy> privacyChanges = [];
   bool applyPrivacy = true;
@@ -122,6 +133,35 @@ void main() {
       repository.notificationLockScreenPrivacy,
       IncidentNotificationLockScreenPrivacy.generic,
     );
+    controller.dispose();
+  });
+
+  test('persistence failure rolls native privacy back to prior mode', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repository = _FailingPrivacyRepository(prefs);
+    final notifier = _Notifier();
+    final controller = AppController(
+      repository: repository,
+      incidentNotifier: notifier,
+    );
+    await controller.initialize();
+
+    await expectLater(
+      controller.setNotificationLockScreenPrivacy(
+        IncidentNotificationLockScreenPrivacy.generic,
+      ),
+      throwsStateError,
+    );
+
+    expect(
+      controller.notificationLockScreenPrivacy,
+      IncidentNotificationLockScreenPrivacy.hidden,
+    );
+    expect(notifier.privacyChanges, [
+      IncidentNotificationLockScreenPrivacy.hidden,
+      IncidentNotificationLockScreenPrivacy.generic,
+      IncidentNotificationLockScreenPrivacy.hidden,
+    ]);
     controller.dispose();
   });
 }
