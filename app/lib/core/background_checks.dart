@@ -23,6 +23,7 @@ class BackgroundCheckPolicy {
     this.quietStartMinute = 22 * 60,
     this.quietEndMinute = 7 * 60,
     this.cooldownMinutes = 30,
+    this.failedTaskChecksEnabled = false,
   });
 
   final bool enabled;
@@ -31,6 +32,7 @@ class BackgroundCheckPolicy {
   final int quietStartMinute;
   final int quietEndMinute;
   final int cooldownMinutes;
+  final bool failedTaskChecksEnabled;
 
   BackgroundCheckPolicy validated() {
     if (intervalMinutes < minimumBackgroundCheckIntervalMinutes ||
@@ -54,6 +56,7 @@ class BackgroundCheckPolicy {
     int? quietStartMinute,
     int? quietEndMinute,
     int? cooldownMinutes,
+    bool? failedTaskChecksEnabled,
   }) => BackgroundCheckPolicy(
     enabled: enabled ?? this.enabled,
     intervalMinutes: intervalMinutes ?? this.intervalMinutes,
@@ -61,6 +64,8 @@ class BackgroundCheckPolicy {
     quietStartMinute: quietStartMinute ?? this.quietStartMinute,
     quietEndMinute: quietEndMinute ?? this.quietEndMinute,
     cooldownMinutes: cooldownMinutes ?? this.cooldownMinutes,
+    failedTaskChecksEnabled:
+        failedTaskChecksEnabled ?? this.failedTaskChecksEnabled,
   );
 
   factory BackgroundCheckPolicy.fromChannel(Map<Object?, Object?> map) =>
@@ -71,6 +76,7 @@ class BackgroundCheckPolicy {
         quietStartMinute: _channelInt(map['quietStartMinute']) ?? 22 * 60,
         quietEndMinute: _channelInt(map['quietEndMinute']) ?? 7 * 60,
         cooldownMinutes: _channelInt(map['cooldownMinutes']) ?? 30,
+        failedTaskChecksEnabled: map['failedTaskChecksEnabled'] == true,
       ).validated();
 }
 
@@ -173,6 +179,7 @@ class AndroidBackgroundCheckScheduler implements BackgroundCheckScheduler {
             'quietStartMinute': validated.quietStartMinute,
             'quietEndMinute': validated.quietEndMinute,
             'cooldownMinutes': validated.cooldownMinutes,
+            'failedTaskChecksEnabled': validated.failedTaskChecksEnabled,
           }) ??
           false;
       if (!configured) {
