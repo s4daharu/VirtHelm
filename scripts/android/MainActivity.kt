@@ -18,8 +18,9 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
-// Native Android hints and foreground notification delivery. Neither is proof
-// that Proxmox is reachable, and this activity does not schedule background work.
+// Native Android hints and foreground notification delivery. WorkManager
+// registration lives in BackgroundIncidentWorker.kt; neither path is proof
+// that Proxmox is continuously reachable.
 class MainActivity : FlutterActivity() {
     private var networkEvents: NetworkEvents? = null
     private var notificationPermissionResult: MethodChannel.Result? = null
@@ -48,6 +49,8 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        BackgroundCheckBridge.register(applicationContext, flutterEngine)
     }
 
     override fun onRequestPermissionsResult(
