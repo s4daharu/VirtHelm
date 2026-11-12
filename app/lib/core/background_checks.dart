@@ -147,7 +147,9 @@ abstract interface class ThresholdAwareBackgroundCheckScheduler {
 }
 
 class AndroidBackgroundCheckScheduler
-    implements BackgroundCheckScheduler, ThresholdAwareBackgroundCheckScheduler {
+    implements
+        BackgroundCheckScheduler,
+        ThresholdAwareBackgroundCheckScheduler {
   const AndroidBackgroundCheckScheduler();
 
   static const MethodChannel _channel = MethodChannel(
