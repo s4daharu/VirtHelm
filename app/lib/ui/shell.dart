@@ -11,6 +11,7 @@ import '../core/guest_list_filter.dart';
 import '../core/guest_saved_view.dart';
 import '../core/incident_center.dart';
 import '../core/models.dart';
+import '../core/offline_inventory.dart';
 import '../core/task_history_filter.dart';
 import 'components.dart';
 import 'connect_page.dart';
@@ -315,25 +316,30 @@ class _OverviewTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final inv = controller.inventory;
     final cached = inv == null ? controller.cachedOverview : null;
-    final hasCounts = inv != null || cached != null;
+    final cachedInventory = inv == null ? controller.cachedInventory : null;
+    final hasCounts = inv != null || cached != null || cachedInventory != null;
     final scheme = Theme.of(context).colorScheme;
     final profileId = controller.active?.id;
     final generation = controller.connectionGeneration;
     final countGuests =
         inv?.guests.where((g) => !g.isTemplate).length ??
         cached?.totalGuests ??
+        cachedInventory?.totalGuests ??
         0;
     final countRunning =
         inv?.guests.where((g) => !g.isTemplate && g.isRunning).length ??
         cached?.runningGuests ??
+        cachedInventory?.runningGuests ??
         0;
     final countStopped =
         inv?.guests.where((g) => !g.isTemplate && g.isStopped).length ??
         cached?.stoppedGuests ??
+        cachedInventory?.stoppedGuests ??
         0;
     final nodeOnline =
         inv?.nodes.where((n) => n.status == 'online').length ??
         cached?.onlineNodes ??
+        cachedInventory?.onlineNodes ??
         0;
     return RefreshIndicator(
       onRefresh: controller.refresh,
@@ -387,7 +393,9 @@ class _OverviewTab extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   inv == null
-                      ? cached == null
+                      ? cachedInventory != null
+                            ? 'CACHED INVENTORY • ${formatAge(cachedInventory.fetchedAt)} • not live'
+                            : cached == null
                             ? 'Waiting for live inventory'
                             : 'CACHED COUNTS • ${formatAge(cached.fetchedAt)} • not live'
                       : controller.isInventoryFresh
@@ -431,7 +439,15 @@ class _OverviewTab extends StatelessWidget {
               ),
             ),
           ],
-          if (cached != null) ...[
+          if (cachedInventory != null) ...[
+            const SizedBox(height: 14),
+            const MessageCard(
+              text:
+                  'CACHED / NOT LIVE • Node and guest identity/status are last-known '
+                  'display-only data. Metrics, details, task reads and every '
+                  'server action require a fresh live connection.',
+            ),
+          ] else if (cached != null) ...[
             const SizedBox(height: 14),
             const MessageCard(
               text:
@@ -502,15 +518,15 @@ class _OverviewTab extends StatelessWidget {
             trailing: inv == null ? '' : '${inv.nodes.length} FOUND',
           ),
           const SizedBox(height: 12),
-          if (inv == null)
+          if (inv == null && cachedInventory == null)
             const MessageCard(
               text: 'Connect to load node health. Pull to refresh.',
             )
-          else if (inv.nodes.isEmpty)
+          else if (inv != null && inv.nodes.isEmpty)
             const MessageCard(
               text: 'No nodes are visible to this token. Review permissions.',
             )
-          else
+          else if (inv != null)
             for (final node in inv.nodes) ...[
               Card(
                 child: ListTile(
@@ -542,6 +558,11 @@ class _OverviewTab extends StatelessWidget {
                         ),
                 ),
               ),
+              const SizedBox(height: 8),
+            ]
+          else
+            for (final node in cachedInventory!.nodes) ...[
+              _OfflineNodeTile(node: node),
               const SizedBox(height: 8),
             ],
 
@@ -605,10 +626,21 @@ class _OverviewTab extends StatelessWidget {
             for (final guest in inv.guests.take(5)) ...[
               _GuestTile(guest: guest, controller: controller),
               const SizedBox(height: 8),
+            ]
+          else if (cachedInventory != null)
+            for (final guest in cachedInventory.guests.take(5)) ...[
+              _OfflineGuestTile(guest: guest),
+              const SizedBox(height: 8),
             ],
           if (inv != null && inv.guests.isEmpty)
             const MessageCard(
               text: 'No QEMU VMs or LXC containers are visible.',
+            )
+          else if (inv == null &&
+              cachedInventory != null &&
+              cachedInventory.guests.isEmpty)
+            const MessageCard(
+              text: 'No cached QEMU VMs or LXC containers were visible.',
             ),
         ],
       ),
