@@ -43,7 +43,7 @@ import javax.net.ssl.HttpsURLConnection
 private const val MIN_BACKGROUND_INTERVAL_MINUTES = 15
 private const val MAX_BACKGROUND_INTERVAL_MINUTES = 24 * 60
 private const val MAX_RESPONSE_BYTES = 512 * 1024
-private const val MAX_BACKGROUND_TASK_NODES = 32
+private const val MAX_BACKGROUND_TASK_NODES = 16
 
 internal object IncidentNotificationPrivacy {
     private const val PREFS_NAME = "virthelm_notification_privacy_v1"
@@ -223,6 +223,7 @@ private data class NodeStateReadResult(
     val complete: Boolean,
     val incident: Boolean,
     val nodes: List<String> = emptyList(),
+    val taskNodesComplete: Boolean = false,
 )
 
 private data class FailedTaskReadResult(
@@ -508,7 +509,15 @@ internal object BackgroundCheckCoordinator {
             )
         }
 
-        val tasks = readFailedTaskState(secret, node.nodes)
+        val tasks = if (node.taskNodesComplete) {
+            readFailedTaskState(secret, node.nodes)
+        } else {
+            FailedTaskReadResult(
+                outcome = "task_incomplete",
+                complete = false,
+                incident = false,
+            )
+        }
         val combinedOutcome = when {
             !tasks.complete -> tasks.outcome
             node.incident && tasks.incident -> "node_and_task_incident"
@@ -574,36 +583,44 @@ internal object BackgroundCheckCoordinator {
                     incident = false,
                 )
             }
+            var usableNodes = 0
             var incident = false
+            var taskNodesComplete = true
             val nodes = mutableListOf<String>()
             for (index in 0 until data.length()) {
                 val item = data.optJSONObject(index) ?: continue
                 if (item.optString("type") != "node") continue
-                val nodeName = item.optString("node").trim()
                 val status = item.optString("status").trim().lowercase()
-                if (nodeName.isEmpty() || status.isEmpty()) continue
-                if (!nodeName.matches(Regex("^[A-Za-z0-9._-]{1,128}$"))) {
-                    return NodeStateReadResult(
-                        outcome = "incomplete",
-                        complete = false,
-                        incident = false,
-                    )
-                }
-                nodes.add(nodeName)
+                if (status.isEmpty()) continue
+                usableNodes += 1
                 if (status != "online") incident = true
+
+                val nodeName = item.optString("node").trim()
+                if (nodeName.isEmpty() ||
+                    !nodeName.matches(Regex("^[A-Za-z0-9._-]{1,128}$"))
+                ) {
+                    taskNodesComplete = false
+                } else {
+                    nodes.add(nodeName)
+                }
             }
-            if (nodes.isEmpty()) {
+            if (usableNodes == 0) {
                 return NodeStateReadResult(
                     outcome = "incomplete",
                     complete = false,
                     incident = false,
                 )
             }
+            val uniqueNodes = nodes.distinct()
+            if (uniqueNodes.size != usableNodes) {
+                taskNodesComplete = false
+            }
             return NodeStateReadResult(
                 outcome = if (incident) "incident" else "healthy",
                 complete = true,
                 incident = incident,
-                nodes = nodes.distinct(),
+                nodes = uniqueNodes,
+                taskNodesComplete = taskNodesComplete,
             )
         } finally {
             connection.disconnect()
