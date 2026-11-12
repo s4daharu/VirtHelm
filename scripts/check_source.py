@@ -475,6 +475,8 @@ assert 'IncidentNotificationDeliveryLedger.clearKey(context, key)' in worker
 assert 'cooldownMinutes = policy.cooldownMinutes' in worker
 assert 'failedTaskChecksEnabled' in worker
 assert 'MAX_BACKGROUND_TASK_NODES = 16' in worker
+assert 'var usableNodes = 0' in worker
+assert 'taskNodesComplete' in worker
 assert '/tasks?limit=20&source=all' in worker
 assert 'task-incident-active:' in worker
 assert 'task-watermark:' in worker
