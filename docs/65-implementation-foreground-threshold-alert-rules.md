@@ -20,7 +20,7 @@ A rule fires when a usable current percentage is at or above its configured thre
 Rule incidents are session-local. Reconnecting or switching profiles clears the runtime firing state and re-evaluates from the next foreground live snapshot. There is still no persisted incident history.
 
 ## Deliberately deferred
-ALERT-006 duration and hysteresis are implemented separately in [66-implementation-alert-duration-hysteresis.md](66-implementation-alert-duration-hysteresis.md). This increment does not implement ALERT-007/008 quiet hours, cooldown, acknowledgement or incident history. It also does not implement ALERT-009/010 Android scheduled checks/notifications/privacy, certificate or backup reminders, or relay/webhook integrations.
+ALERT-006 duration and hysteresis are implemented separately in [66-implementation-alert-duration-hysteresis.md](66-implementation-alert-duration-hysteresis.md). Later milestones implement foreground notification policy, Android scheduled checks/privacy, and a bounded scheduled node-CPU threshold slice in [105-implementation-scheduled-node-cpu-thresholds.md](105-implementation-scheduled-node-cpu-thresholds.md). Scheduled guest-CPU/storage threshold parity, certificate or backup reminders, authoritative correlation, and relay/webhook integrations remain gated.
 
 ## Verification boundary
 Synthetic coverage validates rule JSON/target validation, node/guest/storage firing, conservative retention across missing samples, healthy resolution, profile isolation/purge and the rule-management UI path. Repository CI remains the formatter/analyzer/test/debug-APK gate.

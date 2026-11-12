@@ -119,7 +119,9 @@ before merge. Physical-device process-death/Doze/OEM behavior and live PVE
 
 ## Remaining work
 
-Still gated: scheduled threshold-rule parity, richer failed-task windowing and
-correlation, authoritative cross-resource incident correlation,
-resource-specific notification links, optional relay/webhook delivery,
-production critical-alert guarantees and release certification.
+Scheduled node-CPU threshold evaluation is implemented separately in the
+0.1.59 follow-up. Still gated: scheduled guest-CPU/storage threshold parity,
+richer failed-task windowing and correlation, authoritative cross-resource
+incident correlation, resource-specific notification links, optional
+relay/webhook delivery, production critical-alert guarantees and release
+certification.

@@ -39,6 +39,7 @@ required = [
   'app/test/notification_navigation_test.dart',
   'app/test/notification_deduplication_test.dart',
   'app/test/background_failed_task_checks_test.dart',
+  'app/test/background_node_cpu_threshold_checks_test.dart',
   'app/test/alert_rules_test.dart',
   'app/test/alert_rules_widget_test.dart',
   'app/test/ui_components_test.dart',
@@ -117,6 +118,7 @@ required = [
     'docs/102-implementation-offline-stale-inventory.md',
     'docs/103-implementation-cross-mode-notification-deduplication.md',
     'docs/104-implementation-background-failed-task-checks.md',
+    'docs/105-implementation-scheduled-node-cpu-thresholds.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
@@ -161,6 +163,10 @@ assert "Key('periodic-incident-checks')" in files['app/lib/ui/background_checks_
 assert "Key('periodic-check-interval')" in files['app/lib/ui/background_checks_page.dart']
 assert "Key('periodic-failed-task-checks')" in files['app/lib/ui/background_checks_page.dart']
 assert 'failedTaskChecksEnabled' in files['app/lib/core/background_checks.dart']
+assert 'nodeCpuThresholdChecksEnabled' in files['app/lib/core/background_checks.dart']
+assert 'syncNodeCpuThresholdRules' in files['app/lib/core/background_checks.dart']
+assert "Key('periodic-node-cpu-threshold-checks')" in files['app/lib/ui/background_checks_page.dart']
+assert 'scheduled node cpu thresholds' in files['docs/105-implementation-scheduled-node-cpu-thresholds.md'].lower()
 assert 'background failed-task checks' in files['docs/104-implementation-background-failed-task-checks.md'].lower()
 assert 'BackgroundCheckScheduler' in files['app/lib/core/app_controller.dart']
 assert 'clearPolicy: true' in files['app/lib/core/app_controller.dart']
@@ -482,6 +488,19 @@ assert '/tasks?limit=20&source=all' in worker
 assert 'task-incident-active:' in worker
 assert 'task-watermark:' in worker
 assert 'endTimeSeconds > previousWatermarkSeconds' in worker
+assert 'MAX_BACKGROUND_NODE_CPU_RULES = 32' in worker
+assert 'nodeCpuThresholdChecksEnabled' in worker
+assert 'nodeCpuThresholdRules' in worker
+assert 'node-cpu-threshold-state:' in worker
+assert 'evaluateNodeCpuThresholds' in worker
+assert 'thresholdPercent - rule.hysteresisPercent' in worker
+assert 'previous.pendingSamples + 1' in worker
+assert 'IncidentNotificationDeliveryLedger.profileKey(ruleId)' in worker
+threshold_state = worker.split('private fun encodeThresholdState', 1)[1].split('private fun reconcileThresholdState', 1)[0]
+assert '.put("node"' not in threshold_state
+assert '.put("thresholdPercent"' not in threshold_state
+assert '.put("pending"' in threshold_state and '.put("active"' in threshold_state
+assert 'stateJson = null' in worker
 navigation_intent = worker.split('internal object IncidentNotificationNavigation', 1)[1].split('internal data class ScheduledPolicy', 1)[0]
 assert 'putExtra(' not in navigation_intent
 assert 'instanceFollowRedirects = false' in worker

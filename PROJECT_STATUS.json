@@ -14,7 +14,7 @@
   "framework": "Flutter",
   "primary_pve": "9.2",
   "regression_pve": "8.4",
-  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, snapshot creation/stopped-only non-RAM rollback/deletion, one-off backup-start, exact-guest backup-archive visibility, evidence-limited backup validation confidence, and GET-only same-node alternate-VMID restore-plan/conflict-preflight operational slices + ALERT-007 foreground notification quiet-hours/cooldown delivery policy + ALERT-009 opt-in Android WorkManager node-state checks + ALERT-010 device-wide notification lock-screen privacy + AND-010 generic Android notification deep link to unlocked Incidents + AND-011 separate opt-in bounded stale node/guest inventory cache + shared cross-mode foreground/scheduled notification delivery deduplication + bounded opt-in Android scheduled recent failed-task checks",
+  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, snapshot creation/stopped-only non-RAM rollback/deletion, one-off backup-start, exact-guest backup-archive visibility, evidence-limited backup validation confidence, and GET-only same-node alternate-VMID restore-plan/conflict-preflight operational slices + ALERT-007 foreground notification quiet-hours/cooldown delivery policy + ALERT-009 opt-in Android WorkManager node-state checks + ALERT-010 device-wide notification lock-screen privacy + AND-010 generic Android notification deep link to unlocked Incidents + AND-011 separate opt-in bounded stale node/guest inventory cache + shared cross-mode foreground/scheduled notification delivery deduplication + bounded opt-in Android scheduled recent failed-task checks + bounded opt-in Android scheduled node-CPU threshold checks",
   "github_repository_url": "https://github.com/s4daharu/VirtHelm",
   "documentation_uploaded_and_verified": true,
   "docs_initial_remote_commit": "4fdfcd704aced213508f798533fd6370573ac284",
@@ -155,8 +155,8 @@
       "GET-only smoke testing against one PVE 9.2.26 server exercised HTTP schemas and actual gateway parsers, including server-side free/occupied VMID checks. No mutations were attempted; 8.4, restricted ACL, backend variants, physical-device and production gates remain open."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 351,
-    "current_flutter_runtime_tests_passed": 408,
+    "current_flutter_tests_defined": 356,
+    "current_flutter_runtime_tests_passed": 413,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
     "p0_scope_complete": false,
@@ -661,7 +661,7 @@
     "android": "POST_NOTIFICATIONS requested on Android 13+ only when enabling; deterministic native notification channel/small icon installed through the hardened generated-runner path",
     "safety": "notification failures/permission denial never change incident severity, acknowledgement, durable history, current health, PVE I/O or mutation authorization",
     "followup": "docs/98-implementation-foreground-alert-notifications.md",
-    "deferred": "scheduled threshold-rule parity, authoritative cross-resource correlation, resource-specific notification links, relay/webhooks and physical-device/PVE release validation remain gated; ALERT-009, ALERT-010, AND-010 and the 0.1.57 cross-mode delivery follow-up are implemented"
+    "deferred": "scheduled guest-CPU/storage threshold parity, authoritative cross-resource correlation, resource-specific notification links, relay/webhooks and physical-device/PVE release validation remain gated; ALERT-009, ALERT-010, AND-010 and the 0.1.57 cross-mode delivery follow-up are implemented"
   },
   "alert_android_periodic_checks": {
     "status": "implemented_ci_verified",
@@ -675,8 +675,9 @@
     "tls_boundary": "Scheduled mode is unavailable for profiles that disable certificate/hostname verification; HttpsURLConnection uses platform certificate and hostname validation with redirects disabled.",
     "verification": "Exact-head PR run 43153754048 passed repository source/docs tests, generated Android runner checks, pinned Dart formatting, flutter analyze --fatal-infos, the full Flutter test suite and debug APK compilation. Physical-device/PVE 8.4/9.2 background-execution validation remains a release gate.",
     "report": "docs/99-implementation-android-periodic-alert-checks.md",
-    "deferred": "scheduled threshold-rule parity, authoritative cross-resource incident correlation, resource-specific notification links, relay/webhooks and production critical-alert guarantees; bounded failed-task checks are implemented separately in 0.1.58",
-    "failed_task_followup": "VirtHelm 0.1.58 adds a separately opted-in GET-only recent failed-task scan over at most 16 visible nodes and 20 task rows per node. Incomplete task reads do not clear prior task incident state; only generic category booleans are retained natively."
+    "deferred": "scheduled guest-CPU/storage threshold parity, authoritative cross-resource incident correlation, resource-specific notification links, relay/webhooks and production critical-alert guarantees; bounded failed-task checks are implemented in 0.1.58 and scheduled node-CPU thresholds in 0.1.59",
+    "failed_task_followup": "VirtHelm 0.1.58 adds a separately opted-in GET-only recent failed-task scan over at most 16 visible nodes and 20 task rows per node. Incomplete task reads do not clear prior task incident state; only generic category booleans are retained natively.",
+    "node_cpu_threshold_followup": "VirtHelm 0.1.59 adds a separately opted-in scheduled node-CPU threshold slice. It reuses the authenticated cluster node snapshot, evaluates up to 32 enabled node-CPU rules with existing consecutive-sample and hysteresis settings, stores selectors/thresholds only inside the Android-Keystore-encrypted worker payload, and keys runtime counters/active state by hashed rule IDs."
   },
   "alert_notification_lock_screen_privacy": {
     "status": "implemented_ci_verified",
@@ -689,7 +690,7 @@
     "synchronization": "AppController loads and synchronizes the preference at initialization. User changes are persisted only after the native bridge reports successful application, preventing false UI state.",
     "verification": "Exact-head PR run 43156373238 passed repository source/docs checks, generated Android runner privacy assertions, pinned Dart formatting, flutter analyze --fatal-infos, 391 Flutter runtime tests and debug APK compilation. Regression coverage includes fail-closed parsing, initialization sync, failed/successful native apply, controller-shutdown rollback and rollback to the prior native mode when local persistence fails. Physical-device/OEM secure-lock-screen validation remains a release gate.",
     "report": "docs/100-implementation-notification-lock-screen-privacy.md",
-    "deferred": "physical-device/OEM secure-lock-screen validation, resource-specific notification links, scheduled threshold-rule parity, authoritative correlation, relay/webhooks and production critical-alert guarantees; AND-010 generic unlocked Incidents navigation is implemented as a bounded follow-up"
+    "deferred": "physical-device/OEM secure-lock-screen validation, resource-specific notification links, scheduled guest-CPU/storage threshold parity, authoritative correlation, relay/webhooks and production critical-alert guarantees; AND-010 generic unlocked Incidents navigation is implemented as a bounded follow-up"
   },
   "android_notification_incident_deep_link": {
     "status": "implemented_ci_verified",
@@ -702,7 +703,7 @@
     "safety": "Navigation never switches profiles, acknowledges/resolves incidents, submits PVE I/O, bypasses Android unlock policy, weakens ALERT-010 lock-screen privacy, or authorizes resource drill-down.",
     "verification": "Exact-head PR run 43159936358 passed repository source/docs checks, generated Android deep-link/privacy assertions, pinned Dart formatting, flutter analyze --fatal-infos, 395 Flutter runtime tests and debug APK compilation. Regression coverage includes native pending-target consumption, pre-shell requests, warm existing-shell switching and one-shot consumption across shell recreation. Physical-device secure-lock-screen/cold-warm notification-tap validation remains a release gate.",
     "report": "docs/101-implementation-notification-incident-deep-link.md",
-    "deferred": "physical-device secure-lock-screen/cold-warm tap validation, resource-specific notification links, scheduled threshold-rule parity, authoritative correlation, relay/webhooks and production critical-alert guarantees"
+    "deferred": "physical-device secure-lock-screen/cold-warm tap validation, resource-specific notification links, scheduled guest-CPU/storage threshold parity, authoritative correlation, relay/webhooks and production critical-alert guarantees"
   },
   "android_offline_stale_inventory": {
     "status": "implemented_ci_verified",
@@ -726,7 +727,7 @@
     "synchronization": "One in-process native lock serializes cooldown check plus notification posting for MainActivity and the WorkManager Worker. Profile/scheduled lifecycle purge clears the shared ledger; foreground durable history and scheduled occurrence state remain separate.",
     "verification": "Exact-head PR run 43168287847 at 5206e7c91be6cf36e58d7a52aaf10a4a13467c31 passed repository source/docs checks, generated Android delivery-ledger hardening checks, pinned Dart formatting, flutter analyze --fatal-infos, 405 Flutter runtime tests and debug APK compilation. Bridge regressions cover exact metadata and invalid-input fail-closed behavior; physical-device foreground/background race, process-death and OEM validation remain release gates.",
     "report": "docs/103-implementation-cross-mode-notification-deduplication.md",
-    "deferred": "physical-device foreground/background race/process-death/OEM validation, scheduled threshold-rule parity, authoritative incident correlation, resource-specific notification links, relay/webhooks and production critical-alert guarantees; bounded failed-task checks are implemented in 0.1.58"
+    "deferred": "physical-device foreground/background race/process-death/OEM validation, scheduled guest-CPU/storage threshold parity, authoritative incident correlation, resource-specific notification links, relay/webhooks and production critical-alert guarantees; bounded failed-task checks are implemented in 0.1.58 and scheduled node-CPU thresholds in 0.1.59"
   },
   "alert_background_failed_task_checks": {
     "status": "implemented_ci_verified",
@@ -738,6 +739,19 @@
     "privacy": "Native occurrence state stores profile-scoped node/task category booleans plus one latest complete task end-time integer watermark. No UPID, task type, resource ID, node/guest name, VMID, log, credential or raw PVE response is persisted or inserted into notifications/navigation.",
     "verification": "PR implementation run 43185078434 at edfaea4277f00ae6ce60f18723a64f6cf5726c0e passed documentation/source checks, generated Android runner hardening, pinned Dart formatting, flutter analyze --fatal-infos, 408 Flutter runtime tests and debug APK compilation. The subsequent verification-record-only PR head is required to pass the same workflow before merge. Physical-device execution and live PVE 8.4/9.2 task/ACL/pagination validation remain release gates.",
     "report": "docs/104-implementation-background-failed-task-checks.md",
-    "deferred": "scheduled threshold-rule parity, richer failed-task windowing/correlation, authoritative cross-resource incident correlation, resource-specific notification links, relay/webhooks, production critical-alert guarantees and release certification"
+    "deferred": "scheduled guest-CPU/storage threshold parity, richer failed-task windowing/correlation, authoritative cross-resource incident correlation, resource-specific notification links, relay/webhooks, production critical-alert guarantees and release certification; scheduled node-CPU thresholds are implemented in 0.1.59"
+  },
+  "alert_scheduled_node_cpu_thresholds": {
+    "status": "implemented_ci_verified",
+    "milestone": "EP-ALERT bounded Android scheduled node-CPU threshold parity",
+    "version": "0.1.59",
+    "behavior": "For a certificate-verified saved connection with scheduled checks enabled, the operator may separately opt into evaluation of enabled node-CPU threshold rules. The worker reuses the existing authenticated cluster node snapshot and adds no PVE endpoint. Up to 32 node-CPU rules are evaluated with their saved 1-10 consecutive-sample confirmation and 0-20 percentage-point hysteresis controls. Guest CPU and storage-usage rules remain foreground-only.",
+    "state_machine": "Inactive rules increment pending confirmation only on usable CPU samples at or above the firing threshold; usable samples below threshold reset pending confirmation. Active rules resolve below threshold when hysteresis is zero or at/below threshold-minus-hysteresis when positive. Missing/unusable samples reset pending confirmation but do not resolve an active rule. A missing opted-in rule sample makes the threshold side incomplete and prevents last-complete-check advancement.",
+    "synchronization": "Saving, enabling, disabling or deleting a foreground threshold rule synchronizes the native worker copy without counting as a sample. If native synchronization fails while a schedule is active, AppController disables scheduled monitoring rather than allowing stale background rule configuration to continue silently. When no schedule is active, synchronization is a no-op.",
+    "privacy": "Only enabled node-CPU rule ID, node selector, threshold percent, consecutive-sample count and hysteresis percent are copied, and only inside the existing AES-256-GCM Android-Keystore-encrypted worker payload. Runtime threshold state is stored in private native preferences under SHA-256 hashes of rule IDs and contains bounded pending counters plus active booleans only. Display labels, guest/storage identifiers, sampled CPU values, credentials and incident details are not stored in runtime threshold state or notification/navigation payloads.",
+    "contract": "Reuses GET /api2/json/cluster/resources?type=node only; redirects disabled; no POST/PUT/PATCH/DELETE; existing 10-second connect/read timeouts, 512 KiB response cap, network constraint and no immediate WorkManager retry remain unchanged. Notifications remain generic and use the existing quiet-hours, lock-screen privacy, generic Incidents navigation and shared cross-mode delivery cooldown.",
+    "verification": "PR implementation run 43202139457 at aebc50e91cf70af5ead154e4f0ba478023a56e70 passed documentation/source checks, generated Android runner hardening, pinned Dart formatting, flutter analyze --fatal-infos, 413 Flutter runtime tests and debug APK compilation. The subsequent verification-record-only PR head is required to pass the same workflow before merge. Physical-device WorkManager/Doze execution and live PVE 8.4/9.2 node-CPU payload/ACL validation remain release gates.",
+    "report": "docs/105-implementation-scheduled-node-cpu-thresholds.md",
+    "deferred": "scheduled guest-CPU threshold parity, scheduled storage-usage threshold parity, richer window/time-duration rules, authoritative foreground/background incident correlation, resource-specific notification links, relay/webhooks, production critical-alert guarantees and release certification"
   }
 }

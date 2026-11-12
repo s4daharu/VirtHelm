@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 
@@ -1084,6 +1085,7 @@ class AppController extends ChangeNotifier {
     thresholdAlertRules = repository.readThresholdAlertRules(profile.id);
     _thresholdAlertEngine.reconcileRules(thresholdAlertRules);
     _notify();
+    await _syncScheduledNodeCpuThresholdRules(profile);
   }
 
   Future<void> deleteThresholdAlertRule(
@@ -1099,6 +1101,32 @@ class AppController extends ChangeNotifier {
     thresholdAlertRules = repository.readThresholdAlertRules(profile.id);
     _thresholdAlertEngine.reconcileRules(thresholdAlertRules);
     _notify();
+    await _syncScheduledNodeCpuThresholdRules(profile);
+  }
+
+  Future<void> _syncScheduledNodeCpuThresholdRules(
+    ConnectionProfile profile,
+  ) async {
+    final scheduler = _backgroundCheckScheduler;
+    if (scheduler is AndroidBackgroundCheckScheduler && !Platform.isAndroid) {
+      return;
+    }
+    if (scheduler is! ThresholdAwareBackgroundCheckScheduler) return;
+    final thresholdScheduler =
+        scheduler as ThresholdAwareBackgroundCheckScheduler;
+    try {
+      await thresholdScheduler.syncNodeCpuThresholdRules(
+        profile.id,
+        thresholdAlertRules,
+      );
+    } on BackgroundCheckException {
+      try {
+        await _backgroundCheckScheduler.disable(profile.id);
+      } catch (_) {
+        // The original synchronization failure remains authoritative.
+      }
+      rethrow;
+    }
   }
 
   void _evaluateThresholdAlerts() {
@@ -1757,6 +1785,13 @@ class AppController extends ChangeNotifier {
     message = null;
     refreshing = false;
     _notify();
+    try {
+      await _syncScheduledNodeCpuThresholdRules(profile);
+    } on BackgroundCheckException {
+      // Fail-closed helper already disables the schedule. Foreground
+      // connection activation remains independent from optional monitoring.
+    }
+    if (generation != _generation || _disposed) return;
     if (deviceNetworkState == DeviceNetworkState.unavailable) {
       cachedOverview = repository.readOfflineOverview(profile.id);
       cachedInventory = repository.readOfflineInventory(profile.id);

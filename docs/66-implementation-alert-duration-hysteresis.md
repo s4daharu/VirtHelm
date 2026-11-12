@@ -61,6 +61,6 @@ Repository CI remains the required formatter, analyzer, Flutter test and Android
 
 ## Deliberately deferred
 
-ALERT-007 quiet hours/cooldown and ALERT-008 acknowledgement/persisted alert history remain separate stories. ALERT-009/010 Android scheduled checks, notification channels/privacy and all relay/webhook work also remain deferred.
+ALERT-007 quiet hours/cooldown, ALERT-02 durable history, ALERT-009/010 Android scheduled checks/privacy, and the bounded 0.1.59 scheduled node-CPU rule state machine are implemented as later milestones. Scheduled guest-CPU/storage threshold parity, richer duration/window semantics, authoritative correlation, and relay/webhook work remain deferred.
 
 Live PVE 9.2/8.4 field behavior, physical Android lifecycle/accessibility/performance testing, signing review and production release certification are still required before broader release claims.

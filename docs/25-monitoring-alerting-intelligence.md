@@ -94,11 +94,18 @@ and retains only generic per-profile category state. Incomplete task reads do
 not clear an earlier task incident, and enabling the option does not disable
 independently complete node-state transitions.
 
-This still does not implement full Mode B parity: scheduled threshold rules,
-authoritative correlation and relay delivery remain gated. Cross-mode
-notification delivery deduplication is implemented in 0.1.57. The feature
-remains best-effort Android scheduling, never critical paging or 24/7
-monitoring.
+Mode B also has a bounded scheduled node-CPU threshold slice in 0.1.59.
+When separately enabled, the worker reuses the authenticated node snapshot to
+evaluate enabled node-CPU rules with their existing consecutive-sample and
+hysteresis controls. Rule selectors and thresholds are kept inside the existing
+Android-Keystore-encrypted worker payload; runtime rule state uses hashed rule
+IDs plus bounded counters/booleans only.
+
+This still does not implement full Mode B threshold parity: scheduled guest-CPU
+and storage-usage rules, authoritative correlation and relay delivery remain
+gated. Cross-mode notification delivery deduplication is implemented in 0.1.57.
+The feature remains best-effort Android scheduling, never critical paging or
+24/7 monitoring.
 
 ## Notification lock-screen privacy follow-up (0.1.54)
 

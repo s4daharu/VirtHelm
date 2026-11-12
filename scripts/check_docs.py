@@ -63,7 +63,8 @@ required=['README.md','SECURITY.md','CONTRIBUTING.md',
            'docs/101-implementation-notification-incident-deep-link.md',
            'docs/102-implementation-offline-stale-inventory.md',
            'docs/103-implementation-cross-mode-notification-deduplication.md',
-           'docs/104-implementation-background-failed-task-checks.md']
+           'docs/104-implementation-background-failed-task-checks.md',
+           'docs/105-implementation-scheduled-node-cpu-thresholds.md']
 missing=[p for p in required if not (root/p).is_file()]
 assert not missing, f'Missing required docs: {missing}'
 with (root/'docs/api-endpoint-index.csv').open(newline='',encoding='utf-8') as f:
