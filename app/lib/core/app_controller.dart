@@ -1108,8 +1108,10 @@ class AppController extends ChangeNotifier {
   ) async {
     final scheduler = _backgroundCheckScheduler;
     if (scheduler is! ThresholdAwareBackgroundCheckScheduler) return;
+    final thresholdScheduler =
+        scheduler as ThresholdAwareBackgroundCheckScheduler;
     try {
-      await scheduler.syncNodeCpuThresholdRules(
+      await thresholdScheduler.syncNodeCpuThresholdRules(
         profile.id,
         thresholdAlertRules,
       );
