@@ -894,6 +894,56 @@ class _StorageTile extends StatelessWidget {
   }
 }
 
+class _OfflineNodeTile extends StatelessWidget {
+  const _OfflineNodeTile({required this.node});
+
+  final OfflineInventoryNode node;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    key: ValueKey('offline-node-${node.name}'),
+    child: ListTile(
+      leading: const Icon(Icons.history_rounded),
+      title: Text(node.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: const Text('CACHED / NOT LIVE • metrics unavailable'),
+      trailing: StatusChip(status: node.status),
+    ),
+  );
+}
+
+class _OfflineGuestTile extends StatelessWidget {
+  const _OfflineGuestTile({required this.guest});
+
+  final OfflineInventoryGuest guest;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    key: ValueKey('offline-guest-${guest.kind}-${guest.vmid}'),
+    child: ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      leading: CircleAvatar(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+        child: Icon(
+          guest.kind == 'qemu'
+              ? Icons.computer_outlined
+              : Icons.view_in_ar_outlined,
+        ),
+      ),
+      title: Text(guest.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(
+        'CACHED / NOT LIVE • '
+        '${guest.isTemplate ? 'TEMPLATE • ' : ''}'
+        '${guest.kind.toUpperCase()} • ${guest.vmid} • ${guest.node}\n'
+        'Details and actions require a fresh live connection.',
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: StatusChip(status: guest.status),
+    ),
+  );
+}
+
 class _GuestTile extends StatelessWidget {
   const _GuestTile({required this.guest, required this.controller});
   final Guest guest;
@@ -1267,10 +1317,131 @@ class _GuestsTabState extends State<_GuestsTab> {
     super.dispose();
   }
 
+  List<OfflineInventoryGuest> _visibleOfflineGuests(
+    OfflineInventorySnapshot snapshot,
+  ) {
+    final needle = query.trim().toLowerCase();
+    final result = snapshot.guests.where((guest) {
+      if (needle.isEmpty) return true;
+      return guest.name.toLowerCase().contains(needle) ||
+          guest.vmid.toString().contains(needle) ||
+          guest.node.toLowerCase().contains(needle) ||
+          guest.kind.contains(needle);
+    }).toList();
+    result.sort((left, right) {
+      final byName = left.name.toLowerCase().compareTo(
+        right.name.toLowerCase(),
+      );
+      if (byName != 0) return byName;
+      final byVmid = left.vmid.compareTo(right.vmid);
+      if (byVmid != 0) return byVmid;
+      return left.node.compareTo(right.node);
+    });
+    return result;
+  }
+
+  Widget _buildOfflineInventory(
+    BuildContext context,
+    OfflineInventorySnapshot snapshot,
+  ) {
+    final guests = _visibleOfflineGuests(snapshot);
+    return RefreshIndicator(
+      onRefresh: widget.controller.refresh,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const MessageCard(
+                    key: Key('offline-inventory-banner'),
+                    text:
+                        'CACHED / NOT LIVE • This is a last-known inventory list. '
+                        'Guest/node details, metrics, task reads and every server '
+                        'action remain unavailable until a fresh live refresh succeeds.',
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const Key('offline-inventory-search'),
+                    controller: search,
+                    onChanged: (value) => setState(() => query = value),
+                    decoration: const InputDecoration(
+                      hintText: 'Search cached guest, VMID, node, or type',
+                      prefixIcon: Icon(Icons.search_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 16,
+                    runSpacing: 8,
+                    children: [
+                      Text(
+                        '${guests.length} cached entries',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        'Snapshot ${formatAge(snapshot.fetchedAt)} • max 24h',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (guests.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: EmptyState(
+                icon: Icons.search_off_rounded,
+                title: query.trim().isEmpty
+                    ? 'No cached workloads'
+                    : 'No cached workloads found',
+                body: query.trim().isEmpty
+                    ? 'The last eligible live inventory contained no cached guest entries.'
+                    : 'Try another cached guest name, VMID, node, or type.',
+                action: query.trim().isEmpty
+                    ? null
+                    : TextButton(
+                        onPressed: () {
+                          search.clear();
+                          setState(() => query = '');
+                        },
+                        child: const Text('Clear search'),
+                      ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
+              sliver: SliverList.builder(
+                itemCount: guests.length,
+                itemBuilder: (context, index) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _OfflineGuestTile(guest: guests[index]),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final inv = widget.controller.inventory;
     final controller = widget.controller;
+    final cachedInventory = inv == null ? controller.cachedInventory : null;
+    if (cachedInventory != null) {
+      return _buildOfflineInventory(context, cachedInventory);
+    }
     final allGuests = inv?.guests ?? <Guest>[];
     final nodes = allGuests.map((guest) => guest.node).toSet().toList()..sort();
     final tags = allGuests.expand((guest) => guest.tags).toSet().toList()
@@ -2141,6 +2312,14 @@ class _SettingsTab extends StatelessWidget {
     }
   }
 
+  Future<void> _updateOfflineInventory(BuildContext context, bool value) async {
+    try {
+      await controller.setOfflineInventoryEnabled(value);
+    } catch (_) {
+      if (context.mounted) _showPreferenceError(context);
+    }
+  }
+
   Future<void> _updateForegroundNotificationPolicy(
     BuildContext context,
     ForegroundNotificationPolicy policy,
@@ -2389,6 +2568,21 @@ class _SettingsTab extends StatelessWidget {
                 value: controller.offlineOverviewEnabled,
                 onChanged: (value) =>
                     unawaited(_updateOfflineOverview(context, value)),
+              ),
+              const Divider(),
+              SwitchListTile(
+                key: const Key('offline-inventory-preference'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Keep offline inventory list'),
+                subtitle: const Text(
+                  'Separate opt-in: stores node names plus guest name, VMID, '
+                  'type, node and last-known status for up to 24 hours. '
+                  'No metrics, tags, pools, storage/config/task data or credentials. '
+                  'Cached entries are display-only; turn off to erase them.',
+                ),
+                value: controller.offlineInventoryEnabled,
+                onChanged: (value) =>
+                    unawaited(_updateOfflineInventory(context, value)),
               ),
             ],
           ),
