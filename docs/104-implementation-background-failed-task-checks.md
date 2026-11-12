@@ -45,7 +45,7 @@ at 512 KiB, uses the platform HTTPS certificate/hostname verifier and never
 requests an immediate WorkManager retry.
 
 Node names must match a conservative local path-segment allowlist before they
-are used in a task URL. A cluster returning more than 32 usable nodes makes the
+are used in a task URL. A cluster returning more than 16 usable nodes makes the
 task side incomplete instead of starting an unbounded request waterfall.
 
 ## Task result semantics
@@ -103,7 +103,7 @@ opt-in and source/generated-runner assertions for:
 
 - backward-compatible default-off policy parsing;
 - explicit bridge serialization;
-- the 32-node bound;
+- the 16-node bound;
 - the 20-row GET-only task endpoint;
 - separate native task occurrence state and non-identifying end-time watermark;
 - incomplete reads cannot advance that watermark;
