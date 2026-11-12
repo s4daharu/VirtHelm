@@ -31,9 +31,9 @@ Native notification content is intentionally generic:
 - no VMID, task UPID, task title or task log;
 - no credential, response body or authorization state.
 
-The Android channel uses private lock-screen visibility, but this is not claimed
-as full ALERT-010 device/privacy certification. Device lock-screen policy and
-OEM behavior still require physical-device validation.
+ALERT-010 now adds a shared device-wide secure-lock-screen policy: hidden by
+default or generic-only. Device/channel policy and OEM behavior remain
+operator/system controlled and still require physical-device validation.
 
 ## Delivery semantics
 
@@ -82,8 +82,9 @@ Android notification-permission, lock-screen, OEM, TalkBack or battery signoff.
 
 ## Still gated
 
-ALERT-009 Android periodic WorkManager checks, authoritative cross-resource
-incident correlation, richer ALERT-010 lock-screen privacy controls/deep links,
-relay/webhook delivery and production release certification remain gated.
-Android scheduled work must continue to be described as inexact and unsuitable
-for critical paging.
+ALERT-009 scheduled node-state checks and ALERT-010 lock-screen privacy are now
+implemented as bounded follow-up slices. Background failed-task/threshold parity,
+cross-mode notification deduplication, notification deep links, authoritative
+cross-resource correlation, relay/webhook delivery and production release
+certification remain gated. Android scheduled work remains inexact and
+unsuitable for critical paging.
