@@ -157,6 +157,8 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
     'redirect_blocked' => 'Incomplete: redirect blocked',
     'incomplete' => 'Incomplete: node data could not be confirmed',
     'read_failed' => 'Incomplete: scheduled read failed',
+    'configuration_unavailable' =>
+      'Disabled: encrypted scheduled credential is unavailable',
     'skipped_foreground' => 'Skipped: VirtHelm was already in the foreground',
     _ => 'No scheduled result yet',
   };
