@@ -39,7 +39,7 @@
   "m1_validation": "Automated branch CI has passed source checks, analyzer, tests and Android debug APK build for the M1 safety implementation; live PVE/device release validation remains open.",
   "flutter_build_success": true,
   "ci_flutter_version": "3.44.4",
-  "android_build_evidence": "Docs and Android checks run 42913689940 and signed prerelease run 42914642302 passed for audited baseline fa41718a69e5083201f002ecc39c6e3e97420506. The 0.1.46 audit passed a throttled local debug APK build with pinned Flutter 3.44.4 and Java 17. The 0.1.48 snapshot lifecycle hardening slice passed local pinned formatting, analyze and 387 Flutter runtime tests. The 0.1.51 durable incident-history milestone passed exact-head PR run 43093767543 with pinned Flutter 3.44.4 formatting, analyze --fatal-infos, 381 passing Flutter tests and a debug APK build. The 0.1.53 ALERT-009 branch passed exact-head PR run 43153754048 with source/docs checks, generated Android hardening checks, pinned formatting, analyze --fatal-infos, the full Flutter suite and debug APK compilation. Bounded 9.2.26 read-only evidence does not close mutation/8.4/device release gates.",
+  "android_build_evidence": "Docs and Android checks run 42913689940 and signed prerelease run 42914642302 passed for audited baseline fa41718a69e5083201f002ecc39c6e3e97420506. The 0.1.46 audit passed a throttled local debug APK build with pinned Flutter 3.44.4 and Java 17. The 0.1.48 snapshot lifecycle hardening slice passed local pinned formatting, analyze and 387 Flutter runtime tests. The 0.1.51 durable incident-history milestone passed exact-head PR run 43093767543 with pinned Flutter 3.44.4 formatting, analyze --fatal-infos, 381 passing Flutter tests and a debug APK build. The 0.1.53 ALERT-009 branch passed exact-head PR run 43153754048 with source/docs checks, generated Android hardening checks, pinned formatting, analyze --fatal-infos, the full Flutter suite and debug APK compilation. The 0.1.54 ALERT-010 branch passed exact-head PR run 43156373238 with repository source/docs checks, generated Android privacy hardening checks, pinned formatting, flutter analyze --fatal-infos, 391 passing Flutter runtime tests and debug APK compilation. Bounded 9.2.26 read-only evidence does not close mutation/8.4/device release gates.",
   "m1_safety_followup": "Implemented: per-guest single-flight, profile/snapshot revalidation, bounded task verification, ambiguous-outcome lockout, auth-revocation fail-closed handling and race regression tests.",
   "m2_read_cockpit": {
     "features": [
@@ -156,7 +156,7 @@
     ],
     "full_premium_scope_complete": false,
     "current_flutter_tests_defined": 334,
-    "current_flutter_runtime_tests_passed": 387,
+    "current_flutter_runtime_tests_passed": 391,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
     "p0_scope_complete": false,
@@ -678,7 +678,7 @@
     "deferred": "background failed-task/threshold parity, authoritative cross-resource incident correlation, cross-mode notification deduplication, notification deep links, relay/webhooks and production critical-alert guarantees"
   },
   "alert_notification_lock_screen_privacy": {
-    "status": "implemented_source_level_ci_pending",
+    "status": "implemented_ci_verified",
     "milestone": "ALERT-010 notification lock-screen privacy",
     "version": "0.1.54",
     "behavior": "One device-wide setting applies to both foreground and scheduled incident notifications: hide entirely on a secure lock screen (default) or allow only the existing generic VirtHelm alert.",
@@ -686,7 +686,7 @@
     "privacy": "Notification payloads remain generic and exclude profile/endpoint/resource names, VMIDs, task IDs/logs, credentials, authorization results and raw responses. Missing or malformed stored/native state fails closed to hidden.",
     "storage": "Non-secret device-wide SharedPreferences preference plus a matching private native preference for WorkManager access; Android app backup remains disabled.",
     "synchronization": "AppController loads and synchronizes the preference at initialization. User changes are persisted only after the native bridge reports successful application, preventing false UI state.",
-    "verification": "Pure/controller tests cover fail-closed parsing, initialization sync, failed native apply, successful apply, controller-shutdown rollback, and rollback to the prior native mode when local persistence fails. Generated-runner/source assertions cover shared foreground/scheduled visibility use, both SECRET/PRIVATE modes and the absence of VISIBILITY_PUBLIC. Exact-head pinned CI remains required before merge.",
+    "verification": "Exact-head PR run 43156373238 passed repository source/docs checks, generated Android runner privacy assertions, pinned Dart formatting, flutter analyze --fatal-infos, 391 Flutter runtime tests and debug APK compilation. Regression coverage includes fail-closed parsing, initialization sync, failed/successful native apply, controller-shutdown rollback and rollback to the prior native mode when local persistence fails. Physical-device/OEM secure-lock-screen validation remains a release gate.",
     "report": "docs/100-implementation-notification-lock-screen-privacy.md",
     "deferred": "physical-device/OEM secure-lock-screen validation, notification deep links to unlocked incident views, background failed-task/threshold parity, authoritative correlation, relay/webhooks and production critical-alert guarantees"
   }
