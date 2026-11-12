@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 
@@ -1107,8 +1108,7 @@ class AppController extends ChangeNotifier {
     ConnectionProfile profile,
   ) async {
     final scheduler = _backgroundCheckScheduler;
-    if (scheduler is AndroidBackgroundCheckScheduler &&
-        (kIsWeb || defaultTargetPlatform != TargetPlatform.android)) {
+    if (scheduler is AndroidBackgroundCheckScheduler && !Platform.isAndroid) {
       return;
     }
     if (scheduler is! ThresholdAwareBackgroundCheckScheduler) return;
