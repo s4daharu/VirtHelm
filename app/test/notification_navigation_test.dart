@@ -27,9 +27,7 @@ void main() {
   });
 
   test('Android bridge consumes the native pending incident target', () async {
-    const channel = MethodChannel(
-      'com.s4daharu.virthelm/incident_navigation',
-    );
+    const channel = MethodChannel('com.s4daharu.virthelm/incident_navigation');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
           expect(call.method, 'takePendingIncidentIntent');
@@ -44,30 +42,31 @@ void main() {
     expect(await bridge.takePendingIncidentIntent(), isTrue);
   });
 
-  testWidgets('pending notification request opens Incidents on shell creation', (
-    tester,
-  ) async {
-    final prefs = await SharedPreferences.getInstance();
-    final controller = AppController(
-      repository: ProfileRepository(prefs, _Vault()),
-    );
-    addTearDown(controller.dispose);
-    controller.active = const ConnectionProfile(
-      id: 'lab',
-      name: 'Lab',
-      endpoint: 'https://pve.local:8006',
-    );
-    controller.requestIncidentCenter();
+  testWidgets(
+    'pending notification request opens Incidents on shell creation',
+    (tester) async {
+      final prefs = await SharedPreferences.getInstance();
+      final controller = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+      );
+      addTearDown(controller.dispose);
+      controller.active = const ConnectionProfile(
+        id: 'lab',
+        name: 'Lab',
+        endpoint: 'https://pve.local:8006',
+      );
+      controller.requestIncidentCenter();
 
-    await tester.pumpWidget(
-      MaterialApp(home: ShellPage(controller: controller)),
-    );
+      await tester.pumpWidget(
+        MaterialApp(home: ShellPage(controller: controller)),
+      );
 
-    expect(
-      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      3,
-    );
-  });
+      expect(
+        tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+        3,
+      );
+    },
+  );
 
   testWidgets(
     'consumed notification request does not reopen Incidents after shell recreation',
