@@ -1576,10 +1576,7 @@ class AppController extends ChangeNotifier {
       _checkConnectionSetup(generation);
       final validatedProfile = profile.withServerVersion(serverVersion);
       try {
-        await _backgroundCheckScheduler.disable(
-          existing.id,
-          clearPolicy: true,
-        );
+        await _backgroundCheckScheduler.disable(existing.id, clearPolicy: true);
       } on BackgroundCheckException {
         throw const PveFailure(
           'Could not clear scheduled checks before updating this connection.',
