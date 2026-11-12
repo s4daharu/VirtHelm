@@ -155,7 +155,7 @@
       "GET-only smoke testing against one PVE 9.2.26 server exercised HTTP schemas and actual gateway parsers, including server-side free/occupied VMID checks. No mutations were attempted; 8.4, restricted ACL, backend variants, physical-device and production gates remain open."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 337,
+    "current_flutter_tests_defined": 338,
     "current_flutter_runtime_tests_passed": 391,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
@@ -699,7 +699,7 @@
     "privacy": "The navigation intent contains no putExtra payload and carries no profile ID, endpoint, node/resource name, VMID, storage ID, task UPID, rule ID, credentials, raw response or other infrastructure selector. It only selects the generic Incidents tab after Android opens the app.",
     "flutter": "A private method-channel bridge consumes cold pending intent state and receives warm openIncidents events. AppController stores only a consumable in-memory pending-navigation boolean; ShellPage consumes it once and switches to navigation index 3. Existing incident drill-down remains guarded by the current profile/generation/live state.",
     "safety": "Navigation never switches profiles, acknowledges/resolves incidents, submits PVE I/O, bypasses Android unlock policy, weakens ALERT-010 lock-screen privacy, or authorizes resource drill-down.",
-    "verification": "Source/widget tests cover native pending-target consumption, pre-shell requests and warm existing-shell switching. Generated-runner/source assertions enforce the shared immutable intent, warm/cold handlers and absence of putExtra in the navigation intent builder. Exact-head pinned CI remains required before merge.",
+    "verification": "Source/widget tests cover native pending-target consumption, pre-shell requests, warm existing-shell switching and one-shot consumption across shell recreation. Generated-runner/source assertions enforce the shared immutable intent, warm/cold handlers and absence of putExtra in the navigation intent builder. Exact-head pinned CI remains required before merge.",
     "report": "docs/101-implementation-notification-incident-deep-link.md",
     "deferred": "physical-device secure-lock-screen/cold-warm tap validation, resource-specific notification links, background failed-task/threshold parity, cross-mode notification deduplication, authoritative correlation, relay/webhooks and production critical-alert guarantees"
   }
