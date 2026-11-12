@@ -185,7 +185,9 @@ assert 'maxOfflineInventoryNodes = 256' in offline_inventory
 assert 'maxOfflineInventoryGuests = 5000' in offline_inventory
 assert 'maxOfflineInventorySerializedBytes = 512 * 1024' in offline_inventory
 assert 'Inventory.fromResources' not in offline_inventory
-assert 'cpu' not in offline_inventory.lower() or "CPU" in offline_inventory
+offline_guest_json = offline_inventory.split('Map<String, Object> toJson() => {', 2)[2].split('};', 1)[0]
+for forbidden in ("'cpu'", "'mem'", "'disk'", "'tags'", "'pool'", "'upid'", "'endpoint'", "'credentials'"):
+    assert forbidden not in offline_guest_json
 assert 'offline_inventory_enabled_v1:' in files['app/lib/core/profile_repository.dart']
 assert 'clearOfflineInventory' in files['app/lib/core/profile_repository.dart']
 assert 'cachedInventory = null' in files['app/lib/core/app_controller.dart']
