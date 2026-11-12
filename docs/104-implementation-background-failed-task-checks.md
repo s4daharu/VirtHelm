@@ -109,9 +109,13 @@ opt-in and source/generated-runner assertions for:
 - incomplete reads cannot advance that watermark;
 - unchanged no-POST/no-PUT/no-DELETE Android safety checks.
 
-Source/build CI is required before this milestone is treated as exact-head
-verified. Physical-device process-death/Doze/OEM behavior and live PVE 8.4/9.2
-task payload, ACL and pagination behavior remain release gates.
+PR implementation run 43185078434 at
+`edfaea4277f00ae6ce60f18723a64f6cf5726c0e` passed repository source/docs
+checks, generated Android hardening checks, pinned Dart formatting,
+`flutter analyze --fatal-infos`, all 408 Flutter runtime tests and debug APK
+compilation. The verification-record-only PR head must pass the same workflow
+before merge. Physical-device process-death/Doze/OEM behavior and live PVE
+8.4/9.2 task payload, ACL and pagination behavior remain release gates.
 
 ## Remaining work
 
