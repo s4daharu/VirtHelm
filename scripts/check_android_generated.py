@@ -24,11 +24,24 @@ assert 'com.s4daharu.virthelm/device_network' in activity
 assert 'com.s4daharu.virthelm/incident_notifications' in activity
 assert 'NotificationChannel' in activity
 assert 'Open VirtHelm to review current incidents.' in activity
+assert 'BackgroundCheckBridge.register' in activity
 assert (root / 'app/android/app/src/main/res/drawable/virthelm_notification.xml').is_file()
 assert 'android:allowBackup="false"' in manifest_text
 assert 'android:usesCleartextTraffic="false"' in manifest_text
 assert 'android:label="VirtHelm"' in manifest_text
 assert 'minSdk = 26' in gradle_text
 assert 'applicationId = "com.s4daharu.virthelm"' in gradle_text
+assert 'implementation("androidx.work:work-runtime:2.12.0")' in gradle_text
 assert 'signingConfig = signingConfigs.getByName("debug")' not in gradle_text
+worker_template = root / 'scripts/android/BackgroundIncidentWorker.kt'
+if worker_template.is_file():
+    worker = root / 'app/android/app/src/main/kotlin/com/s4daharu/virthelm/BackgroundIncidentWorker.kt'
+    assert worker.is_file()
+    worker_text = worker.read_text(encoding='utf-8')
+    assert 'PeriodicWorkRequest.Builder' in worker_text
+    assert 'NetworkType.CONNECTED' in worker_text
+    assert 'AndroidKeyStore' in worker_text
+    assert 'instanceFollowRedirects = false' in worker_text
+    assert 'requestMethod = "GET"' in worker_text
+    assert 'Open VirtHelm to review current incidents.' in worker_text
 print('Generated Android runner hardening checks passed.')

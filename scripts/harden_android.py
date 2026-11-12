@@ -56,6 +56,13 @@ gradle_text = gradle_text.replace(
     + '// Signing with the debug keys for now, so `flutter run --release` works.\n',
     '// Release signing must be supplied outside Git before distribution.\n',
 )
+work_dependency = 'implementation("androidx.work:work-runtime:2.12.0")'
+if work_dependency not in gradle_text:
+    gradle_text += (
+        '\n\ndependencies {\n'
+        f'    {work_dependency}\n'
+        '}\n'
+    )
 gradle.write_text(gradle_text, encoding='utf-8')
 
 # The generated Android runner is ignored. Reapply our reviewed activity
@@ -69,6 +76,14 @@ if ('package com.s4daharu.virthelm' not in activity_text or
         not re.search(r'class MainActivity\s*:\s*FlutterActivity\(\)', activity_text)):
     raise SystemExit('Generated MainActivity changed; review before replacement.')
 activity.write_text(template.read_text(encoding='utf-8'), encoding='utf-8')
+
+# ALERT-009's WorkManager worker is also persistent source outside the ignored
+# runner. The delivery unit-test fixture predates this template, so copy it
+# when present; check_source.py requires it in the real repository.
+worker_template = root / 'scripts/android/BackgroundIncidentWorker.kt'
+if worker_template.is_file():
+    worker = activity.parent / 'BackgroundIncidentWorker.kt'
+    worker.write_text(worker_template.read_text(encoding='utf-8'), encoding='utf-8')
 
 # Keep launcher branding outside the ignored Android runner, then install it
 # deterministically after every Flutter runner generation.
@@ -98,7 +113,7 @@ lines = [line for line in lines if line.split('=', 1)[0].strip() not in caps]
 lines.extend(f'{key}={value}' for key, value in caps.items())
 properties.write_text('\n'.join(lines) + '\n', encoding='utf-8')
 print(
-    'Hardened Android runner: network/notification permissions enabled, backups/cleartext disabled, '
+    'Hardened Android runner: network/notification permissions and WorkManager enabled, backups/cleartext disabled, '
     'minSdk 26, branded adaptive launcher icon, no debug release signing, capped '
     'Gradle/Kotlin resources'
 )

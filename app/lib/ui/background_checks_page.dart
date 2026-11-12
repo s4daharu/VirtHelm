@@ -1,0 +1,396 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '../core/app_controller.dart';
+import '../core/background_checks.dart';
+import '../core/foreground_notifications.dart';
+import '../core/models.dart';
+import 'components.dart';
+
+class BackgroundChecksPage extends StatefulWidget {
+  const BackgroundChecksPage({
+    super.key,
+    required this.controller,
+    required this.profile,
+    this.scheduler = const AndroidBackgroundCheckScheduler(),
+    this.notifier = const AndroidForegroundIncidentNotifier(),
+  });
+
+  final AppController controller;
+  final ConnectionProfile profile;
+  final BackgroundCheckScheduler scheduler;
+  final ForegroundIncidentNotifier notifier;
+
+  @override
+  State<BackgroundChecksPage> createState() => _BackgroundChecksPageState();
+}
+
+class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
+  BackgroundCheckStatus? _status;
+  bool _busy = false;
+  String? _error;
+
+  BackgroundCheckPolicy get _policy =>
+      _status?.policy ?? const BackgroundCheckPolicy();
+
+  ConnectionProfile? get _currentProfile {
+    final matches = widget.controller.profiles.where(
+      (profile) => profile.id == widget.profile.id,
+    );
+    return matches.length == 1 ? matches.single : null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_reload());
+  }
+
+  Future<void> _reload() async {
+    try {
+      final status = await widget.scheduler.status(widget.profile.id);
+      if (!mounted) return;
+      setState(() {
+        _status = status;
+        _error = null;
+      });
+    } on Object catch (caught) {
+      if (!mounted) return;
+      setState(() => _error = _message(caught));
+    }
+  }
+
+  String _message(Object caught) => caught is BackgroundCheckException
+      ? caught.message
+      : caught is FormatException
+      ? caught.message
+      : 'Could not update scheduled checks.';
+
+  Future<void> _apply(BackgroundCheckPolicy next) async {
+    if (_busy) return;
+    final profile = _currentProfile;
+    if (profile == null) {
+      setState(() => _error = 'Connection no longer exists.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final validated = next.validated();
+      if (!validated.enabled) {
+        await widget.scheduler.disable(profile.id);
+      } else {
+        if (profile.allowInvalidCertificates) {
+          throw const FormatException(
+            'Scheduled checks require certificate and hostname verification. '
+            'Edit this connection and remove the TLS exception first.',
+          );
+        }
+        final credentials = await widget.controller.repository.vault.retrieve(
+          profile.id,
+        );
+        if (credentials == null || !credentials.isValid) {
+          throw const BackgroundCheckException(
+            'Saved API token is unavailable. Edit this connection and enter a replacement token.',
+          );
+        }
+        if (_policy.enabled == false) {
+          final granted = await widget.notifier.requestPermission();
+          if (!granted) {
+            throw const BackgroundCheckException(
+              'Android notification permission was not granted. Scheduled checks remain off.',
+            );
+          }
+        }
+        await widget.scheduler.configure(profile, credentials, validated);
+      }
+      final status = await widget.scheduler.status(profile.id);
+      if (!mounted) return;
+      setState(() {
+        _status = status;
+        _error = null;
+      });
+    } on Object catch (caught) {
+      if (!mounted) return;
+      setState(() => _error = _message(caught));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _pickQuietTime({required bool start}) async {
+    if (_busy) return;
+    final policy = _policy;
+    final minute = start ? policy.quietStartMinute : policy.quietEndMinute;
+    final selected = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: minute ~/ 60, minute: minute % 60),
+      helpText: start
+          ? 'Scheduled quiet hours start'
+          : 'Scheduled quiet hours end',
+    );
+    if (selected == null || !mounted) return;
+    final nextMinute = selected.hour * 60 + selected.minute;
+    await _apply(
+      start
+          ? policy.copyWith(quietStartMinute: nextMinute)
+          : policy.copyWith(quietEndMinute: nextMinute),
+    );
+  }
+
+  String _formatMinute(int minute) => MaterialLocalizations.of(
+    context,
+  ).formatTimeOfDay(TimeOfDay(hour: minute ~/ 60, minute: minute % 60));
+
+  String _formatDate(DateTime? value) {
+    if (value == null) return 'Never';
+    final local = value.toLocal();
+    return '${MaterialLocalizations.of(context).formatMediumDate(local)} '
+        '${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
+  }
+
+  String _outcomeLabel(String? value) => switch (value) {
+    'healthy' => 'Completed: no node-state incident found',
+    'incident' => 'Completed: node-state incident found',
+    'authorization_denied' => 'Incomplete: token authorization denied',
+    'redirect_blocked' => 'Incomplete: redirect blocked',
+    'incomplete' => 'Incomplete: node data could not be confirmed',
+    'read_failed' => 'Incomplete: scheduled read failed',
+    'configuration_unavailable' =>
+      'Disabled: encrypted scheduled credential is unavailable',
+    'skipped_foreground' => 'Skipped: VirtHelm was already in the foreground',
+    _ => 'No scheduled result yet',
+  };
+
+  List<int> _cooldownOptions(int current) {
+    final values = <int>{0, 15, 30, 60, 120, 240, current}.toList()..sort();
+    return values;
+  }
+
+  String _cooldownLabel(int minutes) {
+    if (minutes == 0) return 'No cooldown';
+    if (minutes < 60) return '$minutes minutes';
+    if (minutes == 60) return '1 hour';
+    if (minutes % 60 == 0) return '${minutes ~/ 60} hours';
+    return '$minutes minutes';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = _currentProfile ?? widget.profile;
+    final policy = _policy;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Scheduled checks')),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 32),
+          children: [
+            const MessageCard(
+              icon: Icons.schedule_rounded,
+              title: 'Best-effort Android monitoring',
+              text:
+                  'Android WorkManager can run a read-only node-state check while '
+                  'VirtHelm is closed. The minimum interval is 15 minutes, but '
+                  'execution is inexact and may be delayed by the OS, battery '
+                  'policy, missing network or VPN. This is not 24/7 monitoring '
+                  'and is not suitable for critical paging.',
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SwitchListTile(
+                      key: const Key('periodic-incident-checks'),
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Periodic node-state checks'),
+                      subtitle: Text(
+                        profile.allowInvalidCertificates
+                            ? 'Unavailable while this connection disables TLS identity verification.'
+                            : 'Opt in to generic Android alerts for newly observed non-online node state.',
+                      ),
+                      value: policy.enabled,
+                      onChanged: _busy || profile.allowInvalidCertificates
+                          ? null
+                          : (value) => unawaited(
+                              _apply(policy.copyWith(enabled: value)),
+                            ),
+                    ),
+                    if (policy.enabled) ...[
+                      const Divider(),
+                      const Text('Requested interval'),
+                      DropdownButton<int>(
+                        key: const Key('periodic-check-interval'),
+                        value: policy.intervalMinutes,
+                        isExpanded: true,
+                        items: const [15, 30, 60, 120, 240]
+                            .map(
+                              (minutes) => DropdownMenuItem<int>(
+                                value: minutes,
+                                child: Text(
+                                  minutes < 60
+                                      ? 'Every $minutes minutes (inexact)'
+                                      : 'Every ${minutes ~/ 60} hour${minutes == 60 ? '' : 's'} (inexact)',
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: _busy
+                            ? null
+                            : (value) {
+                                if (value != null) {
+                                  unawaited(
+                                    _apply(
+                                      policy.copyWith(intervalMinutes: value),
+                                    ),
+                                  );
+                                }
+                              },
+                      ),
+                      const Text(
+                        'Android may run later than requested. A missing run is '
+                        'reported as missing evidence, never continuous coverage.',
+                      ),
+                      const Divider(),
+                      SwitchListTile(
+                        key: const Key('periodic-check-quiet-hours'),
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Quiet hours'),
+                        subtitle: const Text(
+                          'Suppress scheduled Android delivery only. Suppressed '
+                          'occurrences are not queued for later.',
+                        ),
+                        value: policy.quietHoursEnabled,
+                        onChanged: _busy
+                            ? null
+                            : (value) => unawaited(
+                                _apply(
+                                  policy.copyWith(quietHoursEnabled: value),
+                                ),
+                              ),
+                      ),
+                      if (policy.quietHoursEnabled) ...[
+                        ListTile(
+                          key: const Key('periodic-check-quiet-start'),
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Starts'),
+                          trailing: Text(
+                            _formatMinute(policy.quietStartMinute),
+                          ),
+                          onTap: _busy
+                              ? null
+                              : () => unawaited(_pickQuietTime(start: true)),
+                        ),
+                        ListTile(
+                          key: const Key('periodic-check-quiet-end'),
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Ends'),
+                          trailing: Text(_formatMinute(policy.quietEndMinute)),
+                          onTap: _busy
+                              ? null
+                              : () => unawaited(_pickQuietTime(start: false)),
+                        ),
+                      ],
+                      const Divider(),
+                      const Text('Scheduled notification cooldown'),
+                      DropdownButton<int>(
+                        key: const Key('periodic-check-cooldown'),
+                        value: policy.cooldownMinutes,
+                        isExpanded: true,
+                        items: _cooldownOptions(policy.cooldownMinutes)
+                            .map(
+                              (minutes) => DropdownMenuItem<int>(
+                                value: minutes,
+                                child: Text(_cooldownLabel(minutes)),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: _busy
+                            ? null
+                            : (value) {
+                                if (value != null) {
+                                  unawaited(
+                                    _apply(
+                                      policy.copyWith(cooldownMinutes: value),
+                                    ),
+                                  );
+                                }
+                              },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              MessageCard(
+                title: 'Scheduled checks need attention',
+                text: _error!,
+                tone: MessageTone.warning,
+                icon: Icons.warning_amber_rounded,
+              ),
+            ],
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Coverage evidence',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                        IconButton(
+                          key: const Key('periodic-check-refresh-status'),
+                          tooltip: 'Refresh scheduled-check status',
+                          onPressed: _busy ? null : () => unawaited(_reload()),
+                          icon: const Icon(Icons.refresh_rounded),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Last attempt: ${_formatDate(_status?.lastAttemptAt)}',
+                    ),
+                    Text(
+                      'Last complete check: ${_formatDate(_status?.lastSuccessfulAt)}',
+                    ),
+                    Text(_outcomeLabel(_status?.lastOutcome)),
+                    Text(
+                      'Last scheduled notification: '
+                      '${_formatDate(_status?.lastNotificationAt)}',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const MessageCard(
+              icon: Icons.privacy_tip_outlined,
+              title: 'Privacy and safety boundary',
+              text:
+                  'The worker performs GET only against the saved HTTPS origin '
+                  'with normal certificate and hostname validation and redirects '
+                  'disabled. The API token copy is encrypted with Android '
+                  'Keystore for this opt-in worker. Notifications are generic: '
+                  'no connection name, endpoint, node name, guest name, VMID, '
+                  'task ID or task log is included. Editing or removing the '
+                  'connection clears the worker credential copy and schedule.',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

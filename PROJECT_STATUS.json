@@ -14,7 +14,7 @@
   "framework": "Flutter",
   "primary_pve": "9.2",
   "regression_pve": "8.4",
-  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, snapshot creation/stopped-only non-RAM rollback/deletion, one-off backup-start, exact-guest backup-archive visibility, evidence-limited backup validation confidence, and GET-only same-node alternate-VMID restore-plan/conflict-preflight operational slices + ALERT-007 foreground notification quiet-hours/cooldown delivery policy",
+  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, snapshot creation/stopped-only non-RAM rollback/deletion, one-off backup-start, exact-guest backup-archive visibility, evidence-limited backup validation confidence, and GET-only same-node alternate-VMID restore-plan/conflict-preflight operational slices + ALERT-007 foreground notification quiet-hours/cooldown delivery policy + ALERT-009 opt-in Android WorkManager node-state checks",
   "github_repository_url": "https://github.com/s4daharu/VirtHelm",
   "documentation_uploaded_and_verified": true,
   "docs_initial_remote_commit": "4fdfcd704aced213508f798533fd6370573ac284",
@@ -63,7 +63,8 @@
       "compact guest filter sheet with removable active-filter chips and saved-view compatibility",
       "task summary counts, compact tappable server-task rows and lazy task slivers",
       "full-screen foreground threshold-rule add/edit editor with searchable grouped targets",
-      "opt-in generic foreground Android incident notifications with profile-scoped quiet hours/cooldown; suppression changes delivery only and never current incident health"
+      "opt-in generic foreground Android incident notifications with profile-scoped quiet hours/cooldown; suppression changes delivery only and never current incident health",
+      "opt-in Android WorkManager periodic node-state checks for certificate-verified profiles with >=15-minute inexact cadence, generic notifications, quiet hours/cooldown and explicit last-attempt/last-complete evidence"
     ],
     "scope_note": "This is a partial M2 read-cockpit slice, not the full premium M2 roadmap.",
     "release_validation": "Real PVE 8.4/9.2 contracts/ACLs and Android device/release gates remain required.",
@@ -661,5 +662,19 @@
     "safety": "notification failures/permission denial never change incident severity, acknowledgement, durable history, current health, PVE I/O or mutation authorization",
     "followup": "docs/98-implementation-foreground-alert-notifications.md",
     "deferred": "ALERT-009 WorkManager/background checks, authoritative cross-resource correlation, richer ALERT-010 lock-screen controls/deep links, relay/webhooks and physical-device/PVE release validation remain gated"
+  },
+  "alert_android_periodic_checks": {
+    "status": "implemented_source_level_ci_pending",
+    "milestone": "ALERT-03 / ALERT-009 Android scheduled monitoring foundation",
+    "version": "0.1.53",
+    "behavior": "Per saved certificate-verified connection, the operator may opt into an Android WorkManager periodic read of cluster node state. Requested cadence is 15-240 minutes in the UI, WorkManager execution is explicitly inexact, foreground runs are skipped, and last-attempt/last-complete/outcome evidence is visible.",
+    "contract": "GET /api2/json/cluster/resources?type=node only; network constraint required; redirects disabled; no mutation methods, no immediate retry result, 10-second connect/read timeouts and a 512 KiB response cap.",
+    "credentials": "The opted-in token copy is encrypted with an AES-256-GCM Android Keystore key and stored in private native preferences; the profile ID is SHA-256-derived before WorkManager/prefs use. App backup remains disabled. Profile edit and deletion clear the worker schedule, policy when required and encrypted token copy through AppController.",
+    "notification_privacy": "Only a transition from complete healthy evidence to a complete non-online node-state observation may emit a generic private Android notification. Payload excludes profile name/endpoint, node names, guest names, VMIDs, task IDs/logs, credentials and raw responses. Quiet-hour suppression is not queued for later.",
+    "coverage_boundary": "This is best-effort Android scheduling, not continuous monitoring, SLA or critical paging. Missing/failed/auth-denied/redirect-blocked reads remain incomplete evidence and never clear an existing incident observation. Foreground incident correlation and durable history remain separate.",
+    "tls_boundary": "Scheduled mode is unavailable for profiles that disable certificate/hostname verification; HttpsURLConnection uses platform certificate and hostname validation with redirects disabled.",
+    "verification": "Repository source/generation assertions cover WorkManager >=15-minute cadence, connected-network constraint, GET-only transport, Keystore encryption, redirect blocking, generic notification text and generated-runner installation. Pinned Flutter/Android CI and physical-device/PVE 8.4/9.2 background-execution validation remain release gates until exact-head evidence is recorded.",
+    "report": "docs/99-implementation-android-periodic-alert-checks.md",
+    "deferred": "background failed-task/threshold parity, authoritative cross-resource incident correlation, cross-mode notification deduplication, richer privacy/deep links, relay/webhooks and production critical-alert guarantees"
   }
 }

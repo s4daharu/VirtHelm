@@ -503,8 +503,12 @@ class _ConnectPageState extends State<ConnectPage> {
         ),
         const SizedBox(height: 10),
         Text(
-          'Saving performs the same verification again so a stale test result '
-          'cannot authorize a changed server or token.',
+          editing
+              ? 'Saving performs the same verification again and disables any '
+                    'scheduled background check for this connection. Re-enable '
+                    'scheduled checks from Connections after reviewing the new settings.'
+              : 'Saving performs the same verification again so a stale test result '
+                    'cannot authorize a changed server or token.',
           style: Theme.of(context).textTheme.bodySmall,
           textAlign: TextAlign.center,
         ),
