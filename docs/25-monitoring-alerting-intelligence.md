@@ -89,9 +89,10 @@ notifications are generic and private. Profiles using the insecure TLS
 exception cannot enable this mode.
 
 This does not implement full Mode B parity: background failed-task/threshold
-rules, authoritative correlation, cross-mode notification deduplication and
-relay delivery remain gated. The feature remains best-effort Android
-scheduling, never critical paging or 24/7 monitoring.
+rules, authoritative correlation and relay delivery remain gated. Cross-mode
+notification delivery deduplication is implemented in 0.1.57. The feature
+remains best-effort Android scheduling, never critical paging or 24/7
+monitoring.
 
 ## Notification lock-screen privacy follow-up (0.1.54)
 
@@ -106,3 +107,27 @@ The preference is synchronized into native Android storage for WorkManager.
 Unknown or missing values fail closed to hidden. Android and operator channel
 settings remain authoritative and may further restrict lock-screen display.
 AND-010 adds a generic notification deep link to the unlocked Incidents destination without carrying any resource selector. Resource-specific notification links and any unlock bypass remain gated.
+
+
+## Cross-mode notification deduplication follow-up (0.1.57)
+
+Foreground and scheduled Android delivery now share one native per-profile
+last-delivery ledger. The profile ID is SHA-256-derived before it becomes a
+native preference key, and the ledger stores only that derived key plus the
+successful delivery timestamp. It stores no incident key, profile name,
+endpoint, node/guest name, VMID, UPID, rule selector, task log, credential or
+raw PVE response.
+
+Each mode keeps its own configured quiet hours and cooldown. When a mode is
+otherwise eligible to notify, its configured cooldown is evaluated against
+the last successful notification from either mode for the same profile. A
+cooldown of zero deliberately disables cooldown suppression for that mode.
+Suppressed occurrences are not queued for delayed delivery and notification
+suppression never changes incident health, durable history, acknowledgement or
+write authorization.
+
+The check-and-post boundary is serialized inside the app process so an
+activity delivery and a WorkManager Worker cannot race through separate
+cooldown stores. Full profile/scheduled-state lifecycle cleanup clears the
+shared ledger. Background failed-task/threshold parity, authoritative
+cross-resource correlation and relay delivery remain gated.
