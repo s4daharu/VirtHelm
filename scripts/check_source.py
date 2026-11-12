@@ -34,6 +34,7 @@ required = [
   'app/test/incident_center_test.dart','app/test/incident_triage_test.dart',
   'app/test/incident_triage_widget_test.dart','app/test/incident_triage_batch_test.dart',
   'app/test/incident_history_test.dart','app/test/foreground_notifications_test.dart',
+  'app/test/notification_privacy_test.dart',
   'app/test/alert_rules_test.dart',
   'app/test/alert_rules_widget_test.dart',
   'app/test/ui_components_test.dart',
@@ -124,10 +125,15 @@ assert 'incident-bulk-acknowledge' in files['app/lib/ui/incident_center_tab.dart
 assert 'incident-triage-view' in files['app/lib/ui/incident_center_tab.dart']
 assert 'class ForegroundNotificationPolicy' in files['app/lib/core/foreground_notifications.dart']
 assert 'showIncidentSummary' in files['app/lib/core/foreground_notifications.dart']
+assert 'IncidentNotificationLockScreenPrivacy' in files['app/lib/core/foreground_notifications.dart']
+assert 'setLockScreenPrivacy' in files['app/lib/core/foreground_notifications.dart']
+assert 'setNotificationLockScreenPrivacy' in files['app/lib/core/app_controller.dart']
+assert 'notificationLockScreenPrivacy' in files['app/lib/core/profile_repository.dart']
 assert 'setForegroundNotificationPolicy' in files['app/lib/core/app_controller.dart']
 assert "Key('foreground-incident-notifications')" in files['app/lib/ui/shell.dart']
 assert "Key('incident-notification-quiet-hours')" in files['app/lib/ui/shell.dart']
 assert "Key('incident-notification-cooldown')" in files['app/lib/ui/shell.dart']
+assert "Key('incident-notification-lock-screen-privacy')" in files['app/lib/ui/shell.dart']
 assert 'class BackgroundCheckPolicy' in files['app/lib/core/background_checks.dart']
 assert 'minimumBackgroundCheckIntervalMinutes = 15' in files['app/lib/core/background_checks.dart']
 assert 'com.s4daharu.virthelm/background_checks' in files['app/lib/core/background_checks.dart']
@@ -398,11 +404,16 @@ assert 'deviceNetworkChanges().listen' in files['app/lib/main.dart']
 assert 'registerDefaultNetworkCallback' in (root/'scripts/android/MainActivity.kt').read_text()
 assert 'com.s4daharu.virthelm/incident_notifications' in (root/'scripts/android/MainActivity.kt').read_text()
 assert 'Open VirtHelm to review current incidents.' in (root/'scripts/android/MainActivity.kt').read_text()
+assert 'setLockScreenPrivacy' in (root/'scripts/android/MainActivity.kt').read_text()
+assert 'IncidentNotificationPrivacy.visibility' in (root/'scripts/android/MainActivity.kt').read_text()
 worker = files['scripts/android/BackgroundIncidentWorker.kt']
 assert 'PeriodicWorkRequest.Builder' in worker
 assert 'NetworkType.CONNECTED' in worker
 assert 'MIN_BACKGROUND_INTERVAL_MINUTES = 15' in worker
 assert 'AndroidKeyStore' in worker
+assert 'Notification.VISIBILITY_SECRET' in worker
+assert 'Notification.VISIBILITY_PRIVATE' in worker
+assert 'IncidentNotificationPrivacy.visibility' in worker
 assert 'instanceFollowRedirects = false' in worker
 assert 'requestMethod = "GET"' in worker
 assert 'PVEAPIToken=' in worker
