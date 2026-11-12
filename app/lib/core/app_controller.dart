@@ -57,6 +57,8 @@ class AppController extends ChangeNotifier {
   List<IncidentHistoryEntry> incidentHistory = const <IncidentHistoryEntry>[];
   ForegroundNotificationPolicy foregroundNotificationPolicy =
       const ForegroundNotificationPolicy();
+  IncidentNotificationLockScreenPrivacy notificationLockScreenPrivacy =
+      IncidentNotificationLockScreenPrivacy.hidden;
   DateTime? _lastForegroundNotificationAt;
   bool _notificationDeliveryInFlight = false;
 
@@ -1169,6 +1171,13 @@ class AppController extends ChangeNotifier {
       showNodeMetrics = repository.showNodeMetrics;
       highContrast = repository.highContrast;
       reduceMotion = repository.reduceMotion;
+      notificationLockScreenPrivacy = repository.notificationLockScreenPrivacy;
+      // Native state is required by WorkManager after the Dart isolate exits.
+      // A sync failure does not weaken the Dart default: Android also defaults
+      // to hiding incident notifications on a secure lock screen.
+      await _incidentNotifier.setLockScreenPrivacy(
+        notificationLockScreenPrivacy,
+      );
       profiles = repository.readProfiles();
       final selected = repository.activeId;
       if (selected != null) {
@@ -1228,6 +1237,19 @@ class AppController extends ChangeNotifier {
     if (_disposed) return;
     reduceMotion = value;
     _notify();
+  }
+
+  Future<bool> setNotificationLockScreenPrivacy(
+    IncidentNotificationLockScreenPrivacy value,
+  ) async {
+    if (_disposed) return false;
+    final applied = await _incidentNotifier.setLockScreenPrivacy(value);
+    if (!applied || _disposed) return false;
+    await repository.setNotificationLockScreenPrivacy(value);
+    if (_disposed) return false;
+    notificationLockScreenPrivacy = value;
+    _notify();
+    return true;
   }
 
   Future<bool> setForegroundNotificationPolicy(
