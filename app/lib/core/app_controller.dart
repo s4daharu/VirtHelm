@@ -57,6 +57,8 @@ class AppController extends ChangeNotifier {
   List<IncidentHistoryEntry> incidentHistory = const <IncidentHistoryEntry>[];
   ForegroundNotificationPolicy foregroundNotificationPolicy =
       const ForegroundNotificationPolicy();
+  IncidentNotificationLockScreenPrivacy notificationLockScreenPrivacy =
+      IncidentNotificationLockScreenPrivacy.hidden;
   DateTime? _lastForegroundNotificationAt;
   bool _notificationDeliveryInFlight = false;
 
@@ -1169,6 +1171,13 @@ class AppController extends ChangeNotifier {
       showNodeMetrics = repository.showNodeMetrics;
       highContrast = repository.highContrast;
       reduceMotion = repository.reduceMotion;
+      notificationLockScreenPrivacy = repository.notificationLockScreenPrivacy;
+      // Native state is required by WorkManager after the Dart isolate exits.
+      // Do not block Flutter startup on a platform-channel response: Android
+      // defaults to the stricter hidden mode until this best-effort sync lands.
+      unawaited(
+        _incidentNotifier.setLockScreenPrivacy(notificationLockScreenPrivacy),
+      );
       profiles = repository.readProfiles();
       final selected = repository.activeId;
       if (selected != null) {
@@ -1228,6 +1237,31 @@ class AppController extends ChangeNotifier {
     if (_disposed) return;
     reduceMotion = value;
     _notify();
+  }
+
+  Future<bool> setNotificationLockScreenPrivacy(
+    IncidentNotificationLockScreenPrivacy value,
+  ) async {
+    if (_disposed) return false;
+    final previous = notificationLockScreenPrivacy;
+    final applied = await _incidentNotifier.setLockScreenPrivacy(value);
+    if (!applied) return false;
+    if (_disposed) {
+      await _incidentNotifier.setLockScreenPrivacy(previous);
+      return false;
+    }
+    try {
+      await repository.setNotificationLockScreenPrivacy(value);
+    } catch (_) {
+      // Keep the native worker/foreground setting aligned with the value the
+      // UI still reports if local persistence fails.
+      await _incidentNotifier.setLockScreenPrivacy(previous);
+      rethrow;
+    }
+    if (_disposed) return false;
+    notificationLockScreenPrivacy = value;
+    _notify();
+    return true;
   }
 
   Future<bool> setForegroundNotificationPolicy(

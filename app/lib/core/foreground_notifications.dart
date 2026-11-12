@@ -2,6 +2,16 @@ import 'package:flutter/services.dart';
 
 const int _minutesPerDay = 24 * 60;
 
+enum IncidentNotificationLockScreenPrivacy { hidden, generic }
+
+IncidentNotificationLockScreenPrivacy
+incidentNotificationLockScreenPrivacyFromStorage(Object? value) {
+  if (value == IncidentNotificationLockScreenPrivacy.generic.name) {
+    return IncidentNotificationLockScreenPrivacy.generic;
+  }
+  return IncidentNotificationLockScreenPrivacy.hidden;
+}
+
 class ForegroundNotificationPolicy {
   const ForegroundNotificationPolicy({
     this.enabled = false,
@@ -88,6 +98,9 @@ class ForegroundNotificationPolicy {
 
 abstract class ForegroundIncidentNotifier {
   Future<bool> requestPermission();
+  Future<bool> setLockScreenPrivacy(
+    IncidentNotificationLockScreenPrivacy privacy,
+  );
   Future<bool> showIncidentSummary({required bool critical});
 }
 
@@ -102,6 +115,22 @@ class AndroidForegroundIncidentNotifier implements ForegroundIncidentNotifier {
   Future<bool> requestPermission() async {
     try {
       return await _channel.invokeMethod<bool>('requestPermission') ?? false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> setLockScreenPrivacy(
+    IncidentNotificationLockScreenPrivacy privacy,
+  ) async {
+    try {
+      return await _channel.invokeMethod<bool>('setLockScreenPrivacy', {
+            'privacy': privacy.name,
+          }) ??
+          false;
     } on PlatformException {
       return false;
     } on MissingPluginException {

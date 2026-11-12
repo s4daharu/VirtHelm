@@ -25,6 +25,9 @@ assert 'com.s4daharu.virthelm/incident_notifications' in activity
 assert 'NotificationChannel' in activity
 assert 'Open VirtHelm to review current incidents.' in activity
 assert 'BackgroundCheckBridge.register' in activity
+assert 'setLockScreenPrivacy' in activity
+assert 'IncidentNotificationPrivacy.visibility' in activity
+assert 'Notification.VISIBILITY_PUBLIC' not in activity
 assert (root / 'app/android/app/src/main/res/drawable/virthelm_notification.xml').is_file()
 assert 'android:allowBackup="false"' in manifest_text
 assert 'android:usesCleartextTraffic="false"' in manifest_text
@@ -41,6 +44,10 @@ if worker_template.is_file():
     assert 'PeriodicWorkRequest.Builder' in worker_text
     assert 'NetworkType.CONNECTED' in worker_text
     assert 'AndroidKeyStore' in worker_text
+    assert 'Notification.VISIBILITY_SECRET' in worker_text
+    assert 'Notification.VISIBILITY_PRIVATE' in worker_text
+    assert 'IncidentNotificationPrivacy.visibility' in worker_text
+    assert 'Notification.VISIBILITY_PUBLIC' not in worker_text
     assert 'instanceFollowRedirects = false' in worker_text
     assert 'requestMethod = "GET"' in worker_text
     assert 'Open VirtHelm to review current incidents.' in worker_text

@@ -41,6 +41,12 @@ class MainActivity : FlutterActivity() {
         ).setMethodCallHandler { call, result ->
             when (call.method) {
                 "requestPermission" -> requestNotificationPermission(result)
+                "setLockScreenPrivacy" -> result.success(
+                    IncidentNotificationPrivacy.set(
+                        applicationContext,
+                        call.argument<String>("privacy"),
+                    ),
+                )
                 "showIncidentSummary" -> result.success(
                     showIncidentSummary(
                         critical = call.argument<Boolean>("critical") == true,
@@ -104,13 +110,14 @@ class MainActivity : FlutterActivity() {
             return false
         }
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val visibility = IncidentNotificationPrivacy.visibility(this)
         val channel = NotificationChannel(
             INCIDENT_CHANNEL_ID,
             "Incident alerts",
             NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
             description = "Foreground VirtHelm incident summaries"
-            lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+            lockscreenVisibility = visibility
         }
         manager.createNotificationChannel(channel)
 
@@ -132,7 +139,7 @@ class MainActivity : FlutterActivity() {
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .setCategory(Notification.CATEGORY_STATUS)
-            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .setVisibility(visibility)
             .build()
         manager.notify(INCIDENT_NOTIFICATION_ID, notification)
         return true

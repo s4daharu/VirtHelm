@@ -2111,6 +2111,26 @@ class _SettingsTab extends StatelessWidget {
     }
   }
 
+  Future<void> _updateNotificationLockScreenPrivacy(
+    BuildContext context,
+    IncidentNotificationLockScreenPrivacy value,
+  ) async {
+    try {
+      final applied = await controller.setNotificationLockScreenPrivacy(value);
+      if (!applied && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not apply the Android lock-screen privacy setting.',
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) _showPreferenceError(context);
+    }
+  }
+
   Future<void> _pickQuietTime(
     BuildContext context, {
     required bool start,
@@ -2323,6 +2343,39 @@ class _SettingsTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const Text('Lock-screen privacy'),
+              DropdownButton<IncidentNotificationLockScreenPrivacy>(
+                key: const Key('incident-notification-lock-screen-privacy'),
+                value: controller.notificationLockScreenPrivacy,
+                isExpanded: true,
+                items: const [
+                  DropdownMenuItem(
+                    value: IncidentNotificationLockScreenPrivacy.hidden,
+                    child: Text('Hide on secure lock screen'),
+                  ),
+                  DropdownMenuItem(
+                    value: IncidentNotificationLockScreenPrivacy.generic,
+                    child: Text('Show generic VirtHelm alert'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    unawaited(
+                      _updateNotificationLockScreenPrivacy(context, value),
+                    );
+                  }
+                },
+              ),
+              Text(
+                controller.notificationLockScreenPrivacy ==
+                        IncidentNotificationLockScreenPrivacy.hidden
+                    ? 'Default: Android is asked to reveal no part of VirtHelm incident notifications on a secure lock screen.'
+                    : 'Only the generic VirtHelm incident title/icon may appear; infrastructure names, VMIDs, task IDs and logs remain excluded.',
+              ),
+              const Text(
+                'This device setting applies to both foreground and scheduled incident notifications. Android system/channel settings can further restrict lock-screen visibility.',
+              ),
+              const Divider(),
               SwitchListTile(
                 key: const Key('foreground-incident-notifications'),
                 contentPadding: EdgeInsets.zero,
@@ -2436,7 +2489,7 @@ class _SettingsTab extends StatelessWidget {
               const Text(
                 'Notification text is generic and excludes profile names, '
                 'infrastructure names, VMIDs, task IDs and task logs. '
-                'Background monitoring remains disabled.',
+                'Scheduled monitoring, when enabled for a connection, uses the same lock-screen privacy setting.',
               ),
             ],
           ),
@@ -2461,7 +2514,7 @@ class _SettingsTab extends StatelessWidget {
               ),
               SizedBox(height: 12),
               Text(
-                'Preview build: no console, background monitoring, unattended guest actions, or automatic write retries. Use VPN for remote access.',
+                'Preview build: no console, unattended guest actions, critical-paging guarantee, or automatic write retries. Scheduled checks are best-effort and inexact. Use VPN for remote access.',
               ),
             ],
           ),
