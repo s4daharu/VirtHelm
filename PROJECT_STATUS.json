@@ -156,7 +156,7 @@
     ],
     "full_premium_scope_complete": false,
     "current_flutter_tests_defined": 356,
-    "current_flutter_runtime_tests_passed": 408,
+    "current_flutter_runtime_tests_passed": 413,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
     "p0_scope_complete": false,
@@ -742,7 +742,7 @@
     "deferred": "scheduled guest-CPU/storage threshold parity, richer failed-task windowing/correlation, authoritative cross-resource incident correlation, resource-specific notification links, relay/webhooks, production critical-alert guarantees and release certification; scheduled node-CPU thresholds are implemented in 0.1.59"
   },
   "alert_scheduled_node_cpu_thresholds": {
-    "status": "implemented_source_pending_ci",
+    "status": "implemented_ci_verified",
     "milestone": "EP-ALERT bounded Android scheduled node-CPU threshold parity",
     "version": "0.1.59",
     "behavior": "For a certificate-verified saved connection with scheduled checks enabled, the operator may separately opt into evaluation of enabled node-CPU threshold rules. The worker reuses the existing authenticated cluster node snapshot and adds no PVE endpoint. Up to 32 node-CPU rules are evaluated with their saved 1-10 consecutive-sample confirmation and 0-20 percentage-point hysteresis controls. Guest CPU and storage-usage rules remain foreground-only.",
@@ -750,7 +750,7 @@
     "synchronization": "Saving, enabling, disabling or deleting a foreground threshold rule synchronizes the native worker copy without counting as a sample. If native synchronization fails while a schedule is active, AppController disables scheduled monitoring rather than allowing stale background rule configuration to continue silently. When no schedule is active, synchronization is a no-op.",
     "privacy": "Only enabled node-CPU rule ID, node selector, threshold percent, consecutive-sample count and hysteresis percent are copied, and only inside the existing AES-256-GCM Android-Keystore-encrypted worker payload. Runtime threshold state is stored in private native preferences under SHA-256 hashes of rule IDs and contains bounded pending counters plus active booleans only. Display labels, guest/storage identifiers, sampled CPU values, credentials and incident details are not stored in runtime threshold state or notification/navigation payloads.",
     "contract": "Reuses GET /api2/json/cluster/resources?type=node only; redirects disabled; no POST/PUT/PATCH/DELETE; existing 10-second connect/read timeouts, 512 KiB response cap, network constraint and no immediate WorkManager retry remain unchanged. Notifications remain generic and use the existing quiet-hours, lock-screen privacy, generic Incidents navigation and shared cross-mode delivery cooldown.",
-    "verification": "Five Flutter contract/controller regressions plus source/generated-runner hardening assertions are added. Exact-head CI, physical-device WorkManager/Doze behavior and live PVE 8.4/9.2 node-CPU payload/ACL validation remain open at this source-status snapshot.",
+    "verification": "PR implementation run 43202139457 at aebc50e91cf70af5ead154e4f0ba478023a56e70 passed documentation/source checks, generated Android runner hardening, pinned Dart formatting, flutter analyze --fatal-infos, 413 Flutter runtime tests and debug APK compilation. The subsequent verification-record-only PR head is required to pass the same workflow before merge. Physical-device WorkManager/Doze execution and live PVE 8.4/9.2 node-CPU payload/ACL validation remain release gates.",
     "report": "docs/105-implementation-scheduled-node-cpu-thresholds.md",
     "deferred": "scheduled guest-CPU threshold parity, scheduled storage-usage threshold parity, richer window/time-duration rules, authoritative foreground/background incident correlation, resource-specific notification links, relay/webhooks, production critical-alert guarantees and release certification"
   }

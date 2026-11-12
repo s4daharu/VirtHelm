@@ -133,9 +133,12 @@ Regression coverage includes:
   bound, hashed runtime rule IDs, consecutive-sample confirmation and
   hysteresis evaluation.
 
-Repository Docs/Android CI remains the exact-head merge gate: source/docs
-checks, generated Android hardening, Dart formatting, analyzer, full Flutter
-tests and debug APK compilation.
+PR implementation run 43202139457 at
+`aebc50e91cf70af5ead154e4f0ba478023a56e70` passed source/docs checks,
+generated Android hardening, pinned Dart formatting,
+`flutter analyze --fatal-infos`, 413 Flutter runtime tests and debug APK
+compilation. The subsequent verification-record-only PR head is required to
+pass the same workflow before merge.
 
 Physical-device WorkManager/Doze behavior and live PVE 8.4/9.2 node CPU
 payload/ACL validation remain release gates.
