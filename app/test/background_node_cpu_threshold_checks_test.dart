@@ -24,7 +24,8 @@ class _Vault implements CredentialVault {
   }
 }
 
-class _Scheduler implements BackgroundCheckScheduler {
+class _Scheduler
+    implements BackgroundCheckScheduler, ThresholdAwareBackgroundCheckScheduler {
   final List<List<ForegroundThresholdAlertRule>> synced = [];
   int disables = 0;
   bool failSync = false;
@@ -38,6 +39,14 @@ class _Scheduler implements BackgroundCheckScheduler {
     ConnectionProfile profile,
     ApiCredentials credentials,
     BackgroundCheckPolicy policy,
+  ) async {}
+
+  @override
+  Future<void> configureWithThresholdRules(
+    ConnectionProfile profile,
+    ApiCredentials credentials,
+    BackgroundCheckPolicy policy,
+    Iterable<ForegroundThresholdAlertRule> rules,
   ) async {}
 
   @override
