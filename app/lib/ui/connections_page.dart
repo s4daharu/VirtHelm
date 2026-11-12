@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
-import '../core/background_checks.dart';
 import '../core/device_connectivity.dart';
 import '../core/models.dart';
 import 'background_checks_page.dart';
@@ -173,12 +172,6 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
     if (confirmed != true || !mounted) return;
     setState(() => removingProfileId = profile.id);
     try {
-      // Clear the WorkManager schedule and its native Keystore-encrypted token
-      // copy before deleting the Flutter profile/vault credential.
-      await const AndroidBackgroundCheckScheduler().disable(
-        profile.id,
-        clearPolicy: true,
-      );
       await widget.controller.deleteProfile(profile.id);
       if (!mounted) return;
       if (widget.controller.profiles.isEmpty &&
