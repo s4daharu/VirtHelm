@@ -67,6 +67,8 @@ if worker_template.is_file():
     assert 'MAX_BACKGROUND_TASK_NODES = 16' in worker_text
     assert '/tasks?limit=20&source=all' in worker_text
     assert 'task-incident-active:' in worker_text
+    assert 'task-watermark:' in worker_text
+    assert 'endTimeSeconds > previousWatermarkSeconds' in worker_text
     navigation_intent = worker_text.split('internal object IncidentNotificationNavigation', 1)[1].split('internal data class ScheduledPolicy', 1)[0]
     assert 'putExtra(' not in navigation_intent
     assert 'instanceFollowRedirects = false' in worker_text
