@@ -105,7 +105,12 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
             );
           }
         }
-        await widget.scheduler.configure(profile, credentials, validated);
+        await widget.scheduler.configureWithThresholdRules(
+          profile,
+          credentials,
+          validated,
+          widget.controller.thresholdAlertRules,
+        );
       }
       final status = await widget.scheduler.status(profile.id);
       if (!mounted) return;
@@ -164,6 +169,15 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
     'task_redirect_blocked' => 'Incomplete: recent task redirect blocked',
     'task_incomplete' => 'Incomplete: recent task data could not be confirmed',
     'task_read_failed' => 'Incomplete: recent task read failed',
+    'threshold_incomplete' =>
+      'Incomplete: one or more node CPU threshold samples are unavailable',
+    'threshold_incident' => 'Completed: node CPU threshold incident found',
+    'node_and_threshold_incident' =>
+      'Completed: node-state and node CPU threshold incidents found',
+    'task_and_threshold_incident' =>
+      'Completed: recent task and node CPU threshold incidents found',
+    'node_task_threshold_incident' =>
+      'Completed: node-state, recent task and node CPU threshold incidents found',
     'authorization_denied' => 'Incomplete: token authorization denied',
     'redirect_blocked' => 'Incomplete: redirect blocked',
     'incomplete' => 'Incomplete: node data could not be confirmed',
@@ -202,8 +216,8 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
               title: 'Best-effort Android monitoring',
               text:
                   'Android WorkManager can run read-only node-state checks and, '
-                  'when separately enabled, bounded recent-task checks while '
-                  'VirtHelm is closed. The minimum interval is 15 minutes, but '
+                  'when separately enabled, bounded recent-task checks plus '
+                  'saved node CPU threshold rules while VirtHelm is closed. The minimum interval is 15 minutes, but '
                   'execution is inexact and may be delayed by the OS, battery '
                   'policy, missing network or VPN. This is not 24/7 monitoring '
                   'and is not suitable for critical paging.',
@@ -249,6 +263,28 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                                 _apply(
                                   policy.copyWith(
                                     failedTaskChecksEnabled: value,
+                                  ),
+                                ),
+                              ),
+                      ),
+                      const Divider(),
+                      SwitchListTile(
+                        key: const Key('periodic-node-cpu-threshold-checks'),
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Include node CPU threshold rules'),
+                        subtitle: Text(
+                          'Evaluate the '
+                          '${widget.controller.thresholdAlertRules.where((rule) => rule.enabled && rule.metric == ForegroundThresholdMetric.nodeCpu).length} '
+                          'enabled node CPU rule(s) on each scheduled node snapshot. '
+                          'Guest CPU and storage thresholds remain foreground-only.',
+                        ),
+                        value: policy.nodeCpuThresholdChecksEnabled,
+                        onChanged: _busy
+                            ? null
+                            : (value) => unawaited(
+                                _apply(
+                                  policy.copyWith(
+                                    nodeCpuThresholdChecksEnabled: value,
                                   ),
                                 ),
                               ),
@@ -420,8 +456,12 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                   'with normal certificate and hostname validation and redirects '
                   'disabled. Failed-task scanning is separately opted in, is '
                   'bounded to 16 nodes and 20 recent task rows per node, and '
-                  'never persists task identifiers or resource names. The API '
-                  'token copy is encrypted with Android Keystore for this opt-in '
+                  'never persists task identifiers or resource names. Optional '
+                  'node CPU threshold rules reuse the same node GET and keep '
+                  'their node selectors and thresholds only inside the existing '
+                  'Android-Keystore-encrypted worker payload. Runtime threshold '
+                  'state uses hashed rule IDs and counters only. The API token '
+                  'copy is encrypted with Android Keystore for this opt-in '
                   'worker. Notifications are generic: '
                   'no connection name, endpoint, node name, guest name, VMID, '
                   'task ID or task log is included. Lock-screen exposure follows '
