@@ -12,7 +12,7 @@ required = [
   'app/lib/core/guest_saved_view.dart','app/lib/core/alert_rules.dart',
   'app/lib/core/incident_center.dart','app/lib/core/incident_triage.dart',
   'app/lib/core/incident_history.dart','app/lib/core/foreground_notifications.dart',
-  'app/lib/core/background_checks.dart',
+  'app/lib/core/background_checks.dart','app/lib/core/notification_navigation.dart',
   'app/lib/ui/theme.dart',
   'app/lib/ui/components.dart',
   'app/lib/core/app_info.dart',
