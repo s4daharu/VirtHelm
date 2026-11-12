@@ -1245,7 +1245,11 @@ class AppController extends ChangeNotifier {
     if (_disposed) return false;
     final previous = notificationLockScreenPrivacy;
     final applied = await _incidentNotifier.setLockScreenPrivacy(value);
-    if (!applied || _disposed) return false;
+    if (!applied) return false;
+    if (_disposed) {
+      await _incidentNotifier.setLockScreenPrivacy(previous);
+      return false;
+    }
     try {
       await repository.setNotificationLockScreenPrivacy(value);
     } catch (_) {
