@@ -155,7 +155,7 @@
       "GET-only smoke testing against one PVE 9.2.26 server exercised HTTP schemas and actual gateway parsers, including server-side free/occupied VMID checks. No mutations were attempted; 8.4, restricted ACL, backend variants, physical-device and production gates remain open."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 332,
+    "current_flutter_tests_defined": 333,
     "current_flutter_runtime_tests_passed": 387,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
@@ -686,7 +686,7 @@
     "privacy": "Notification payloads remain generic and exclude profile/endpoint/resource names, VMIDs, task IDs/logs, credentials, authorization results and raw responses. Missing or malformed stored/native state fails closed to hidden.",
     "storage": "Non-secret device-wide SharedPreferences preference plus a matching private native preference for WorkManager access; Android app backup remains disabled.",
     "synchronization": "AppController loads and synchronizes the preference at initialization. User changes are persisted only after the native bridge reports successful application, preventing false UI state.",
-    "verification": "Pure/controller source tests cover fail-closed parsing, initialization sync and failed/successful native apply ordering. Generated-runner/source assertions cover shared foreground/scheduled visibility use and both SECRET/PRIVATE modes. Exact-head pinned CI remains required before merge.",
+    "verification": "Pure/controller tests cover fail-closed parsing, initialization sync, failed native apply, successful apply, and rollback to the prior native mode when local persistence fails. Generated-runner/source assertions cover shared foreground/scheduled visibility use, both SECRET/PRIVATE modes and the absence of VISIBILITY_PUBLIC. Exact-head pinned CI remains required before merge.",
     "report": "docs/100-implementation-notification-lock-screen-privacy.md",
     "deferred": "physical-device/OEM secure-lock-screen validation, notification deep links to unlocked incident views, background failed-task/threshold parity, authoritative correlation, relay/webhooks and production critical-alert guarantees"
   }
