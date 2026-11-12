@@ -1106,8 +1106,10 @@ class AppController extends ChangeNotifier {
   Future<void> _syncScheduledNodeCpuThresholdRules(
     ConnectionProfile profile,
   ) async {
+    final scheduler = _backgroundCheckScheduler;
+    if (scheduler is! ThresholdAwareBackgroundCheckScheduler) return;
     try {
-      await _backgroundCheckScheduler.syncNodeCpuThresholdRules(
+      await scheduler.syncNodeCpuThresholdRules(
         profile.id,
         thresholdAlertRules,
       );
