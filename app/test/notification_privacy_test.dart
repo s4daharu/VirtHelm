@@ -92,49 +92,52 @@ void main() {
     controller.dispose();
   });
 
-  test('privacy change persists only after native application succeeds', () async {
-    final prefs = await SharedPreferences.getInstance();
-    final repository = ProfileRepository(prefs, _Vault());
-    final notifier = _Notifier();
-    final controller = AppController(
-      repository: repository,
-      incidentNotifier: notifier,
-    );
-    await controller.initialize();
+  test(
+    'privacy change persists only after native application succeeds',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final repository = ProfileRepository(prefs, _Vault());
+      final notifier = _Notifier();
+      final controller = AppController(
+        repository: repository,
+        incidentNotifier: notifier,
+      );
+      await controller.initialize();
 
-    notifier.applyPrivacy = false;
-    expect(
-      await controller.setNotificationLockScreenPrivacy(
-        IncidentNotificationLockScreenPrivacy.generic,
-      ),
-      isFalse,
-    );
-    expect(
-      controller.notificationLockScreenPrivacy,
-      IncidentNotificationLockScreenPrivacy.hidden,
-    );
-    expect(
-      repository.notificationLockScreenPrivacy,
-      IncidentNotificationLockScreenPrivacy.hidden,
-    );
+      notifier.applyPrivacy = false;
+      expect(
+        await controller.setNotificationLockScreenPrivacy(
+          IncidentNotificationLockScreenPrivacy.generic,
+        ),
+        isFalse,
+      );
+      expect(
+        controller.notificationLockScreenPrivacy,
+        IncidentNotificationLockScreenPrivacy.hidden,
+      );
+      expect(
+        repository.notificationLockScreenPrivacy,
+        IncidentNotificationLockScreenPrivacy.hidden,
+      );
 
-    notifier.applyPrivacy = true;
-    expect(
-      await controller.setNotificationLockScreenPrivacy(
+      notifier.applyPrivacy = true;
+      expect(
+        await controller.setNotificationLockScreenPrivacy(
+          IncidentNotificationLockScreenPrivacy.generic,
+        ),
+        isTrue,
+      );
+      expect(
+        controller.notificationLockScreenPrivacy,
         IncidentNotificationLockScreenPrivacy.generic,
-      ),
-      isTrue,
-    );
-    expect(
-      controller.notificationLockScreenPrivacy,
-      IncidentNotificationLockScreenPrivacy.generic,
-    );
-    expect(
-      repository.notificationLockScreenPrivacy,
-      IncidentNotificationLockScreenPrivacy.generic,
-    );
-    controller.dispose();
-  });
+      );
+      expect(
+        repository.notificationLockScreenPrivacy,
+        IncidentNotificationLockScreenPrivacy.generic,
+      );
+      controller.dispose();
+    },
+  );
 
   test('persistence failure rolls native privacy back to prior mode', () async {
     final prefs = await SharedPreferences.getInstance();
