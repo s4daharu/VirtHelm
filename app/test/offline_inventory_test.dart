@@ -80,120 +80,137 @@ void main() {
     },
   ], fetchedAt: fetchedAt);
 
-  test('offline inventory stores only the allowlisted stale identity fields', () {
-    final now = DateTime.utc(2026, 11, 12, 5);
-    final snapshot = OfflineInventorySnapshot.fromInventory(
-      liveInventory(now.subtract(const Duration(hours: 2))),
-    );
-    expect(snapshot, isNotNull);
+  test(
+    'offline inventory stores only the allowlisted stale identity fields',
+    () {
+      final now = DateTime.utc(2026, 11, 12, 5);
+      final snapshot = OfflineInventorySnapshot.fromInventory(
+        liveInventory(now.subtract(const Duration(hours: 2))),
+      );
+      expect(snapshot, isNotNull);
 
-    final encoded = jsonEncode(snapshot!.toJson());
-    expect(encoded, contains('node-a'));
-    expect(encoded, contains('private-vm'));
-    expect(encoded, contains('101'));
-    expect(encoded, isNot(contains('secret-tag')));
-    expect(encoded, isNot(contains('private-pool')));
-    expect(encoded, isNot(contains('12345')));
-    expect(encoded, isNot(contains('"cpu"')));
-    expect(encoded, isNot(contains('"mem"')));
-    expect(encoded, isNot(contains('"disk"')));
+      final encoded = jsonEncode(snapshot!.toJson());
+      expect(encoded, contains('node-a'));
+      expect(encoded, contains('private-vm'));
+      expect(encoded, contains('101'));
+      expect(encoded, isNot(contains('secret-tag')));
+      expect(encoded, isNot(contains('private-pool')));
+      expect(encoded, isNot(contains('12345')));
+      expect(encoded, isNot(contains('"cpu"')));
+      expect(encoded, isNot(contains('"mem"')));
+      expect(encoded, isNot(contains('"disk"')));
 
-    final decoded = OfflineInventorySnapshot.fromJson(
-      jsonDecode(encoded),
-      now: now,
-    );
-    expect(decoded?.nodes.single.name, 'node-a');
-    expect(decoded?.guests.length, 2);
-    expect(decoded?.guests.first.name, 'private-vm');
-    expect(decoded?.runningGuests, 1);
-    expect(decoded?.stoppedGuests, 1);
-  });
-
-  test('offline inventory rejects stale, future, extra and ambiguous records', () {
-    final now = DateTime.utc(2026, 11, 12, 5);
-    final snapshot = OfflineInventorySnapshot.fromInventory(liveInventory(now))!;
-    final record = snapshot.toJson();
-
-    expect(
-      OfflineInventorySnapshot.fromJson({
-        ...record,
-        'timestampMs': now
-            .subtract(const Duration(hours: 25))
-            .millisecondsSinceEpoch,
-      }, now: now),
-      isNull,
-    );
-    expect(
-      OfflineInventorySnapshot.fromJson({
-        ...record,
-        'timestampMs': now
-            .add(const Duration(seconds: 1))
-            .millisecondsSinceEpoch,
-      }, now: now),
-      isNull,
-    );
-    expect(
-      OfflineInventorySnapshot.fromJson({...record, 'unexpected': true}, now: now),
-      isNull,
-    );
-    expect(
-      OfflineInventorySnapshot.fromJson({...record, 'v': 2}, now: now),
-      isNull,
-    );
-
-    final guests = List<Map<String, Object>>.from(
-      (record['guests'] as List).map(
-        (item) => Map<String, Object>.from(item as Map),
-      ),
-    );
-    guests.add({...guests.first, 'name': 'duplicate'});
-    expect(
-      OfflineInventorySnapshot.fromJson({...record, 'guests': guests}, now: now),
-      isNull,
-    );
-
-    final badIdentity = List<Map<String, Object>>.from(
-      (record['guests'] as List).map(
-        (item) => Map<String, Object>.from(item as Map),
-      ),
-    );
-    badIdentity[0] = {...badIdentity[0], 'name': 'bad\u0000name'};
-    expect(
-      OfflineInventorySnapshot.fromJson(
-        {...record, 'guests': badIdentity},
+      final decoded = OfflineInventorySnapshot.fromJson(
+        jsonDecode(encoded),
         now: now,
-      ),
-      isNull,
-    );
-  });
+      );
+      expect(decoded?.nodes.single.name, 'node-a');
+      expect(decoded?.guests.length, 2);
+      expect(decoded?.guests.first.name, 'private-vm');
+      expect(decoded?.runningGuests, 1);
+      expect(decoded?.stoppedGuests, 1);
+    },
+  );
 
-  test('detailed offline inventory is separate opt-in and purges on edit', () async {
-    final prefs = await SharedPreferences.getInstance();
-    final repo = ProfileRepository(prefs, _Vault());
-    await repo.save(profile, credentials);
-    final snapshot = OfflineInventorySnapshot.fromInventory(
-      liveInventory(DateTime.now().toUtc()),
-    )!;
+  test(
+    'offline inventory rejects stale, future, extra and ambiguous records',
+    () {
+      final now = DateTime.utc(2026, 11, 12, 5);
+      final snapshot = OfflineInventorySnapshot.fromInventory(
+        liveInventory(now),
+      )!;
+      final record = snapshot.toJson();
 
-    await repo.saveOfflineInventory(profile.id, snapshot);
-    expect(repo.offlineInventoryEnabled(profile.id), isFalse);
-    expect(repo.readOfflineInventory(profile.id), isNull);
+      expect(
+        OfflineInventorySnapshot.fromJson({
+          ...record,
+          'timestampMs': now
+              .subtract(const Duration(hours: 25))
+              .millisecondsSinceEpoch,
+        }, now: now),
+        isNull,
+      );
+      expect(
+        OfflineInventorySnapshot.fromJson({
+          ...record,
+          'timestampMs': now
+              .add(const Duration(seconds: 1))
+              .millisecondsSinceEpoch,
+        }, now: now),
+        isNull,
+      );
+      expect(
+        OfflineInventorySnapshot.fromJson({
+          ...record,
+          'unexpected': true,
+        }, now: now),
+        isNull,
+      );
+      expect(
+        OfflineInventorySnapshot.fromJson({...record, 'v': 2}, now: now),
+        isNull,
+      );
 
-    await repo.setOfflineInventoryEnabled(profile.id, true);
-    await repo.saveOfflineInventory(profile.id, snapshot);
-    expect(repo.readOfflineInventory(profile.id)?.guests.length, 2);
-    expect(repo.offlineOverviewEnabled(profile.id), isFalse);
+      final guests = List<Map<String, Object>>.from(
+        (record['guests'] as List).map(
+          (item) => Map<String, Object>.from(item as Map),
+        ),
+      );
+      guests.add({...guests.first, 'name': 'duplicate'});
+      expect(
+        OfflineInventorySnapshot.fromJson({
+          ...record,
+          'guests': guests,
+        }, now: now),
+        isNull,
+      );
 
-    await repo.updateConfigurationMetadata(
-      const ConnectionProfile(
-        id: 'lab',
-        name: 'Renamed',
-        endpoint: 'https://pve.local:8006',
-      ),
-    );
-    expect(repo.offlineInventoryEnabled(profile.id), isTrue);
-    expect(repo.readOfflineInventory(profile.id), isNull);
-  });
+      final badIdentity = List<Map<String, Object>>.from(
+        (record['guests'] as List).map(
+          (item) => Map<String, Object>.from(item as Map),
+        ),
+      );
+      badIdentity[0] = {...badIdentity[0], 'name': 'bad\u0000name'};
+      expect(
+        OfflineInventorySnapshot.fromJson({
+          ...record,
+          'guests': badIdentity,
+        }, now: now),
+        isNull,
+      );
+    },
+  );
+
+  test(
+    'detailed offline inventory is separate opt-in and purges on edit',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final repo = ProfileRepository(prefs, _Vault());
+      await repo.save(profile, credentials);
+      final snapshot = OfflineInventorySnapshot.fromInventory(
+        liveInventory(DateTime.now().toUtc()),
+      )!;
+
+      await repo.saveOfflineInventory(profile.id, snapshot);
+      expect(repo.offlineInventoryEnabled(profile.id), isFalse);
+      expect(repo.readOfflineInventory(profile.id), isNull);
+
+      await repo.setOfflineInventoryEnabled(profile.id, true);
+      await repo.saveOfflineInventory(profile.id, snapshot);
+      expect(repo.readOfflineInventory(profile.id)?.guests.length, 2);
+      expect(repo.offlineOverviewEnabled(profile.id), isFalse);
+
+      await repo.updateConfigurationMetadata(
+        const ConnectionProfile(
+          id: 'lab',
+          name: 'Renamed',
+          endpoint: 'https://pve.local:8006',
+        ),
+      );
+      expect(repo.offlineInventoryEnabled(profile.id), isTrue);
+      expect(repo.readOfflineInventory(profile.id), isNull);
+    },
+  );
 
   test('opt-out and profile deletion erase detailed stale inventory', () async {
     final prefs = await SharedPreferences.getInstance();
@@ -218,28 +235,31 @@ void main() {
     expect(prefs.get('offline_inventory_v1:lab'), isNull);
   });
 
-  test('controller opt-in saves and opt-out removes a clean live snapshot', () async {
-    final prefs = await SharedPreferences.getInstance();
-    final repo = ProfileRepository(prefs, _Vault());
-    await repo.save(profile, credentials);
-    final controller = AppController(repository: repo);
-    addTearDown(controller.dispose);
-    controller.active = profile;
-    controller.deviceNetworkState = DeviceNetworkState.available;
-    controller.inventory = liveInventory(DateTime.now().toUtc());
+  test(
+    'controller opt-in saves and opt-out removes a clean live snapshot',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final repo = ProfileRepository(prefs, _Vault());
+      await repo.save(profile, credentials);
+      final controller = AppController(repository: repo);
+      addTearDown(controller.dispose);
+      controller.active = profile;
+      controller.deviceNetworkState = DeviceNetworkState.available;
+      controller.inventory = liveInventory(DateTime.now().toUtc());
 
-    await controller.setOfflineInventoryEnabled(true);
+      await controller.setOfflineInventoryEnabled(true);
 
-    expect(controller.offlineInventoryEnabled, isTrue);
-    expect(repo.readOfflineInventory(profile.id)?.guests.length, 2);
-    expect(controller.cachedInventory, isNull);
-    expect(controller.isInventoryWriteSafe, isTrue);
+      expect(controller.offlineInventoryEnabled, isTrue);
+      expect(repo.readOfflineInventory(profile.id)?.guests.length, 2);
+      expect(controller.cachedInventory, isNull);
+      expect(controller.isInventoryWriteSafe, isTrue);
 
-    await controller.setOfflineInventoryEnabled(false);
+      await controller.setOfflineInventoryEnabled(false);
 
-    expect(controller.offlineInventoryEnabled, isFalse);
-    expect(repo.readOfflineInventory(profile.id), isNull);
-  });
+      expect(controller.offlineInventoryEnabled, isFalse);
+      expect(repo.readOfflineInventory(profile.id), isNull);
+    },
+  );
 
   testWidgets('cached Home inventory is visibly stale and non-interactive', (
     tester,
@@ -313,14 +333,8 @@ void main() {
       '202',
     );
     await tester.pump();
-    expect(
-      find.byKey(const ValueKey('offline-guest-qemu-101')),
-      findsNothing,
-    );
-    expect(
-      find.byKey(const ValueKey('offline-guest-lxc-202')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('offline-guest-qemu-101')), findsNothing);
+    expect(find.byKey(const ValueKey('offline-guest-lxc-202')), findsOneWidget);
   });
 
   testWidgets('Settings exposes detailed stale cache as a separate opt-in', (
@@ -338,12 +352,20 @@ void main() {
     await tester.tap(find.text('Settings'));
     await tester.pump();
 
-    expect(find.byKey(const Key('offline-overview-preference')), findsOneWidget);
-    expect(find.byKey(const Key('offline-inventory-preference')), findsOneWidget);
     expect(
-      tester.widget<SwitchListTile>(
-        find.byKey(const Key('offline-inventory-preference')),
-      ).value,
+      find.byKey(const Key('offline-overview-preference')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('offline-inventory-preference')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<SwitchListTile>(
+            find.byKey(const Key('offline-inventory-preference')),
+          )
+          .value,
       isFalse,
     );
   });
