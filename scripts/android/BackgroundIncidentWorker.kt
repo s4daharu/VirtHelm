@@ -431,8 +431,8 @@ internal object BackgroundCheckCoordinator {
         val storage = prefs(context)
         val policy = runCatching {
             ScheduledPolicy.fromJson(storage.getString(policyKey(key), null))
-        }.getOrNull() ?: return false
-        if (!policy.enabled) {
+        }.getOrNull()
+        if (policy == null || !policy.enabled) {
             storage.edit().remove(thresholdStateKey(key)).apply()
             return true
         }
