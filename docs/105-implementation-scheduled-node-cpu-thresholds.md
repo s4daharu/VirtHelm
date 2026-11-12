@@ -60,6 +60,12 @@ Rule configuration changes are not samples. Editing, enabling, disabling or
 removing a rule synchronizes the worker copy and reconciles state without
 advancing pending confirmation.
 
+Malformed or corrupt native threshold runtime state is treated as incomplete
+evidence and is not automatically rewritten by an ordinary worker sample. An
+explicit rule/schedule synchronization may rebuild that local runtime state.
+This prevents corrupted state from being silently converted into a healthy
+observation.
+
 ## Privacy and persistence
 
 The worker needs exact node selectors to evaluate node CPU rules, but they are
