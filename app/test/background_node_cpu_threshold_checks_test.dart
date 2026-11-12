@@ -25,7 +25,9 @@ class _Vault implements CredentialVault {
 }
 
 class _Scheduler
-    implements BackgroundCheckScheduler, ThresholdAwareBackgroundCheckScheduler {
+    implements
+        BackgroundCheckScheduler,
+        ThresholdAwareBackgroundCheckScheduler {
   final List<List<ForegroundThresholdAlertRule>> synced = [];
   int disables = 0;
   bool failSync = false;
