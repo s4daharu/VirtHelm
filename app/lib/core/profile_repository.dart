@@ -9,6 +9,7 @@ import 'foreground_notifications.dart';
 import 'guest_saved_view.dart';
 import 'incident_history.dart';
 import 'models.dart';
+import 'offline_inventory.dart';
 import 'offline_overview.dart';
 
 abstract class CredentialVault {
@@ -62,6 +63,8 @@ class ProfileRepository {
   static const _reduceMotionKey = 'ui_reduce_motion_v1';
   static const _offlineEnabledPrefix = 'offline_counts_enabled_v1:';
   static const _offlineCountsPrefix = 'offline_counts_v1:';
+  static const _offlineInventoryEnabledPrefix = 'offline_inventory_enabled_v1:';
+  static const _offlineInventoryPrefix = 'offline_inventory_v1:';
   Future<void> _writes = Future<void>.value();
 
   // A vault operation can yield before metadata is written. Serialize local
@@ -368,6 +371,80 @@ class ProfileRepository {
   Future<void> _clearOfflineOverview(String profileId) async {
     if (!await _prefs.remove(_offlineCountsKey(profileId))) {
       throw StateError('Could not clear offline overview.');
+    }
+  }
+
+  String _offlineInventoryEnabledKey(String id) =>
+      '$_offlineInventoryEnabledPrefix$id';
+  String _offlineInventoryKey(String id) => '$_offlineInventoryPrefix$id';
+
+  bool offlineInventoryEnabled(String profileId) =>
+      _prefs.get(_offlineInventoryEnabledKey(profileId)) == true;
+
+  OfflineInventorySnapshot? readOfflineInventory(
+    String profileId, {
+    DateTime? now,
+  }) {
+    if (!offlineInventoryEnabled(profileId) ||
+        !readProfiles().any((profile) => profile.id == profileId)) {
+      return null;
+    }
+    final raw = _prefs.get(_offlineInventoryKey(profileId));
+    if (raw is! String || raw.length > maxOfflineInventorySerializedBytes) {
+      return null;
+    }
+    try {
+      return OfflineInventorySnapshot.fromJson(jsonDecode(raw), now: now);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> setOfflineInventoryEnabled(String profileId, bool value) =>
+      _mutate(() async {
+        if (!readProfiles().any((profile) => profile.id == profileId)) {
+          throw StateError('Connection no longer exists.');
+        }
+        if (value) {
+          if (!await _prefs.setBool(
+            _offlineInventoryEnabledKey(profileId),
+            true,
+          )) {
+            throw StateError('Could not enable offline inventory.');
+          }
+        } else {
+          await _clearOfflineInventory(profileId);
+          if (!await _prefs.remove(_offlineInventoryEnabledKey(profileId))) {
+            throw StateError('Could not disable offline inventory.');
+          }
+        }
+      });
+
+  Future<void> saveOfflineInventory(
+    String profileId,
+    OfflineInventorySnapshot snapshot,
+  ) => _mutate(() async {
+    if (!offlineInventoryEnabled(profileId) ||
+        !readProfiles().any((profile) => profile.id == profileId) ||
+        OfflineInventorySnapshot.fromJson(snapshot.toJson()) == null) {
+      return;
+    }
+    final raw = jsonEncode(snapshot.toJson());
+    if (raw.length > maxOfflineInventorySerializedBytes) {
+      await _clearOfflineInventory(profileId);
+      return;
+    }
+    if (!await _prefs.setString(_offlineInventoryKey(profileId), raw)) {
+      throw StateError('Could not save offline inventory.');
+    }
+  });
+
+  Future<void> clearOfflineInventory(String profileId) =>
+      _mutate(() => _clearOfflineInventory(profileId));
+
+  Future<void> _clearOfflineInventory(String profileId) async {
+    if (!await _prefs.remove(_offlineInventoryKey(profileId))) {
+      throw StateError('Could not clear offline inventory.');
     }
   }
 
@@ -833,8 +910,10 @@ class ProfileRepository {
         }
         final previousCredentials = await vault.retrieve(profile.id);
         final nextProfiles = [...profiles]..[index] = profile;
-        // Even a same-endpoint token/ACL change must invalidate old counts.
+        // Even a same-endpoint token/ACL change must invalidate old offline
+        // observations before the credential/profile identity is replaced.
         await _clearOfflineOverview(profile.id);
+        await _clearOfflineInventory(profile.id);
         try {
           await vault.store(profile.id, credentials);
           await _writeProfiles(nextProfiles);
@@ -853,13 +932,15 @@ class ProfileRepository {
         }
       });
 
-  /// User edits invalidate cached counts without rewriting an unchanged token.
+  /// User edits invalidate offline observations without rewriting an
+  /// unchanged token.
   Future<void> updateConfigurationMetadata(ConnectionProfile profile) =>
       _mutate(() async {
         final profiles = readProfiles();
         final index = profiles.indexWhere((item) => item.id == profile.id);
         if (index < 0) throw StateError('Connection no longer exists.');
         await _clearOfflineOverview(profile.id);
+        await _clearOfflineInventory(profile.id);
         await _writeProfiles([...profiles]..[index] = profile);
       });
 
@@ -910,6 +991,10 @@ class ProfileRepository {
     try {
       await _clearOfflineOverview(id);
       await _prefs.remove(_offlineEnabledKey(id));
+    } catch (_) {}
+    try {
+      await _clearOfflineInventory(id);
+      await _prefs.remove(_offlineInventoryEnabledKey(id));
     } catch (_) {}
     if (activeId == id) {
       await _setActive(remaining.isEmpty ? null : remaining.first.id);

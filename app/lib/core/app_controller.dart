@@ -12,6 +12,7 @@ import 'incident_center.dart';
 import 'incident_history.dart';
 import 'incident_triage.dart';
 import 'models.dart';
+import 'offline_inventory.dart';
 import 'offline_overview.dart';
 import 'profile_repository.dart';
 import 'pve_api.dart';
@@ -45,6 +46,8 @@ class AppController extends ChangeNotifier {
   // Display-only, last-known aggregate counts. Never a mutation snapshot.
   OfflineOverview? cachedOverview;
   bool offlineOverviewEnabled = false;
+  OfflineInventorySnapshot? cachedInventory;
+  bool offlineInventoryEnabled = false;
   final List<TrackedTask> tasks = [];
   List<StoragePool> storages = [];
   List<RecentServerTask> serverTasks = [];
@@ -1331,15 +1334,44 @@ class AppController extends ChangeNotifier {
     _notify();
   }
 
+  Future<void> setOfflineInventoryEnabled(bool enabled) async {
+    final profileId = active?.id;
+    if (_disposed || profileId == null) return;
+    await repository.setOfflineInventoryEnabled(profileId, enabled);
+    if (_disposed || active?.id != profileId) return;
+    offlineInventoryEnabled = enabled;
+    if (!enabled) {
+      cachedInventory = null;
+    } else if (isInventoryWriteSafe) {
+      final snapshot = OfflineInventorySnapshot.fromInventory(inventory!);
+      try {
+        if (snapshot == null) {
+          await repository.clearOfflineInventory(profileId);
+        } else {
+          await repository.saveOfflineInventory(profileId, snapshot);
+        }
+      } catch (_) {
+        // The detailed offline list is display-only optional metadata.
+      }
+    }
+    _notify();
+  }
+
   Future<void> _clearOfflineAfterAuth(int generation) async {
     if (_disposed || generation != _generation) return;
     final profileId = active?.id;
     cachedOverview = null;
+    cachedInventory = null;
     if (profileId == null) return;
     try {
       await repository.clearOfflineOverview(profileId);
     } catch (_) {
-      // The cached data is hidden for this session even if deletion fails.
+      // Cached data is hidden for this session even if deletion fails.
+    }
+    try {
+      await repository.clearOfflineInventory(profileId);
+    } catch (_) {
+      // Detailed stale identities stay hidden after authentication loss.
     }
   }
 
@@ -1694,7 +1726,9 @@ class AppController extends ChangeNotifier {
     _gateway = null;
     active = profile;
     offlineOverviewEnabled = repository.offlineOverviewEnabled(profile.id);
+    offlineInventoryEnabled = repository.offlineInventoryEnabled(profile.id);
     cachedOverview = null;
+    cachedInventory = null;
     favoriteGuests = repository.readGuestFavorites(profile.id);
     guestSavedViews = repository.readGuestViews(profile.id);
     thresholdAlertRules = repository.readThresholdAlertRules(profile.id);
@@ -1723,6 +1757,7 @@ class AppController extends ChangeNotifier {
     _notify();
     if (deviceNetworkState == DeviceNetworkState.unavailable) {
       cachedOverview = repository.readOfflineOverview(profile.id);
+      cachedInventory = repository.readOfflineInventory(profile.id);
       _notify();
       return;
     }
@@ -1763,10 +1798,14 @@ class AppController extends ChangeNotifier {
         _gateway?.close();
         _gateway = null;
         inventory = null;
-        cachedOverview =
+        final canUseOffline =
             deviceNetworkState == DeviceNetworkState.unavailable ||
-                (e is PveFailure && e.transportFailure != null)
+            (e is PveFailure && e.transportFailure != null);
+        cachedOverview = canUseOffline
             ? repository.readOfflineOverview(profile.id)
+            : null;
+        cachedInventory = canUseOffline
+            ? repository.readOfflineInventory(profile.id)
             : null;
         if (e is PveFailure && e.status == 401) {
           await _clearOfflineAfterAuth(generation);
@@ -1811,6 +1850,7 @@ class AppController extends ChangeNotifier {
       inventory = next;
       _inventoryRevision++;
       cachedOverview = null;
+      cachedInventory = null;
       message = null;
       inventoryWarning = next.malformedGuestRecords == 0
           ? null
@@ -1850,6 +1890,23 @@ class AppController extends ChangeNotifier {
           // inventory appear unsafe or block normal read operations.
         }
       }
+      if (profileId != null &&
+          offlineInventoryEnabled &&
+          deviceNetworkState != DeviceNetworkState.unavailable &&
+          message == null &&
+          next.malformedGuestRecords == 0) {
+        try {
+          final snapshot = OfflineInventorySnapshot.fromInventory(next);
+          if (snapshot == null) {
+            await repository.clearOfflineInventory(profileId);
+          } else {
+            await repository.saveOfflineInventory(profileId, snapshot);
+          }
+        } catch (_) {
+          // Detailed stale browsing is optional and never authorizes reads or
+          // mutations. Cache failures cannot affect the live session.
+        }
+      }
       if (generation == _generation &&
           networkEpoch == _networkEpoch &&
           !_disposed &&
@@ -1885,8 +1942,10 @@ class AppController extends ChangeNotifier {
           e.transportFailure != null &&
           profileId != null) {
         cachedOverview = repository.readOfflineOverview(profileId);
+        cachedInventory = repository.readOfflineInventory(profileId);
       }
-      // Last live result remains stale; cached counts never authorize writes.
+      // Last live result remains stale; offline observations never authorize
+      // writes, detail reads, or a claim that the server is currently healthy.
     } finally {
       if (generation == _generation) {
         refreshing = false;
@@ -3834,6 +3893,7 @@ class AppController extends ChangeNotifier {
       _autoRefreshTimer?.cancel();
       if (inventory == null && active != null) {
         cachedOverview = repository.readOfflineOverview(active!.id);
+        cachedInventory = repository.readOfflineInventory(active!.id);
       }
     } else if (next == DeviceNetworkState.available && _requiresRecovery) {
       final profileId = active?.id;
@@ -4142,6 +4202,8 @@ class AppController extends ChangeNotifier {
       inventory = null;
       cachedOverview = null;
       offlineOverviewEnabled = false;
+      cachedInventory = null;
+      offlineInventoryEnabled = false;
       storages = [];
       serverTasks = [];
       _retainedServerTaskIncidents = const <CockpitIncident>[];
