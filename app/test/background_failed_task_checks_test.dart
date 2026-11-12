@@ -78,31 +78,34 @@ void main() {
     expect(arguments['cooldownMinutes'], 60);
   });
 
-  test('scheduled status reports failed-task opt-in without exposing task data', () async {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          expect(call.method, 'status');
-          return <String, Object?>{
-            'enabled': true,
-            'intervalMinutes': 30,
-            'quietHoursEnabled': false,
-            'quietStartMinute': 1320,
-            'quietEndMinute': 420,
-            'cooldownMinutes': 30,
-            'failedTaskChecksEnabled': true,
-            'lastAttemptMs': 1000,
-            'lastSuccessMs': 2000,
-            'lastNotificationMs': 3000,
-            'lastOutcome': 'task_incident',
-          };
-        });
+  test(
+    'scheduled status reports failed-task opt-in without exposing task data',
+    () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            expect(call.method, 'status');
+            return <String, Object?>{
+              'enabled': true,
+              'intervalMinutes': 30,
+              'quietHoursEnabled': false,
+              'quietStartMinute': 1320,
+              'quietEndMinute': 420,
+              'cooldownMinutes': 30,
+              'failedTaskChecksEnabled': true,
+              'lastAttemptMs': 1000,
+              'lastSuccessMs': 2000,
+              'lastNotificationMs': 3000,
+              'lastOutcome': 'task_incident',
+            };
+          });
 
-    final status = await const AndroidBackgroundCheckScheduler().status(
-      'profile-alpha',
-    );
+      final status = await const AndroidBackgroundCheckScheduler().status(
+        'profile-alpha',
+      );
 
-    expect(status.enabled, isTrue);
-    expect(status.policy.failedTaskChecksEnabled, isTrue);
-    expect(status.lastOutcome, 'task_incident');
-  });
+      expect(status.enabled, isTrue);
+      expect(status.policy.failedTaskChecksEnabled, isTrue);
+      expect(status.lastOutcome, 'task_incident');
+    },
+  );
 }
