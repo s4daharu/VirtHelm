@@ -2139,7 +2139,7 @@ class _SettingsTab extends StatelessWidget {
     if (minutes == 0) return 'No cooldown';
     if (minutes < 60) return '$minutes minutes';
     if (minutes == 60) return '1 hour';
-    if (minutes % 60 == 0) return (minutes ~/ 60).toString() + ' hours';
+    if (minutes % 60 == 0) return '${minutes ~/ 60} hours';
     return '$minutes minutes';
   }
 
