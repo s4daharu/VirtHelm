@@ -153,8 +153,17 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
   }
 
   String _outcomeLabel(String? value) => switch (value) {
-    'healthy' => 'Completed: no node-state incident found',
+    'healthy' => 'Completed: no scheduled incident found',
     'incident' => 'Completed: node-state incident found',
+    'node_incident' => 'Completed: node-state incident found',
+    'task_incident' => 'Completed: recent failed task incident found',
+    'node_and_task_incident' =>
+      'Completed: node-state and recent task incidents found',
+    'task_authorization_denied' =>
+      'Incomplete: recent task authorization denied',
+    'task_redirect_blocked' => 'Incomplete: recent task redirect blocked',
+    'task_incomplete' => 'Incomplete: recent task data could not be confirmed',
+    'task_read_failed' => 'Incomplete: recent task read failed',
     'authorization_denied' => 'Incomplete: token authorization denied',
     'redirect_blocked' => 'Incomplete: redirect blocked',
     'incomplete' => 'Incomplete: node data could not be confirmed',
@@ -192,7 +201,8 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
               icon: Icons.schedule_rounded,
               title: 'Best-effort Android monitoring',
               text:
-                  'Android WorkManager can run a read-only node-state check while '
+                  'Android WorkManager can run read-only node-state checks and, '
+                  'when separately enabled, bounded recent-task checks while '
                   'VirtHelm is closed. The minimum interval is 15 minutes, but '
                   'execution is inexact and may be delayed by the OS, battery '
                   'policy, missing network or VPN. This is not 24/7 monitoring '
@@ -208,7 +218,7 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                     SwitchListTile(
                       key: const Key('periodic-incident-checks'),
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Periodic node-state checks'),
+                      title: const Text('Periodic scheduled checks'),
                       subtitle: Text(
                         profile.allowInvalidCertificates
                             ? 'Unavailable while this connection disables TLS identity verification.'
@@ -222,6 +232,27 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                             ),
                     ),
                     if (policy.enabled) ...[
+                      const Divider(),
+                      SwitchListTile(
+                        key: const Key('periodic-failed-task-checks'),
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Include recent failed tasks'),
+                        subtitle: const Text(
+                          'Also check up to 20 recent tasks per visible node. '
+                          'Only generic incident state is retained; task IDs, '
+                          'resource names and logs are never stored by the worker.',
+                        ),
+                        value: policy.failedTaskChecksEnabled,
+                        onChanged: _busy
+                            ? null
+                            : (value) => unawaited(
+                                _apply(
+                                  policy.copyWith(
+                                    failedTaskChecksEnabled: value,
+                                  ),
+                                ),
+                              ),
+                      ),
                       const Divider(),
                       const Text('Requested interval'),
                       DropdownButton<int>(
@@ -387,8 +418,11 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
               text:
                   'The worker performs GET only against the saved HTTPS origin '
                   'with normal certificate and hostname validation and redirects '
-                  'disabled. The API token copy is encrypted with Android '
-                  'Keystore for this opt-in worker. Notifications are generic: '
+                  'disabled. Failed-task scanning is separately opted in, is '
+                  'bounded to 16 nodes and 20 recent task rows per node, and '
+                  'never persists task identifiers or resource names. The API '
+                  'token copy is encrypted with Android Keystore for this opt-in '
+                  'worker. Notifications are generic: '
                   'no connection name, endpoint, node name, guest name, VMID, '
                   'task ID or task log is included. Lock-screen exposure follows '
                   'Settings > Incident notifications and is currently '
