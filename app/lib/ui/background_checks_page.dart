@@ -128,7 +128,9 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
     final selected = await showTimePicker(
       context: context,
       initialTime: TimeOfDay(hour: minute ~/ 60, minute: minute % 60),
-      helpText: start ? 'Scheduled quiet hours start' : 'Scheduled quiet hours end',
+      helpText: start
+          ? 'Scheduled quiet hours start'
+          : 'Scheduled quiet hours end',
     );
     if (selected == null || !mounted) return;
     final nextMinute = selected.hour * 60 + selected.minute;
@@ -277,12 +279,12 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                           key: const Key('periodic-check-quiet-start'),
                           contentPadding: EdgeInsets.zero,
                           title: const Text('Starts'),
-                          trailing: Text(_formatMinute(policy.quietStartMinute)),
+                          trailing: Text(
+                            _formatMinute(policy.quietStartMinute),
+                          ),
                           onTap: _busy
                               ? null
-                              : () => unawaited(
-                                  _pickQuietTime(start: true),
-                                ),
+                              : () => unawaited(_pickQuietTime(start: true)),
                         ),
                         ListTile(
                           key: const Key('periodic-check-quiet-end'),
@@ -291,9 +293,7 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                           trailing: Text(_formatMinute(policy.quietEndMinute)),
                           onTap: _busy
                               ? null
-                              : () => unawaited(
-                                  _pickQuietTime(start: false),
-                                ),
+                              : () => unawaited(_pickQuietTime(start: false)),
                         ),
                       ],
                       const Divider(),
@@ -360,7 +360,9 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text('Last attempt: ${_formatDate(_status?.lastAttemptAt)}'),
+                    Text(
+                      'Last attempt: ${_formatDate(_status?.lastAttemptAt)}',
+                    ),
                     Text(
                       'Last complete check: ${_formatDate(_status?.lastSuccessfulAt)}',
                     ),
