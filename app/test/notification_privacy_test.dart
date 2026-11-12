@@ -1,0 +1,127 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:virthelm/core/app_controller.dart';
+import 'package:virthelm/core/foreground_notifications.dart';
+import 'package:virthelm/core/models.dart';
+import 'package:virthelm/core/profile_repository.dart';
+
+class _Vault implements CredentialVault {
+  @override
+  Future<void> store(String id, ApiCredentials credentials) async {}
+
+  @override
+  Future<ApiCredentials?> retrieve(String id) async => null;
+
+  @override
+  Future<void> remove(String id) async {}
+}
+
+class _Notifier implements ForegroundIncidentNotifier {
+  final List<IncidentNotificationLockScreenPrivacy> privacyChanges = [];
+  bool applyPrivacy = true;
+
+  @override
+  Future<bool> requestPermission() async => true;
+
+  @override
+  Future<bool> setLockScreenPrivacy(
+    IncidentNotificationLockScreenPrivacy privacy,
+  ) async {
+    privacyChanges.add(privacy);
+    return applyPrivacy;
+  }
+
+  @override
+  Future<bool> showIncidentSummary({required bool critical}) async => true;
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
+  test('lock-screen privacy storage defaults fail closed', () {
+    expect(
+      incidentNotificationLockScreenPrivacyFromStorage(null),
+      IncidentNotificationLockScreenPrivacy.hidden,
+    );
+    expect(
+      incidentNotificationLockScreenPrivacyFromStorage('unexpected'),
+      IncidentNotificationLockScreenPrivacy.hidden,
+    );
+    expect(
+      incidentNotificationLockScreenPrivacyFromStorage('generic'),
+      IncidentNotificationLockScreenPrivacy.generic,
+    );
+  });
+
+  test('controller initializes and synchronizes persisted privacy', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repository = ProfileRepository(prefs, _Vault());
+    await repository.setNotificationLockScreenPrivacy(
+      IncidentNotificationLockScreenPrivacy.generic,
+    );
+    final notifier = _Notifier();
+    final controller = AppController(
+      repository: repository,
+      incidentNotifier: notifier,
+    );
+
+    await controller.initialize();
+
+    expect(
+      controller.notificationLockScreenPrivacy,
+      IncidentNotificationLockScreenPrivacy.generic,
+    );
+    expect(notifier.privacyChanges, [
+      IncidentNotificationLockScreenPrivacy.generic,
+    ]);
+    controller.dispose();
+  });
+
+  test('privacy change persists only after native application succeeds', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repository = ProfileRepository(prefs, _Vault());
+    final notifier = _Notifier();
+    final controller = AppController(
+      repository: repository,
+      incidentNotifier: notifier,
+    );
+    await controller.initialize();
+
+    notifier.applyPrivacy = false;
+    expect(
+      await controller.setNotificationLockScreenPrivacy(
+        IncidentNotificationLockScreenPrivacy.generic,
+      ),
+      isFalse,
+    );
+    expect(
+      controller.notificationLockScreenPrivacy,
+      IncidentNotificationLockScreenPrivacy.hidden,
+    );
+    expect(
+      repository.notificationLockScreenPrivacy,
+      IncidentNotificationLockScreenPrivacy.hidden,
+    );
+
+    notifier.applyPrivacy = true;
+    expect(
+      await controller.setNotificationLockScreenPrivacy(
+        IncidentNotificationLockScreenPrivacy.generic,
+      ),
+      isTrue,
+    );
+    expect(
+      controller.notificationLockScreenPrivacy,
+      IncidentNotificationLockScreenPrivacy.generic,
+    );
+    expect(
+      repository.notificationLockScreenPrivacy,
+      IncidentNotificationLockScreenPrivacy.generic,
+    );
+    controller.dispose();
+  });
+}
