@@ -496,6 +496,11 @@ assert 'evaluateNodeCpuThresholds' in worker
 assert 'thresholdPercent - rule.hysteresisPercent' in worker
 assert 'previous.pendingSamples + 1' in worker
 assert 'IncidentNotificationDeliveryLedger.profileKey(ruleId)' in worker
+threshold_state = worker.split('private fun encodeThresholdState', 1)[1].split('private fun reconcileThresholdState', 1)[0]
+assert '.put("node"' not in threshold_state
+assert '.put("thresholdPercent"' not in threshold_state
+assert '.put("pending"' in threshold_state and '.put("active"' in threshold_state
+assert 'stateJson = null' in worker
 navigation_intent = worker.split('internal object IncidentNotificationNavigation', 1)[1].split('internal data class ScheduledPolicy', 1)[0]
 assert 'putExtra(' not in navigation_intent
 assert 'instanceFollowRedirects = false' in worker
