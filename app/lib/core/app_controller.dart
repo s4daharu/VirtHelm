@@ -1107,6 +1107,10 @@ class AppController extends ChangeNotifier {
     ConnectionProfile profile,
   ) async {
     final scheduler = _backgroundCheckScheduler;
+    if (scheduler is AndroidBackgroundCheckScheduler &&
+        (kIsWeb || defaultTargetPlatform != TargetPlatform.android)) {
+      return;
+    }
     if (scheduler is! ThresholdAwareBackgroundCheckScheduler) return;
     final thresholdScheduler =
         scheduler as ThresholdAwareBackgroundCheckScheduler;
