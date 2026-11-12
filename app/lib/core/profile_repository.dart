@@ -63,8 +63,7 @@ class ProfileRepository {
   static const _reduceMotionKey = 'ui_reduce_motion_v1';
   static const _offlineEnabledPrefix = 'offline_counts_enabled_v1:';
   static const _offlineCountsPrefix = 'offline_counts_v1:';
-  static const _offlineInventoryEnabledPrefix =
-      'offline_inventory_enabled_v1:';
+  static const _offlineInventoryEnabledPrefix = 'offline_inventory_enabled_v1:';
   static const _offlineInventoryPrefix = 'offline_inventory_v1:';
   Future<void> _writes = Future<void>.value();
 
@@ -391,8 +390,7 @@ class ProfileRepository {
       return null;
     }
     final raw = _prefs.get(_offlineInventoryKey(profileId));
-    if (raw is! String ||
-        raw.length > maxOfflineInventorySerializedBytes) {
+    if (raw is! String || raw.length > maxOfflineInventorySerializedBytes) {
       return null;
     }
     try {
@@ -408,7 +406,10 @@ class ProfileRepository {
           throw StateError('Connection no longer exists.');
         }
         if (value) {
-          if (!await _prefs.setBool(_offlineInventoryEnabledKey(profileId), true)) {
+          if (!await _prefs.setBool(
+            _offlineInventoryEnabledKey(profileId),
+            true,
+          )) {
             throw StateError('Could not enable offline inventory.');
           }
         } else {
