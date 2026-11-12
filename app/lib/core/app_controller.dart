@@ -1243,9 +1243,17 @@ class AppController extends ChangeNotifier {
     IncidentNotificationLockScreenPrivacy value,
   ) async {
     if (_disposed) return false;
+    final previous = notificationLockScreenPrivacy;
     final applied = await _incidentNotifier.setLockScreenPrivacy(value);
     if (!applied || _disposed) return false;
-    await repository.setNotificationLockScreenPrivacy(value);
+    try {
+      await repository.setNotificationLockScreenPrivacy(value);
+    } catch (_) {
+      // Keep the native worker/foreground setting aligned with the value the
+      // UI still reports if local persistence fails.
+      await _incidentNotifier.setLockScreenPrivacy(previous);
+      rethrow;
+    }
     if (_disposed) return false;
     notificationLockScreenPrivacy = value;
     _notify();
