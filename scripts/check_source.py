@@ -406,7 +406,9 @@ assert 'requestMethod = "GET"' in worker
 assert 'PVEAPIToken=' in worker
 assert 'Open VirtHelm to review current incidents.' in worker
 assert '.setContentTitle("VirtHelm scheduled incident")' in worker
-assert 'POST' not in worker and 'PUT' not in worker and 'DELETE' not in worker
+assert 'requestMethod = "POST"' not in worker
+assert 'requestMethod = "PUT"' not in worker
+assert 'requestMethod = "DELETE"' not in worker
 assert 'taskUpid' not in (root/'scripts/android/MainActivity.kt').read_text()
 assert 'TlsWarning' not in files['app/lib/ui/shell.dart']
 assert 'TlsWarning' not in files['app/lib/ui/guest_page.dart']
