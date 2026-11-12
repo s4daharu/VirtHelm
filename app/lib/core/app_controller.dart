@@ -1173,10 +1173,10 @@ class AppController extends ChangeNotifier {
       reduceMotion = repository.reduceMotion;
       notificationLockScreenPrivacy = repository.notificationLockScreenPrivacy;
       // Native state is required by WorkManager after the Dart isolate exits.
-      // A sync failure does not weaken the Dart default: Android also defaults
-      // to hiding incident notifications on a secure lock screen.
-      await _incidentNotifier.setLockScreenPrivacy(
-        notificationLockScreenPrivacy,
+      // Do not block Flutter startup on a platform-channel response: Android
+      // defaults to the stricter hidden mode until this best-effort sync lands.
+      unawaited(
+        _incidentNotifier.setLockScreenPrivacy(notificationLockScreenPrivacy),
       );
       profiles = repository.readProfiles();
       final selected = repository.activeId;
