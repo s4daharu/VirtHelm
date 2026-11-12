@@ -106,12 +106,17 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
             );
           }
         }
-        await widget.scheduler.configureWithThresholdRules(
-          profile,
-          credentials,
-          validated,
-          widget.controller.thresholdAlertRules,
-        );
+        final scheduler = widget.scheduler;
+        if (scheduler is ThresholdAwareBackgroundCheckScheduler) {
+          await scheduler.configureWithThresholdRules(
+            profile,
+            credentials,
+            validated,
+            widget.controller.thresholdAlertRules,
+          );
+        } else {
+          await scheduler.configure(profile, credentials, validated);
+        }
       }
       final status = await widget.scheduler.status(profile.id);
       if (!mounted) return;
