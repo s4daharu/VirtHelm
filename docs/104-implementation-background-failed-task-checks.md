@@ -49,15 +49,16 @@ task side incomplete instead of starting an unbounded request waterfall.
 
 ## Task result semantics
 
-The worker mirrors the foreground task-history contract conservatively:
+The worker mirrors the foreground failed-server-task contract conservatively:
 
 - `RUNNING` is not an incident;
 - terminal `OK` is healthy;
-- a terminal non-`OK` result is an incident;
-- bare terminal `stopped` without an exit status is treated as unknown and is
-  an incident;
-- an `unknown` status with an end time is treated as an unknown terminal
-  incident;
+- a terminal result with an explicit non-`OK` exit status is an incident;
+- terminal status values such as `ERROR` reported directly in `status` are
+  treated as that non-`OK` exit status, matching the Flutter parser;
+- bare terminal `stopped` without an exit status remains unknown and does not
+  become a failed-task incident;
+- `unknown` status remains unknown and does not become a failed-task incident;
 - missing/malformed task records, denied authorization, redirects and request
   failures make the task side incomplete.
 
