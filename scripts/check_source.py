@@ -12,10 +12,12 @@ required = [
   'app/lib/core/guest_saved_view.dart','app/lib/core/alert_rules.dart',
   'app/lib/core/incident_center.dart','app/lib/core/incident_triage.dart',
   'app/lib/core/incident_history.dart','app/lib/core/foreground_notifications.dart',
+  'app/lib/core/background_checks.dart',
   'app/lib/ui/theme.dart',
   'app/lib/ui/components.dart',
   'app/lib/core/app_info.dart',
   'app/lib/ui/connect_page.dart','app/lib/ui/connections_page.dart','app/lib/ui/shell.dart',
+  'app/lib/ui/background_checks_page.dart',
   'app/lib/ui/guest_page.dart','app/lib/ui/node_page.dart','app/lib/ui/storage_page.dart',
   'app/lib/ui/alert_rules_page.dart','app/lib/ui/incident_center_tab.dart',
   'app/lib/ui/task_details_page.dart','app/lib/ui/template_clone_page.dart',
@@ -39,7 +41,7 @@ required = [
   'app/test/saved_guest_view_test.dart',
   'app/test/app_preferences_test.dart','app/test/offline_overview_test.dart',
   'scripts/bootstrap_android.sh','scripts/harden_android.py',
-  'scripts/check_android_generated.py',
+  'scripts/check_android_generated.py','scripts/android/BackgroundIncidentWorker.kt',
   'scripts/android/branding/virthelm_icon.svg',
   'scripts/android/launcher/drawable/virthelm_icon_background.xml',
   'scripts/android/launcher/drawable/virthelm_icon_foreground.xml',
@@ -125,11 +127,19 @@ assert 'setForegroundNotificationPolicy' in files['app/lib/core/app_controller.d
 assert "Key('foreground-incident-notifications')" in files['app/lib/ui/shell.dart']
 assert "Key('incident-notification-quiet-hours')" in files['app/lib/ui/shell.dart']
 assert "Key('incident-notification-cooldown')" in files['app/lib/ui/shell.dart']
+assert 'class BackgroundCheckPolicy' in files['app/lib/core/background_checks.dart']
+assert 'minimumBackgroundCheckIntervalMinutes = 15' in files['app/lib/core/background_checks.dart']
+assert 'com.s4daharu.virthelm/background_checks' in files['app/lib/core/background_checks.dart']
+assert "Key('periodic-incident-checks')" in files['app/lib/ui/background_checks_page.dart']
+assert "Key('periodic-check-interval')" in files['app/lib/ui/background_checks_page.dart']
+assert 'AndroidBackgroundCheckScheduler' in files['app/lib/ui/connect_page.dart']
+assert 'AndroidBackgroundCheckScheduler' in files['app/lib/ui/connections_page.dart']
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
 assert 'android:allowBackup' in files['scripts/harden_android.py']
 assert 'android:usesCleartextTraffic' in files['scripts/harden_android.py']
 assert 'android.permission.INTERNET' in files['scripts/harden_android.py']
 assert 'android.permission.POST_NOTIFICATIONS' in files['scripts/harden_android.py']
+assert 'androidx.work:work-runtime:2.12.0' in files['scripts/harden_android.py']
 assert 'minSdk = 26' in files['scripts/harden_android.py']
 assert 'debug release signing' in files['scripts/harden_android.py']
 assert "launcher_resources = root / 'scripts/android/launcher'" in files['scripts/harden_android.py']
@@ -386,6 +396,17 @@ assert 'deviceNetworkChanges().listen' in files['app/lib/main.dart']
 assert 'registerDefaultNetworkCallback' in (root/'scripts/android/MainActivity.kt').read_text()
 assert 'com.s4daharu.virthelm/incident_notifications' in (root/'scripts/android/MainActivity.kt').read_text()
 assert 'Open VirtHelm to review current incidents.' in (root/'scripts/android/MainActivity.kt').read_text()
+worker = files['scripts/android/BackgroundIncidentWorker.kt']
+assert 'PeriodicWorkRequest.Builder' in worker
+assert 'NetworkType.CONNECTED' in worker
+assert 'MIN_BACKGROUND_INTERVAL_MINUTES = 15' in worker
+assert 'AndroidKeyStore' in worker
+assert 'instanceFollowRedirects = false' in worker
+assert 'requestMethod = "GET"' in worker
+assert 'PVEAPIToken=' in worker
+assert 'Open VirtHelm to review current incidents.' in worker
+assert '.setContentTitle("VirtHelm scheduled incident")' in worker
+assert 'POST' not in worker and 'PUT' not in worker and 'DELETE' not in worker
 assert 'taskUpid' not in (root/'scripts/android/MainActivity.kt').read_text()
 assert 'TlsWarning' not in files['app/lib/ui/shell.dart']
 assert 'TlsWarning' not in files['app/lib/ui/guest_page.dart']
