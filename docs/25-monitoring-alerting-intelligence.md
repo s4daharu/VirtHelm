@@ -72,6 +72,23 @@ VMIDs, UPIDs and task logs. Android 13+ permission is requested only when the
 operator enables the feature. No WorkManager, alarm, foreground service,
 background credential read or additional PVE endpoint is introduced.
 
-Mode B remains gated. When implemented, Android scheduled work must retain the
-documented inexact >=15-minute semantics and must never be presented as critical
-paging or 24/7 monitoring.
+## Android scheduled node-state follow-up (0.1.53)
+
+Mode B now has a deliberately bounded first implementation slice. For an
+explicitly opted-in certificate-verified profile, Android WorkManager may run
+one GET-only node-state check when its connected-network constraint and OS
+scheduling conditions permit. Requested intervals begin at 15 minutes and are
+inexact. The UI exposes last-attempt, last-complete and outcome evidence so a
+missed or incomplete run is not presented as continuous coverage.
+
+The worker uses a separate AES-256-GCM Android-Keystore-encrypted token copy
+because the Flutter credential vault is not available to a stopped Dart
+isolate. Profile edit/delete cleanup is owned by AppController. Redirects are
+disabled, reads are bounded, no immediate retry is requested, and scheduled
+notifications are generic and private. Profiles using the insecure TLS
+exception cannot enable this mode.
+
+This does not implement full Mode B parity: background failed-task/threshold
+rules, authoritative correlation, cross-mode notification deduplication and
+relay delivery remain gated. The feature remains best-effort Android
+scheduling, never critical paging or 24/7 monitoring.
