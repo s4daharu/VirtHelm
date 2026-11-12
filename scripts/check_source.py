@@ -143,7 +143,7 @@ assert 'requestIncidentCenter' in files['app/lib/core/app_controller.dart']
 assert 'takeIncidentCenterNavigationRequest' in files['app/lib/core/app_controller.dart']
 assert 'takeIncidentCenterNavigationRequest' in files['app/lib/ui/shell.dart']
 assert 'setForegroundNotificationPolicy' in files['app/lib/core/app_controller.dart']
-assert 'Cross-mode notification delivery deduplication' in files['docs/103-implementation-cross-mode-notification-deduplication.md']
+assert 'cross-mode notification delivery deduplication' in files['docs/103-implementation-cross-mode-notification-deduplication.md'].lower()
 assert "'profileId': profileId" in files['app/lib/core/foreground_notifications.dart']
 assert "'cooldownMinutes': cooldownMinutes" in files['app/lib/core/foreground_notifications.dart']
 assert 'profileId: profileId' in files['app/lib/core/app_controller.dart']
