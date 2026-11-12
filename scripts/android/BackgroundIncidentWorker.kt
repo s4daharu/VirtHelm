@@ -378,6 +378,7 @@ internal object BackgroundCheckCoordinator {
                 quietStartMinute = 22 * 60,
                 quietEndMinute = 7 * 60,
                 cooldownMinutes = 30,
+                failedTaskChecksEnabled = false,
             ),
         )
         val secretAvailable =
