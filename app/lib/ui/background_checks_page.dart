@@ -322,6 +322,11 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                                 }
                               },
                       ),
+                      const Text(
+                        'This scheduled cooldown is checked against the last '
+                        'successful scheduled or foreground notification for '
+                        'this connection.',
+                      ),
                     ],
                   ],
                 ),
