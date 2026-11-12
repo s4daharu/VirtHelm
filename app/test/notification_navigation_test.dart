@@ -69,6 +69,41 @@ void main() {
     );
   });
 
+  testWidgets(
+    'consumed notification request does not reopen Incidents after shell recreation',
+    (tester) async {
+      final prefs = await SharedPreferences.getInstance();
+      final controller = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+      );
+      addTearDown(controller.dispose);
+      controller.active = const ConnectionProfile(
+        id: 'lab',
+        name: 'Lab',
+        endpoint: 'https://pve.local:8006',
+      );
+      controller.requestIncidentCenter();
+
+      await tester.pumpWidget(
+        MaterialApp(home: ShellPage(controller: controller)),
+      );
+      expect(
+        tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+        3,
+      );
+
+      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+      await tester.pumpWidget(
+        MaterialApp(home: ShellPage(controller: controller)),
+      );
+
+      expect(
+        tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+        0,
+      );
+    },
+  );
+
   testWidgets('warm notification request switches the existing shell', (
     tester,
   ) async {
