@@ -230,6 +230,8 @@ private data class FailedTaskReadResult(
     val outcome: String,
     val complete: Boolean,
     val incident: Boolean,
+    val newIncident: Boolean,
+    val watermarkSeconds: Long,
 )
 
 private data class ScheduledCheckResult(
@@ -239,6 +241,8 @@ private data class ScheduledCheckResult(
     val nodeIncident: Boolean,
     val taskComplete: Boolean,
     val taskIncident: Boolean,
+    val taskNewIncident: Boolean,
+    val taskWatermarkSeconds: Long?,
 )
 
 internal object BackgroundCheckCoordinator {
@@ -260,6 +264,7 @@ internal object BackgroundCheckCoordinator {
     private fun legacyIncidentKey(key: String) = "incident-active:$key"
     private fun nodeIncidentKey(key: String) = "node-incident-active:$key"
     private fun taskIncidentKey(key: String) = "task-incident-active:$key"
+    private fun taskWatermarkKey(key: String) = "task-watermark:$key"
     private fun lastAttemptKey(key: String) = "last-attempt:$key"
     private fun lastSuccessKey(key: String) = "last-success:$key"
     private fun lastOutcomeKey(key: String) = "last-outcome:$key"
@@ -335,6 +340,7 @@ internal object BackgroundCheckCoordinator {
             .remove(legacyIncidentKey(key))
             .remove(nodeIncidentKey(key))
             .remove(taskIncidentKey(key))
+            .remove(taskWatermarkKey(key))
         if (clearPolicy) {
             editor
                 .remove(policyKey(key))
@@ -421,7 +427,12 @@ internal object BackgroundCheckCoordinator {
         }
 
         val result = try {
-            readScheduledState(secret, policy)
+            readScheduledState(
+                secret = secret,
+                policy = policy,
+                previousTaskWatermarkSeconds =
+                    storage.getLong(taskWatermarkKey(key), 0L),
+            )
         } catch (_: Exception) {
             ScheduledCheckResult(
                 outcome = "read_failed",
@@ -430,6 +441,8 @@ internal object BackgroundCheckCoordinator {
                 nodeIncident = false,
                 taskComplete = false,
                 taskIncident = false,
+                taskNewIncident = false,
+                taskWatermarkSeconds = null,
             )
         }
 
@@ -439,7 +452,6 @@ internal object BackgroundCheckCoordinator {
         val legacyNodeActive = storage.getBoolean(legacyIncidentKey(key), false)
         val previousNodeActive =
             storage.getBoolean(nodeIncidentKey(key), legacyNodeActive)
-        val previousTaskActive = storage.getBoolean(taskIncidentKey(key), false)
         var newlyActive = false
         if (result.nodeComplete) {
             editor.putBoolean(nodeIncidentKey(key), result.nodeIncident)
@@ -447,7 +459,10 @@ internal object BackgroundCheckCoordinator {
         }
         if (result.taskComplete) {
             editor.putBoolean(taskIncidentKey(key), result.taskIncident)
-            if (result.taskIncident && !previousTaskActive) newlyActive = true
+            result.taskWatermarkSeconds?.let {
+                editor.putLong(taskWatermarkKey(key), it)
+            }
+            if (result.taskNewIncident) newlyActive = true
         }
         editor.remove(legacyIncidentKey(key)).apply()
 
@@ -486,6 +501,7 @@ internal object BackgroundCheckCoordinator {
     private fun readScheduledState(
         secret: ScheduledSecret,
         policy: ScheduledPolicy,
+        previousTaskWatermarkSeconds: Long,
     ): ScheduledCheckResult {
         val node = readNodeState(secret)
         if (!node.complete) {
@@ -496,6 +512,8 @@ internal object BackgroundCheckCoordinator {
                 nodeIncident = false,
                 taskComplete = !policy.failedTaskChecksEnabled,
                 taskIncident = false,
+                taskNewIncident = false,
+                taskWatermarkSeconds = null,
             )
         }
         if (!policy.failedTaskChecksEnabled) {
@@ -506,16 +524,24 @@ internal object BackgroundCheckCoordinator {
                 nodeIncident = node.incident,
                 taskComplete = true,
                 taskIncident = false,
+                taskNewIncident = false,
+                taskWatermarkSeconds = null,
             )
         }
 
         val tasks = if (node.taskNodesComplete) {
-            readFailedTaskState(secret, node.nodes)
+            readFailedTaskState(
+                secret = secret,
+                nodes = node.nodes,
+                previousWatermarkSeconds = previousTaskWatermarkSeconds,
+            )
         } else {
             FailedTaskReadResult(
                 outcome = "task_incomplete",
                 complete = false,
                 incident = false,
+                newIncident = false,
+                watermarkSeconds = previousTaskWatermarkSeconds,
             )
         }
         val combinedOutcome = when {
@@ -532,6 +558,9 @@ internal object BackgroundCheckCoordinator {
             nodeIncident = node.incident,
             taskComplete = tasks.complete,
             taskIncident = tasks.incident,
+            taskNewIncident = tasks.newIncident,
+            taskWatermarkSeconds =
+                if (tasks.complete) tasks.watermarkSeconds else null,
         )
     }
 
@@ -630,15 +659,20 @@ internal object BackgroundCheckCoordinator {
     private fun readFailedTaskState(
         secret: ScheduledSecret,
         nodes: List<String>,
+        previousWatermarkSeconds: Long,
     ): FailedTaskReadResult {
         if (nodes.isEmpty() || nodes.size > MAX_BACKGROUND_TASK_NODES) {
             return FailedTaskReadResult(
                 outcome = "task_incomplete",
                 complete = false,
                 incident = false,
+                newIncident = false,
+                watermarkSeconds = previousWatermarkSeconds,
             )
         }
         var incident = false
+        var newIncident = false
+        var watermarkSeconds = previousWatermarkSeconds
         for (node in nodes) {
             if (!node.matches(Regex("^[A-Za-z0-9._-]{1,128}$"))) {
                 return FailedTaskReadResult(
@@ -709,9 +743,14 @@ internal object BackgroundCheckCoordinator {
                             incident = false,
                         )
                     }
-                    if (rawStatus.equals("RUNNING", ignoreCase = true) ||
-                        rawStatus.equals("unknown", ignoreCase = true)
-                    ) {
+                    if (rawStatus.equals("RUNNING", ignoreCase = true)) {
+                        continue
+                    }
+                    val endTimeSeconds = item.optLong("endtime", 0L)
+                    if (endTimeSeconds > 0L) {
+                        watermarkSeconds = maxOf(watermarkSeconds, endTimeSeconds)
+                    }
+                    if (rawStatus.equals("unknown", ignoreCase = true)) {
                         continue
                     }
                     val explicitExitStatus = item.optString("exitstatus").trim()
@@ -725,7 +764,19 @@ internal object BackgroundCheckCoordinator {
                     if (exitStatus != null &&
                         !exitStatus.equals("OK", ignoreCase = true)
                     ) {
+                        if (endTimeSeconds <= 0L) {
+                            return FailedTaskReadResult(
+                                outcome = "task_incomplete",
+                                complete = false,
+                                incident = false,
+                                newIncident = false,
+                                watermarkSeconds = previousWatermarkSeconds,
+                            )
+                        }
                         incident = true
+                        if (endTimeSeconds > previousWatermarkSeconds) {
+                            newIncident = true
+                        }
                     }
                 }
             } finally {
@@ -736,6 +787,8 @@ internal object BackgroundCheckCoordinator {
             outcome = if (incident) "task_incident" else "healthy",
             complete = true,
             incident = incident,
+            newIncident = newIncident,
+            watermarkSeconds = watermarkSeconds,
         )
     }
 
