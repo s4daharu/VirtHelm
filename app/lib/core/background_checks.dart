@@ -129,22 +129,25 @@ abstract class BackgroundCheckScheduler {
     BackgroundCheckPolicy policy,
   );
 
+  Future<void> disable(String profileId, {bool clearPolicy = false});
+}
+
+abstract interface class ThresholdAwareBackgroundCheckScheduler {
   Future<void> configureWithThresholdRules(
     ConnectionProfile profile,
     ApiCredentials credentials,
     BackgroundCheckPolicy policy,
     Iterable<ForegroundThresholdAlertRule> rules,
-  ) => configure(profile, credentials, policy);
+  );
 
   Future<void> syncNodeCpuThresholdRules(
     String profileId,
     Iterable<ForegroundThresholdAlertRule> rules,
-  ) async {}
-
-  Future<void> disable(String profileId, {bool clearPolicy = false});
+  );
 }
 
-class AndroidBackgroundCheckScheduler implements BackgroundCheckScheduler {
+class AndroidBackgroundCheckScheduler
+    implements BackgroundCheckScheduler, ThresholdAwareBackgroundCheckScheduler {
   const AndroidBackgroundCheckScheduler();
 
   static const MethodChannel _channel = MethodChannel(
