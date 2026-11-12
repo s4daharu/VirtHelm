@@ -34,14 +34,13 @@ class ShellPage extends StatefulWidget {
 
 class _ShellPageState extends State<ShellPage> {
   late int selectedIndex;
-  late int _handledIncidentNavigationRequest;
 
   @override
   void initState() {
     super.initState();
-    _handledIncidentNavigationRequest =
-        widget.controller.incidentCenterNavigationRequest;
-    selectedIndex = _handledIncidentNavigationRequest > 0 ? 3 : 0;
+    selectedIndex = widget.controller.takeIncidentCenterNavigationRequest()
+        ? 3
+        : 0;
     widget.controller.addListener(_handleControllerNavigation);
   }
 
@@ -50,17 +49,13 @@ class _ShellPageState extends State<ShellPage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_handleControllerNavigation);
-      _handledIncidentNavigationRequest =
-          widget.controller.incidentCenterNavigationRequest;
       widget.controller.addListener(_handleControllerNavigation);
       _handleControllerNavigation();
     }
   }
 
   void _handleControllerNavigation() {
-    final request = widget.controller.incidentCenterNavigationRequest;
-    if (request == _handledIncidentNavigationRequest) return;
-    _handledIncidentNavigationRequest = request;
+    if (!widget.controller.takeIncidentCenterNavigationRequest()) return;
     if (!mounted || selectedIndex == 3) return;
     setState(() => selectedIndex = 3);
   }
