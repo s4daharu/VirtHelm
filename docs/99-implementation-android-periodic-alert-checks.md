@@ -4,7 +4,7 @@
 
 VirtHelm 0.1.53 implements the first Android scheduled-monitoring slice from ALERT-03 / ALERT-009. A saved connection with normal certificate and hostname verification can opt into a best-effort WorkManager check while the app is not foregrounded.
 
-This milestone is intentionally narrower than the full alert catalogue. It checks node state only. It does not claim background parity with foreground failed-task or threshold-rule incidents, authoritative cross-resource correlation, relay delivery, an SLA, 24/7 monitoring, or critical paging.
+This milestone was intentionally narrower than the full alert catalogue. Version 0.1.58 adds a separately opted-in bounded recent failed-task follow-up documented in [104-implementation-background-failed-task-checks.md](104-implementation-background-failed-task-checks.md). Scheduled threshold-rule incidents, authoritative cross-resource correlation, relay delivery, an SLA, 24/7 monitoring, and critical paging remain gated.
 
 ## Operator behavior
 
@@ -87,9 +87,10 @@ Repository checks assert the scheduled-check source and generated-runner safety 
 
 This is source-level implementation evidence until exact-head CI passes. Physical Android validation must still cover Doze/app-standby timing, reboot persistence, VPN/network transitions, notification permission changes, OEM battery restrictions and profile edit/delete cleanup. Disposable PVE 8.4 and 9.2 environments remain required for endpoint/ACL/incident behavior evidence.
 
-Deferred work includes background failed-task and threshold-rule parity,
-authoritative incident correlation, resource-specific notification links,
-optional relay delivery and any production critical-alert guarantee.
+Deferred work now includes scheduled threshold-rule parity, authoritative
+incident correlation, resource-specific notification links, optional relay
+delivery and any production critical-alert guarantee. Bounded opt-in recent
+failed-task scanning is implemented separately by the 0.1.58 follow-up.
 Secure-lock-screen hidden-or-generic privacy is implemented by ALERT-010,
 generic Incidents navigation by AND-010, and cross-mode delivery deduplication
 by the 0.1.57 follow-up.
