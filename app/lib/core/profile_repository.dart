@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'alert_rules.dart';
 import 'app_preferences.dart';
+import 'foreground_notifications.dart';
 import 'guest_saved_view.dart';
 import 'incident_history.dart';
 import 'models.dart';
@@ -48,6 +49,10 @@ class ProfileRepository {
   static const _guestViewsKey = 'guest_saved_views_v1';
   static const _thresholdRulesKey = 'foreground_threshold_rules_v1';
   static const _incidentHistoryKey = 'incident_history_v1';
+  static const _foregroundNotificationPolicyKey =
+      'foreground_notification_policy_v1';
+  static const _foregroundNotificationStateKey =
+      'foreground_notification_state_v1';
   static const _themeKey = 'ui_theme_v1';
   static const _refreshKey = 'ui_refresh_v1';
   static const _nodeMetricsKey = 'ui_node_metrics_v1';
@@ -168,6 +173,121 @@ class ProfileRepository {
       throw StateError('Could not save motion preference.');
     }
   });
+
+  ForegroundNotificationPolicy readForegroundNotificationPolicy(
+    String profileId,
+  ) {
+    final raw = _readProfileScopedJsonRoot(
+      _foregroundNotificationPolicyKey,
+    )[profileId];
+    if (raw is! Map) return const ForegroundNotificationPolicy();
+    try {
+      return ForegroundNotificationPolicy.fromJson(
+        Map<String, dynamic>.from(raw),
+      );
+    } on FormatException {
+      return const ForegroundNotificationPolicy();
+    }
+  }
+
+  DateTime? readLastForegroundNotificationAt(String profileId) {
+    final raw = _readProfileScopedJsonRoot(
+      _foregroundNotificationStateKey,
+    )[profileId];
+    if (raw is! String) return null;
+    return DateTime.tryParse(raw)?.toUtc();
+  }
+
+  Future<void> saveForegroundNotificationPolicy(
+    String profileId,
+    ForegroundNotificationPolicy policy,
+  ) => _mutate(() async {
+    if (!readProfiles().any((profile) => profile.id == profileId)) {
+      throw StateError('Connection no longer exists.');
+    }
+    final validated = ForegroundNotificationPolicy.fromJson(policy.toJson());
+    final root = _readProfileScopedJsonRoot(_foregroundNotificationPolicyKey);
+    root[profileId] = validated.toJson();
+    if (!await _prefs.setString(
+      _foregroundNotificationPolicyKey,
+      jsonEncode(root),
+    )) {
+      throw StateError('Could not save foreground notification policy.');
+    }
+  });
+
+  Future<void> saveLastForegroundNotificationAt(
+    String profileId,
+    DateTime deliveredAt,
+  ) => _mutate(() async {
+    if (!readProfiles().any((profile) => profile.id == profileId)) return;
+    final root = _readProfileScopedJsonRoot(_foregroundNotificationStateKey);
+    root[profileId] = deliveredAt.toUtc().toIso8601String();
+    if (!await _prefs.setString(
+      _foregroundNotificationStateKey,
+      jsonEncode(root),
+    )) {
+      throw StateError('Could not save foreground notification state.');
+    }
+  });
+
+  Map<String, dynamic> _readProfileScopedJsonRoot(String key) {
+    final raw = _storedString(key);
+    if (raw == null) return <String, dynamic>{};
+    try {
+      final decoded = jsonDecode(raw);
+      return decoded is Map<String, dynamic>
+          ? Map<String, dynamic>.from(decoded)
+          : <String, dynamic>{};
+    } catch (_) {
+      return <String, dynamic>{};
+    }
+  }
+
+  Future<void> _clearProfileScopedJsonEntry(
+    String key,
+    String profileId,
+    String label,
+  ) async {
+    final raw = _prefs.get(key);
+    if (raw == null) return;
+    Map<String, dynamic> root;
+    try {
+      final decoded = raw is String ? jsonDecode(raw) : null;
+      if (decoded is! Map<String, dynamic>) {
+        if (!await _prefs.remove(key)) {
+          throw StateError('Could not clear $label.');
+        }
+        return;
+      }
+      root = Map<String, dynamic>.from(decoded);
+    } catch (error) {
+      if (error is StateError) rethrow;
+      if (!await _prefs.remove(key)) {
+        throw StateError('Could not clear $label.');
+      }
+      return;
+    }
+    if (!root.containsKey(profileId)) return;
+    root.remove(profileId);
+    final saved = root.isEmpty
+        ? await _prefs.remove(key)
+        : await _prefs.setString(key, jsonEncode(root));
+    if (!saved) throw StateError('Could not clear $label.');
+  }
+
+  Future<void> _clearForegroundNotificationMetadata(String profileId) async {
+    await _clearProfileScopedJsonEntry(
+      _foregroundNotificationPolicyKey,
+      profileId,
+      'foreground notification policy',
+    );
+    await _clearProfileScopedJsonEntry(
+      _foregroundNotificationStateKey,
+      profileId,
+      'foreground notification state',
+    );
+  }
 
   // Counts-only opt-in cache. No server names, resource IDs, endpoints,
   // credentials, task logs, raw responses, or live authorization flags.
@@ -765,6 +885,9 @@ class ProfileRepository {
     } catch (_) {}
     try {
       await _clearIncidentHistory(id);
+    } catch (_) {}
+    try {
+      await _clearForegroundNotificationMetadata(id);
     } catch (_) {}
     try {
       await _clearOfflineOverview(id);

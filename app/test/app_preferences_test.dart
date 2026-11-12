@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:virthelm/core/app_controller.dart';
 import 'package:virthelm/core/app_preferences.dart';
+import 'package:virthelm/core/foreground_notifications.dart';
 import 'package:virthelm/core/models.dart';
 import 'package:virthelm/core/profile_repository.dart';
 
@@ -67,6 +70,52 @@ void main() {
     expect(reloaded.highContrast, isTrue);
     expect(reloaded.reduceMotion, isTrue);
     expect(vault.writes, 0);
+  });
+
+  test('foreground notification metadata is profile-scoped and purged', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final vault = _Vault();
+    final repository = ProfileRepository(prefs, vault);
+    const profile = ConnectionProfile(
+      id: 'profile-a',
+      name: 'Lab',
+      endpoint: 'https://pve.example:8006',
+    );
+    await prefs.setString('profile_metadata_v1', jsonEncode([profile.toJson()]));
+
+    const policy = ForegroundNotificationPolicy(
+      enabled: true,
+      quietHoursEnabled: true,
+      quietStartMinute: 21 * 60,
+      quietEndMinute: 6 * 60,
+      cooldownMinutes: 60,
+    );
+    await repository.saveForegroundNotificationPolicy(profile.id, policy);
+    final deliveredAt = DateTime.utc(2026, 11, 12, 3, 30);
+    await repository.saveLastForegroundNotificationAt(
+      profile.id,
+      deliveredAt,
+    );
+
+    final reloaded = ProfileRepository(prefs, vault);
+    final stored = reloaded.readForegroundNotificationPolicy(profile.id);
+    expect(stored.enabled, isTrue);
+    expect(stored.quietHoursEnabled, isTrue);
+    expect(stored.quietStartMinute, 21 * 60);
+    expect(stored.quietEndMinute, 6 * 60);
+    expect(stored.cooldownMinutes, 60);
+    expect(
+      reloaded.readLastForegroundNotificationAt(profile.id),
+      deliveredAt,
+    );
+    expect(vault.writes, 0);
+
+    await reloaded.delete(profile.id);
+    expect(
+      reloaded.readForegroundNotificationPolicy(profile.id).enabled,
+      isFalse,
+    );
+    expect(reloaded.readLastForegroundNotificationAt(profile.id), isNull);
   });
 
   test('controller loads and updates persisted local preferences', () async {

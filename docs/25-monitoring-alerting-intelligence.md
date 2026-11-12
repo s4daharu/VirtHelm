@@ -59,3 +59,19 @@ Foreground overview adaptively refreshes at proposed 15–30s by default only on
 
 ## Acceptance tests
 A1: no false “resolved” on lost connection. A2: missed background check does not appear as continuous coverage. A3: alert rule dedup/silence/tz/DST works. A4: revoked token stops polling and deletes registration if relay. A5: no guest details exposed in notifications when privacy mode active. A6: anomaly results have explainable data and never auto-submit PVE writes.
+
+
+## Foreground notification policy follow-up (0.1.52)
+
+Mode A now includes an explicit opt-in foreground Android delivery path for new
+durable incident occurrences. Profile-scoped quiet hours and cooldown suppress
+only notification delivery; they do not alter the incident builder, current
+health counters, acknowledgement state, durable history or any mutation guard.
+The native notification payload is generic and excludes profile/resource names,
+VMIDs, UPIDs and task logs. Android 13+ permission is requested only when the
+operator enables the feature. No WorkManager, alarm, foreground service,
+background credential read or additional PVE endpoint is introduced.
+
+Mode B remains gated. When implemented, Android scheduled work must retain the
+documented inexact >=15-minute semantics and must never be presented as critical
+paging or 24/7 monitoring.

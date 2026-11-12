@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../core/app_controller.dart';
 import '../core/app_info.dart';
 import '../core/device_connectivity.dart';
+import '../core/foreground_notifications.dart';
 import '../core/app_preferences.dart';
 import '../core/guest_list_filter.dart';
 import '../core/guest_saved_view.dart';
@@ -2077,6 +2078,76 @@ class _SettingsTab extends StatelessWidget {
     }
   }
 
+  Future<void> _updateForegroundNotificationPolicy(
+    BuildContext context,
+    ForegroundNotificationPolicy policy,
+  ) async {
+    final profileId = controller.active?.id;
+    if (profileId == null) return;
+    try {
+      final accepted = await controller.setForegroundNotificationPolicy(
+        policy,
+        expectedProfileId: profileId,
+      );
+      if (!accepted && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Notifications remain off. Android notification permission was not granted.',
+            ),
+          ),
+        );
+      }
+    } on FormatException {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Quiet-hour start and end times must be different.'),
+          ),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) _showPreferenceError(context);
+    }
+  }
+
+  Future<void> _pickQuietTime(
+    BuildContext context, {
+    required bool start,
+  }) async {
+    final policy = controller.foregroundNotificationPolicy;
+    final minute = start ? policy.quietStartMinute : policy.quietEndMinute;
+    final selected = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: minute ~/ 60, minute: minute % 60),
+      helpText: start ? 'Quiet hours start' : 'Quiet hours end',
+    );
+    if (selected == null || !context.mounted) return;
+    final nextMinute = selected.hour * 60 + selected.minute;
+    final next = start
+        ? policy.copyWith(quietStartMinute: nextMinute)
+        : policy.copyWith(quietEndMinute: nextMinute);
+    await _updateForegroundNotificationPolicy(context, next);
+  }
+
+  List<int> _cooldownOptions(int current) {
+    final values = <int>{0, 15, 30, 60, 120, 240, current}.toList()..sort();
+    return values;
+  }
+
+  String _cooldownLabel(int minutes) {
+    if (minutes == 0) return 'No cooldown';
+    if (minutes < 60) return '$minutes minutes';
+    if (minutes == 60) return '1 hour';
+    if (minutes % 60 == 0) return (minutes ~/ 60).toString() + ' hours';
+    return '$minutes minutes';
+  }
+
+  String _formatMinute(BuildContext context, int minute) =>
+      MaterialLocalizations.of(context).formatTimeOfDay(
+        TimeOfDay(hour: minute ~/ 60, minute: minute % 60),
+      );
+
   void _showPreferenceError(BuildContext context) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2241,6 +2312,139 @@ class _SettingsTab extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 28),
+      Text(
+        'Incident notifications',
+        style: Theme.of(context).textTheme.titleLarge,
+      ),
+      const SizedBox(height: 10),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SwitchListTile(
+                key: const Key('foreground-incident-notifications'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Foreground incident notifications'),
+                subtitle: const Text(
+                  'Opt in to a generic Android notification when a new '
+                  'incident occurrence is observed while VirtHelm is open.',
+                ),
+                value: controller.foregroundNotificationPolicy.enabled,
+                onChanged: (value) => unawaited(
+                  _updateForegroundNotificationPolicy(
+                    context,
+                    controller.foregroundNotificationPolicy.copyWith(
+                      enabled: value,
+                    ),
+                  ),
+                ),
+              ),
+              if (controller.foregroundNotificationPolicy.enabled) ...[
+                const Divider(),
+                SwitchListTile(
+                  key: const Key('incident-notification-quiet-hours'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Quiet hours'),
+                  subtitle: const Text(
+                    'Suppress Android delivery only. Incidents remain visible '
+                    'and continue to count toward current health.',
+                  ),
+                  value: controller
+                      .foregroundNotificationPolicy
+                      .quietHoursEnabled,
+                  onChanged: (value) => unawaited(
+                    _updateForegroundNotificationPolicy(
+                      context,
+                      controller.foregroundNotificationPolicy.copyWith(
+                        quietHoursEnabled: value,
+                      ),
+                    ),
+                  ),
+                ),
+                if (controller
+                    .foregroundNotificationPolicy
+                    .quietHoursEnabled) ...[
+                  ListTile(
+                    key: const Key('incident-notification-quiet-start'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Starts'),
+                    trailing: Text(
+                      _formatMinute(
+                        context,
+                        controller
+                            .foregroundNotificationPolicy
+                            .quietStartMinute,
+                      ),
+                    ),
+                    onTap: () => unawaited(
+                      _pickQuietTime(context, start: true),
+                    ),
+                  ),
+                  ListTile(
+                    key: const Key('incident-notification-quiet-end'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Ends'),
+                    trailing: Text(
+                      _formatMinute(
+                        context,
+                        controller
+                            .foregroundNotificationPolicy
+                            .quietEndMinute,
+                      ),
+                    ),
+                    onTap: () => unawaited(
+                      _pickQuietTime(context, start: false),
+                    ),
+                  ),
+                ],
+                const Divider(),
+                const Text('Notification cooldown'),
+                DropdownButton<int>(
+                  key: const Key('incident-notification-cooldown'),
+                  value:
+                      controller.foregroundNotificationPolicy.cooldownMinutes,
+                  isExpanded: true,
+                  items: _cooldownOptions(
+                    controller.foregroundNotificationPolicy.cooldownMinutes,
+                  )
+                      .map(
+                        (minutes) => DropdownMenuItem<int>(
+                          value: minutes,
+                          child: Text(_cooldownLabel(minutes)),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      unawaited(
+                        _updateForegroundNotificationPolicy(
+                          context,
+                          controller.foregroundNotificationPolicy.copyWith(
+                            cooldownMinutes: value,
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const Text(
+                  'Quiet hours use this device’s local time. Suppressed '
+                  'notifications are not queued for later delivery.',
+                ),
+              ],
+              const SizedBox(height: 8),
+              const Text(
+                'Notification text is generic and excludes profile names, '
+                'infrastructure names, VMIDs, task IDs and task logs. '
+                'Background monitoring remains disabled.',
+              ),
+            ],
+          ),
+        ),
+      ),
+      const SizedBox(height: 28),
       Text('Security', style: Theme.of(context).textTheme.titleLarge),
       const SizedBox(height: 10),
       const Card(
@@ -2259,7 +2463,7 @@ class _SettingsTab extends StatelessWidget {
               ),
               SizedBox(height: 12),
               Text(
-                'Preview build: no console, background monitoring, guest deletion, or automatic write retries. Use VPN for remote access.',
+                'Preview build: no console, background monitoring, unattended guest actions, or automatic write retries. Use VPN for remote access.',
               ),
             ],
           ),

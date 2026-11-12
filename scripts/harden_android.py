@@ -14,7 +14,8 @@ text = manifest.read_text(encoding='utf-8')
 manifest_open = re.search(r'<manifest\b[^>]*>', text, re.S)
 if manifest_open is None:
     raise SystemExit('Manifest root missing; refusing unsecured runner.')
-for permission in ('android.permission.INTERNET', 'android.permission.ACCESS_NETWORK_STATE'):
+for permission in ('android.permission.INTERNET', 'android.permission.ACCESS_NETWORK_STATE',
+                   'android.permission.POST_NOTIFICATIONS'):
     if permission not in text:
         declaration = f'\n    <uses-permission android:name="{permission}"/>'
         text = text[:manifest_open.end()] + declaration + text[manifest_open.end():]
@@ -97,7 +98,7 @@ lines = [line for line in lines if line.split('=', 1)[0].strip() not in caps]
 lines.extend(f'{key}={value}' for key, value in caps.items())
 properties.write_text('\n'.join(lines) + '\n', encoding='utf-8')
 print(
-    'Hardened Android runner: network permissions enabled, backups/cleartext disabled, '
+    'Hardened Android runner: network/notification permissions enabled, backups/cleartext disabled, '
     'minSdk 26, branded adaptive launcher icon, no debug release signing, capped '
     'Gradle/Kotlin resources'
 )

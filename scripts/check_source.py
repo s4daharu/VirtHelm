@@ -11,7 +11,7 @@ required = [
   'app/lib/core/guest_list_filter.dart','app/lib/core/task_history_filter.dart',
   'app/lib/core/guest_saved_view.dart','app/lib/core/alert_rules.dart',
   'app/lib/core/incident_center.dart','app/lib/core/incident_triage.dart',
-  'app/lib/core/incident_history.dart',
+  'app/lib/core/incident_history.dart','app/lib/core/foreground_notifications.dart',
   'app/lib/ui/theme.dart',
   'app/lib/ui/components.dart',
   'app/lib/core/app_info.dart',
@@ -31,7 +31,8 @@ required = [
   'app/test/widget_test.dart','app/test/pve_tls_test.dart',
   'app/test/incident_center_test.dart','app/test/incident_triage_test.dart',
   'app/test/incident_triage_widget_test.dart','app/test/incident_triage_batch_test.dart',
-  'app/test/incident_history_test.dart','app/test/alert_rules_test.dart',
+  'app/test/incident_history_test.dart','app/test/foreground_notifications_test.dart',
+  'app/test/alert_rules_test.dart',
   'app/test/alert_rules_widget_test.dart',
   'app/test/ui_components_test.dart',
   'app/test/guest_list_filter_test.dart','app/test/task_history_filter_test.dart',
@@ -42,6 +43,7 @@ required = [
   'scripts/android/branding/virthelm_icon.svg',
   'scripts/android/launcher/drawable/virthelm_icon_background.xml',
   'scripts/android/launcher/drawable/virthelm_icon_foreground.xml',
+  'scripts/android/launcher/drawable/virthelm_notification.xml',
   'scripts/android/launcher/mipmap-anydpi-v26/ic_launcher.xml',
   'scripts/android/launcher/mipmap-anydpi-v26/ic_launcher_round.xml',
   'docs/37-implementation-m1.md','docs/38-implementation-m2-read-cockpit.md',
@@ -100,6 +102,7 @@ required = [
     'docs/94-implementation-guest-snapshot-lifecycle.md',
     'docs/96-implementation-mobile-incident-workflow.md',
     'docs/97-implementation-durable-incident-history.md',
+    'docs/98-implementation-foreground-alert-notifications.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
@@ -116,10 +119,17 @@ assert 'setIncidentAcknowledged' in files['app/lib/core/app_controller.dart']
 assert 'acknowledgeIncidents' in files['app/lib/core/app_controller.dart']
 assert 'incident-bulk-acknowledge' in files['app/lib/ui/incident_center_tab.dart']
 assert 'incident-triage-view' in files['app/lib/ui/incident_center_tab.dart']
+assert 'class ForegroundNotificationPolicy' in files['app/lib/core/foreground_notifications.dart']
+assert 'showIncidentSummary' in files['app/lib/core/foreground_notifications.dart']
+assert 'setForegroundNotificationPolicy' in files['app/lib/core/app_controller.dart']
+assert "Key('foreground-incident-notifications')" in files['app/lib/ui/shell.dart']
+assert "Key('incident-notification-quiet-hours')" in files['app/lib/ui/shell.dart']
+assert "Key('incident-notification-cooldown')" in files['app/lib/ui/shell.dart']
 assert '--platforms=android' in files['scripts/bootstrap_android.sh']
 assert 'android:allowBackup' in files['scripts/harden_android.py']
 assert 'android:usesCleartextTraffic' in files['scripts/harden_android.py']
 assert 'android.permission.INTERNET' in files['scripts/harden_android.py']
+assert 'android.permission.POST_NOTIFICATIONS' in files['scripts/harden_android.py']
 assert 'minSdk = 26' in files['scripts/harden_android.py']
 assert 'debug release signing' in files['scripts/harden_android.py']
 assert "launcher_resources = root / 'scripts/android/launcher'" in files['scripts/harden_android.py']
@@ -374,6 +384,9 @@ assert 'Disable certificate verification?' in files['app/lib/ui/connect_page.dar
 assert 'DeviceNetworkState.unavailable' in files['app/lib/core/app_controller.dart']
 assert 'deviceNetworkChanges().listen' in files['app/lib/main.dart']
 assert 'registerDefaultNetworkCallback' in (root/'scripts/android/MainActivity.kt').read_text()
+assert 'com.s4daharu.virthelm/incident_notifications' in (root/'scripts/android/MainActivity.kt').read_text()
+assert 'Open VirtHelm to review current incidents.' in (root/'scripts/android/MainActivity.kt').read_text()
+assert 'taskUpid' not in (root/'scripts/android/MainActivity.kt').read_text()
 assert 'TlsWarning' not in files['app/lib/ui/shell.dart']
 assert 'TlsWarning' not in files['app/lib/ui/guest_page.dart']
 print('App source smoke checks passed (not a Dart compile or device test).')

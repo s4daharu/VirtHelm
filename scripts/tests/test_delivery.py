@@ -73,9 +73,14 @@ android {
         self.assertNotIn('-Xmx8G', properties)
         self.assertIn('android.useAndroidX=true', properties)
         self.assertIn('ACCESS_NETWORK_STATE', manifest.read_text())
+        self.assertIn('POST_NOTIFICATIONS', manifest.read_text())
         self.assertIn('registerDefaultNetworkCallback', activity.read_text())
+        self.assertIn('incident_notifications', activity.read_text())
+        self.assertIn('NotificationChannel', activity.read_text())
         icon = self.root / 'app/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml'
         foreground = self.root / 'app/android/app/src/main/res/drawable/virthelm_icon_foreground.xml'
+        notification = self.root / 'app/android/app/src/main/res/drawable/virthelm_notification.xml'
+        self.assertTrue(notification.is_file())
         self.assertEqual(
             icon.read_text(),
             (ROOT / 'scripts/android/launcher/mipmap-anydpi-v26/ic_launcher.xml').read_text(),

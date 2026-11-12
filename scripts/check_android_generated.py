@@ -16,10 +16,15 @@ for cap in ('org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m',
     assert cap in properties_text
 assert 'android.permission.INTERNET' in manifest_text
 assert 'android.permission.ACCESS_NETWORK_STATE' in manifest_text
+assert 'android.permission.POST_NOTIFICATIONS' in manifest_text
 activity = (root / 'app/android/app/src/main/kotlin/com/s4daharu/virthelm/MainActivity.kt').read_text()
 assert 'registerDefaultNetworkCallback' in activity
 assert 'unregisterNetworkCallback' in activity
 assert 'com.s4daharu.virthelm/device_network' in activity
+assert 'com.s4daharu.virthelm/incident_notifications' in activity
+assert 'NotificationChannel' in activity
+assert 'Open VirtHelm to review current incidents.' in activity
+assert (root / 'app/android/app/src/main/res/drawable/virthelm_notification.xml').is_file()
 assert 'android:allowBackup="false"' in manifest_text
 assert 'android:usesCleartextTraffic="false"' in manifest_text
 assert 'android:label="VirtHelm"' in manifest_text

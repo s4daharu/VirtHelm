@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'alert_rules.dart';
 import 'app_preferences.dart';
 import 'device_connectivity.dart';
+import 'foreground_notifications.dart';
 import 'guest_saved_view.dart';
 import 'incident_center.dart';
 import 'incident_history.dart';
@@ -20,13 +21,17 @@ class AppController extends ChangeNotifier {
   AppController({
     required this.repository,
     GatewayFactory? gatewayFactory,
+    ForegroundIncidentNotifier? incidentNotifier,
     this.taskVerificationTtl = const Duration(minutes: 15),
-  }) : _factory =
+  }) : _incidentNotifier =
+           incidentNotifier ?? const AndroidForegroundIncidentNotifier(),
+       _factory =
            gatewayFactory ??
            ((profile, credentials) => DioPveGateway(profile, credentials));
 
   final ProfileRepository repository;
   final GatewayFactory _factory;
+  final ForegroundIncidentNotifier _incidentNotifier;
   final Duration taskVerificationTtl;
 
   List<ConnectionProfile> profiles = [];
@@ -45,6 +50,10 @@ class AppController extends ChangeNotifier {
       const <CockpitIncident>[];
   final IncidentTriageLedger _incidentTriage = IncidentTriageLedger();
   List<IncidentHistoryEntry> incidentHistory = const <IncidentHistoryEntry>[];
+  ForegroundNotificationPolicy foregroundNotificationPolicy =
+      const ForegroundNotificationPolicy();
+  DateTime? _lastForegroundNotificationAt;
+  bool _notificationDeliveryInFlight = false;
 
   List<CockpitIncident> get incidents => buildCockpitIncidents(
     inventory: inventory,
@@ -115,9 +124,14 @@ class AppController extends ChangeNotifier {
     return changed;
   }
 
-  void _captureIncidentHistory({required bool complete}) {
+  List<IncidentHistoryEntry> _captureIncidentHistory({
+    required bool complete,
+  }) {
     final profile = active;
-    if (_disposed || profile == null) return;
+    if (_disposed || profile == null) return const <IncidentHistoryEntry>[];
+    final previousIds = incidentHistory
+        .map((entry) => entry.occurrenceId)
+        .toSet();
     incidentHistory = reconcileIncidentHistory(
       incidentHistory,
       <IncidentTriageRecord>[
@@ -127,6 +141,62 @@ class AppController extends ChangeNotifier {
       complete: complete,
     );
     unawaited(_persistIncidentHistory(profile.id, incidentHistory));
+    return List<IncidentHistoryEntry>.unmodifiable(
+      incidentHistory.where(
+        (entry) => entry.isOpen && !previousIds.contains(entry.occurrenceId),
+      ),
+    );
+  }
+
+  Future<void> _maybeDeliverForegroundIncidentNotification(
+    List<IncidentHistoryEntry> newOccurrences, {
+    required String profileId,
+    required int generation,
+  }) async {
+    if (_disposed ||
+        !_foreground ||
+        newOccurrences.isEmpty ||
+        active?.id != profileId ||
+        generation != _generation ||
+        _notificationDeliveryInFlight) {
+      return;
+    }
+    final policy = foregroundNotificationPolicy;
+    final now = DateTime.now();
+    if (!policy.canDeliverAt(
+      now,
+      lastDeliveredAt: _lastForegroundNotificationAt,
+    )) {
+      return;
+    }
+
+    _notificationDeliveryInFlight = true;
+    try {
+      final shown = await _incidentNotifier.showIncidentSummary(
+        critical: newOccurrences.any(
+          (entry) => entry.severity == CockpitIncidentSeverity.critical,
+        ),
+      );
+      if (!shown) return;
+      final deliveredAt = now.toUtc();
+      try {
+        await repository.saveLastForegroundNotificationAt(
+          profileId,
+          deliveredAt,
+        );
+      } catch (_) {
+        // Notification state is best-effort local metadata only.
+      }
+      if (!_disposed &&
+          active?.id == profileId &&
+          generation == _generation) {
+        _lastForegroundNotificationAt = deliveredAt;
+      }
+    } catch (_) {
+      // Delivery failure cannot change health, history or authorization.
+    } finally {
+      _notificationDeliveryInFlight = false;
+    }
   }
 
   Future<void> _persistIncidentHistory(
@@ -1159,6 +1229,39 @@ class AppController extends ChangeNotifier {
     _notify();
   }
 
+  Future<bool> setForegroundNotificationPolicy(
+    ForegroundNotificationPolicy policy, {
+    required String expectedProfileId,
+  }) async {
+    final profile = active;
+    if (_disposed || profile == null || profile.id != expectedProfileId) {
+      return false;
+    }
+    final generation = _generation;
+    final validated = ForegroundNotificationPolicy.fromJson(policy.toJson());
+    if (validated.enabled && !foregroundNotificationPolicy.enabled) {
+      final granted = await _incidentNotifier.requestPermission();
+      if (!granted ||
+          _disposed ||
+          active?.id != expectedProfileId ||
+          generation != _generation) {
+        return false;
+      }
+    }
+    await repository.saveForegroundNotificationPolicy(
+      expectedProfileId,
+      validated,
+    );
+    if (_disposed ||
+        active?.id != expectedProfileId ||
+        generation != _generation) {
+      return false;
+    }
+    foregroundNotificationPolicy = validated;
+    _notify();
+    return true;
+  }
+
   Future<void> setOfflineOverviewEnabled(bool enabled) async {
     final profileId = active?.id;
     if (_disposed || profileId == null) return;
@@ -1540,6 +1643,11 @@ class AppController extends ChangeNotifier {
     guestSavedViews = repository.readGuestViews(profile.id);
     thresholdAlertRules = repository.readThresholdAlertRules(profile.id);
     incidentHistory = repository.readIncidentHistory(profile.id);
+    foregroundNotificationPolicy = repository.readForegroundNotificationPolicy(
+      profile.id,
+    );
+    _lastForegroundNotificationAt = repository
+        .readLastForegroundNotificationAt(profile.id);
     _thresholdAlertEngine.clear();
     _incidentTriage.clear();
     inventory = null;
@@ -1697,7 +1805,18 @@ class AppController extends ChangeNotifier {
             storageMessage == null &&
             serverTaskMessage == null;
         _incidentTriage.observe(incidents, complete: triageComplete);
-        _captureIncidentHistory(complete: triageComplete);
+        final newOccurrences = _captureIncidentHistory(
+          complete: triageComplete,
+        );
+        if (profileId != null && newOccurrences.isNotEmpty) {
+          unawaited(
+            _maybeDeliverForegroundIncidentNotification(
+              newOccurrences,
+              profileId: profileId,
+              generation: generation,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (generation != _generation || _disposed) return;
@@ -3898,7 +4017,17 @@ class AppController extends ChangeNotifier {
       // This is deliberately non-closing: timeout/auth/visibility failures are
       // not evidence that any previously observed incident disappeared.
       _incidentTriage.observe(incidents);
-      _captureIncidentHistory(complete: false);
+      final newOccurrences = _captureIncidentHistory(complete: false);
+      final notificationProfileId = active?.id;
+      if (notificationProfileId != null && newOccurrences.isNotEmpty) {
+        unawaited(
+          _maybeDeliverForegroundIncidentNotification(
+            newOccurrences,
+            profileId: notificationProfileId,
+            generation: generation,
+          ),
+        );
+      }
       var reconciled = false;
       if (authenticationFailure == null || completedTargets.isNotEmpty) {
         reconciled = await _refreshAfterTask(generation);
@@ -3961,6 +4090,8 @@ class AppController extends ChangeNotifier {
       _retainedServerTaskIncidents = const <CockpitIncident>[];
       _incidentTriage.clear();
       incidentHistory = const <IncidentHistoryEntry>[];
+      foregroundNotificationPolicy = const ForegroundNotificationPolicy();
+      _lastForegroundNotificationAt = null;
       storageMessage = null;
       serverTaskMessage = null;
       inventoryWarning = null;

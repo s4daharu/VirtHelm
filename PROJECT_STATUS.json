@@ -14,7 +14,7 @@
   "framework": "Flutter",
   "primary_pve": "9.2",
   "regression_pve": "8.4",
-  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, snapshot creation/stopped-only non-RAM rollback/deletion, one-off backup-start, exact-guest backup-archive visibility, evidence-limited backup validation confidence, and GET-only same-node alternate-VMID restore-plan/conflict-preflight operational slices",
+  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, snapshot creation/stopped-only non-RAM rollback/deletion, one-off backup-start, exact-guest backup-archive visibility, evidence-limited backup validation confidence, and GET-only same-node alternate-VMID restore-plan/conflict-preflight operational slices + ALERT-007 foreground notification quiet-hours/cooldown delivery policy",
   "github_repository_url": "https://github.com/s4daharu/VirtHelm",
   "documentation_uploaded_and_verified": true,
   "docs_initial_remote_commit": "4fdfcd704aced213508f798533fd6370573ac284",
@@ -62,7 +62,8 @@
       "tabbed guest/node/storage detail routes with explicit read-only history tabs and a persistent guest action bar",
       "compact guest filter sheet with removable active-filter chips and saved-view compatibility",
       "task summary counts, compact tappable server-task rows and lazy task slivers",
-      "full-screen foreground threshold-rule add/edit editor with searchable grouped targets"
+      "full-screen foreground threshold-rule add/edit editor with searchable grouped targets",
+      "opt-in generic foreground Android incident notifications with profile-scoped quiet hours/cooldown; suppression changes delivery only and never current incident health"
     ],
     "scope_note": "This is a partial M2 read-cockpit slice, not the full premium M2 roadmap.",
     "release_validation": "Real PVE 8.4/9.2 contracts/ACLs and Android device/release gates remain required.",
@@ -309,7 +310,7 @@
       "behavior": "A fifth Incidents tab shows a badge and locally filters critical/warning signals derived from explicit node offline/unknown states, failed recent server tasks, and failed/unknown session tasks. Node/task incidents drill into existing session-scoped detail routes.",
       "conservative_refresh": "Inventory failures retain the previous node snapshot. Partial task-history reads retain up to 60 previously observed failed-task incidents until a later complete task read; full task-history failures leave prior task data unchanged. Unknown is never presented as healthy.",
       "privacy": "Foreground in-app only. No notification permission/channel, lock-screen payload, WorkManager job, relay registration, persistent incident history, task-log copy or additional PVE endpoint.",
-      "deferred": "ALERT-004 through ALERT-014 remain future work where not already covered by foreground inbox behavior. ALERT-006 duration/hysteresis is implemented separately; acknowledgement/history, quiet hours/cooldown, Android scheduled checks/notifications, lock-screen privacy controls, certificate/backup reminders and relay/webhooks remain unimplemented.",
+      "deferred": "Android scheduled/background checks, authoritative event correlation, certificate/backup reminders and relay/webhooks remain unimplemented. Durable history and foreground quiet-hours/cooldown delivery are implemented separately.",
       "limitations": "Live PVE 9.2/8.4 node/task fixtures, ACL/partial multi-node behavior, 200-guest/task performance and physical Android accessibility/lifecycle/network testing remain open.",
       "report": "docs/64-implementation-alert-incident-inbox.md"
     },
@@ -322,7 +323,7 @@
       "behavior": "Up to 32 profile-scoped enabled/disabled percentage rules for exact node CPU, guest CPU and per-node storage usage targets; firing rules appear in the existing incident inbox and drill into matching session-scoped details.",
       "conservative_refresh": "A usable below-threshold sample resolves an in-memory firing. Missing node/guest samples and incomplete/failed storage refreshes do not falsely resolve prior firings.",
       "persistence": "SharedPreferences non-secret metadata only; credentials remain in secure storage and incident history is not persisted.",
-      "deferred": "ALERT-006 consecutive-sample duration and hysteresis are implemented separately. Quiet hours, cooldown, acknowledgement/history plus Android scheduled checks/notifications and relay/webhook work remain deferred.",
+      "deferred": "Android scheduled/background checks, authoritative correlation and relay/webhook work remain deferred. ALERT-006 duration/hysteresis and foreground quiet-hours/cooldown notification delivery are implemented separately.",
       "limitations": "Live PVE 9.2/8.4 field/ACL fixtures, physical Android lifecycle/accessibility/network behavior and performance validation remain pending.",
       "report": "docs/65-implementation-foreground-threshold-alert-rules.md"
     },
@@ -617,7 +618,7 @@
     "report": "docs/91-implementation-backup-validation-confidence.md"
   },
   "alert_incident_triage": {
-    "status": "implemented_source_level_ci_pending",
+    "status": "implemented_ci_passed_live_validation_pending",
     "milestone": "ALERT-02 partial / mobile foreground triage",
     "version": "0.1.49",
     "behavior": "Session-local acknowledgement with Needs review, Acknowledged and Earlier views in mobile incident inbox; keeps existing severity filters, task/node drill-down and active incident counters.",
@@ -628,7 +629,7 @@
     "report": "docs/95-implementation-incident-triage.md"
   },
   "alert_incident_mobile_workflow": {
-    "status": "implemented_source_level_ci_pending",
+    "status": "implemented_ci_passed_live_validation_pending",
     "milestone": "ALERT-02 mobile operations follow-up",
     "version": "0.1.50",
     "behavior": "Loaded-signal search, source + severity chips and confirmation-bound batch acknowledgement limited to filtered needs-review keys; clear-filters recovery and readable severity on mobile cards.",
@@ -648,5 +649,17 @@
     "verification": "Exact-head PR run 43093767543 passed source/docs checks, pinned Flutter 3.44.4 formatting, analyze --fatal-infos, 381 Flutter tests and debug APK build. New model/repository/widget regressions cover UPID exclusion, incomplete evidence, reappearance, 80-record bound, profile isolation/deletion and read-only mobile separation; physical Android/PVE release validation remains open.",
     "deferred": "Quiet hours, cooldown/suppression, authoritative event correlation, Android periodic/background checks, native notifications, relay and physical-device/PVE 8.4/9.2 release validation remain gated.",
     "report": "docs/97-implementation-durable-incident-history.md"
+  },
+  "alert_foreground_notification_policy": {
+    "status": "implemented_source_level_ci_pending",
+    "milestone": "ALERT-007 foreground notification quiet hours and cooldown",
+    "version": "0.1.52",
+    "behavior": "new durable incident occurrences may emit one generic Android notification only while VirtHelm is foregrounded and explicitly enabled; quiet hours/cooldown suppress delivery only",
+    "privacy": "native title/body contain no profile endpoint/name, resource name, VMID, task UPID/title/log, credentials, raw responses or authorization state",
+    "storage": "profile-scoped non-secret SharedPreferences policy plus last successful delivery timestamp; purged on profile deletion; Android app backup remains disabled",
+    "android": "POST_NOTIFICATIONS requested on Android 13+ only when enabling; deterministic native notification channel/small icon installed through the hardened generated-runner path",
+    "safety": "notification failures/permission denial never change incident severity, acknowledgement, durable history, current health, PVE I/O or mutation authorization",
+    "followup": "docs/98-implementation-foreground-alert-notifications.md",
+    "deferred": "ALERT-009 WorkManager/background checks, authoritative cross-resource correlation, richer ALERT-010 lock-screen controls/deep links, relay/webhooks and physical-device/PVE release validation remain gated"
   }
 }
