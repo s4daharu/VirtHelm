@@ -2525,6 +2525,8 @@ class _SettingsTab extends StatelessWidget {
               const Text(
                 'Notification text is generic and excludes profile names, '
                 'infrastructure names, VMIDs, task IDs and task logs. '
+                'Tapping an incident notification opens the Incidents tab only; '
+                'the Android intent carries no profile or resource selector. '
                 'Scheduled monitoring, when enabled for a connection, uses the same lock-screen privacy setting.',
               ),
             ],
