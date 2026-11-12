@@ -4,9 +4,8 @@ const int _minutesPerDay = 24 * 60;
 
 enum IncidentNotificationLockScreenPrivacy { hidden, generic }
 
-IncidentNotificationLockScreenPrivacy incidentNotificationLockScreenPrivacyFromStorage(
-  Object? value,
-) {
+IncidentNotificationLockScreenPrivacy
+incidentNotificationLockScreenPrivacyFromStorage(Object? value) {
   if (value == IncidentNotificationLockScreenPrivacy.generic.name) {
     return IncidentNotificationLockScreenPrivacy.generic;
   }
