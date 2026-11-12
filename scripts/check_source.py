@@ -107,6 +107,7 @@ required = [
     'docs/97-implementation-durable-incident-history.md',
     'docs/98-implementation-foreground-alert-notifications.md',
     'docs/99-implementation-android-periodic-alert-checks.md',
+    'docs/100-implementation-notification-lock-screen-privacy.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
