@@ -474,7 +474,7 @@ assert 'synchronized(lock)' in worker
 assert 'IncidentNotificationDeliveryLedger.clearKey(context, key)' in worker
 assert 'cooldownMinutes = policy.cooldownMinutes' in worker
 assert 'failedTaskChecksEnabled' in worker
-assert 'MAX_BACKGROUND_TASK_NODES = 32' in worker
+assert 'MAX_BACKGROUND_TASK_NODES = 16' in worker
 assert '/tasks?limit=20&source=all' in worker
 assert 'task-incident-active:' in worker
 navigation_intent = worker.split('internal object IncidentNotificationNavigation', 1)[1].split('internal data class ScheduledPolicy', 1)[0]
