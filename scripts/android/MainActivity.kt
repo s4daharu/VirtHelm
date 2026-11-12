@@ -51,6 +51,8 @@ class MainActivity : FlutterActivity() {
                 "showIncidentSummary" -> result.success(
                     showIncidentSummary(
                         critical = call.argument<Boolean>("critical") == true,
+                        profileId = call.argument<String>("profileId"),
+                        cooldownMinutes = call.argument<Int>("cooldownMinutes"),
                     ),
                 )
                 else -> result.notImplemented()
@@ -156,39 +158,60 @@ class MainActivity : FlutterActivity() {
         )
     }
 
-    private fun showIncidentSummary(critical: Boolean): Boolean {
+    private fun showIncidentSummary(
+        critical: Boolean,
+        profileId: String?,
+        cooldownMinutes: Int?,
+    ): Boolean {
+        if (profileId.isNullOrBlank() ||
+            profileId.length > 256 ||
+            cooldownMinutes == null ||
+            cooldownMinutes !in 0..24 * 60
+        ) {
+            return false
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
                 PackageManager.PERMISSION_GRANTED
         ) {
             return false
         }
-        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val visibility = IncidentNotificationPrivacy.visibility(this)
-        val channel = NotificationChannel(
-            INCIDENT_CHANNEL_ID,
-            "Incident alerts",
-            NotificationManager.IMPORTANCE_DEFAULT,
-        ).apply {
-            description = "Foreground VirtHelm incident summaries"
-            lockscreenVisibility = visibility
-        }
-        manager.createNotificationChannel(channel)
+        val profileKey = runCatching {
+            IncidentNotificationDeliveryLedger.profileKey(profileId)
+        }.getOrNull() ?: return false
+        return IncidentNotificationDeliveryLedger.deliver(
+            context = applicationContext,
+            profileKey = profileKey,
+            cooldownMinutes = cooldownMinutes,
+        ) {
+            val manager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val visibility = IncidentNotificationPrivacy.visibility(this)
+            val channel = NotificationChannel(
+                INCIDENT_CHANNEL_ID,
+                "Incident alerts",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                description = "Foreground VirtHelm incident summaries"
+                lockscreenVisibility = visibility
+            }
+            manager.createNotificationChannel(channel)
 
-        val contentIntent = IncidentNotificationNavigation.contentIntent(this)
-        val notification = Notification.Builder(this, INCIDENT_CHANNEL_ID)
-            .setSmallIcon(R.drawable.virthelm_notification)
-            .setContentTitle(
-                if (critical) "VirtHelm critical incident" else "VirtHelm incident",
-            )
-            .setContentText("Open VirtHelm to review current incidents.")
-            .setContentIntent(contentIntent)
-            .setAutoCancel(true)
-            .setCategory(Notification.CATEGORY_STATUS)
-            .setVisibility(visibility)
-            .build()
-        manager.notify(INCIDENT_NOTIFICATION_ID, notification)
-        return true
+            val contentIntent = IncidentNotificationNavigation.contentIntent(this)
+            val notification = Notification.Builder(this, INCIDENT_CHANNEL_ID)
+                .setSmallIcon(R.drawable.virthelm_notification)
+                .setContentTitle(
+                    if (critical) "VirtHelm critical incident" else "VirtHelm incident",
+                )
+                .setContentText("Open VirtHelm to review current incidents.")
+                .setContentIntent(contentIntent)
+                .setAutoCancel(true)
+                .setCategory(Notification.CATEGORY_STATUS)
+                .setVisibility(visibility)
+                .build()
+            manager.notify(INCIDENT_NOTIFICATION_ID, notification)
+            true
+        }
     }
 
     override fun onDestroy() {
