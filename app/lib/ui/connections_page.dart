@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
+import '../core/background_checks.dart';
 import '../core/device_connectivity.dart';
 import '../core/models.dart';
+import 'background_checks_page.dart';
 import 'components.dart';
 import 'connect_page.dart';
 
@@ -43,6 +45,17 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
 
   Future<void> _activate(ConnectionProfile profile) async {
     await widget.controller.activate(profile);
+  }
+
+  Future<void> _openBackgroundChecks(ConnectionProfile profile) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => BackgroundChecksPage(
+          controller: widget.controller,
+          profile: profile,
+        ),
+      ),
+    );
   }
 
   Future<bool> _confirmInsecureTest(ConnectionProfile profile) async {
@@ -160,6 +173,12 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
     if (confirmed != true || !mounted) return;
     setState(() => removingProfileId = profile.id);
     try {
+      // Clear the WorkManager schedule and its native Keystore-encrypted token
+      // copy before deleting the Flutter profile/vault credential.
+      await const AndroidBackgroundCheckScheduler().disable(
+        profile.id,
+        clearPolicy: true,
+      );
       await widget.controller.deleteProfile(profile.id);
       if (!mounted) return;
       if (widget.controller.profiles.isEmpty &&
@@ -316,6 +335,14 @@ class _ConnectionsPageState extends State<ConnectionsPage> {
                         )
                       : const Icon(Icons.fact_check_outlined),
                   label: Text(testing ? 'Testing…' : 'Test'),
+                ),
+                OutlinedButton.icon(
+                  key: ValueKey('connection-background-checks-${profile.id}'),
+                  onPressed: disabled
+                      ? null
+                      : () => _openBackgroundChecks(profile),
+                  icon: const Icon(Icons.schedule_rounded),
+                  label: const Text('Scheduled checks'),
                 ),
                 TextButton.icon(
                   key: ValueKey('connection-edit-${profile.id}'),
