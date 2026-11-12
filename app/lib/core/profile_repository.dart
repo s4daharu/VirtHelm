@@ -53,6 +53,8 @@ class ProfileRepository {
       'foreground_notification_policy_v1';
   static const _foregroundNotificationStateKey =
       'foreground_notification_state_v1';
+  static const _notificationLockScreenPrivacyKey =
+      'notification_lock_screen_privacy_v1';
   static const _themeKey = 'ui_theme_v1';
   static const _refreshKey = 'ui_refresh_v1';
   static const _nodeMetricsKey = 'ui_node_metrics_v1';
@@ -141,6 +143,19 @@ class ProfileRepository {
     final raw = _prefs.get(_reduceMotionKey);
     return raw is bool ? raw : false;
   }
+
+  IncidentNotificationLockScreenPrivacy get notificationLockScreenPrivacy =>
+      incidentNotificationLockScreenPrivacyFromStorage(
+        _prefs.get(_notificationLockScreenPrivacyKey),
+      );
+
+  Future<void> setNotificationLockScreenPrivacy(
+    IncidentNotificationLockScreenPrivacy value,
+  ) => _mutate(() async {
+    if (!await _prefs.setString(_notificationLockScreenPrivacyKey, value.name)) {
+      throw StateError('Could not save notification privacy preference.');
+    }
+  });
 
   Future<void> setThemePreference(AppThemePreference value) =>
       _mutate(() async {
