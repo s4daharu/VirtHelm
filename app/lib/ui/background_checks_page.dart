@@ -537,7 +537,7 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                   'disabled. Failed-task scanning is separately opted in, is '
                   'bounded to 16 nodes and 20 recent task rows per node, and '
                   'never persists raw task identifiers or resource names. '
-                   'Correlation retains profile-scoped hashes only. Optional '
+                  'Correlation retains profile-scoped hashes only. Optional '
                   'threshold rules keep node, guest and storage selectors plus '
                   'thresholds only inside the Android-Keystore-encrypted worker '
                   'payload. Runtime threshold and cross-mode correlation state '
