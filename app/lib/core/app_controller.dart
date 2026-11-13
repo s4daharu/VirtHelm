@@ -13,6 +13,7 @@ import 'incident_center.dart';
 import 'incident_history.dart';
 import 'incident_triage.dart';
 import 'models.dart';
+import 'notification_navigation.dart';
 import 'offline_inventory.dart';
 import 'offline_overview.dart';
 import 'profile_repository.dart';
@@ -26,11 +27,15 @@ class AppController extends ChangeNotifier {
     GatewayFactory? gatewayFactory,
     ForegroundIncidentNotifier? incidentNotifier,
     BackgroundCheckScheduler? backgroundCheckScheduler,
+    IncidentNavigationTargetResolver? incidentNavigationTargetResolver,
     this.taskVerificationTtl = const Duration(minutes: 15),
   }) : _incidentNotifier =
            incidentNotifier ?? const AndroidForegroundIncidentNotifier(),
        _backgroundCheckScheduler =
            backgroundCheckScheduler ?? const AndroidBackgroundCheckScheduler(),
+       _incidentNavigationTargetResolver =
+           incidentNavigationTargetResolver ??
+           const AndroidIncidentNotificationNavigation(),
        _factory =
            gatewayFactory ??
            ((profile, credentials) => DioPveGateway(profile, credentials));
@@ -39,6 +44,7 @@ class AppController extends ChangeNotifier {
   final GatewayFactory _factory;
   final ForegroundIncidentNotifier _incidentNotifier;
   final BackgroundCheckScheduler _backgroundCheckScheduler;
+  final IncidentNavigationTargetResolver _incidentNavigationTargetResolver;
   final Duration taskVerificationTtl;
 
   List<ConnectionProfile> profiles = [];
@@ -65,18 +71,42 @@ class AppController extends ChangeNotifier {
       IncidentNotificationLockScreenPrivacy.hidden;
   DateTime? _lastForegroundNotificationAt;
   bool _notificationDeliveryInFlight = false;
-  bool _incidentCenterNavigationPending = false;
+  IncidentNavigationRequest? _incidentCenterNavigationRequest;
 
-  void requestIncidentCenter() {
+  void requestIncidentCenter([
+    IncidentNavigationRequest request = const IncidentNavigationRequest(),
+  ]) {
     if (_disposed) return;
-    _incidentCenterNavigationPending = true;
+    _incidentCenterNavigationRequest = request;
     _notify();
   }
 
-  bool takeIncidentCenterNavigationRequest() {
-    if (!_incidentCenterNavigationPending) return false;
-    _incidentCenterNavigationPending = false;
-    return true;
+  IncidentNavigationRequest? takeIncidentCenterNavigationRequest() {
+    final request = _incidentCenterNavigationRequest;
+    _incidentCenterNavigationRequest = null;
+    return request;
+  }
+
+  Future<String?> resolveIncidentNavigationTarget(String targetHash) async {
+    final profileId = active?.id;
+    if (_disposed || profileId == null) return null;
+    final generation = _generation;
+    final observed = incidents
+        .take(maxIncidentNavigationCandidates)
+        .toList(growable: false);
+    if (observed.isEmpty) return null;
+    final matched = await _incidentNavigationTargetResolver.resolveIncidentTarget(
+      profileId: profileId,
+      targetHash: targetHash,
+      incidentKeys: observed.map((incident) => incident.key),
+    );
+    if (_disposed ||
+        active?.id != profileId ||
+        generation != _generation ||
+        matched == null) {
+      return null;
+    }
+    return incidents.any((incident) => incident.key == matched) ? matched : null;
   }
 
   List<CockpitIncident> get incidents => buildCockpitIncidents(
@@ -234,6 +264,20 @@ class AppController extends ChangeNotifier {
       return;
     }
 
+    String? targetIncidentKey;
+    if (newOccurrences.length == 1) {
+      final fingerprint = newOccurrences.single.fingerprint;
+      final matches = incidents
+          .take(maxIncidentNavigationCandidates)
+          .where(
+            (incident) => incidentHistoryFingerprint(incident) == fingerprint,
+          )
+          .toList(growable: false);
+      if (matches.length == 1) {
+        targetIncidentKey = matches.single.key;
+      }
+    }
+
     _notificationDeliveryInFlight = true;
     try {
       final shown = await _incidentNotifier.showIncidentSummary(
@@ -242,6 +286,7 @@ class AppController extends ChangeNotifier {
         ),
         profileId: profileId,
         cooldownMinutes: policy.cooldownMinutes,
+        incidentKey: targetIncidentKey,
       );
       if (!shown) return;
       final deliveredAt = now.toUtc();
