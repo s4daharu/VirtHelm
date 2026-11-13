@@ -49,10 +49,13 @@ class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    controller = AppController(repository: widget.repository);
     _incidentNavigation =
         widget.incidentNavigation ??
         const AndroidIncidentNotificationNavigation();
+    controller = AppController(
+      repository: widget.repository,
+      incidentNavigationTargetResolver: _incidentNavigation,
+    );
     _incidentNavigation.listen(controller.requestIncidentCenter);
     unawaited(_consumePendingIncidentNavigation());
     _themePreference = ValueNotifier(controller.themePreference);
@@ -68,8 +71,9 @@ class _VirtHelmAppState extends State<VirtHelmApp> with WidgetsBindingObserver {
   }
 
   Future<void> _consumePendingIncidentNavigation() async {
-    if (await _incidentNavigation.takePendingIncidentIntent()) {
-      controller.requestIncidentCenter();
+    final request = await _incidentNavigation.takePendingIncidentIntent();
+    if (request != null) {
+      controller.requestIncidentCenter(request);
     }
   }
 
