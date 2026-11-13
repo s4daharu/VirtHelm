@@ -133,12 +133,32 @@ internal object IncidentNotificationDeliveryLedger {
 internal object IncidentNotificationNavigation {
     const val ACTION_OPEN_INCIDENTS =
         "com.s4daharu.virthelm.action.OPEN_INCIDENTS"
+    private const val EXTRA_TARGET_HASH =
+        "com.s4daharu.virthelm.extra.INCIDENT_TARGET_HASH"
     private const val REQUEST_CODE = 4109
+    private val targetHashPattern = Regex("^[0-9a-f]{64}$")
 
-    fun contentIntent(context: Context): PendingIntent {
+    private fun safeIncidentKey(value: String): Boolean =
+        value.isNotBlank() &&
+            value.length <= 1200 &&
+            !value.any { it.code < 0x20 || it.code == 0x7f }
+
+    fun targetHash(profileId: String, incidentKey: String): String {
+        require(safeIncidentKey(incidentKey))
+        val profileKey = IncidentNotificationDeliveryLedger.profileKey(profileId)
+        return MessageDigest.getInstance("SHA-256")
+            .digest("$profileKey|notification|$incidentKey".toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+    }
+
+    fun contentIntent(context: Context, targetHash: String? = null): PendingIntent {
+        require(targetHash == null || targetHashPattern.matches(targetHash))
         val intent = Intent(context, MainActivity::class.java).apply {
             action = ACTION_OPEN_INCIDENTS
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            // Always overwrite this extra so a later generic notification
+            // cannot inherit an older resource target from FLAG_UPDATE_CURRENT.
+            putExtra(EXTRA_TARGET_HASH, targetHash ?: "")
         }
         return PendingIntent.getActivity(
             context,
@@ -150,6 +170,29 @@ internal object IncidentNotificationNavigation {
 
     fun targetsIncidents(intent: Intent?): Boolean =
         intent?.action == ACTION_OPEN_INCIDENTS
+
+    fun targetHashFromIntent(intent: Intent?): String? {
+        if (!targetsIncidents(intent)) return null
+        return intent?.getStringExtra(EXTRA_TARGET_HASH)
+            ?.takeIf { targetHashPattern.matches(it) }
+    }
+
+    fun clearTarget(intent: Intent?) {
+        intent?.removeExtra(EXTRA_TARGET_HASH)
+    }
+
+    fun resolveTarget(
+        profileId: String,
+        targetHash: String,
+        incidentKeys: List<String>,
+    ): String? {
+        require(targetHashPattern.matches(targetHash))
+        require(incidentKeys.size <= MAX_CORRELATION_CANDIDATES)
+        val matches = incidentKeys
+            .filter(::safeIncidentKey)
+            .filter { targetHash(profileId, it) == targetHash }
+        return matches.singleOrNull()
+    }
 }
 
 internal data class ScheduledPolicy(
