@@ -100,6 +100,8 @@ compilation.
   without changing the foreground health contract.
 - The normal PR gate remains authoritative for future changes; the exact-head
   evidence above is the validation record for this implementation milestone.
+- The verification-record-only follow-up commit is rerun through that same gate
+  before the branch is promoted to `main`.
 
 ## Still gated
 
