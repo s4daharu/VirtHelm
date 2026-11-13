@@ -71,13 +71,23 @@ if worker_template.is_file():
     assert 'task-watermark:' in worker_text
     assert 'endTimeSeconds > previousWatermarkSeconds' in worker_text
     assert 'MAX_BACKGROUND_NODE_CPU_RULES = 32' in worker_text
+    assert 'MAX_BACKGROUND_GUEST_CPU_RULES = 32' in worker_text
     assert 'nodeCpuThresholdChecksEnabled' in worker_text
+    assert 'guestCpuThresholdChecksEnabled' in worker_text
     assert 'nodeCpuThresholdRules' in worker_text
+    assert 'guestCpuThresholdRules' in worker_text
     assert 'node-cpu-threshold-state:' in worker_text
+    assert 'guest-cpu-threshold-state:' in worker_text
     assert 'evaluateNodeCpuThresholds' in worker_text
+    assert 'evaluateGuestCpuThresholds' in worker_text
+    assert '/api2/json/cluster/resources?type=vm' in worker_text
+    assert 'fun syncThresholdRules(' in worker_text
+    assert 'nodeRules.size + guestRules.size <= MAX_BACKGROUND_NODE_CPU_RULES' in worker_text
     assert 'IncidentNotificationDeliveryLedger.profileKey(ruleId)' in worker_text
     threshold_state = worker_text.split('private fun encodeThresholdState', 1)[1].split('private fun reconcileThresholdState', 1)[0]
     assert '.put("node"' not in threshold_state
+    assert '.put("vmid"' not in threshold_state
+    assert '.put("guestKind"' not in threshold_state
     assert '.put("thresholdPercent"' not in threshold_state
     assert '.put("pending"' in threshold_state and '.put("active"' in threshold_state
     assert 'stateJson = null' in worker_text

@@ -61,6 +61,6 @@ Repository CI remains the required formatter, analyzer, Flutter test and Android
 
 ## Deliberately deferred
 
-ALERT-007 quiet hours/cooldown, ALERT-02 durable history, ALERT-009/010 Android scheduled checks/privacy, and the bounded 0.1.59 scheduled node-CPU rule state machine are implemented as later milestones. Scheduled guest-CPU/storage threshold parity, richer duration/window semantics, authoritative correlation, and relay/webhook work remain deferred.
+ALERT-007 quiet hours/cooldown, ALERT-02 durable history, ALERT-009/010 Android scheduled checks/privacy, the bounded 0.1.59 scheduled node-CPU rule state machine, and the bounded 0.1.61 scheduled guest-CPU rule state machine are implemented as later milestones. Scheduled storage-usage threshold parity, richer duration/window semantics, authoritative correlation, and relay/webhook work remain deferred.
 
 Live PVE 9.2/8.4 field behavior, physical Android lifecycle/accessibility/performance testing, signing review and production release certification are still required before broader release claims.

@@ -52,7 +52,7 @@ class _Scheduler
   ) async {}
 
   @override
-  Future<void> syncNodeCpuThresholdRules(
+  Future<void> syncThresholdRules(
     String profileId,
     Iterable<ForegroundThresholdAlertRule> rules,
   ) async {
@@ -166,6 +166,8 @@ void main() {
     expect(observed?.method, 'configure');
     final arguments = Map<String, Object?>.from(observed?.arguments as Map);
     expect(arguments['nodeCpuThresholdChecksEnabled'], isTrue);
+    expect(arguments['guestCpuThresholdChecksEnabled'], isFalse);
+    expect(arguments['guestCpuThresholdRules'], isEmpty);
     final rules = List<Object?>.from(
       arguments['nodeCpuThresholdRules'] as List<Object?>,
     );
@@ -179,7 +181,7 @@ void main() {
     });
   });
 
-  test('Android rule sync filters unsupported threshold targets', () async {
+  test('Android rule sync serializes node and guest threshold targets', () async {
     MethodCall? observed;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
@@ -187,18 +189,26 @@ void main() {
           return true;
         });
 
-    await const AndroidBackgroundCheckScheduler().syncNodeCpuThresholdRules(
+    await const AndroidBackgroundCheckScheduler().syncThresholdRules(
       'profile-alpha',
       <ForegroundThresholdAlertRule>[_nodeRule(), _guestRule()],
     );
 
-    expect(observed?.method, 'syncNodeCpuThresholdRules');
+    expect(observed?.method, 'syncThresholdRules');
     final arguments = Map<String, Object?>.from(observed?.arguments as Map);
     final rules = List<Object?>.from(
       arguments['nodeCpuThresholdRules'] as List<Object?>,
     );
+    final guestRules = List<Object?>.from(
+      arguments['guestCpuThresholdRules'] as List<Object?>,
+    );
     expect(rules, hasLength(1));
+    expect(guestRules, hasLength(1));
     expect(Map<String, Object?>.from(rules.single as Map)['id'], 'node-rule');
+    expect(
+      Map<String, Object?>.from(guestRules.single as Map)['id'],
+      'guest-rule',
+    );
   });
 
   test('controller resynchronizes worker rules after a rule edit', () async {

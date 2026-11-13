@@ -87,12 +87,14 @@ Repository checks assert the scheduled-check source and generated-runner safety 
 
 This is source-level implementation evidence until exact-head CI passes. Physical Android validation must still cover Doze/app-standby timing, reboot persistence, VPN/network transitions, notification permission changes, OEM battery restrictions and profile edit/delete cleanup. Disposable PVE 8.4 and 9.2 environments remain required for endpoint/ACL/incident behavior evidence.
 
-Deferred work now includes scheduled guest-CPU/storage threshold parity,
+Deferred work now includes scheduled storage-usage threshold parity,
 authoritative incident correlation, resource-specific notification links,
 optional relay delivery and any production critical-alert guarantee. Bounded
-opt-in recent failed-task scanning is implemented by the 0.1.58 follow-up, and
+opt-in recent failed-task scanning is implemented by the 0.1.58 follow-up,
 bounded scheduled node-CPU threshold evaluation by the 0.1.59 follow-up in
-[105-implementation-scheduled-node-cpu-thresholds.md](105-implementation-scheduled-node-cpu-thresholds.md).
+[105-implementation-scheduled-node-cpu-thresholds.md](105-implementation-scheduled-node-cpu-thresholds.md),
+and bounded scheduled guest-CPU threshold evaluation by the 0.1.61 follow-up in
+[106-implementation-scheduled-guest-cpu-thresholds.md](106-implementation-scheduled-guest-cpu-thresholds.md).
 Secure-lock-screen hidden-or-generic privacy is implemented by ALERT-010,
 generic Incidents navigation by AND-010, and cross-mode delivery deduplication
 by the 0.1.57 follow-up.

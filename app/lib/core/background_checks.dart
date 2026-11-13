@@ -26,6 +26,7 @@ class BackgroundCheckPolicy {
     this.cooldownMinutes = 30,
     this.failedTaskChecksEnabled = false,
     this.nodeCpuThresholdChecksEnabled = false,
+    this.guestCpuThresholdChecksEnabled = false,
   });
 
   final bool enabled;
@@ -36,6 +37,7 @@ class BackgroundCheckPolicy {
   final int cooldownMinutes;
   final bool failedTaskChecksEnabled;
   final bool nodeCpuThresholdChecksEnabled;
+  final bool guestCpuThresholdChecksEnabled;
 
   BackgroundCheckPolicy validated() {
     if (intervalMinutes < minimumBackgroundCheckIntervalMinutes ||
@@ -61,6 +63,7 @@ class BackgroundCheckPolicy {
     int? cooldownMinutes,
     bool? failedTaskChecksEnabled,
     bool? nodeCpuThresholdChecksEnabled,
+    bool? guestCpuThresholdChecksEnabled,
   }) => BackgroundCheckPolicy(
     enabled: enabled ?? this.enabled,
     intervalMinutes: intervalMinutes ?? this.intervalMinutes,
@@ -72,6 +75,8 @@ class BackgroundCheckPolicy {
         failedTaskChecksEnabled ?? this.failedTaskChecksEnabled,
     nodeCpuThresholdChecksEnabled:
         nodeCpuThresholdChecksEnabled ?? this.nodeCpuThresholdChecksEnabled,
+    guestCpuThresholdChecksEnabled:
+        guestCpuThresholdChecksEnabled ?? this.guestCpuThresholdChecksEnabled,
   );
 
   factory BackgroundCheckPolicy.fromChannel(Map<Object?, Object?> map) =>
@@ -85,6 +90,8 @@ class BackgroundCheckPolicy {
         failedTaskChecksEnabled: map['failedTaskChecksEnabled'] == true,
         nodeCpuThresholdChecksEnabled:
             map['nodeCpuThresholdChecksEnabled'] == true,
+        guestCpuThresholdChecksEnabled:
+            map['guestCpuThresholdChecksEnabled'] == true,
       ).validated();
 }
 
@@ -140,7 +147,7 @@ abstract interface class ThresholdAwareBackgroundCheckScheduler {
     Iterable<ForegroundThresholdAlertRule> rules,
   );
 
-  Future<void> syncNodeCpuThresholdRules(
+  Future<void> syncThresholdRules(
     String profileId,
     Iterable<ForegroundThresholdAlertRule> rules,
   );
@@ -222,8 +229,13 @@ class AndroidBackgroundCheckScheduler
             'failedTaskChecksEnabled': validated.failedTaskChecksEnabled,
             'nodeCpuThresholdChecksEnabled':
                 validated.nodeCpuThresholdChecksEnabled,
+            'guestCpuThresholdChecksEnabled':
+                validated.guestCpuThresholdChecksEnabled,
             'nodeCpuThresholdRules': validated.nodeCpuThresholdChecksEnabled
                 ? _nodeCpuRuleChannelPayload(rules)
+                : const <Map<String, Object?>>[],
+            'guestCpuThresholdRules': validated.guestCpuThresholdChecksEnabled
+                ? _guestCpuRuleChannelPayload(rules)
                 : const <Map<String, Object?>>[],
           }) ??
           false;
@@ -244,15 +256,16 @@ class AndroidBackgroundCheckScheduler
   }
 
   @override
-  Future<void> syncNodeCpuThresholdRules(
+  Future<void> syncThresholdRules(
     String profileId,
     Iterable<ForegroundThresholdAlertRule> rules,
   ) async {
     try {
       final synced =
-          await _channel.invokeMethod<bool>('syncNodeCpuThresholdRules', {
+          await _channel.invokeMethod<bool>('syncThresholdRules', {
             'profileId': profileId,
             'nodeCpuThresholdRules': _nodeCpuRuleChannelPayload(rules),
+            'guestCpuThresholdRules': _guestCpuRuleChannelPayload(rules),
           }) ??
           false;
       if (!synced) {
@@ -307,6 +320,27 @@ List<Map<String, Object?>> _nodeCpuRuleChannelPayload(
       (rule) => <String, Object?>{
         'id': rule.id,
         'node': rule.node,
+        'thresholdPercent': rule.thresholdPercent,
+        'consecutiveSamples': rule.consecutiveSamples,
+        'hysteresisPercent': rule.hysteresisPercent,
+      },
+    )
+    .toList(growable: false);
+
+List<Map<String, Object?>> _guestCpuRuleChannelPayload(
+  Iterable<ForegroundThresholdAlertRule> rules,
+) => rules
+    .where(
+      (rule) =>
+          rule.enabled && rule.metric == ForegroundThresholdMetric.guestCpu,
+    )
+    .take(maxForegroundThresholdRules)
+    .map(
+      (rule) => <String, Object?>{
+        'id': rule.id,
+        'node': rule.node,
+        'guestKind': rule.guestKind,
+        'vmid': rule.guestVmid,
         'thresholdPercent': rule.thresholdPercent,
         'consecutiveSamples': rule.consecutiveSamples,
         'hysteresisPercent': rule.hysteresisPercent,

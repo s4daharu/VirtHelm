@@ -1085,7 +1085,7 @@ class AppController extends ChangeNotifier {
     thresholdAlertRules = repository.readThresholdAlertRules(profile.id);
     _thresholdAlertEngine.reconcileRules(thresholdAlertRules);
     _notify();
-    await _syncScheduledNodeCpuThresholdRules(profile);
+    await _syncScheduledThresholdRules(profile);
   }
 
   Future<void> deleteThresholdAlertRule(
@@ -1101,10 +1101,10 @@ class AppController extends ChangeNotifier {
     thresholdAlertRules = repository.readThresholdAlertRules(profile.id);
     _thresholdAlertEngine.reconcileRules(thresholdAlertRules);
     _notify();
-    await _syncScheduledNodeCpuThresholdRules(profile);
+    await _syncScheduledThresholdRules(profile);
   }
 
-  Future<void> _syncScheduledNodeCpuThresholdRules(
+  Future<void> _syncScheduledThresholdRules(
     ConnectionProfile profile,
   ) async {
     final scheduler = _backgroundCheckScheduler;
@@ -1115,7 +1115,7 @@ class AppController extends ChangeNotifier {
     final thresholdScheduler =
         scheduler as ThresholdAwareBackgroundCheckScheduler;
     try {
-      await thresholdScheduler.syncNodeCpuThresholdRules(
+      await thresholdScheduler.syncThresholdRules(
         profile.id,
         thresholdAlertRules,
       );
@@ -1786,7 +1786,7 @@ class AppController extends ChangeNotifier {
     refreshing = false;
     _notify();
     try {
-      await _syncScheduledNodeCpuThresholdRules(profile);
+      await _syncScheduledThresholdRules(profile);
     } on BackgroundCheckException {
       // Fail-closed helper already disables the schedule. Foreground
       // connection activation remains independent from optional monitoring.

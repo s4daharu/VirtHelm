@@ -186,6 +186,15 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
       'Completed: recent task and node CPU threshold incidents found',
     'node_task_threshold_incident' =>
       'Completed: node-state, recent task and node CPU threshold incidents found',
+    'guest_threshold_incomplete' =>
+      'Incomplete: one or more guest CPU threshold samples are unavailable',
+    'guest_threshold_incident' => 'Completed: guest CPU threshold incident found',
+    'combined_incident' => 'Completed: multiple scheduled incident types found',
+    'guest_cpu_authorization_denied' =>
+      'Incomplete: guest CPU authorization denied',
+    'guest_cpu_redirect_blocked' => 'Incomplete: guest CPU redirect blocked',
+    'guest_cpu_incomplete' => 'Incomplete: guest CPU data could not be confirmed',
+    'guest_cpu_read_failed' => 'Incomplete: guest CPU read failed',
     'authorization_denied' => 'Incomplete: token authorization denied',
     'redirect_blocked' => 'Incomplete: redirect blocked',
     'incomplete' => 'Incomplete: node data could not be confirmed',
@@ -284,7 +293,7 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                           'Evaluate the '
                           '${widget.controller.thresholdAlertRules.where((rule) => rule.enabled && rule.metric == ForegroundThresholdMetric.nodeCpu).length} '
                           'enabled node CPU rule(s) on each scheduled node snapshot. '
-                          'Guest CPU and storage thresholds remain foreground-only.',
+                          'Guest CPU rules use the separate opt-in below; storage thresholds remain foreground-only.',
                         ),
                         value: policy.nodeCpuThresholdChecksEnabled,
                         onChanged: _busy
@@ -293,6 +302,28 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                                 _apply(
                                   policy.copyWith(
                                     nodeCpuThresholdChecksEnabled: value,
+                                  ),
+                                ),
+                              ),
+                      ),
+                      const Divider(),
+                      SwitchListTile(
+                        key: const Key('periodic-guest-cpu-threshold-checks'),
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Include guest CPU threshold rules'),
+                        subtitle: Text(
+                          'Evaluate the '
+                          '${widget.controller.thresholdAlertRules.where((rule) => rule.enabled && rule.metric == ForegroundThresholdMetric.guestCpu).length} '
+                          'enabled guest CPU rule(s) from a bounded scheduled guest inventory read. '
+                          'Storage thresholds remain foreground-only.',
+                        ),
+                        value: policy.guestCpuThresholdChecksEnabled,
+                        onChanged: _busy
+                            ? null
+                            : (value) => unawaited(
+                                _apply(
+                                  policy.copyWith(
+                                    guestCpuThresholdChecksEnabled: value,
                                   ),
                                 ),
                               ),

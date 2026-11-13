@@ -6,10 +6,11 @@ VirtHelm 0.1.59 implements the first scheduled threshold-rule parity slice for
 Android Mode B monitoring. Operators can separately opt scheduled checks into
 the enabled **node CPU** rules already configured for the active connection.
 
-This does not make all foreground threshold rules background-capable. Guest CPU
-and storage-usage rules remain foreground-only, and scheduled execution remains
-best-effort WorkManager polling rather than continuous monitoring or critical
-paging.
+At this milestone, guest CPU and storage-usage rules remained foreground-only.
+Guest-CPU parity is implemented later in
+[106-implementation-scheduled-guest-cpu-thresholds.md](106-implementation-scheduled-guest-cpu-thresholds.md);
+storage usage remains foreground-only. Scheduled execution remains best-effort
+WorkManager polling rather than continuous monitoring or critical paging.
 
 ## Operator behavior
 
@@ -145,9 +146,11 @@ payload/ACL validation remain release gates.
 
 ## Remaining work
 
+Scheduled guest CPU threshold parity is implemented by the 0.1.61 follow-up in
+[106-implementation-scheduled-guest-cpu-thresholds.md](106-implementation-scheduled-guest-cpu-thresholds.md).
+
 Still gated:
 
-- scheduled guest CPU threshold parity;
 - scheduled storage-usage threshold parity;
 - richer window/time-duration rules;
 - authoritative foreground/background incident correlation;

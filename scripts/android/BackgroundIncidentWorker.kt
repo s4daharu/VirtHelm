@@ -46,6 +46,7 @@ private const val MAX_BACKGROUND_INTERVAL_MINUTES = 24 * 60
 private const val MAX_RESPONSE_BYTES = 512 * 1024
 private const val MAX_BACKGROUND_TASK_NODES = 16
 private const val MAX_BACKGROUND_NODE_CPU_RULES = 32
+private const val MAX_BACKGROUND_GUEST_CPU_RULES = 32
 
 internal object IncidentNotificationPrivacy {
     private const val PREFS_NAME = "virthelm_notification_privacy_v1"
@@ -158,6 +159,7 @@ internal data class ScheduledPolicy(
     val cooldownMinutes: Int,
     val failedTaskChecksEnabled: Boolean,
     val nodeCpuThresholdChecksEnabled: Boolean,
+    val guestCpuThresholdChecksEnabled: Boolean,
 ) {
     fun validate() {
         require(intervalMinutes in MIN_BACKGROUND_INTERVAL_MINUTES..MAX_BACKGROUND_INTERVAL_MINUTES)
@@ -187,6 +189,7 @@ internal data class ScheduledPolicy(
         .put("cooldownMinutes", cooldownMinutes)
         .put("failedTaskChecksEnabled", failedTaskChecksEnabled)
         .put("nodeCpuThresholdChecksEnabled", nodeCpuThresholdChecksEnabled)
+        .put("guestCpuThresholdChecksEnabled", guestCpuThresholdChecksEnabled)
         .toString()
 
     companion object {
@@ -201,6 +204,7 @@ internal data class ScheduledPolicy(
                     cooldownMinutes = 30,
                     failedTaskChecksEnabled = false,
                     nodeCpuThresholdChecksEnabled = false,
+                    guestCpuThresholdChecksEnabled = false,
                 )
             }
             val json = JSONObject(raw)
@@ -215,6 +219,8 @@ internal data class ScheduledPolicy(
                     json.optBoolean("failedTaskChecksEnabled", false),
                 nodeCpuThresholdChecksEnabled =
                     json.optBoolean("nodeCpuThresholdChecksEnabled", false),
+                guestCpuThresholdChecksEnabled =
+                    json.optBoolean("guestCpuThresholdChecksEnabled", false),
             ).also { it.validate() }
         }
     }
@@ -273,10 +279,90 @@ internal data class ScheduledNodeCpuRule(
     }
 }
 
+internal data class ScheduledGuestCpuRule(
+    val id: String,
+    val node: String,
+    val guestKind: String,
+    val vmid: Int,
+    val thresholdPercent: Int,
+    val consecutiveSamples: Int,
+    val hysteresisPercent: Int,
+) {
+    fun validate() {
+        require(id.isNotBlank() && id.length <= 80)
+        require(node.isNotBlank() && node.length <= 120)
+        require(!node.any { it.code < 0x20 || it.code == 0x7f })
+        require(guestKind == "qemu" || guestKind == "lxc")
+        require(vmid > 0)
+        require(thresholdPercent in 1..100)
+        require(consecutiveSamples in 1..10)
+        require(hysteresisPercent in 0..20)
+        require(hysteresisPercent < thresholdPercent)
+    }
+
+    fun toJson(): JSONObject = JSONObject()
+        .put("id", id)
+        .put("node", node)
+        .put("guestKind", guestKind)
+        .put("vmid", vmid)
+        .put("thresholdPercent", thresholdPercent)
+        .put("consecutiveSamples", consecutiveSamples)
+        .put("hysteresisPercent", hysteresisPercent)
+
+    companion object {
+        fun fromJson(json: JSONObject): ScheduledGuestCpuRule =
+            ScheduledGuestCpuRule(
+                id = json.getString("id"),
+                node = json.getString("node").trim(),
+                guestKind = json.getString("guestKind").trim().lowercase(),
+                vmid = json.getInt("vmid"),
+                thresholdPercent = json.getInt("thresholdPercent"),
+                consecutiveSamples = json.getInt("consecutiveSamples"),
+                hysteresisPercent = json.getInt("hysteresisPercent"),
+            ).also { it.validate() }
+
+        private fun channelPositiveInt(raw: Any?): Int {
+            val number = raw as? Number
+                ?: throw IllegalArgumentException("Missing guest VMID")
+            val numeric = number.toDouble()
+            if (
+                !numeric.isFinite() ||
+                numeric <= 0.0 ||
+                numeric > Int.MAX_VALUE.toDouble() ||
+                numeric % 1.0 != 0.0
+            ) {
+                throw IllegalArgumentException("Invalid guest VMID")
+            }
+            return numeric.toInt()
+        }
+
+        fun fromChannel(raw: Any?): ScheduledGuestCpuRule {
+            val map = raw as? Map<*, *>
+                ?: throw IllegalArgumentException("Invalid guest threshold rule")
+            return ScheduledGuestCpuRule(
+                id = map["id"] as? String
+                    ?: throw IllegalArgumentException("Missing rule id"),
+                node = (map["node"] as? String)?.trim()
+                    ?: throw IllegalArgumentException("Missing rule node"),
+                guestKind = (map["guestKind"] as? String)?.trim()?.lowercase()
+                    ?: throw IllegalArgumentException("Missing guest kind"),
+                vmid = channelPositiveInt(map["vmid"]),
+                thresholdPercent = map["thresholdPercent"] as? Int
+                    ?: throw IllegalArgumentException("Missing rule threshold"),
+                consecutiveSamples = map["consecutiveSamples"] as? Int
+                    ?: throw IllegalArgumentException("Missing rule samples"),
+                hysteresisPercent = map["hysteresisPercent"] as? Int
+                    ?: throw IllegalArgumentException("Missing rule hysteresis"),
+            ).also { it.validate() }
+        }
+    }
+}
+
 private data class ScheduledSecret(
     val endpoint: String,
     val authorization: String,
     val nodeCpuThresholdRules: List<ScheduledNodeCpuRule> = emptyList(),
+    val guestCpuThresholdRules: List<ScheduledGuestCpuRule> = emptyList(),
 )
 
 private data class NodeStateReadResult(
@@ -286,6 +372,12 @@ private data class NodeStateReadResult(
     val nodes: List<String> = emptyList(),
     val taskNodesComplete: Boolean = false,
     val cpuByNode: Map<String, Double> = emptyMap(),
+)
+
+private data class GuestCpuReadResult(
+    val outcome: String,
+    val complete: Boolean,
+    val cpuByGuest: Map<String, Double> = emptyMap(),
 )
 
 private data class FailedTaskReadResult(
@@ -321,6 +413,8 @@ private data class ScheduledCheckResult(
     val thresholdIncident: Boolean,
     val thresholdNewIncident: Boolean,
     val thresholdStateJson: String?,
+    val guestThresholdNewIncident: Boolean,
+    val guestThresholdStateJson: String?,
 )
 
 internal object BackgroundCheckCoordinator {
@@ -344,6 +438,7 @@ internal object BackgroundCheckCoordinator {
     private fun taskIncidentKey(key: String) = "task-incident-active:$key"
     private fun taskWatermarkKey(key: String) = "task-watermark:$key"
     private fun thresholdStateKey(key: String) = "node-cpu-threshold-state:$key"
+    private fun guestThresholdStateKey(key: String) = "guest-cpu-threshold-state:$key"
     private fun lastAttemptKey(key: String) = "last-attempt:$key"
     private fun lastSuccessKey(key: String) = "last-success:$key"
     private fun lastOutcomeKey(key: String) = "last-outcome:$key"
@@ -356,6 +451,7 @@ internal object BackgroundCheckCoordinator {
         authorization: String,
         policy: ScheduledPolicy,
         nodeCpuThresholdRules: List<ScheduledNodeCpuRule>,
+        guestCpuThresholdRules: List<ScheduledGuestCpuRule>,
     ): Boolean {
         policy.validate()
         require(policy.enabled)
@@ -370,6 +466,14 @@ internal object BackgroundCheckCoordinator {
                 emptyList()
             }
 
+        val effectiveGuestRules =
+            if (policy.guestCpuThresholdChecksEnabled) {
+                validateGuestCpuRules(guestCpuThresholdRules)
+            } else {
+                emptyList()
+            }
+        validateCombinedThresholdRuleIds(effectiveRules, effectiveGuestRules)
+
         val key = profileKey(profileId)
         val encrypted = encryptSecret(
             key,
@@ -378,6 +482,7 @@ internal object BackgroundCheckCoordinator {
                     endpoint = endpoint,
                     authorization = authorization,
                     nodeCpuThresholdRules = effectiveRules,
+                    guestCpuThresholdRules = effectiveGuestRules,
                 ),
             ),
         )
@@ -387,7 +492,16 @@ internal object BackgroundCheckCoordinator {
             .putString(secretKey(key), encrypted)
             .commit()
         if (!committed) return false
-        reconcileThresholdState(storage, key, effectiveRules)
+        reconcileThresholdState(
+            storage,
+            thresholdStateKey(key),
+            effectiveRules.map { it.id },
+        )
+        reconcileThresholdState(
+            storage,
+            guestThresholdStateKey(key),
+            effectiveGuestRules.map { it.id },
+        )
 
         return try {
             val request = PeriodicWorkRequest.Builder(
@@ -416,16 +530,18 @@ internal object BackgroundCheckCoordinator {
             storage.edit()
                 .remove(secretKey(key))
                 .remove(thresholdStateKey(key))
+                .remove(guestThresholdStateKey(key))
                 .putString(policyKey(key), policy.copy(enabled = false).toJson())
                 .apply()
             false
         }
     }
 
-    fun syncNodeCpuThresholdRules(
+    fun syncThresholdRules(
         context: Context,
         profileId: String,
         nodeCpuThresholdRules: List<ScheduledNodeCpuRule>,
+        guestCpuThresholdRules: List<ScheduledGuestCpuRule>,
     ): Boolean {
         val key = profileKey(profileId)
         val storage = prefs(context)
@@ -433,26 +549,50 @@ internal object BackgroundCheckCoordinator {
             ScheduledPolicy.fromJson(storage.getString(policyKey(key), null))
         }.getOrNull()
         if (policy == null || !policy.enabled) {
-            storage.edit().remove(thresholdStateKey(key)).apply()
+            storage.edit()
+                .remove(thresholdStateKey(key))
+                .remove(guestThresholdStateKey(key))
+                .apply()
             return true
         }
         val existing =
             readSecret(storage.getString(secretKey(key), null), key)
                 ?: return false
-        val effectiveRules =
+        val effectiveNodeRules =
             if (policy.nodeCpuThresholdChecksEnabled) {
                 validateNodeCpuRules(nodeCpuThresholdRules)
             } else {
                 emptyList()
             }
+        val effectiveGuestRules =
+            if (policy.guestCpuThresholdChecksEnabled) {
+                validateGuestCpuRules(guestCpuThresholdRules)
+            } else {
+                emptyList()
+            }
+        validateCombinedThresholdRuleIds(effectiveNodeRules, effectiveGuestRules)
         val encrypted = encryptSecret(
             key,
-            encodeSecret(existing.copy(nodeCpuThresholdRules = effectiveRules)),
+            encodeSecret(
+                existing.copy(
+                    nodeCpuThresholdRules = effectiveNodeRules,
+                    guestCpuThresholdRules = effectiveGuestRules,
+                ),
+            ),
         )
         if (!storage.edit().putString(secretKey(key), encrypted).commit()) {
             return false
         }
-        reconcileThresholdState(storage, key, effectiveRules)
+        reconcileThresholdState(
+            storage,
+            thresholdStateKey(key),
+            effectiveNodeRules.map { it.id },
+        )
+        reconcileThresholdState(
+            storage,
+            guestThresholdStateKey(key),
+            effectiveGuestRules.map { it.id },
+        )
         return true
     }
 
@@ -467,6 +607,7 @@ internal object BackgroundCheckCoordinator {
             .remove(taskIncidentKey(key))
             .remove(taskWatermarkKey(key))
             .remove(thresholdStateKey(key))
+            .remove(guestThresholdStateKey(key))
         if (clearPolicy) {
             editor
                 .remove(policyKey(key))
@@ -487,6 +628,7 @@ internal object BackgroundCheckCoordinator {
                     cooldownMinutes = 30,
                     failedTaskChecksEnabled = false,
                     nodeCpuThresholdChecksEnabled = false,
+                    guestCpuThresholdChecksEnabled = false,
                 ),
             )
             editor.putString(policyKey(key), policy.copy(enabled = false).toJson())
@@ -529,6 +671,8 @@ internal object BackgroundCheckCoordinator {
             "failedTaskChecksEnabled" to policy.failedTaskChecksEnabled,
             "nodeCpuThresholdChecksEnabled" to
                 policy.nodeCpuThresholdChecksEnabled,
+            "guestCpuThresholdChecksEnabled" to
+                policy.guestCpuThresholdChecksEnabled,
             "lastAttemptMs" to storage.getLong(lastAttemptKey(key), 0L),
             "lastSuccessMs" to storage.getLong(lastSuccessKey(key), 0L),
             "lastNotificationMs" to storage.getLong(lastNotificationKey(key), 0L),
@@ -564,6 +708,8 @@ internal object BackgroundCheckCoordinator {
                     storage.getLong(taskWatermarkKey(key), 0L),
                 previousThresholdState =
                     storage.getString(thresholdStateKey(key), null),
+                previousGuestThresholdState =
+                    storage.getString(guestThresholdStateKey(key), null),
             )
         } catch (_: Exception) {
             ScheduledCheckResult(
@@ -579,6 +725,8 @@ internal object BackgroundCheckCoordinator {
                 thresholdIncident = false,
                 thresholdNewIncident = false,
                 thresholdStateJson = null,
+                guestThresholdNewIncident = false,
+                guestThresholdStateJson = null,
             )
         }
 
@@ -603,7 +751,11 @@ internal object BackgroundCheckCoordinator {
         result.thresholdStateJson?.let {
             editor.putString(thresholdStateKey(key), it)
         }
+        result.guestThresholdStateJson?.let {
+            editor.putString(guestThresholdStateKey(key), it)
+        }
         if (result.thresholdNewIncident) newlyActive = true
+        if (result.guestThresholdNewIncident) newlyActive = true
         editor.remove(legacyIncidentKey(key)).apply()
 
         if (!newlyActive) return
@@ -648,12 +800,12 @@ internal object BackgroundCheckCoordinator {
 
     private fun readThresholdState(
         raw: String?,
-        rules: List<ScheduledNodeCpuRule>,
+        ruleIds: List<String>,
     ): MutableMap<String, ThresholdRuleRuntimeState>? {
         if (raw == null) return mutableMapOf()
         return runCatching {
             val json = JSONObject(raw)
-            val allowed = rules.map { thresholdRuleStateId(it.id) }.toSet()
+            val allowed = ruleIds.map { thresholdRuleStateId(it) }.toSet()
             val state = mutableMapOf<String, ThresholdRuleRuntimeState>()
             val keys = json.keys()
             while (keys.hasNext()) {
@@ -674,12 +826,12 @@ internal object BackgroundCheckCoordinator {
     }
 
     private fun encodeThresholdState(
-        rules: List<ScheduledNodeCpuRule>,
+        ruleIds: List<String>,
         states: Map<String, ThresholdRuleRuntimeState>,
     ): String {
         val json = JSONObject()
-        for (rule in rules) {
-            val id = thresholdRuleStateId(rule.id)
+        for (ruleId in ruleIds) {
+            val id = thresholdRuleStateId(ruleId)
             val state = states[id] ?: ThresholdRuleRuntimeState(
                 pendingSamples = 0,
                 active = false,
@@ -696,21 +848,21 @@ internal object BackgroundCheckCoordinator {
 
     private fun reconcileThresholdState(
         storage: SharedPreferences,
-        profileKey: String,
-        rules: List<ScheduledNodeCpuRule>,
+        stateKey: String,
+        ruleIds: List<String>,
     ) {
-        if (rules.isEmpty()) {
-            storage.edit().remove(thresholdStateKey(profileKey)).apply()
+        if (ruleIds.isEmpty()) {
+            storage.edit().remove(stateKey).apply()
             return
         }
         val existing = readThresholdState(
-            storage.getString(thresholdStateKey(profileKey), null),
-            rules,
+            storage.getString(stateKey, null),
+            ruleIds,
         ) ?: mutableMapOf()
         storage.edit()
             .putString(
-                thresholdStateKey(profileKey),
-                encodeThresholdState(rules, existing),
+                stateKey,
+                encodeThresholdState(ruleIds, existing),
             )
             .apply()
     }
@@ -720,7 +872,7 @@ internal object BackgroundCheckCoordinator {
         cpuByNode: Map<String, Double>,
         rawState: String?,
     ): ThresholdEvaluationResult {
-        val states = readThresholdState(rawState, rules)
+        val states = readThresholdState(rawState, rules.map { it.id })
             ?: return ThresholdEvaluationResult(
                 complete = false,
                 incident = false,
@@ -793,7 +945,100 @@ internal object BackgroundCheckCoordinator {
             complete = complete,
             incident = incident,
             newIncident = newIncident,
-            stateJson = encodeThresholdState(rules, states),
+            stateJson = encodeThresholdState(rules.map { it.id }, states),
+        )
+    }
+
+    private fun guestCpuKey(rule: ScheduledGuestCpuRule): String =
+        "${rule.guestKind}:${rule.node}:${rule.vmid}"
+
+    private fun evaluateGuestCpuThresholds(
+        rules: List<ScheduledGuestCpuRule>,
+        cpuByGuest: Map<String, Double>,
+        rawState: String?,
+    ): ThresholdEvaluationResult {
+        if (rules.isEmpty()) {
+            return ThresholdEvaluationResult(
+                complete = true,
+                incident = false,
+                newIncident = false,
+                stateJson = null,
+            )
+        }
+        val states = readThresholdState(rawState, rules.map { it.id })
+            ?: return ThresholdEvaluationResult(
+                complete = false,
+                incident = false,
+                newIncident = false,
+                stateJson = null,
+            )
+        var complete = true
+        var newIncident = false
+
+        for (rule in rules) {
+            val stateId = thresholdRuleStateId(rule.id)
+            val previous = states[stateId] ?: ThresholdRuleRuntimeState(
+                pendingSamples = 0,
+                active = false,
+            )
+            val sample = cpuByGuest[guestCpuKey(rule)]
+            if (sample == null) {
+                complete = false
+                states[stateId] = previous.copy(pendingSamples = 0)
+                continue
+            }
+
+            if (previous.active) {
+                val clearPercent =
+                    rule.thresholdPercent - rule.hysteresisPercent
+                val shouldResolve =
+                    if (rule.hysteresisPercent == 0) {
+                        sample < rule.thresholdPercent / 100.0
+                    } else {
+                        sample <= clearPercent / 100.0
+                    }
+                states[stateId] =
+                    if (shouldResolve) {
+                        ThresholdRuleRuntimeState(
+                            pendingSamples = 0,
+                            active = false,
+                        )
+                    } else {
+                        previous.copy(pendingSamples = 0)
+                    }
+                continue
+            }
+
+            if (sample < rule.thresholdPercent / 100.0) {
+                states[stateId] = ThresholdRuleRuntimeState(
+                    pendingSamples = 0,
+                    active = false,
+                )
+                continue
+            }
+            val pending = previous.pendingSamples + 1
+            if (pending >= rule.consecutiveSamples) {
+                states[stateId] = ThresholdRuleRuntimeState(
+                    pendingSamples = 0,
+                    active = true,
+                )
+                newIncident = true
+            } else {
+                states[stateId] = ThresholdRuleRuntimeState(
+                    pendingSamples = pending,
+                    active = false,
+                )
+            }
+        }
+
+        val incident = rules.any { rule ->
+            states[thresholdRuleStateId(rule.id)]?.active == true
+        }
+        return ThresholdEvaluationResult(
+            complete = complete,
+            incident = incident,
+            newIncident = newIncident,
+            stateJson = encodeThresholdState(rules.map { it.id }, states),
         )
     }
 
@@ -802,6 +1047,7 @@ internal object BackgroundCheckCoordinator {
         policy: ScheduledPolicy,
         previousTaskWatermarkSeconds: Long,
         previousThresholdState: String?,
+        previousGuestThresholdState: String?,
     ): ScheduledCheckResult {
         val node = readNodeState(secret)
         if (!node.complete) {
@@ -818,6 +1064,8 @@ internal object BackgroundCheckCoordinator {
                 thresholdIncident = false,
                 thresholdNewIncident = false,
                 thresholdStateJson = null,
+                guestThresholdNewIncident = false,
+                guestThresholdStateJson = null,
             )
         }
 
@@ -860,13 +1108,51 @@ internal object BackgroundCheckCoordinator {
             )
         }
 
-        val complete = tasks.complete && thresholds.complete
+        val guestMonitoringActive =
+            policy.guestCpuThresholdChecksEnabled &&
+                secret.guestCpuThresholdRules.isNotEmpty()
+        val guestRead =
+            if (guestMonitoringActive) {
+                readGuestCpuState(secret)
+            } else {
+                GuestCpuReadResult(
+                    outcome = "healthy",
+                    complete = true,
+                )
+            }
+        val guestThresholds =
+            if (guestMonitoringActive) {
+                evaluateGuestCpuThresholds(
+                    rules = secret.guestCpuThresholdRules,
+                    cpuByGuest = guestRead.cpuByGuest,
+                    rawState = previousGuestThresholdState,
+                )
+            } else {
+                ThresholdEvaluationResult(
+                    complete = true,
+                    incident = false,
+                    newIncident = false,
+                    stateJson = null,
+                )
+            }
+        val guestThresholdComplete =
+            guestRead.complete && guestThresholds.complete
+
+        val complete =
+            tasks.complete && thresholds.complete && guestThresholdComplete
         val outcome = when {
             !tasks.complete -> tasks.outcome
             !thresholds.complete -> "threshold_incomplete"
+            !guestRead.complete -> guestRead.outcome
+            !guestThresholds.complete -> "guest_threshold_incomplete"
             !policy.failedTaskChecksEnabled &&
-                !policy.nodeCpuThresholdChecksEnabled ->
+                !policy.nodeCpuThresholdChecksEnabled &&
+                !guestMonitoringActive ->
                 if (node.incident) "incident" else "healthy"
+            guestThresholds.incident &&
+                (node.incident || tasks.incident || thresholds.incident) ->
+                "combined_incident"
+            guestThresholds.incident -> "guest_threshold_incident"
             node.incident && tasks.incident && thresholds.incident ->
                 "node_task_threshold_incident"
             node.incident && tasks.incident -> "node_and_task_incident"
@@ -897,7 +1183,104 @@ internal object BackgroundCheckCoordinator {
             thresholdIncident = thresholds.incident,
             thresholdNewIncident = thresholds.newIncident,
             thresholdStateJson = thresholds.stateJson,
+            guestThresholdNewIncident = guestThresholds.newIncident,
+            guestThresholdStateJson = guestThresholds.stateJson,
         )
+    }
+
+    private fun readGuestCpuState(secret: ScheduledSecret): GuestCpuReadResult {
+        val url = URL(
+            secret.endpoint.trimEnd('/') +
+                "/api2/json/cluster/resources?type=vm",
+        )
+        val connection = url.openConnection() as HttpsURLConnection
+        connection.requestMethod = "GET"
+        connection.instanceFollowRedirects = false
+        connection.connectTimeout = 10_000
+        connection.readTimeout = 10_000
+        connection.useCaches = false
+        connection.setRequestProperty("Accept", "application/json")
+        connection.setRequestProperty("Authorization", secret.authorization)
+        try {
+            val code = connection.responseCode
+            if (code in 300..399) {
+                return GuestCpuReadResult(
+                    outcome = "guest_cpu_redirect_blocked",
+                    complete = false,
+                )
+            }
+            if (code == HttpURLConnection.HTTP_UNAUTHORIZED ||
+                code == HttpURLConnection.HTTP_FORBIDDEN
+            ) {
+                return GuestCpuReadResult(
+                    outcome = "guest_cpu_authorization_denied",
+                    complete = false,
+                )
+            }
+            if (code !in 200..299) {
+                return GuestCpuReadResult(
+                    outcome = "guest_cpu_read_failed",
+                    complete = false,
+                )
+            }
+            val body = connection.inputStream.use { readLimited(it) }
+            val root = JSONObject(body)
+            val data = root.opt("data")
+            if (data !is JSONArray) {
+                return GuestCpuReadResult(
+                    outcome = "guest_cpu_incomplete",
+                    complete = false,
+                )
+            }
+            val cpuByGuest = mutableMapOf<String, Double>()
+            val seenGuestIds = mutableSetOf<String>()
+            for (index in 0 until data.length()) {
+                val item = data.optJSONObject(index) ?: continue
+                val kind = item.optString("type").trim().lowercase()
+                if (kind != "qemu" && kind != "lxc") continue
+                val nodeName = item.optString("node").trim()
+                val vmid = positiveInt(item.opt("vmid")) ?: continue
+                val identityUsable =
+                    nodeName.isNotEmpty() &&
+                        nodeName.length <= 120 &&
+                        !nodeName.any { it.code < 0x20 || it.code == 0x7f }
+                if (!identityUsable) continue
+                val identity = "${kind}:${nodeName}:${vmid}"
+                if (!seenGuestIds.add(identity)) {
+                    cpuByGuest.remove(identity)
+                    continue
+                }
+                val cpu = (item.opt("cpu") as? Number)?.toDouble()
+                if (
+                    cpu != null &&
+                    cpu.isFinite() &&
+                    cpu in 0.0..1.0
+                ) {
+                    cpuByGuest[identity] = cpu
+                }
+            }
+            return GuestCpuReadResult(
+                outcome = "healthy",
+                complete = true,
+                cpuByGuest = cpuByGuest.toMap(),
+            )
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun positiveInt(value: Any?): Int? {
+        val number = value as? Number ?: return null
+        val numeric = number.toDouble()
+        if (
+            !numeric.isFinite() ||
+            numeric <= 0.0 ||
+            numeric > Int.MAX_VALUE.toDouble() ||
+            numeric % 1.0 != 0.0
+        ) {
+            return null
+        }
+        return numeric.toInt()
     }
 
     private fun readNodeState(secret: ScheduledSecret): NodeStateReadResult {
@@ -1233,15 +1616,42 @@ internal object BackgroundCheckCoordinator {
         return rules.toList()
     }
 
+    private fun validateGuestCpuRules(
+        rules: List<ScheduledGuestCpuRule>,
+    ): List<ScheduledGuestCpuRule> {
+        require(rules.size <= MAX_BACKGROUND_GUEST_CPU_RULES)
+        val ids = mutableSetOf<String>()
+        for (rule in rules) {
+            rule.validate()
+            require(ids.add(rule.id))
+        }
+        return rules.toList()
+    }
+
+    private fun validateCombinedThresholdRuleIds(
+        nodeRules: List<ScheduledNodeCpuRule>,
+        guestRules: List<ScheduledGuestCpuRule>,
+    ) {
+        require(nodeRules.size + guestRules.size <= MAX_BACKGROUND_NODE_CPU_RULES)
+        val ids = mutableSetOf<String>()
+        nodeRules.forEach { require(ids.add(it.id)) }
+        guestRules.forEach { require(ids.add(it.id)) }
+    }
+
     private fun encodeSecret(secret: ScheduledSecret): String {
-        val rules = JSONArray()
+        val nodeRules = JSONArray()
         for (rule in secret.nodeCpuThresholdRules) {
-            rules.put(rule.toJson())
+            nodeRules.put(rule.toJson())
+        }
+        val guestRules = JSONArray()
+        for (rule in secret.guestCpuThresholdRules) {
+            guestRules.put(rule.toJson())
         }
         return JSONObject()
             .put("endpoint", secret.endpoint)
             .put("authorization", secret.authorization)
-            .put("nodeCpuThresholdRules", rules)
+            .put("nodeCpuThresholdRules", nodeRules)
+            .put("guestCpuThresholdRules", guestRules)
             .toString()
     }
 
@@ -1284,10 +1694,29 @@ internal object BackgroundCheckCoordinator {
                     )
                 }
             }
+            val guestRulesJson = decoded.optJSONArray("guestCpuThresholdRules")
+            val guestRules = mutableListOf<ScheduledGuestCpuRule>()
+            if (guestRulesJson != null) {
+                require(guestRulesJson.length() <= MAX_BACKGROUND_GUEST_CPU_RULES)
+                for (index in 0 until guestRulesJson.length()) {
+                    guestRules.add(
+                        ScheduledGuestCpuRule.fromJson(
+                            guestRulesJson.getJSONObject(index),
+                        ),
+                    )
+                }
+            }
+            val validatedNodeRules = validateNodeCpuRules(rules)
+            val validatedGuestRules = validateGuestCpuRules(guestRules)
+            validateCombinedThresholdRuleIds(
+                validatedNodeRules,
+                validatedGuestRules,
+            )
             ScheduledSecret(
                 endpoint = decoded.getString("endpoint"),
                 authorization = decoded.getString("authorization"),
-                nodeCpuThresholdRules = validateNodeCpuRules(rules),
+                nodeCpuThresholdRules = validatedNodeRules,
+                guestCpuThresholdRules = validatedGuestRules,
             ).also {
                 validateEndpoint(it.endpoint)
                 require(it.authorization.startsWith("PVEAPIToken="))
@@ -1355,6 +1784,10 @@ internal object BackgroundCheckBridge {
                                 call.argument<Boolean>(
                                     "nodeCpuThresholdChecksEnabled",
                                 ) == true,
+                            guestCpuThresholdChecksEnabled =
+                                call.argument<Boolean>(
+                                    "guestCpuThresholdChecksEnabled",
+                                ) == true,
                         )
                         result.success(
                             BackgroundCheckCoordinator.configure(
@@ -1365,16 +1798,20 @@ internal object BackgroundCheckBridge {
                                 policy = policy,
                                 nodeCpuThresholdRules =
                                     call.nodeCpuThresholdRules(),
+                                guestCpuThresholdRules =
+                                    call.guestCpuThresholdRules(),
                             ),
                         )
                     }
-                    "syncNodeCpuThresholdRules" -> {
+                    "syncThresholdRules" -> {
                         result.success(
-                            BackgroundCheckCoordinator.syncNodeCpuThresholdRules(
+                            BackgroundCheckCoordinator.syncThresholdRules(
                                 context = context,
                                 profileId = call.requireString("profileId"),
                                 nodeCpuThresholdRules =
                                     call.nodeCpuThresholdRules(),
+                                guestCpuThresholdRules =
+                                    call.guestCpuThresholdRules(),
                             ),
                         )
                     }
@@ -1422,5 +1859,12 @@ internal object BackgroundCheckBridge {
         val raw = argument<List<*>>("nodeCpuThresholdRules") ?: emptyList<Any?>()
         require(raw.size <= MAX_BACKGROUND_NODE_CPU_RULES)
         return raw.map { ScheduledNodeCpuRule.fromChannel(it) }
+    }
+
+    private fun io.flutter.plugin.common.MethodCall.guestCpuThresholdRules():
+        List<ScheduledGuestCpuRule> {
+        val raw = argument<List<*>>("guestCpuThresholdRules") ?: emptyList<Any?>()
+        require(raw.size <= MAX_BACKGROUND_GUEST_CPU_RULES)
+        return raw.map { ScheduledGuestCpuRule.fromChannel(it) }
     }
 }

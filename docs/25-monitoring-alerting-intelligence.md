@@ -101,9 +101,18 @@ hysteresis controls. Rule selectors and thresholds are kept inside the existing
 Android-Keystore-encrypted worker payload; runtime rule state uses hashed rule
 IDs plus bounded counters/booleans only.
 
-This still does not implement full Mode B threshold parity: scheduled guest-CPU
-and storage-usage rules, authoritative correlation and relay delivery remain
-gated. Cross-mode notification delivery deduplication is implemented in 0.1.57.
+VirtHelm 0.1.61 adds separately opted-in scheduled guest-CPU parity. If at least
+one enabled guest-CPU rule is present, the worker performs one additional
+bounded authenticated `GET /api2/json/cluster/resources?type=vm`, accepts only
+exact QEMU/LXC node+VMID identities with finite CPU ratios, and treats
+missing/ambiguous samples as incomplete rather than healthy. Consecutive-sample
+confirmation and hysteresis use the same saved rule values. Guest selectors and
+thresholds stay inside the Android-Keystore-encrypted payload; runtime state
+contains only hashed rule IDs plus bounded counters/booleans.
+
+This still does not implement full Mode B threshold parity: scheduled
+storage-usage rules, authoritative correlation and relay delivery remain gated.
+Cross-mode notification delivery deduplication is implemented in 0.1.57.
 The feature remains best-effort Android scheduling, never critical paging or
 24/7 monitoring.
 
@@ -142,5 +151,5 @@ write authorization.
 The check-and-post boundary is serialized inside the app process so an
 activity delivery and a WorkManager Worker cannot race through separate
 cooldown stores. Full profile/scheduled-state lifecycle cleanup clears the
-shared ledger. Background failed-task/threshold parity, authoritative
+shared ledger. Background storage-threshold parity, authoritative
 cross-resource correlation and relay delivery remain gated.
