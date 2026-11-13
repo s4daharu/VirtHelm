@@ -159,7 +159,7 @@ assert 'setForegroundNotificationPolicy' in files['app/lib/core/app_controller.d
 assert 'cross-mode notification delivery deduplication' in files['docs/103-implementation-cross-mode-notification-deduplication.md'].lower()
 assert "'profileId': profileId" in files['app/lib/core/foreground_notifications.dart']
 assert "'cooldownMinutes': cooldownMinutes" in files['app/lib/core/foreground_notifications.dart']
-assert "if (target != null) 'incidentKey': target" in files['app/lib/core/foreground_notifications.dart']
+assert "'incidentKey': ?target" in files['app/lib/core/foreground_notifications.dart']
 assert 'profileId: profileId' in files['app/lib/core/app_controller.dart']
 assert 'cooldownMinutes: policy.cooldownMinutes' in files['app/lib/core/app_controller.dart']
 assert 'incidentKey: targetIncidentKey' in files['app/lib/core/app_controller.dart']
