@@ -80,6 +80,14 @@ was also observed by scheduled Android monitoring.
 
 ## Validation added
 
+Exact-head pull-request validation passed in **Docs and Android checks #713**
+(run `43498204295`, commit
+`b65968b4d7b53ff2eac4a3d6bb34ed5372c57df5`). The gate passed documentation,
+premium-catalog and source/privacy checks, the Python delivery regression suite,
+generated-Android hardening and lockfile checks, pinned Dart formatting,
+`flutter analyze --fatal-infos`, **426 Flutter tests**, and debug APK
+compilation.
+
 - Flutter bridge regressions cover exact node/task/rule candidate handoff,
   omission of incidents without an exact identity, response allowlisting and
   the 128-candidate bound.
@@ -90,9 +98,8 @@ was also observed by scheduled Android monitoring.
 - Repository source checks assert the native correlation preference is
   hash/timestamp-only, the bridge exists, and the controller consumes correlation
   without changing the foreground health contract.
-- The normal PR gate remains authoritative for pinned Dart formatting,
-  `flutter analyze --fatal-infos`, the full Flutter test suite, generated
-  Android hardening checks and debug APK compilation.
+- The normal PR gate remains authoritative for future changes; the exact-head
+  evidence above is the validation record for this implementation milestone.
 
 ## Still gated
 

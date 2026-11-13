@@ -156,7 +156,7 @@
     ],
     "full_premium_scope_complete": false,
     "current_flutter_tests_defined": 369,
-    "current_flutter_runtime_tests_passed": 413,
+    "current_flutter_runtime_tests_passed": 426,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
     "p0_scope_complete": false,
@@ -781,14 +781,14 @@
     "deferred": "richer causal/cross-resource incident correlation beyond the bounded exact 0.1.63 match, richer time windows, resource-specific deep links, relay/webhooks, critical paging guarantees and release certification"
   },
   "alert_cross_mode_incident_correlation": {
-    "status": "implemented_validation_pending",
+    "status": "implemented_ci_verified_device_validation_pending",
     "milestone": "EP-ALERT bounded exact foreground/scheduled incident correlation",
     "version": "0.1.63",
     "behavior": "When a current unlocked foreground node, definite failed-task or saved threshold-rule incident has the same exact identity as Android scheduled evidence, durable History records the matching scheduled observation timestamp. Opaque scheduled evidence never creates a live incident or reverse-maps a vanished resource.",
     "authority": "Foreground authenticated incident identity and complete-refresh closure remain authoritative. Correlation cannot change severity, acknowledgement, health, drill-down, notification occurrence creation or mutation authorization.",
     "privacy": "Native scheduled correlation state stores component observation timestamps and profile-scoped SHA-256 identity values only. Raw node names, VMIDs, storage IDs, task UPIDs, rule IDs, endpoints, credentials, thresholds, samples, logs and PVE responses are not written to the correlation preference. Durable Flutter history adds only the matched scheduled timestamp.",
     "bounds": "At most 128 current foreground candidates are handed to native correlation and at most 128 hashes are retained per component. Complete component reads replace or clear prior evidence; incomplete reads preserve it as stale context.",
-    "verification": "Implementation and regressions are on the feature branch; exact-head repository, Flutter, generated-Android and debug APK CI is required before promotion to CI verified.",
+    "verification": "Exact-head PR validation passed in Docs and Android checks run #713 (43498204295) for b65968b4d7b53ff2eac4a3d6bb34ed5372c57df5: documentation/premium/source checks, Python delivery regressions, generated Android hardening, lockfile integrity, pinned Dart formatting, flutter analyze --fatal-infos, 426 Flutter tests and debug APK compilation all succeeded.",
     "report": "docs/108-implementation-cross-mode-incident-correlation.md",
     "deferred": "materializing incidents that disappear before foreground observation, richer causal/cross-resource timelines, richer time-window rules, resource-specific notification links, relay/webhooks, physical Android/PVE 8.4/9.2 validation, critical paging guarantees and release certification"
   }
