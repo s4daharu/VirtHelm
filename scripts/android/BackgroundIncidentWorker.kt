@@ -571,7 +571,6 @@ internal object BackgroundCheckCoordinator {
                     nodeCpuThresholdRules = effectiveRules,
                     guestCpuThresholdRules = effectiveGuestRules,
                     storageUsageThresholdRules = effectiveStorageRules,
-                    storageUsageThresholdRules = effectiveStorageRules,
                 ),
             ),
         )
@@ -625,7 +624,6 @@ internal object BackgroundCheckCoordinator {
                 .remove(secretKey(key))
                 .remove(thresholdStateKey(key))
                 .remove(guestThresholdStateKey(key))
-            .remove(storageThresholdStateKey(key))
                 .remove(storageThresholdStateKey(key))
                 .putString(policyKey(key), policy.copy(enabled = false).toJson())
                 .apply()
@@ -683,6 +681,7 @@ internal object BackgroundCheckCoordinator {
                 existing.copy(
                     nodeCpuThresholdRules = effectiveNodeRules,
                     guestCpuThresholdRules = effectiveGuestRules,
+                    storageUsageThresholdRules = effectiveStorageRules,
                 ),
             ),
         )
@@ -719,6 +718,7 @@ internal object BackgroundCheckCoordinator {
             .remove(taskWatermarkKey(key))
             .remove(thresholdStateKey(key))
             .remove(guestThresholdStateKey(key))
+            .remove(storageThresholdStateKey(key))
         if (clearPolicy) {
             editor
                 .remove(policyKey(key))
@@ -1362,8 +1362,10 @@ internal object BackgroundCheckCoordinator {
             policy.storageUsageThresholdChecksEnabled &&
                 secret.storageUsageThresholdRules.isNotEmpty()
         val storageRead =
-            if (storageMonitoringActive) {
+            if (storageMonitoringActive && node.taskNodesComplete) {
                 readStorageUsageState(secret, node.nodes)
+            } else if (storageMonitoringActive) {
+                StorageUsageReadResult(outcome = "storage_usage_incomplete", complete = false)
             } else {
                 StorageUsageReadResult(outcome = "healthy", complete = true)
             }
