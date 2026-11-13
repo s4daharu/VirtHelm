@@ -132,7 +132,11 @@ credentials and raw responses.
 The preference is synchronized into native Android storage for WorkManager.
 Unknown or missing values fail closed to hidden. Android and operator channel
 settings remain authoritative and may further restrict lock-screen display.
-AND-010 adds a generic notification deep link to the unlocked Incidents destination without carrying any resource selector. Resource-specific notification links and any unlock bypass remain gated.
+AND-010 adds notification navigation to the unlocked Incidents destination.
+VirtHelm 0.1.64 may focus one uniquely identifiable current foreground incident
+using only an opaque profile-scoped digest; scheduled notifications remain
+generic and no raw resource selector is carried. Direct automatic resource-page
+navigation and any unlock bypass remain gated.
 
 
 ## Cross-mode notification deduplication follow-up (0.1.57)
@@ -175,3 +179,22 @@ the only event that can close a missing durable occurrence. The correlation
 timestamp is historical context only and never authorizes resource access,
 changes acknowledgement/severity, or claims continuous coverage. See
 [the implementation milestone](108-implementation-cross-mode-incident-correlation.md).
+
+
+## Bounded opaque notification target follow-up (0.1.64)
+
+When exactly one new foreground durable occurrence maps uniquely to one current
+live incident, the generic Android notification may carry a lowercase 64-hex
+opaque digest derived from the profile hash, a fixed notification category and
+the incident key. Raw infrastructure identities are not inserted into the
+PendingIntent.
+
+After unlock, the app opens Incidents first, offers at most 128 current incident
+keys to native code in memory for digest matching, and revalidates the active
+profile, connection generation and current incident membership before focusing
+one card. Failed, stale, malformed or ambiguous resolution falls back to the
+generic Incidents view. The target never performs PVE I/O, changes health or
+acknowledgement, or authorizes drill-down.
+
+Scheduled notifications remain generic and explicitly clear any prior target
+extra. See [the implementation milestone](109-implementation-notification-incident-targets.md).
