@@ -68,6 +68,7 @@ class _Notifier implements ForegroundIncidentNotifier {
     required bool critical,
     required String profileId,
     required int cooldownMinutes,
+    String? incidentKey,
   }) async => true;
 }
 
