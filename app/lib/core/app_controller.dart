@@ -95,18 +95,21 @@ class AppController extends ChangeNotifier {
         .take(maxIncidentNavigationCandidates)
         .toList(growable: false);
     if (observed.isEmpty) return null;
-    final matched = await _incidentNavigationTargetResolver.resolveIncidentTarget(
-      profileId: profileId,
-      targetHash: targetHash,
-      incidentKeys: observed.map((incident) => incident.key),
-    );
+    final matched = await _incidentNavigationTargetResolver
+        .resolveIncidentTarget(
+          profileId: profileId,
+          targetHash: targetHash,
+          incidentKeys: observed.map((incident) => incident.key),
+        );
     if (_disposed ||
         active?.id != profileId ||
         generation != _generation ||
         matched == null) {
       return null;
     }
-    return incidents.any((incident) => incident.key == matched) ? matched : null;
+    return incidents.any((incident) => incident.key == matched)
+        ? matched
+        : null;
   }
 
   List<CockpitIncident> get incidents => buildCockpitIncidents(
