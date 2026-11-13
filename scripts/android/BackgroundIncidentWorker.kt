@@ -47,6 +47,7 @@ private const val MAX_RESPONSE_BYTES = 512 * 1024
 private const val MAX_BACKGROUND_TASK_NODES = 16
 private const val MAX_BACKGROUND_NODE_CPU_RULES = 32
 private const val MAX_BACKGROUND_GUEST_CPU_RULES = 32
+private const val MAX_BACKGROUND_STORAGE_RULE_NODES = 16
 
 internal object IncidentNotificationPrivacy {
     private const val PREFS_NAME = "virthelm_notification_privacy_v1"
@@ -160,6 +161,7 @@ internal data class ScheduledPolicy(
     val failedTaskChecksEnabled: Boolean,
     val nodeCpuThresholdChecksEnabled: Boolean,
     val guestCpuThresholdChecksEnabled: Boolean,
+    val storageUsageThresholdChecksEnabled: Boolean,
 ) {
     fun validate() {
         require(intervalMinutes in MIN_BACKGROUND_INTERVAL_MINUTES..MAX_BACKGROUND_INTERVAL_MINUTES)
@@ -190,6 +192,7 @@ internal data class ScheduledPolicy(
         .put("failedTaskChecksEnabled", failedTaskChecksEnabled)
         .put("nodeCpuThresholdChecksEnabled", nodeCpuThresholdChecksEnabled)
         .put("guestCpuThresholdChecksEnabled", guestCpuThresholdChecksEnabled)
+        .put("storageUsageThresholdChecksEnabled", storageUsageThresholdChecksEnabled)
         .toString()
 
     companion object {
@@ -205,6 +208,7 @@ internal data class ScheduledPolicy(
                     failedTaskChecksEnabled = false,
                     nodeCpuThresholdChecksEnabled = false,
                     guestCpuThresholdChecksEnabled = false,
+                    storageUsageThresholdChecksEnabled = false,
                 )
             }
             val json = JSONObject(raw)
@@ -221,6 +225,8 @@ internal data class ScheduledPolicy(
                     json.optBoolean("nodeCpuThresholdChecksEnabled", false),
                 guestCpuThresholdChecksEnabled =
                     json.optBoolean("guestCpuThresholdChecksEnabled", false),
+                storageUsageThresholdChecksEnabled =
+                    json.optBoolean("storageUsageThresholdChecksEnabled", false),
             ).also { it.validate() }
         }
     }
@@ -358,11 +364,74 @@ internal data class ScheduledGuestCpuRule(
     }
 }
 
+
+internal data class ScheduledStorageUsageRule(
+    val id: String,
+    val node: String,
+    val storageId: String,
+    val thresholdPercent: Int,
+    val consecutiveSamples: Int,
+    val hysteresisPercent: Int,
+) {
+    fun validate() {
+        require(id.isNotBlank() && id.length <= 80)
+        require(node.isNotBlank() && node.length <= 120)
+        require(node != "." && node != "..")
+        require(node.matches(Regex("^[A-Za-z0-9._-]{1,120}$")))
+        require(storageId.isNotBlank() && storageId.length <= 120)
+        require(!storageId.any { it.code < 0x20 || it.code == 0x7f })
+        require(thresholdPercent in 1..100)
+        require(consecutiveSamples in 1..10)
+        require(hysteresisPercent in 0..20)
+        require(hysteresisPercent < thresholdPercent)
+    }
+
+    fun toJson(): JSONObject = JSONObject()
+        .put("id", id)
+        .put("node", node)
+        .put("storageId", storageId)
+        .put("thresholdPercent", thresholdPercent)
+        .put("consecutiveSamples", consecutiveSamples)
+        .put("hysteresisPercent", hysteresisPercent)
+
+    companion object {
+        fun fromJson(json: JSONObject): ScheduledStorageUsageRule =
+            ScheduledStorageUsageRule(
+                id = json.getString("id"),
+                node = json.getString("node").trim(),
+                storageId = json.getString("storageId").trim(),
+                thresholdPercent = json.getInt("thresholdPercent"),
+                consecutiveSamples = json.getInt("consecutiveSamples"),
+                hysteresisPercent = json.getInt("hysteresisPercent"),
+            ).also { it.validate() }
+
+        fun fromChannel(raw: Any?): ScheduledStorageUsageRule {
+            val map = raw as? Map<*, *>
+                ?: throw IllegalArgumentException("Invalid storage threshold rule")
+            return ScheduledStorageUsageRule(
+                id = map["id"] as? String
+                    ?: throw IllegalArgumentException("Missing rule id"),
+                node = (map["node"] as? String)?.trim()
+                    ?: throw IllegalArgumentException("Missing rule node"),
+                storageId = (map["storageId"] as? String)?.trim()
+                    ?: throw IllegalArgumentException("Missing storage id"),
+                thresholdPercent = map["thresholdPercent"] as? Int
+                    ?: throw IllegalArgumentException("Missing rule threshold"),
+                consecutiveSamples = map["consecutiveSamples"] as? Int
+                    ?: throw IllegalArgumentException("Missing rule samples"),
+                hysteresisPercent = map["hysteresisPercent"] as? Int
+                    ?: throw IllegalArgumentException("Missing rule hysteresis"),
+            ).also { it.validate() }
+        }
+    }
+}
+
 private data class ScheduledSecret(
     val endpoint: String,
     val authorization: String,
     val nodeCpuThresholdRules: List<ScheduledNodeCpuRule> = emptyList(),
     val guestCpuThresholdRules: List<ScheduledGuestCpuRule> = emptyList(),
+    val storageUsageThresholdRules: List<ScheduledStorageUsageRule> = emptyList(),
 )
 
 private data class NodeStateReadResult(
@@ -378,6 +447,12 @@ private data class GuestCpuReadResult(
     val outcome: String,
     val complete: Boolean,
     val cpuByGuest: Map<String, Double> = emptyMap(),
+)
+
+private data class StorageUsageReadResult(
+    val outcome: String,
+    val complete: Boolean,
+    val usageByStorage: Map<String, Double> = emptyMap(),
 )
 
 private data class FailedTaskReadResult(
@@ -415,6 +490,8 @@ private data class ScheduledCheckResult(
     val thresholdStateJson: String?,
     val guestThresholdNewIncident: Boolean,
     val guestThresholdStateJson: String?,
+    val storageThresholdNewIncident: Boolean,
+    val storageThresholdStateJson: String?,
 )
 
 internal object BackgroundCheckCoordinator {
@@ -439,6 +516,7 @@ internal object BackgroundCheckCoordinator {
     private fun taskWatermarkKey(key: String) = "task-watermark:$key"
     private fun thresholdStateKey(key: String) = "node-cpu-threshold-state:$key"
     private fun guestThresholdStateKey(key: String) = "guest-cpu-threshold-state:$key"
+    private fun storageThresholdStateKey(key: String) = "storage-usage-threshold-state:$key"
     private fun lastAttemptKey(key: String) = "last-attempt:$key"
     private fun lastSuccessKey(key: String) = "last-success:$key"
     private fun lastOutcomeKey(key: String) = "last-outcome:$key"
@@ -452,6 +530,7 @@ internal object BackgroundCheckCoordinator {
         policy: ScheduledPolicy,
         nodeCpuThresholdRules: List<ScheduledNodeCpuRule>,
         guestCpuThresholdRules: List<ScheduledGuestCpuRule>,
+        storageUsageThresholdRules: List<ScheduledStorageUsageRule>,
     ): Boolean {
         policy.validate()
         require(policy.enabled)
@@ -472,7 +551,15 @@ internal object BackgroundCheckCoordinator {
             } else {
                 emptyList()
             }
-        validateCombinedThresholdRuleIds(effectiveRules, effectiveGuestRules)
+        val effectiveStorageRules =
+            if (policy.storageUsageThresholdChecksEnabled) {
+                validateStorageUsageRules(storageUsageThresholdRules)
+            } else {
+                emptyList()
+            }
+        validateCombinedThresholdRuleIds(
+            effectiveRules, effectiveGuestRules, effectiveStorageRules,
+        )
 
         val key = profileKey(profileId)
         val encrypted = encryptSecret(
@@ -483,6 +570,8 @@ internal object BackgroundCheckCoordinator {
                     authorization = authorization,
                     nodeCpuThresholdRules = effectiveRules,
                     guestCpuThresholdRules = effectiveGuestRules,
+                    storageUsageThresholdRules = effectiveStorageRules,
+                    storageUsageThresholdRules = effectiveStorageRules,
                 ),
             ),
         )
@@ -501,6 +590,11 @@ internal object BackgroundCheckCoordinator {
             storage,
             guestThresholdStateKey(key),
             effectiveGuestRules.map { it.id },
+        )
+        reconcileThresholdState(
+            storage,
+            storageThresholdStateKey(key),
+            effectiveStorageRules.map { it.id },
         )
 
         return try {
@@ -531,6 +625,8 @@ internal object BackgroundCheckCoordinator {
                 .remove(secretKey(key))
                 .remove(thresholdStateKey(key))
                 .remove(guestThresholdStateKey(key))
+            .remove(storageThresholdStateKey(key))
+                .remove(storageThresholdStateKey(key))
                 .putString(policyKey(key), policy.copy(enabled = false).toJson())
                 .apply()
             false
@@ -542,6 +638,7 @@ internal object BackgroundCheckCoordinator {
         profileId: String,
         nodeCpuThresholdRules: List<ScheduledNodeCpuRule>,
         guestCpuThresholdRules: List<ScheduledGuestCpuRule>,
+        storageUsageThresholdRules: List<ScheduledStorageUsageRule>,
     ): Boolean {
         val key = profileKey(profileId)
         val storage = prefs(context)
@@ -552,6 +649,7 @@ internal object BackgroundCheckCoordinator {
             storage.edit()
                 .remove(thresholdStateKey(key))
                 .remove(guestThresholdStateKey(key))
+                .remove(storageThresholdStateKey(key))
                 .apply()
             return true
         }
@@ -570,7 +668,15 @@ internal object BackgroundCheckCoordinator {
             } else {
                 emptyList()
             }
-        validateCombinedThresholdRuleIds(effectiveNodeRules, effectiveGuestRules)
+        val effectiveStorageRules =
+            if (policy.storageUsageThresholdChecksEnabled) {
+                validateStorageUsageRules(storageUsageThresholdRules)
+            } else {
+                emptyList()
+            }
+        validateCombinedThresholdRuleIds(
+            effectiveNodeRules, effectiveGuestRules, effectiveStorageRules,
+        )
         val encrypted = encryptSecret(
             key,
             encodeSecret(
@@ -592,6 +698,11 @@ internal object BackgroundCheckCoordinator {
             storage,
             guestThresholdStateKey(key),
             effectiveGuestRules.map { it.id },
+        )
+        reconcileThresholdState(
+            storage,
+            storageThresholdStateKey(key),
+            effectiveStorageRules.map { it.id },
         )
         return true
     }
@@ -629,6 +740,7 @@ internal object BackgroundCheckCoordinator {
                     failedTaskChecksEnabled = false,
                     nodeCpuThresholdChecksEnabled = false,
                     guestCpuThresholdChecksEnabled = false,
+                    storageUsageThresholdChecksEnabled = false,
                 ),
             )
             editor.putString(policyKey(key), policy.copy(enabled = false).toJson())
@@ -657,6 +769,7 @@ internal object BackgroundCheckCoordinator {
                 failedTaskChecksEnabled = false,
                 nodeCpuThresholdChecksEnabled = false,
                 guestCpuThresholdChecksEnabled = false,
+                    storageUsageThresholdChecksEnabled = false,
             ),
         )
         val secretAvailable =
@@ -674,6 +787,8 @@ internal object BackgroundCheckCoordinator {
                 policy.nodeCpuThresholdChecksEnabled,
             "guestCpuThresholdChecksEnabled" to
                 policy.guestCpuThresholdChecksEnabled,
+            "storageUsageThresholdChecksEnabled" to
+                policy.storageUsageThresholdChecksEnabled,
             "lastAttemptMs" to storage.getLong(lastAttemptKey(key), 0L),
             "lastSuccessMs" to storage.getLong(lastSuccessKey(key), 0L),
             "lastNotificationMs" to storage.getLong(lastNotificationKey(key), 0L),
@@ -711,6 +826,8 @@ internal object BackgroundCheckCoordinator {
                     storage.getString(thresholdStateKey(key), null),
                 previousGuestThresholdState =
                     storage.getString(guestThresholdStateKey(key), null),
+                previousStorageThresholdState =
+                    storage.getString(storageThresholdStateKey(key), null),
             )
         } catch (_: Exception) {
             ScheduledCheckResult(
@@ -728,6 +845,8 @@ internal object BackgroundCheckCoordinator {
                 thresholdStateJson = null,
                 guestThresholdNewIncident = false,
                 guestThresholdStateJson = null,
+                storageThresholdNewIncident = false,
+                storageThresholdStateJson = null,
             )
         }
 
@@ -755,8 +874,12 @@ internal object BackgroundCheckCoordinator {
         result.guestThresholdStateJson?.let {
             editor.putString(guestThresholdStateKey(key), it)
         }
+        result.storageThresholdStateJson?.let {
+            editor.putString(storageThresholdStateKey(key), it)
+        }
         if (result.thresholdNewIncident) newlyActive = true
         if (result.guestThresholdNewIncident) newlyActive = true
+        if (result.storageThresholdNewIncident) newlyActive = true
         editor.remove(legacyIncidentKey(key)).apply()
 
         if (!newlyActive) return
@@ -1043,12 +1166,106 @@ internal object BackgroundCheckCoordinator {
         )
     }
 
+    private fun storageUsageKey(rule: ScheduledStorageUsageRule): String =
+        "${rule.node}:${rule.storageId}"
+
+    private fun evaluateStorageUsageThresholds(
+        rules: List<ScheduledStorageUsageRule>,
+        usageByStorage: Map<String, Double>,
+        rawState: String?,
+    ): ThresholdEvaluationResult {
+        if (rules.isEmpty()) {
+            return ThresholdEvaluationResult(
+                complete = true,
+                incident = false,
+                newIncident = false,
+                stateJson = null,
+            )
+        }
+        val states = readThresholdState(rawState, rules.map { it.id })
+            ?: return ThresholdEvaluationResult(
+                complete = false,
+                incident = false,
+                newIncident = false,
+                stateJson = null,
+            )
+        var complete = true
+        var newIncident = false
+
+        for (rule in rules) {
+            val stateId = thresholdRuleStateId(rule.id)
+            val previous = states[stateId] ?: ThresholdRuleRuntimeState(
+                pendingSamples = 0,
+                active = false,
+            )
+            val sample = usageByStorage[storageUsageKey(rule)]
+            if (sample == null) {
+                complete = false
+                states[stateId] = previous.copy(pendingSamples = 0)
+                continue
+            }
+
+            if (previous.active) {
+                val clearPercent =
+                    rule.thresholdPercent - rule.hysteresisPercent
+                val shouldResolve =
+                    if (rule.hysteresisPercent == 0) {
+                        sample < rule.thresholdPercent / 100.0
+                    } else {
+                        sample <= clearPercent / 100.0
+                    }
+                states[stateId] =
+                    if (shouldResolve) {
+                        ThresholdRuleRuntimeState(
+                            pendingSamples = 0,
+                            active = false,
+                        )
+                    } else {
+                        previous.copy(pendingSamples = 0)
+                    }
+                continue
+            }
+
+            if (sample < rule.thresholdPercent / 100.0) {
+                states[stateId] = ThresholdRuleRuntimeState(
+                    pendingSamples = 0,
+                    active = false,
+                )
+                continue
+            }
+            val pending = previous.pendingSamples + 1
+            if (pending >= rule.consecutiveSamples) {
+                states[stateId] = ThresholdRuleRuntimeState(
+                    pendingSamples = 0,
+                    active = true,
+                )
+                newIncident = true
+            } else {
+                states[stateId] = ThresholdRuleRuntimeState(
+                    pendingSamples = pending,
+                    active = false,
+                )
+            }
+        }
+
+        val incident = rules.any { rule ->
+            states[thresholdRuleStateId(rule.id)]?.active == true
+        }
+        return ThresholdEvaluationResult(
+            complete = complete,
+            incident = incident,
+            newIncident = newIncident,
+            stateJson = encodeThresholdState(rules.map { it.id }, states),
+        )
+    }
+
     private fun readScheduledState(
         secret: ScheduledSecret,
         policy: ScheduledPolicy,
         previousTaskWatermarkSeconds: Long,
         previousThresholdState: String?,
         previousGuestThresholdState: String?,
+        previousStorageThresholdState: String?,
     ): ScheduledCheckResult {
         val node = readNodeState(secret)
         if (!node.complete) {
@@ -1067,6 +1284,8 @@ internal object BackgroundCheckCoordinator {
                 thresholdStateJson = null,
                 guestThresholdNewIncident = false,
                 guestThresholdStateJson = null,
+                storageThresholdNewIncident = false,
+                storageThresholdStateJson = null,
             )
         }
 
@@ -1139,17 +1358,52 @@ internal object BackgroundCheckCoordinator {
         val guestThresholdComplete =
             guestRead.complete && guestThresholds.complete
 
+        val storageMonitoringActive =
+            policy.storageUsageThresholdChecksEnabled &&
+                secret.storageUsageThresholdRules.isNotEmpty()
+        val storageRead =
+            if (storageMonitoringActive) {
+                readStorageUsageState(secret, node.nodes)
+            } else {
+                StorageUsageReadResult(outcome = "healthy", complete = true)
+            }
+        val storageThresholds =
+            if (storageMonitoringActive) {
+                evaluateStorageUsageThresholds(
+                    rules = secret.storageUsageThresholdRules,
+                    usageByStorage = storageRead.usageByStorage,
+                    rawState = previousStorageThresholdState,
+                )
+            } else {
+                ThresholdEvaluationResult(
+                    complete = true,
+                    incident = false,
+                    newIncident = false,
+                    stateJson = null,
+                )
+            }
+        val storageThresholdComplete =
+            storageRead.complete && storageThresholds.complete
+
         val complete =
-            tasks.complete && thresholds.complete && guestThresholdComplete
+            tasks.complete && thresholds.complete &&
+                guestThresholdComplete && storageThresholdComplete
         val outcome = when {
             !tasks.complete -> tasks.outcome
             !thresholds.complete -> "threshold_incomplete"
             !guestRead.complete -> guestRead.outcome
             !guestThresholds.complete -> "guest_threshold_incomplete"
+            !storageRead.complete -> storageRead.outcome
+            !storageThresholds.complete -> "storage_threshold_incomplete"
             !policy.failedTaskChecksEnabled &&
                 !policy.nodeCpuThresholdChecksEnabled &&
-                !guestMonitoringActive ->
+                !guestMonitoringActive &&
+                !storageMonitoringActive ->
                 if (node.incident) "incident" else "healthy"
+            storageThresholds.incident &&
+                (node.incident || tasks.incident || thresholds.incident || guestThresholds.incident) ->
+                "combined_incident"
+            storageThresholds.incident -> "storage_threshold_incident"
             guestThresholds.incident &&
                 (node.incident || tasks.incident || thresholds.incident) ->
                 "combined_incident"
@@ -1186,6 +1440,8 @@ internal object BackgroundCheckCoordinator {
             thresholdStateJson = thresholds.stateJson,
             guestThresholdNewIncident = guestThresholds.newIncident,
             guestThresholdStateJson = guestThresholds.stateJson,
+            storageThresholdNewIncident = storageThresholds.newIncident,
+            storageThresholdStateJson = storageThresholds.stateJson,
         )
     }
 
@@ -1268,6 +1524,88 @@ internal object BackgroundCheckCoordinator {
         } finally {
             connection.disconnect()
         }
+    }
+
+
+    private fun readStorageUsageState(
+        secret: ScheduledSecret,
+        visibleNodes: List<String>,
+    ): StorageUsageReadResult {
+        val ruleNodes = secret.storageUsageThresholdRules
+            .map { it.node }
+            .distinct()
+        if (
+            ruleNodes.size > MAX_BACKGROUND_STORAGE_RULE_NODES ||
+            ruleNodes.any { !isSafeNodePathSegment(it) || it !in visibleNodes }
+        ) {
+            return StorageUsageReadResult("storage_usage_incomplete", false)
+        }
+
+        val usageByStorage = mutableMapOf<String, Double>()
+        for (node in ruleNodes) {
+            val url = URL(
+                secret.endpoint.trimEnd('/') +
+                    "/api2/json/nodes/$node/storage",
+            )
+            val connection = url.openConnection() as HttpsURLConnection
+            connection.requestMethod = "GET"
+            connection.instanceFollowRedirects = false
+            connection.connectTimeout = 10_000
+            connection.readTimeout = 10_000
+            connection.useCaches = false
+            connection.setRequestProperty("Accept", "application/json")
+            connection.setRequestProperty("Authorization", secret.authorization)
+            try {
+                val code = connection.responseCode
+                if (code in 300..399) {
+                    return StorageUsageReadResult("storage_usage_redirect_blocked", false)
+                }
+                if (
+                    code == HttpURLConnection.HTTP_UNAUTHORIZED ||
+                    code == HttpURLConnection.HTTP_FORBIDDEN
+                ) {
+                    return StorageUsageReadResult("storage_usage_authorization_denied", false)
+                }
+                if (code !in 200..299) {
+                    return StorageUsageReadResult("storage_usage_read_failed", false)
+                }
+                val root = JSONObject(connection.inputStream.use { readLimited(it) })
+                val data = root.opt("data")
+                if (data !is JSONArray) {
+                    return StorageUsageReadResult("storage_usage_incomplete", false)
+                }
+                val seen = mutableSetOf<String>()
+                for (index in 0 until data.length()) {
+                    val item = data.optJSONObject(index)
+                        ?: return StorageUsageReadResult("storage_usage_incomplete", false)
+                    val id = item.optString("storage").trim()
+                    if (
+                        id.isEmpty() || id.length > 120 ||
+                        id.any { it.code < 0x20 || it.code == 0x7f } ||
+                        !seen.add(id)
+                    ) {
+                        return StorageUsageReadResult("storage_usage_incomplete", false)
+                    }
+                    val used = (item.opt("used") as? Number)?.toDouble()
+                    val total = (item.opt("total") as? Number)?.toDouble()
+                    if (
+                        used != null && total != null &&
+                        used.isFinite() && total.isFinite() &&
+                        total > 0.0 && used >= 0.0 && used <= total &&
+                        used % 1.0 == 0.0 && total % 1.0 == 0.0
+                    ) {
+                        usageByStorage["$node:$id"] = used / total
+                    }
+                }
+            } finally {
+                connection.disconnect()
+            }
+        }
+        return StorageUsageReadResult(
+            outcome = "healthy",
+            complete = true,
+            usageByStorage = usageByStorage.toMap(),
+        )
     }
 
     private fun positiveInt(value: Any?): Int? {
@@ -1629,14 +1967,31 @@ internal object BackgroundCheckCoordinator {
         return rules.toList()
     }
 
+    private fun validateStorageUsageRules(
+        rules: List<ScheduledStorageUsageRule>,
+    ): List<ScheduledStorageUsageRule> {
+        require(rules.size <= MAX_BACKGROUND_NODE_CPU_RULES)
+        val ids = mutableSetOf<String>()
+        for (rule in rules) {
+            rule.validate()
+            require(ids.add(rule.id))
+        }
+        return rules.toList()
+    }
+
     private fun validateCombinedThresholdRuleIds(
         nodeRules: List<ScheduledNodeCpuRule>,
         guestRules: List<ScheduledGuestCpuRule>,
+        storageRules: List<ScheduledStorageUsageRule>,
     ) {
-        require(nodeRules.size + guestRules.size <= MAX_BACKGROUND_NODE_CPU_RULES)
+        require(
+            nodeRules.size + guestRules.size + storageRules.size <=
+                MAX_BACKGROUND_NODE_CPU_RULES,
+        )
         val ids = mutableSetOf<String>()
         nodeRules.forEach { require(ids.add(it.id)) }
         guestRules.forEach { require(ids.add(it.id)) }
+        storageRules.forEach { require(ids.add(it.id)) }
     }
 
     private fun encodeSecret(secret: ScheduledSecret): String {
@@ -1648,11 +2003,16 @@ internal object BackgroundCheckCoordinator {
         for (rule in secret.guestCpuThresholdRules) {
             guestRules.put(rule.toJson())
         }
+        val storageRules = JSONArray()
+        for (rule in secret.storageUsageThresholdRules) {
+            storageRules.put(rule.toJson())
+        }
         return JSONObject()
             .put("endpoint", secret.endpoint)
             .put("authorization", secret.authorization)
             .put("nodeCpuThresholdRules", nodeRules)
             .put("guestCpuThresholdRules", guestRules)
+            .put("storageUsageThresholdRules", storageRules)
             .toString()
     }
 
@@ -1707,17 +2067,32 @@ internal object BackgroundCheckCoordinator {
                     )
                 }
             }
+            val storageRulesJson = decoded.optJSONArray("storageUsageThresholdRules")
+            val storageRules = mutableListOf<ScheduledStorageUsageRule>()
+            if (storageRulesJson != null) {
+                require(storageRulesJson.length() <= MAX_BACKGROUND_NODE_CPU_RULES)
+                for (index in 0 until storageRulesJson.length()) {
+                    storageRules.add(
+                        ScheduledStorageUsageRule.fromJson(
+                            storageRulesJson.getJSONObject(index),
+                        ),
+                    )
+                }
+            }
             val validatedNodeRules = validateNodeCpuRules(rules)
             val validatedGuestRules = validateGuestCpuRules(guestRules)
+            val validatedStorageRules = validateStorageUsageRules(storageRules)
             validateCombinedThresholdRuleIds(
                 validatedNodeRules,
                 validatedGuestRules,
+                validatedStorageRules,
             )
             ScheduledSecret(
                 endpoint = decoded.getString("endpoint"),
                 authorization = decoded.getString("authorization"),
                 nodeCpuThresholdRules = validatedNodeRules,
                 guestCpuThresholdRules = validatedGuestRules,
+                storageUsageThresholdRules = validatedStorageRules,
             ).also {
                 validateEndpoint(it.endpoint)
                 require(it.authorization.startsWith("PVEAPIToken="))
@@ -1789,6 +2164,10 @@ internal object BackgroundCheckBridge {
                                 call.argument<Boolean>(
                                     "guestCpuThresholdChecksEnabled",
                                 ) == true,
+                            storageUsageThresholdChecksEnabled =
+                                call.argument<Boolean>(
+                                    "storageUsageThresholdChecksEnabled",
+                                ) == true,
                         )
                         result.success(
                             BackgroundCheckCoordinator.configure(
@@ -1801,6 +2180,8 @@ internal object BackgroundCheckBridge {
                                     call.nodeCpuThresholdRules(),
                                 guestCpuThresholdRules =
                                     call.guestCpuThresholdRules(),
+                                storageUsageThresholdRules =
+                                    call.storageUsageThresholdRules(),
                             ),
                         )
                     }
@@ -1813,6 +2194,8 @@ internal object BackgroundCheckBridge {
                                     call.nodeCpuThresholdRules(),
                                 guestCpuThresholdRules =
                                     call.guestCpuThresholdRules(),
+                                storageUsageThresholdRules =
+                                    call.storageUsageThresholdRules(),
                             ),
                         )
                     }
@@ -1860,6 +2243,13 @@ internal object BackgroundCheckBridge {
         val raw = argument<List<*>>("nodeCpuThresholdRules") ?: emptyList<Any?>()
         require(raw.size <= MAX_BACKGROUND_NODE_CPU_RULES)
         return raw.map { ScheduledNodeCpuRule.fromChannel(it) }
+    }
+
+    private fun io.flutter.plugin.common.MethodCall.storageUsageThresholdRules():
+        List<ScheduledStorageUsageRule> {
+        val raw = argument<List<*>>("storageUsageThresholdRules") ?: emptyList<Any?>()
+        require(raw.size <= MAX_BACKGROUND_NODE_CPU_RULES)
+        return raw.map { ScheduledStorageUsageRule.fromChannel(it) }
     }
 
     private fun io.flutter.plugin.common.MethodCall.guestCpuThresholdRules():
