@@ -242,14 +242,11 @@ void main() {
     expect(find.byKey(const Key('notification-target-focus')), findsOneWidget);
     expect(resolver.profileId, 'lab');
     expect(resolver.targetHash, targetHash);
-    await tester.scrollUntilVisible(
-      find.text('Node pve-b is offline'),
-      220,
-      scrollable: find.descendant(
-        of: find.byKey(const Key('incident-inbox-list')),
-        matching: find.byType(Scrollable),
-      ),
+    await tester.drag(
+      find.byKey(const Key('incident-inbox-list')),
+      const Offset(0, -720),
     );
+    await tester.pumpAndSettle();
     expect(find.text('Node pve-b is offline'), findsOneWidget);
     expect(find.text('Node pve-a is offline'), findsNothing);
   });
