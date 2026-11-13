@@ -189,9 +189,7 @@ class AppController extends ChangeNotifier {
     }
     try {
       final matches = await scheduler.correlateIncidents(profileId, observed);
-      if (_disposed ||
-          active?.id != profileId ||
-          generation != _generation) {
+      if (_disposed || active?.id != profileId || generation != _generation) {
         return const <String, DateTime>{};
       }
       final requestedKeys = observed.map((incident) => incident.key).toSet();
