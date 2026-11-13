@@ -245,7 +245,10 @@ void main() {
     await tester.scrollUntilVisible(
       find.text('Node pve-b is offline'),
       220,
-      scrollable: find.byKey(const Key('incident-inbox-list')),
+      scrollable: find.descendant(
+        of: find.byKey(const Key('incident-inbox-list')),
+        matching: find.byType(Scrollable),
+      ),
     );
     expect(find.text('Node pve-b is offline'), findsOneWidget);
     expect(find.text('Node pve-a is offline'), findsNothing);
