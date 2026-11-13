@@ -26,79 +26,82 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
-  test('Android correlation sends exact live identities only in memory', () async {
-    MethodCall? observed;
-    final scheduledAt = DateTime.utc(2026, 11, 14, 8, 30);
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          observed = call;
-          return <String, Object?>{
-            'node:pve-a': scheduledAt.millisecondsSinceEpoch,
-            'not-requested': scheduledAt.millisecondsSinceEpoch,
-          };
-        });
+  test(
+    'Android correlation sends exact live identities only in memory',
+    () async {
+      MethodCall? observed;
+      final scheduledAt = DateTime.utc(2026, 11, 14, 8, 30);
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            observed = call;
+            return <String, Object?>{
+              'node:pve-a': scheduledAt.millisecondsSinceEpoch,
+              'not-requested': scheduledAt.millisecondsSinceEpoch,
+            };
+          });
 
-    final matches = await const AndroidBackgroundCheckScheduler()
-        .correlateIncidents('profile-alpha', <CockpitIncident>[
-          _node('pve-a', DateTime.utc(2026, 11, 14, 9)),
-          CockpitIncident(
-            key: 'task:upid-current',
-            severity: CockpitIncidentSeverity.critical,
-            source: CockpitIncidentSource.task,
-            title: 'Task failed',
-            detail: 'Failure',
-            observedAt: DateTime.utc(2026, 11, 14, 9),
-            taskUpid: 'UPID:pve-a:0001',
-            taskTitle: 'Start VM',
-          ),
-          CockpitIncident(
-            key: 'rule:rule-1',
-            severity: CockpitIncidentSeverity.warning,
-            source: CockpitIncidentSource.rule,
-            title: 'CPU threshold',
-            detail: 'Active',
-            observedAt: DateTime.utc(2026, 11, 14, 9),
-            ruleId: 'rule-1',
-          ),
-          CockpitIncident(
-            key: 'task:unidentified',
-            severity: CockpitIncidentSeverity.warning,
-            source: CockpitIncidentSource.task,
-            title: 'Unknown task',
-            detail: 'No exact task identity',
-            observedAt: DateTime.utc(2026, 11, 14, 9),
-          ),
-        ]);
+      final matches = await const AndroidBackgroundCheckScheduler()
+          .correlateIncidents('profile-alpha', <CockpitIncident>[
+            _node('pve-a', DateTime.utc(2026, 11, 14, 9)),
+            CockpitIncident(
+              key: 'task:upid-current',
+              severity: CockpitIncidentSeverity.critical,
+              source: CockpitIncidentSource.task,
+              title: 'Task failed',
+              detail: 'Failure',
+              observedAt: DateTime.utc(2026, 11, 14, 9),
+              taskUpid: 'UPID:pve-a:0001',
+              taskTitle: 'Start VM',
+            ),
+            CockpitIncident(
+              key: 'rule:rule-1',
+              severity: CockpitIncidentSeverity.warning,
+              source: CockpitIncidentSource.rule,
+              title: 'CPU threshold',
+              detail: 'Active',
+              observedAt: DateTime.utc(2026, 11, 14, 9),
+              ruleId: 'rule-1',
+            ),
+            CockpitIncident(
+              key: 'task:unidentified',
+              severity: CockpitIncidentSeverity.warning,
+              source: CockpitIncidentSource.task,
+              title: 'Unknown task',
+              detail: 'No exact task identity',
+              observedAt: DateTime.utc(2026, 11, 14, 9),
+            ),
+          ]);
 
-    expect(observed?.method, 'correlateIncidents');
-    final args = Map<String, Object?>.from(observed?.arguments as Map);
-    expect(args['profileId'], 'profile-alpha');
-    final candidates = List<Object?>.from(args['incidents'] as List<Object?>);
-    expect(candidates, hasLength(3));
-    expect(
-      candidates
-          .map((value) => Map<Object?, Object?>.from(value as Map))
-          .toList(growable: false),
-      <Map<Object?, Object?>>[
-        <Object?, Object?>{
-          'key': 'node:pve-a',
-          'source': 'node',
-          'identity': 'pve-a',
-        },
-        <Object?, Object?>{
-          'key': 'task:upid-current',
-          'source': 'task',
-          'identity': 'UPID:pve-a:0001',
-        },
-        <Object?, Object?>{
-          'key': 'rule:rule-1',
-          'source': 'rule',
-          'identity': 'rule-1',
-        },
-      ],
-    );
-    expect(matches, <String, DateTime>{'node:pve-a': scheduledAt});
-  });
+      expect(observed?.method, 'correlateIncidents');
+      final args = Map<String, Object?>.from(observed?.arguments as Map);
+      expect(args['profileId'], 'profile-alpha');
+      final candidates = List<Object?>.from(args['incidents'] as List<Object?>);
+      expect(candidates, hasLength(3));
+      expect(
+        candidates
+            .map((value) => Map<Object?, Object?>.from(value as Map))
+            .toList(growable: false),
+        <Map<Object?, Object?>>[
+          <Object?, Object?>{
+            'key': 'node:pve-a',
+            'source': 'node',
+            'identity': 'pve-a',
+          },
+          <Object?, Object?>{
+            'key': 'task:upid-current',
+            'source': 'task',
+            'identity': 'UPID:pve-a:0001',
+          },
+          <Object?, Object?>{
+            'key': 'rule:rule-1',
+            'source': 'rule',
+            'identity': 'rule-1',
+          },
+        ],
+      );
+      expect(matches, <String, DateTime>{'node:pve-a': scheduledAt});
+    },
+  );
 
   test('correlation bridge bounds candidates before native handoff', () async {
     MethodCall? observed;
@@ -150,9 +153,7 @@ void main() {
         const <IncidentHistoryEntry>[],
         <IncidentTriageRecord>[record],
         complete: false,
-        scheduledObservations: <String, DateTime>{
-          incident.key: scheduledAt,
-        },
+        scheduledObservations: <String, DateTime>{incident.key: scheduledAt},
       );
       expect(first.single.scheduledObservedAt, scheduledAt);
       expect(jsonEncode(first.single.toJson()), isNot(contains(upid)));
@@ -166,11 +167,9 @@ void main() {
         firstSeen: foregroundAt,
         lastSeen: laterForeground,
       );
-      final preserved = reconcileIncidentHistory(
-        first,
-        <IncidentTriageRecord>[laterRecord],
-        complete: false,
-      );
+      final preserved = reconcileIncidentHistory(first, <IncidentTriageRecord>[
+        laterRecord,
+      ], complete: false);
       expect(preserved.single.scheduledObservedAt, scheduledAt);
 
       final newerScheduled = DateTime.utc(2026, 11, 14, 10, 20);
@@ -178,9 +177,7 @@ void main() {
         preserved,
         <IncidentTriageRecord>[laterRecord],
         complete: false,
-        scheduledObservations: <String, DateTime>{
-          incident.key: newerScheduled,
-        },
+        scheduledObservations: <String, DateTime>{incident.key: newerScheduled},
       );
       expect(refreshed.single.scheduledObservedAt, newerScheduled);
 
