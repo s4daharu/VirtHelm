@@ -769,14 +769,14 @@
     "deferred": "scheduled storage-usage threshold parity, richer window/time-duration rules, authoritative foreground/background incident correlation, resource-specific notification links, relay/webhooks, production critical-alert guarantees and release certification"
   },
   "alert_scheduled_storage_usage_thresholds": {
-    "status": "implemented_source_level_ci_pending",
+    "status": "implemented_ci_verified",
     "milestone": "EP-ALERT bounded scheduled storage usage threshold parity",
     "version": "0.1.62",
     "behavior": "Separately opted-in schedule evaluates enabled exact node/storage usage thresholds using at most 16 additional per-node read-only storage GETs after the authenticated node snapshot; maximum 32 enabled node/guest/storage threshold rules combined.",
     "state_machine": "Finite nonnegative integral used and positive total bytes produce usage samples; exact unambiguous identity, 1-10 successive usable samples and 0-20 hysteresis required. Missing/ambiguous/denied/malformed samples cannot resolve an active incident nor advance a complete run.",
     "privacy": "Only Android-Keystore-encrypted worker secret holds selectors and thresholds; SHA-256-derived rule-ID runtime pending/active state contains no storage names, node, bytes, credentials, UPIDs, logs or PVE response.",
     "contract": "Only HTTPS GET /api2/json/nodes/{node}/storage on at most 16 selected visible nodes; existing 10-second timeouts, 512 KiB successful body cap, redirect blocking, generic delivery, no mutation or immediate retry.",
-    "verification": "Four focused Flutter bridge regressions and expanded repository/generated-runner assertions. Exact-head CI pending. Physical Android and PVE 8.4/9.2 backend/ACL fixture gates remain open.",
+    "verification": "Exact PR source ea59e3acb53f09d3f162e4ca9a664abbad9c5e89 passed Docs and Android checks run 43384520765 (documentation/premium/source/Python, generated Android hardening, Dart format, Flutter static analyzer, full Flutter runtime tests and debug APK compile). Final verification-record-only head requires its own CI. Physical Android and PVE 8.4/9.2 backend/ACL fixture gates remain open.",
     "report": "docs/107-implementation-scheduled-storage-usage-thresholds.md",
     "deferred": "authoritative incident correlation, richer time windows, resource-specific deep links, relay/webhooks, critical paging guarantees and release certification"
   }

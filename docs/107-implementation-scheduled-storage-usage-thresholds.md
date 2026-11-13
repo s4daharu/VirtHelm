@@ -42,8 +42,10 @@ cross-mode cooldown ledger and identifier-free notification navigation.
 Flutter bridge tests cover default-off policy decoding, enabled rule
 filtering, atomic node/storage sync, and generic status decoding. Repository
 source and Android generated-runner assertions cover endpoint, privacy,
-size, cleanup and combined-rule caps. Exact-head GitHub CI needs to pass
-before merging this milestone. Physical Android OEM/WorkManager/Keystore
+size, cleanup and combined-rule caps. The implementation PR source `ea59e3acb53f09d3f162e4ca9a664abbad9c5e89`
+passed [Docs and Android checks run 43384520765](https://github.com/s4daharu/VirtHelm/actions/runs/43384520765),
+including formatting, analyzer, runtime tests, hardening checks and APK build.
+The subsequent verification-record-only commit requires its own CI. Physical Android OEM/WorkManager/Keystore
 checks and real PVE 8.4/9.2 backend, restricted-ACL and malformed-data
 fixtures are still open release gates.
 
