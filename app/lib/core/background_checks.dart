@@ -81,7 +81,8 @@ class BackgroundCheckPolicy {
     guestCpuThresholdChecksEnabled:
         guestCpuThresholdChecksEnabled ?? this.guestCpuThresholdChecksEnabled,
     storageUsageThresholdChecksEnabled:
-        storageUsageThresholdChecksEnabled ?? this.storageUsageThresholdChecksEnabled,
+        storageUsageThresholdChecksEnabled ??
+        this.storageUsageThresholdChecksEnabled,
   );
 
   factory BackgroundCheckPolicy.fromChannel(Map<Object?, Object?> map) =>
@@ -246,7 +247,8 @@ class AndroidBackgroundCheckScheduler
             'guestCpuThresholdRules': validated.guestCpuThresholdChecksEnabled
                 ? _guestCpuRuleChannelPayload(rules)
                 : const <Map<String, Object?>>[],
-            'storageUsageThresholdRules': validated.storageUsageThresholdChecksEnabled
+            'storageUsageThresholdRules':
+                validated.storageUsageThresholdChecksEnabled
                 ? _storageUsageRuleChannelPayload(rules)
                 : const <Map<String, Object?>>[],
           }) ??
@@ -278,7 +280,9 @@ class AndroidBackgroundCheckScheduler
             'profileId': profileId,
             'nodeCpuThresholdRules': _nodeCpuRuleChannelPayload(rules),
             'guestCpuThresholdRules': _guestCpuRuleChannelPayload(rules),
-            'storageUsageThresholdRules': _storageUsageRuleChannelPayload(rules),
+            'storageUsageThresholdRules': _storageUsageRuleChannelPayload(
+              rules,
+            ),
           }) ??
           false;
       if (!synced) {

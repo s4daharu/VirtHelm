@@ -193,32 +193,25 @@ void main() {
     });
   });
 
-  test(
-    'atomic threshold sync sends node, guest and storage rules',
-    () async {
-      MethodCall? observed;
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-            observed = call;
-            return true;
-          });
+  test('atomic threshold sync sends node, guest and storage rules', () async {
+    MethodCall? observed;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          observed = call;
+          return true;
+        });
 
-      await const AndroidBackgroundCheckScheduler().syncThresholdRules(
-        'profile-alpha',
-        <ForegroundThresholdAlertRule>[
-          _nodeRule(),
-          _guestRule(),
-          _storageRule(),
-        ],
-      );
+    await const AndroidBackgroundCheckScheduler().syncThresholdRules(
+      'profile-alpha',
+      <ForegroundThresholdAlertRule>[_nodeRule(), _guestRule(), _storageRule()],
+    );
 
-      expect(observed?.method, 'syncThresholdRules');
-      final arguments = Map<String, Object?>.from(observed?.arguments as Map);
-      expect(arguments['nodeCpuThresholdRules'], hasLength(1));
-      expect(arguments['guestCpuThresholdRules'], hasLength(1));
-      expect(arguments['storageUsageThresholdRules'], hasLength(1));
-    },
-  );
+    expect(observed?.method, 'syncThresholdRules');
+    final arguments = Map<String, Object?>.from(observed?.arguments as Map);
+    expect(arguments['nodeCpuThresholdRules'], hasLength(1));
+    expect(arguments['guestCpuThresholdRules'], hasLength(1));
+    expect(arguments['storageUsageThresholdRules'], hasLength(1));
+  });
 
   test(
     'scheduled status reports guest CPU opt-in without guest identity data',

@@ -207,8 +207,7 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
       'Incomplete: storage usage redirect blocked',
     'storage_usage_incomplete' =>
       'Incomplete: storage usage data could not be confirmed',
-    'storage_usage_read_failed' =>
-      'Incomplete: storage usage read failed',
+    'storage_usage_read_failed' => 'Incomplete: storage usage read failed',
     'authorization_denied' => 'Incomplete: token authorization denied',
     'redirect_blocked' => 'Incomplete: redirect blocked',
     'incomplete' => 'Incomplete: node data could not be confirmed',
@@ -344,9 +343,13 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                       ),
                       const Divider(),
                       SwitchListTile(
-                        key: const Key('periodic-storage-usage-threshold-checks'),
+                        key: const Key(
+                          'periodic-storage-usage-threshold-checks',
+                        ),
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('Include storage usage threshold rules'),
+                        title: const Text(
+                          'Include storage usage threshold rules',
+                        ),
                         subtitle: Text(
                           'Evaluate the '
                           '${widget.controller.thresholdAlertRules.where((rule) => rule.enabled && rule.metric == ForegroundThresholdMetric.storageUsage).length} '

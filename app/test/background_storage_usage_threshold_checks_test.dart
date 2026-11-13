@@ -41,7 +41,8 @@ void main() {
     });
     expect(policy.storageUsageThresholdChecksEnabled, isFalse);
     expect(
-      policy.copyWith(storageUsageThresholdChecksEnabled: true)
+      policy
+          .copyWith(storageUsageThresholdChecksEnabled: true)
           .storageUsageThresholdChecksEnabled,
       isTrue,
     );
@@ -90,31 +91,37 @@ void main() {
     });
   });
 
-  test('atomic rule sync carries storage selectors with other categories', () async {
-    MethodCall? observed;
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          observed = call;
-          return true;
-        });
-    await const AndroidBackgroundCheckScheduler().syncThresholdRules(
-      'profile-alpha',
-      const <ForegroundThresholdAlertRule>[_storage, _node],
-    );
-    final args = Map<String, Object?>.from(observed?.arguments as Map);
-    expect(observed?.method, 'syncThresholdRules');
-    expect(args['storageUsageThresholdRules'], hasLength(1));
-    expect(args['nodeCpuThresholdRules'], hasLength(1));
-    expect(args['guestCpuThresholdRules'], isEmpty);
-  });
+  test(
+    'atomic rule sync carries storage selectors with other categories',
+    () async {
+      MethodCall? observed;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            observed = call;
+            return true;
+          });
+      await const AndroidBackgroundCheckScheduler().syncThresholdRules(
+        'profile-alpha',
+        const <ForegroundThresholdAlertRule>[_storage, _node],
+      );
+      final args = Map<String, Object?>.from(observed?.arguments as Map);
+      expect(observed?.method, 'syncThresholdRules');
+      expect(args['storageUsageThresholdRules'], hasLength(1));
+      expect(args['nodeCpuThresholdRules'], hasLength(1));
+      expect(args['guestCpuThresholdRules'], isEmpty);
+    },
+  );
 
   test('status exposes storage opt-in and generic outcome only', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async => <String, Object?>{
-          'enabled': true,
-          'storageUsageThresholdChecksEnabled': true,
-          'lastOutcome': 'storage_threshold_incident',
-        });
+        .setMockMethodCallHandler(
+          channel,
+          (call) async => <String, Object?>{
+            'enabled': true,
+            'storageUsageThresholdChecksEnabled': true,
+            'lastOutcome': 'storage_threshold_incident',
+          },
+        );
     final status = await const AndroidBackgroundCheckScheduler().status(
       'profile-alpha',
     );
