@@ -27,6 +27,7 @@ class BackgroundCheckPolicy {
     this.failedTaskChecksEnabled = false,
     this.nodeCpuThresholdChecksEnabled = false,
     this.guestCpuThresholdChecksEnabled = false,
+    this.storageUsageThresholdChecksEnabled = false,
   });
 
   final bool enabled;
@@ -38,6 +39,7 @@ class BackgroundCheckPolicy {
   final bool failedTaskChecksEnabled;
   final bool nodeCpuThresholdChecksEnabled;
   final bool guestCpuThresholdChecksEnabled;
+  final bool storageUsageThresholdChecksEnabled;
 
   BackgroundCheckPolicy validated() {
     if (intervalMinutes < minimumBackgroundCheckIntervalMinutes ||
@@ -64,6 +66,7 @@ class BackgroundCheckPolicy {
     bool? failedTaskChecksEnabled,
     bool? nodeCpuThresholdChecksEnabled,
     bool? guestCpuThresholdChecksEnabled,
+    bool? storageUsageThresholdChecksEnabled,
   }) => BackgroundCheckPolicy(
     enabled: enabled ?? this.enabled,
     intervalMinutes: intervalMinutes ?? this.intervalMinutes,
@@ -77,6 +80,8 @@ class BackgroundCheckPolicy {
         nodeCpuThresholdChecksEnabled ?? this.nodeCpuThresholdChecksEnabled,
     guestCpuThresholdChecksEnabled:
         guestCpuThresholdChecksEnabled ?? this.guestCpuThresholdChecksEnabled,
+    storageUsageThresholdChecksEnabled:
+        storageUsageThresholdChecksEnabled ?? this.storageUsageThresholdChecksEnabled,
   );
 
   factory BackgroundCheckPolicy.fromChannel(Map<Object?, Object?> map) =>
@@ -92,6 +97,8 @@ class BackgroundCheckPolicy {
             map['nodeCpuThresholdChecksEnabled'] == true,
         guestCpuThresholdChecksEnabled:
             map['guestCpuThresholdChecksEnabled'] == true,
+        storageUsageThresholdChecksEnabled:
+            map['storageUsageThresholdChecksEnabled'] == true,
       ).validated();
 }
 
@@ -231,11 +238,16 @@ class AndroidBackgroundCheckScheduler
                 validated.nodeCpuThresholdChecksEnabled,
             'guestCpuThresholdChecksEnabled':
                 validated.guestCpuThresholdChecksEnabled,
+            'storageUsageThresholdChecksEnabled':
+                validated.storageUsageThresholdChecksEnabled,
             'nodeCpuThresholdRules': validated.nodeCpuThresholdChecksEnabled
                 ? _nodeCpuRuleChannelPayload(rules)
                 : const <Map<String, Object?>>[],
             'guestCpuThresholdRules': validated.guestCpuThresholdChecksEnabled
                 ? _guestCpuRuleChannelPayload(rules)
+                : const <Map<String, Object?>>[],
+            'storageUsageThresholdRules': validated.storageUsageThresholdChecksEnabled
+                ? _storageUsageRuleChannelPayload(rules)
                 : const <Map<String, Object?>>[],
           }) ??
           false;
@@ -266,6 +278,7 @@ class AndroidBackgroundCheckScheduler
             'profileId': profileId,
             'nodeCpuThresholdRules': _nodeCpuRuleChannelPayload(rules),
             'guestCpuThresholdRules': _guestCpuRuleChannelPayload(rules),
+            'storageUsageThresholdRules': _storageUsageRuleChannelPayload(rules),
           }) ??
           false;
       if (!synced) {
@@ -341,6 +354,26 @@ List<Map<String, Object?>> _guestCpuRuleChannelPayload(
         'node': rule.node,
         'guestKind': rule.guestKind,
         'vmid': rule.guestVmid,
+        'thresholdPercent': rule.thresholdPercent,
+        'consecutiveSamples': rule.consecutiveSamples,
+        'hysteresisPercent': rule.hysteresisPercent,
+      },
+    )
+    .toList(growable: false);
+
+List<Map<String, Object?>> _storageUsageRuleChannelPayload(
+  Iterable<ForegroundThresholdAlertRule> rules,
+) => rules
+    .where(
+      (rule) =>
+          rule.enabled && rule.metric == ForegroundThresholdMetric.storageUsage,
+    )
+    .take(maxForegroundThresholdRules)
+    .map(
+      (rule) => <String, Object?>{
+        'id': rule.id,
+        'node': rule.node,
+        'storageId': rule.storageId,
         'thresholdPercent': rule.thresholdPercent,
         'consecutiveSamples': rule.consecutiveSamples,
         'hysteresisPercent': rule.hysteresisPercent,
