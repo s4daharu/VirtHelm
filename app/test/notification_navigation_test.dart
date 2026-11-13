@@ -222,7 +222,7 @@ void main() {
         Node(name: 'pve-b', status: 'offline'),
       ],
       guests: const <Guest>[],
-      fetchedAt: DateTime.utc(2026, 11, 14, 12),
+      fetchedAt: DateTime.now().toUtc(),
     );
     const targetHash =
         'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd';
@@ -240,6 +240,13 @@ void main() {
       3,
     );
     expect(find.byKey(const Key('notification-target-focus')), findsOneWidget);
+    expect(resolver.profileId, 'lab');
+    expect(resolver.targetHash, targetHash);
+    await tester.scrollUntilVisible(
+      find.text('Node pve-b is offline'),
+      220,
+      scrollable: find.byKey(const Key('incident-inbox-list')),
+    );
     expect(find.text('Node pve-b is offline'), findsOneWidget);
     expect(find.text('Node pve-a is offline'), findsNothing);
   });
