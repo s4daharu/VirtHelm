@@ -166,7 +166,7 @@ class AndroidForegroundIncidentNotifier implements ForegroundIncidentNotifier {
             'critical': critical,
             'profileId': profileId,
             'cooldownMinutes': cooldownMinutes,
-            if (target != null) 'incidentKey': target,
+            'incidentKey': ?target,
           }) ??
           false;
     } on PlatformException {
