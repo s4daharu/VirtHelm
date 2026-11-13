@@ -25,6 +25,8 @@ class MainActivity : FlutterActivity() {
     private var notificationPermissionResult: MethodChannel.Result? = null
     private var incidentNavigationChannel: MethodChannel? = null
     private var pendingIncidentNavigation = false
+    private var pendingIncidentTargetHash: String? = null
+    private var incidentNavigationSequence = 0L
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -53,6 +55,7 @@ class MainActivity : FlutterActivity() {
                         critical = call.argument<Boolean>("critical") == true,
                         profileId = call.argument<String>("profileId"),
                         cooldownMinutes = call.argument<Int>("cooldownMinutes"),
+                        incidentKey = call.argument<String>("incidentKey"),
                     ),
                 )
                 else -> result.notImplemented()
@@ -68,6 +71,27 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "takePendingIncidentIntent" ->
                     result.success(takePendingIncidentNavigation())
+                "resolveIncidentTarget" -> {
+                    val profileId = call.argument<String>("profileId")
+                    val targetHash = call.argument<String>("targetHash")
+                    val incidentKeys =
+                        call.argument<List<*>>("incidentKeys") ?: emptyList<Any?>()
+                    val resolved = runCatching {
+                        if (profileId.isNullOrBlank() ||
+                            targetHash.isNullOrBlank() ||
+                            incidentKeys.any { it !is String }
+                        ) {
+                            null
+                        } else {
+                            IncidentNotificationNavigation.resolveTarget(
+                                profileId = profileId,
+                                targetHash = targetHash,
+                                incidentKeys = incidentKeys.filterIsInstance<String>(),
+                            )
+                        }
+                    }.getOrNull()
+                    result.success(resolved)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -79,14 +103,22 @@ class MainActivity : FlutterActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         if (!IncidentNotificationNavigation.targetsIncidents(intent)) return
+        val targetHash = IncidentNotificationNavigation.targetHashFromIntent(intent)
         intent.action = null
+        IncidentNotificationNavigation.clearTarget(intent)
+        incidentNavigationSequence += 1
+        val sequence = incidentNavigationSequence
         pendingIncidentNavigation = true
+        pendingIncidentTargetHash = targetHash
         incidentNavigationChannel?.invokeMethod(
             "openIncidents",
-            null,
+            incidentNavigationPayload(targetHash),
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
-                    pendingIncidentNavigation = false
+                    if (incidentNavigationSequence == sequence) {
+                        pendingIncidentNavigation = false
+                        pendingIncidentTargetHash = null
+                    }
                 }
 
                 override fun error(
@@ -104,15 +136,30 @@ class MainActivity : FlutterActivity() {
         )
     }
 
-    private fun takePendingIncidentNavigation(): Boolean {
+    private fun incidentNavigationPayload(targetHash: String?): Map<String, Any?> =
+        mapOf(
+            "open" to true,
+            "targetHash" to targetHash,
+        )
+
+    private fun takePendingIncidentNavigation(): Map<String, Any?>? {
         val currentIntentTargetsIncidents =
             IncidentNotificationNavigation.targetsIncidents(intent)
+        val currentTarget = if (currentIntentTargetsIncidents) {
+            IncidentNotificationNavigation.targetHashFromIntent(intent)
+        } else {
+            null
+        }
         if (currentIntentTargetsIncidents) {
             intent?.action = null
+            IncidentNotificationNavigation.clearTarget(intent)
         }
         val shouldOpen = pendingIncidentNavigation || currentIntentTargetsIncidents
+        val targetHash =
+            if (currentIntentTargetsIncidents) currentTarget else pendingIncidentTargetHash
         pendingIncidentNavigation = false
-        return shouldOpen
+        pendingIncidentTargetHash = null
+        return if (shouldOpen) incidentNavigationPayload(targetHash) else null
     }
 
     override fun onRequestPermissionsResult(
@@ -162,6 +209,7 @@ class MainActivity : FlutterActivity() {
         critical: Boolean,
         profileId: String?,
         cooldownMinutes: Int?,
+        incidentKey: String?,
     ): Boolean {
         if (profileId.isNullOrBlank() ||
             profileId.length > 256 ||
@@ -179,6 +227,13 @@ class MainActivity : FlutterActivity() {
         val profileKey = runCatching {
             IncidentNotificationDeliveryLedger.profileKey(profileId)
         }.getOrNull() ?: return false
+        val targetHash = if (incidentKey == null) {
+            null
+        } else {
+            runCatching {
+                IncidentNotificationNavigation.targetHash(profileId, incidentKey)
+            }.getOrNull() ?: return false
+        }
         return IncidentNotificationDeliveryLedger.deliver(
             context = applicationContext,
             profileKey = profileKey,
@@ -197,7 +252,8 @@ class MainActivity : FlutterActivity() {
             }
             manager.createNotificationChannel(channel)
 
-            val contentIntent = IncidentNotificationNavigation.contentIntent(this)
+            val contentIntent =
+                IncidentNotificationNavigation.contentIntent(this, targetHash)
             val notification = Notification.Builder(this, INCIDENT_CHANNEL_ID)
                 .setSmallIcon(R.drawable.virthelm_notification)
                 .setContentTitle(
