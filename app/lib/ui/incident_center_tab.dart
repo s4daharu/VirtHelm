@@ -388,6 +388,23 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
             'continuous monitoring.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
+          if (_focusedIncidentKey != null) ...[
+            const SizedBox(height: 12),
+            MessageCard(
+              key: const Key('notification-target-focus'),
+              title: 'Notification target',
+              icon: Icons.my_location_rounded,
+              text:
+                  'Showing only the current incident matched by the opaque '
+                  'notification target. Resource details still require the '
+                  'current live profile/session checks.',
+              action: TextButton(
+                key: const Key('notification-target-clear'),
+                onPressed: _clearFilters,
+                child: const Text('Show all'),
+              ),
+            ),
+          ],
           if (incidents.isNotEmpty) ...[
             const SizedBox(height: 14),
             _IncidentSeveritySummary(incidents: incidents),
@@ -549,23 +566,6 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
               ),
             ],
           ),
-          if (_focusedIncidentKey != null) ...[
-            const SizedBox(height: 12),
-            MessageCard(
-              key: const Key('notification-target-focus'),
-              title: 'Notification target',
-              icon: Icons.my_location_rounded,
-              text:
-                  'Showing only the current incident matched by the opaque '
-                  'notification target. Resource details still require the '
-                  'current live profile/session checks.',
-              action: TextButton(
-                key: const Key('notification-target-clear'),
-                onPressed: _clearFilters,
-                child: const Text('Show all'),
-              ),
-            ),
-          ],
           if (_hasActiveFilters)
             Align(
               alignment: Alignment.centerRight,
