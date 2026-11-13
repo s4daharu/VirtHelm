@@ -187,8 +187,13 @@ class AppController extends ChangeNotifier {
         observed.isEmpty) {
       return const <String, DateTime>{};
     }
+    final correlationScheduler =
+        scheduler as IncidentCorrelationBackgroundCheckScheduler;
     try {
-      final matches = await scheduler.correlateIncidents(profileId, observed);
+      final matches = await correlationScheduler.correlateIncidents(
+        profileId,
+        observed,
+      );
       if (_disposed || active?.id != profileId || generation != _generation) {
         return const <String, DateTime>{};
       }
