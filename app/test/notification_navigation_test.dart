@@ -204,44 +204,44 @@ void main() {
   testWidgets('opaque notification target focuses one exact current incident', (
     tester,
   ) async {
-      final prefs = await SharedPreferences.getInstance();
-      final resolver = _Resolver()..result = 'node:pve-b';
-      final controller = AppController(
-        repository: ProfileRepository(prefs, _Vault()),
-        incidentNavigationTargetResolver: resolver,
-      );
-      addTearDown(controller.dispose);
-      controller.active = const ConnectionProfile(
-        id: 'lab',
-        name: 'Lab',
-        endpoint: 'https://pve.local:8006',
-      );
-      controller.inventory = Inventory(
-        nodes: const <Node>[
-          Node(name: 'pve-a', status: 'offline'),
-          Node(name: 'pve-b', status: 'offline'),
-        ],
-        guests: const <Guest>[],
-        fetchedAt: DateTime.utc(2026, 11, 14, 12),
-      );
-      const targetHash =
-          'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd';
-      controller.requestIncidentCenter(
-        const IncidentNavigationRequest(targetHash: targetHash),
-      );
+    final prefs = await SharedPreferences.getInstance();
+    final resolver = _Resolver()..result = 'node:pve-b';
+    final controller = AppController(
+      repository: ProfileRepository(prefs, _Vault()),
+      incidentNavigationTargetResolver: resolver,
+    );
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'lab',
+      name: 'Lab',
+      endpoint: 'https://pve.local:8006',
+    );
+    controller.inventory = Inventory(
+      nodes: const <Node>[
+        Node(name: 'pve-a', status: 'offline'),
+        Node(name: 'pve-b', status: 'offline'),
+      ],
+      guests: const <Guest>[],
+      fetchedAt: DateTime.utc(2026, 11, 14, 12),
+    );
+    const targetHash =
+        'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd';
+    controller.requestIncidentCenter(
+      const IncidentNavigationRequest(targetHash: targetHash),
+    );
 
-      await tester.pumpWidget(
-        MaterialApp(home: ShellPage(controller: controller)),
-      );
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      MaterialApp(home: ShellPage(controller: controller)),
+    );
+    await tester.pumpAndSettle();
 
-      expect(
-        tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-        3,
-      );
-      expect(find.byKey(const Key('notification-target-focus')), findsOneWidget);
-      expect(find.text('Node pve-b is offline'), findsOneWidget);
-      expect(find.text('Node pve-a is offline'), findsNothing);
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      3,
+    );
+    expect(find.byKey(const Key('notification-target-focus')), findsOneWidget);
+    expect(find.text('Node pve-b is offline'), findsOneWidget);
+    expect(find.text('Node pve-a is offline'), findsNothing);
   });
 
   testWidgets(
