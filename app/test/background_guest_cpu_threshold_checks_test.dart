@@ -194,7 +194,7 @@ void main() {
   });
 
   test(
-    'atomic threshold sync sends node and guest rules but excludes storage',
+    'atomic threshold sync sends node, guest and storage rules',
     () async {
       MethodCall? observed;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -216,6 +216,7 @@ void main() {
       final arguments = Map<String, Object?>.from(observed?.arguments as Map);
       expect(arguments['nodeCpuThresholdRules'], hasLength(1));
       expect(arguments['guestCpuThresholdRules'], hasLength(1));
+      expect(arguments['storageUsageThresholdRules'], hasLength(1));
     },
   );
 
