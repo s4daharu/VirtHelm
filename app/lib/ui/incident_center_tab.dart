@@ -322,14 +322,15 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Foreground-only signals. Acknowledgement changes only your '
-            'current session view, not server health or task outcomes. '
-            'Earlier is session-only; History keeps up to '
-            '$maxPersistedIncidentHistory profile-scoped occurrence summaries '
-            'on this device. Task UPIDs and task logs are never stored. '
-            'Saved history is context, not recovery proof or current health, '
-            'and there is no background monitoring or Android notification '
-            'delivery.',
+            'Current incidents come from the unlocked foreground session. '
+            'Acknowledgement changes only your local review state, not server '
+            'health or task outcomes. Earlier is session-only; History keeps up '
+            'to $maxPersistedIncidentHistory profile-scoped occurrence summaries '
+            'on this device. When the same live incident also matches opaque '
+            'scheduled Android evidence, History records only that observation '
+            'time. Task UPIDs and task logs are never stored in History. '
+            'Saved and scheduled evidence is context, not recovery proof or '
+            'continuous monitoring.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           if (incidents.isNotEmpty) ...[
@@ -671,6 +672,14 @@ class _IncidentHistoryCard extends StatelessWidget {
                 entry.lifecycleLabel,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+              if (entry.scheduledObservedAt != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Also observed by scheduled Android monitoring '
+                  '${formatAge(entry.scheduledObservedAt!)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
               const SizedBox(height: 4),
               Text(
                 'Last observed ${formatAge(entry.lastSeen)} • '

@@ -48,6 +48,7 @@ private const val MAX_BACKGROUND_TASK_NODES = 16
 private const val MAX_BACKGROUND_NODE_CPU_RULES = 32
 private const val MAX_BACKGROUND_GUEST_CPU_RULES = 32
 private const val MAX_BACKGROUND_STORAGE_RULE_NODES = 16
+private const val MAX_CORRELATION_CANDIDATES = 128
 
 internal object IncidentNotificationPrivacy {
     private const val PREFS_NAME = "virthelm_notification_privacy_v1"
@@ -441,6 +442,8 @@ private data class NodeStateReadResult(
     val nodes: List<String> = emptyList(),
     val taskNodesComplete: Boolean = false,
     val cpuByNode: Map<String, Double> = emptyMap(),
+    val correlationComplete: Boolean = false,
+    val incidentNodeIds: List<String> = emptyList(),
 )
 
 private data class GuestCpuReadResult(
@@ -461,6 +464,8 @@ private data class FailedTaskReadResult(
     val incident: Boolean,
     val newIncident: Boolean,
     val watermarkSeconds: Long,
+    val correlationComplete: Boolean = false,
+    val incidentTaskIds: List<String> = emptyList(),
 )
 
 private data class ThresholdRuleRuntimeState(
@@ -473,6 +478,20 @@ private data class ThresholdEvaluationResult(
     val incident: Boolean,
     val newIncident: Boolean,
     val stateJson: String?,
+    val activeRuleIds: List<String> = emptyList(),
+)
+
+private data class ScheduledCorrelationEvidence(
+    val nodeComplete: Boolean = false,
+    val nodeIds: List<String> = emptyList(),
+    val taskComplete: Boolean = false,
+    val taskIds: List<String> = emptyList(),
+    val nodeRuleComplete: Boolean = false,
+    val nodeRuleIds: List<String> = emptyList(),
+    val guestRuleComplete: Boolean = false,
+    val guestRuleIds: List<String> = emptyList(),
+    val storageRuleComplete: Boolean = false,
+    val storageRuleIds: List<String> = emptyList(),
 )
 
 private data class ScheduledCheckResult(
@@ -492,6 +511,7 @@ private data class ScheduledCheckResult(
     val guestThresholdStateJson: String?,
     val storageThresholdNewIncident: Boolean,
     val storageThresholdStateJson: String?,
+    val correlation: ScheduledCorrelationEvidence = ScheduledCorrelationEvidence(),
 )
 
 internal object BackgroundCheckCoordinator {
@@ -517,6 +537,7 @@ internal object BackgroundCheckCoordinator {
     private fun thresholdStateKey(key: String) = "node-cpu-threshold-state:$key"
     private fun guestThresholdStateKey(key: String) = "guest-cpu-threshold-state:$key"
     private fun storageThresholdStateKey(key: String) = "storage-usage-threshold-state:$key"
+    private fun correlationKey(key: String) = "incident-correlation:$key"
     private fun lastAttemptKey(key: String) = "last-attempt:$key"
     private fun lastSuccessKey(key: String) = "last-success:$key"
     private fun lastOutcomeKey(key: String) = "last-outcome:$key"
@@ -578,6 +599,7 @@ internal object BackgroundCheckCoordinator {
         val committed = storage.edit()
             .putString(policyKey(key), policy.toJson())
             .putString(secretKey(key), encrypted)
+            .remove(correlationKey(key))
             .commit()
         if (!committed) return false
         reconcileThresholdState(
@@ -625,6 +647,7 @@ internal object BackgroundCheckCoordinator {
                 .remove(thresholdStateKey(key))
                 .remove(guestThresholdStateKey(key))
                 .remove(storageThresholdStateKey(key))
+                .remove(correlationKey(key))
                 .putString(policyKey(key), policy.copy(enabled = false).toJson())
                 .apply()
             false
@@ -703,6 +726,9 @@ internal object BackgroundCheckCoordinator {
             storageThresholdStateKey(key),
             effectiveStorageRules.map { it.id },
         )
+        // Rule edits change the meaning of opaque rule hashes. Drop prior
+        // correlation context rather than risk attaching stale evidence.
+        storage.edit().remove(correlationKey(key)).apply()
         return true
     }
 
@@ -719,6 +745,7 @@ internal object BackgroundCheckCoordinator {
             .remove(thresholdStateKey(key))
             .remove(guestThresholdStateKey(key))
             .remove(storageThresholdStateKey(key))
+            .remove(correlationKey(key))
         if (clearPolicy) {
             editor
                 .remove(policyKey(key))
@@ -850,7 +877,15 @@ internal object BackgroundCheckCoordinator {
             )
         }
 
-        val editor = storage.edit().putString(lastOutcomeKey(key), result.outcome)
+        val correlationJson = updateCorrelationEvidence(
+            raw = storage.getString(correlationKey(key), null),
+            profileKey = key,
+            evidence = result.correlation,
+            observedAtMs = now,
+        )
+        val editor = storage.edit()
+            .putString(lastOutcomeKey(key), result.outcome)
+            .putString(correlationKey(key), correlationJson)
         if (result.complete) editor.putLong(lastSuccessKey(key), now)
 
         val legacyNodeActive = storage.getBoolean(legacyIncidentKey(key), false)
@@ -918,6 +953,152 @@ internal object BackgroundCheckCoordinator {
         value != "." &&
             value != ".." &&
             value.matches(Regex("^[A-Za-z0-9._-]{1,128}$"))
+
+    private fun isSafeCorrelationIdentity(value: String, maxLength: Int): Boolean =
+        value.isNotBlank() &&
+            value.length <= maxLength &&
+            !value.any { it.code < 0x20 || it.code == 0x7f }
+
+    private fun correlationHash(
+        profileKey: String,
+        kind: String,
+        identity: String,
+    ): String {
+        require(profileKey.matches(Regex("^[0-9a-f]{64}$")))
+        require(kind.matches(Regex("^[a-z_]{3,24}$")))
+        require(isSafeCorrelationIdentity(identity, 1024))
+        return MessageDigest.getInstance("SHA-256")
+            .digest("$profileKey|$kind|$identity".toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+    }
+
+    private fun updateCorrelationEvidence(
+        raw: String?,
+        profileKey: String,
+        evidence: ScheduledCorrelationEvidence,
+        observedAtMs: Long,
+    ): String {
+        val root = runCatching {
+            if (raw.isNullOrBlank()) JSONObject() else JSONObject(raw)
+        }.getOrElse { JSONObject() }
+
+        fun update(
+            name: String,
+            kind: String,
+            complete: Boolean,
+            identities: List<String>,
+        ) {
+            if (!complete) return
+            if (identities.isEmpty()) {
+                root.remove(name)
+                return
+            }
+            require(identities.size <= MAX_CORRELATION_CANDIDATES)
+            val hashes = linkedSetOf<String>()
+            for (identity in identities) {
+                if (!isSafeCorrelationIdentity(identity, 1024)) continue
+                hashes.add(correlationHash(profileKey, kind, identity))
+            }
+            if (hashes.isEmpty()) {
+                root.remove(name)
+                return
+            }
+            root.put(
+                name,
+                JSONObject()
+                    .put("observedAtMs", observedAtMs)
+                    .put("hashes", JSONArray(hashes.toList())),
+            )
+        }
+
+        update("nodes", "node", evidence.nodeComplete, evidence.nodeIds)
+        update("tasks", "task", evidence.taskComplete, evidence.taskIds)
+        update(
+            "nodeRules",
+            "node_rule",
+            evidence.nodeRuleComplete,
+            evidence.nodeRuleIds,
+        )
+        update(
+            "guestRules",
+            "guest_rule",
+            evidence.guestRuleComplete,
+            evidence.guestRuleIds,
+        )
+        update(
+            "storageRules",
+            "storage_rule",
+            evidence.storageRuleComplete,
+            evidence.storageRuleIds,
+        )
+        return root.toString()
+    }
+
+    fun correlateIncidents(
+        context: Context,
+        profileId: String,
+        rawCandidates: List<*>,
+    ): Map<String, Long> {
+        require(rawCandidates.size <= MAX_CORRELATION_CANDIDATES)
+        val key = profileKey(profileId)
+        val raw = prefs(context).getString(correlationKey(key), null)
+            ?: return emptyMap()
+        val root = runCatching { JSONObject(raw) }.getOrNull()
+            ?: return emptyMap()
+        val now = System.currentTimeMillis()
+        val result = linkedMapOf<String, Long>()
+        val seenKeys = mutableSetOf<String>()
+
+        fun componentObservedAt(
+            component: String,
+            kind: String,
+            identity: String,
+        ): Long? {
+            val item = root.optJSONObject(component) ?: return null
+            val observedAt = item.optLong("observedAtMs", 0L)
+            if (observedAt <= 0L || observedAt > now + TimeUnit.MINUTES.toMillis(5)) {
+                return null
+            }
+            val hashes = item.optJSONArray("hashes") ?: return null
+            if (hashes.length() > MAX_CORRELATION_CANDIDATES) return null
+            val expected = correlationHash(key, kind, identity)
+            for (index in 0 until hashes.length()) {
+                val hash = hashes.optString(index)
+                if (!hash.matches(Regex("^[0-9a-f]{64}$"))) return null
+                if (hash == expected) return observedAt
+            }
+            return null
+        }
+
+        for (candidate in rawCandidates) {
+            val map = candidate as? Map<*, *>
+                ?: throw IllegalArgumentException("Invalid incident candidate")
+            val incidentKey = map["key"] as? String
+                ?: throw IllegalArgumentException("Missing incident key")
+            val source = map["source"] as? String
+                ?: throw IllegalArgumentException("Missing incident source")
+            val identity = map["identity"] as? String
+                ?: throw IllegalArgumentException("Missing incident identity")
+            require(
+                isSafeCorrelationIdentity(incidentKey, 1200) &&
+                    seenKeys.add(incidentKey),
+            )
+            val maxIdentityLength = if (source == "task") 1024 else 160
+            require(isSafeCorrelationIdentity(identity, maxIdentityLength))
+            val observedAt = when (source) {
+                "node" -> componentObservedAt("nodes", "node", identity)
+                "task" -> componentObservedAt("tasks", "task", identity)
+                "rule" -> listOfNotNull(
+                    componentObservedAt("nodeRules", "node_rule", identity),
+                    componentObservedAt("guestRules", "guest_rule", identity),
+                    componentObservedAt("storageRules", "storage_rule", identity),
+                ).maxOrNull()
+                else -> throw IllegalArgumentException("Invalid incident source")
+            }
+            if (observedAt != null) result[incidentKey] = observedAt
+        }
+        return result
+    }
 
     private fun thresholdRuleStateId(ruleId: String): String =
         IncidentNotificationDeliveryLedger.profileKey(ruleId)
@@ -1062,14 +1243,17 @@ internal object BackgroundCheckCoordinator {
             }
         }
 
-        val incident = rules.any { rule ->
-            states[thresholdRuleStateId(rule.id)]?.active == true
-        }
+        val activeRuleIds = rules
+            .where { rule ->
+                states[thresholdRuleStateId(rule.id)]?.active == true
+            }
+            .map { it.id }
         return ThresholdEvaluationResult(
             complete = complete,
-            incident = incident,
+            incident = activeRuleIds.isNotEmpty(),
             newIncident = newIncident,
             stateJson = encodeThresholdState(rules.map { it.id }, states),
+            activeRuleIds = activeRuleIds,
         )
     }
 
@@ -1155,14 +1339,17 @@ internal object BackgroundCheckCoordinator {
             }
         }
 
-        val incident = rules.any { rule ->
-            states[thresholdRuleStateId(rule.id)]?.active == true
-        }
+        val activeRuleIds = rules
+            .where { rule ->
+                states[thresholdRuleStateId(rule.id)]?.active == true
+            }
+            .map { it.id }
         return ThresholdEvaluationResult(
             complete = complete,
-            incident = incident,
+            incident = activeRuleIds.isNotEmpty(),
             newIncident = newIncident,
             stateJson = encodeThresholdState(rules.map { it.id }, states),
+            activeRuleIds = activeRuleIds,
         )
     }
 
@@ -1248,14 +1435,17 @@ internal object BackgroundCheckCoordinator {
             }
         }
 
-        val incident = rules.any { rule ->
-            states[thresholdRuleStateId(rule.id)]?.active == true
-        }
+        val activeRuleIds = rules
+            .where { rule ->
+                states[thresholdRuleStateId(rule.id)]?.active == true
+            }
+            .map { it.id }
         return ThresholdEvaluationResult(
             complete = complete,
-            incident = incident,
+            incident = activeRuleIds.isNotEmpty(),
             newIncident = newIncident,
             stateJson = encodeThresholdState(rules.map { it.id }, states),
+            activeRuleIds = activeRuleIds,
         )
     }
 
@@ -1448,6 +1638,19 @@ internal object BackgroundCheckCoordinator {
             guestThresholdStateJson = guestThresholds.stateJson,
             storageThresholdNewIncident = storageThresholds.newIncident,
             storageThresholdStateJson = storageThresholds.stateJson,
+            correlation = ScheduledCorrelationEvidence(
+                nodeComplete = node.correlationComplete,
+                nodeIds = node.incidentNodeIds,
+                taskComplete =
+                    !policy.failedTaskChecksEnabled || tasks.correlationComplete,
+                taskIds = tasks.incidentTaskIds,
+                nodeRuleComplete = thresholds.complete,
+                nodeRuleIds = thresholds.activeRuleIds,
+                guestRuleComplete = guestThresholdComplete,
+                guestRuleIds = guestThresholds.activeRuleIds,
+                storageRuleComplete = storageThresholdComplete,
+                storageRuleIds = storageThresholds.activeRuleIds,
+            ),
         )
     }
 
@@ -1679,6 +1882,7 @@ internal object BackgroundCheckCoordinator {
             var usableNodes = 0
             var incident = false
             var taskNodesComplete = true
+            val incidentNodeIds = linkedSetOf<String>()
             val nodes = mutableListOf<String>()
             val cpuByNode = mutableMapOf<String, Double>()
             val seenCpuNodeIds = mutableSetOf<String>()
@@ -1691,6 +1895,9 @@ internal object BackgroundCheckCoordinator {
                 if (status != "online") incident = true
 
                 val nodeName = item.optString("node").trim()
+                if (status != "online" && isSafeNodePathSegment(nodeName)) {
+                    incidentNodeIds.add(nodeName)
+                }
                 if (!isSafeNodePathSegment(nodeName)) {
                     taskNodesComplete = false
                 } else {
@@ -1733,6 +1940,8 @@ internal object BackgroundCheckCoordinator {
                 nodes = uniqueNodes,
                 taskNodesComplete = taskNodesComplete,
                 cpuByNode = cpuByNode.toMap(),
+                correlationComplete = taskNodesComplete,
+                incidentNodeIds = incidentNodeIds.toList(),
             )
         } finally {
             connection.disconnect()
@@ -1755,6 +1964,8 @@ internal object BackgroundCheckCoordinator {
         }
         var incident = false
         var newIncident = false
+        var correlationComplete = true
+        val incidentTaskIds = linkedSetOf<String>()
         var watermarkSeconds = previousWatermarkSeconds
         for (node in nodes) {
             if (!isSafeNodePathSegment(node)) {
@@ -1871,6 +2082,12 @@ internal object BackgroundCheckCoordinator {
                             )
                         }
                         incident = true
+                        val taskId = item.optString("upid").trim()
+                        if (isSafeCorrelationIdentity(taskId, 1024)) {
+                            incidentTaskIds.add(taskId)
+                        } else {
+                            correlationComplete = false
+                        }
                         if (endTimeSeconds > previousWatermarkSeconds) {
                             newIncident = true
                         }
@@ -1886,6 +2103,8 @@ internal object BackgroundCheckCoordinator {
             incident = incident,
             newIncident = newIncident,
             watermarkSeconds = watermarkSeconds,
+            correlationComplete = correlationComplete,
+            incidentTaskIds = incidentTaskIds.toList(),
         )
     }
 
@@ -2217,6 +2436,14 @@ internal object BackgroundCheckBridge {
                         BackgroundCheckCoordinator.status(
                             context,
                             call.requireString("profileId"),
+                        ),
+                    )
+                    "correlateIncidents" -> result.success(
+                        BackgroundCheckCoordinator.correlateIncidents(
+                            context = context,
+                            profileId = call.requireString("profileId"),
+                            rawCandidates =
+                                call.argument<List<*>>("incidents") ?: emptyList<Any?>(),
                         ),
                     )
                     else -> result.notImplemented()

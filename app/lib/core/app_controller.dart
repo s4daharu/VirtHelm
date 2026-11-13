@@ -148,7 +148,10 @@ class AppController extends ChangeNotifier {
     return changed;
   }
 
-  List<IncidentHistoryEntry> _captureIncidentHistory({required bool complete}) {
+  List<IncidentHistoryEntry> _captureIncidentHistory({
+    required bool complete,
+    Map<String, DateTime> scheduledObservations = const <String, DateTime>{},
+  }) {
     final profile = active;
     if (_disposed || profile == null) return const <IncidentHistoryEntry>[];
     final previousIds = incidentHistory
@@ -161,6 +164,7 @@ class AppController extends ChangeNotifier {
         ..._incidentTriage.earlier,
       ],
       complete: complete,
+      scheduledObservations: scheduledObservations,
     );
     unawaited(_persistIncidentHistory(profile.id, incidentHistory));
     return List<IncidentHistoryEntry>.unmodifiable(
@@ -168,6 +172,41 @@ class AppController extends ChangeNotifier {
         (entry) => entry.isOpen && !previousIds.contains(entry.occurrenceId),
       ),
     );
+  }
+
+  Future<Map<String, DateTime>> _scheduledIncidentEvidence({
+    required String profileId,
+    required int generation,
+    required List<CockpitIncident> observed,
+  }) async {
+    final scheduler = _backgroundCheckScheduler;
+    if (scheduler is AndroidBackgroundCheckScheduler && !Platform.isAndroid) {
+      return const <String, DateTime>{};
+    }
+    if (scheduler is! IncidentCorrelationBackgroundCheckScheduler ||
+        observed.isEmpty) {
+      return const <String, DateTime>{};
+    }
+    try {
+      final matches = await scheduler.correlateIncidents(profileId, observed);
+      if (_disposed ||
+          active?.id != profileId ||
+          generation != _generation) {
+        return const <String, DateTime>{};
+      }
+      final requestedKeys = observed.map((incident) => incident.key).toSet();
+      final currentKeys = incidents.map((incident) => incident.key).toSet();
+      return Map<String, DateTime>.unmodifiable({
+        for (final entry in matches.entries)
+          if (requestedKeys.contains(entry.key) &&
+              currentKeys.contains(entry.key))
+            entry.key: entry.value,
+      });
+    } catch (_) {
+      // Scheduled correlation is local historical context only. Failure cannot
+      // alter current health, history closure, notifications or authorization.
+      return const <String, DateTime>{};
+    }
   }
 
   Future<void> _maybeDeliverForegroundIncidentNotification(
@@ -1947,15 +1986,33 @@ class AppController extends ChangeNotifier {
           !_disposed &&
           deviceNetworkState != DeviceNetworkState.unavailable) {
         // Only a complete authenticated snapshot can move missing signals
-        // into the local earlier-observations timeline.
+        // into the local earlier-observations timeline. Scheduled evidence is
+        // correlated only to incidents that this same unlocked foreground
+        // session can identify; opaque background hashes never create health.
         final triageComplete =
             message == null &&
             inventoryWarning == null &&
             storageMessage == null &&
             serverTaskMessage == null;
-        _incidentTriage.observe(incidents, complete: triageComplete);
+        final correlationCandidates = incidents;
+        final scheduledObservations = profileId == null
+            ? const <String, DateTime>{}
+            : await _scheduledIncidentEvidence(
+                profileId: profileId,
+                generation: generation,
+                observed: correlationCandidates,
+              );
+        if (generation != _generation ||
+            networkEpoch != _networkEpoch ||
+            _disposed ||
+            deviceNetworkState == DeviceNetworkState.unavailable) {
+          return;
+        }
+        final currentObserved = incidents;
+        _incidentTriage.observe(currentObserved, complete: triageComplete);
         final newOccurrences = _captureIncidentHistory(
           complete: triageComplete,
+          scheduledObservations: scheduledObservations,
         );
         if (profileId != null && newOccurrences.isNotEmpty) {
           unawaited(

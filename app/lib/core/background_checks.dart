@@ -1,11 +1,13 @@
 import 'package:flutter/services.dart';
 
 import 'alert_rules.dart';
+import 'incident_center.dart';
 import 'models.dart';
 
 const int _minutesPerDay = 24 * 60;
 const int minimumBackgroundCheckIntervalMinutes = 15;
 const int maximumBackgroundCheckIntervalMinutes = 24 * 60;
+const int maxScheduledIncidentCorrelationCandidates = 128;
 
 class BackgroundCheckException implements Exception {
   const BackgroundCheckException(this.message);
@@ -161,10 +163,18 @@ abstract interface class ThresholdAwareBackgroundCheckScheduler {
   );
 }
 
+abstract interface class IncidentCorrelationBackgroundCheckScheduler {
+  Future<Map<String, DateTime>> correlateIncidents(
+    String profileId,
+    Iterable<CockpitIncident> incidents,
+  );
+}
+
 class AndroidBackgroundCheckScheduler
     implements
         BackgroundCheckScheduler,
-        ThresholdAwareBackgroundCheckScheduler {
+        ThresholdAwareBackgroundCheckScheduler,
+        IncidentCorrelationBackgroundCheckScheduler {
   const AndroidBackgroundCheckScheduler();
 
   static const MethodChannel _channel = MethodChannel(
@@ -295,6 +305,63 @@ class AndroidBackgroundCheckScheduler
     } on PlatformException catch (error) {
       throw BackgroundCheckException(
         error.message ?? 'Android could not update scheduled threshold rules.',
+      );
+    }
+  }
+
+  @override
+  Future<Map<String, DateTime>> correlateIncidents(
+    String profileId,
+    Iterable<CockpitIncident> incidents,
+  ) async {
+    final candidates = <Map<String, Object?>>[];
+    for (final incident in incidents) {
+      if (candidates.length >= maxScheduledIncidentCorrelationCandidates) {
+        break;
+      }
+      final identity = switch (incident.source) {
+        CockpitIncidentSource.node => incident.node,
+        CockpitIncidentSource.task => incident.taskUpid,
+        CockpitIncidentSource.rule => incident.ruleId,
+      };
+      if (identity == null || identity.trim().isEmpty) continue;
+      candidates.add(<String, Object?>{
+        'key': incident.key,
+        'source': incident.source.name,
+        'identity': identity,
+      });
+    }
+    if (candidates.isEmpty) return const <String, DateTime>{};
+    try {
+      final value = await _channel.invokeMethod<Object?>('correlateIncidents', {
+        'profileId': profileId,
+        'incidents': candidates,
+      });
+      if (value is! Map) return const <String, DateTime>{};
+      final requested = candidates
+          .map((candidate) => candidate['key']! as String)
+          .toSet();
+      final result = <String, DateTime>{};
+      for (final entry in value.entries) {
+        final key = entry.key;
+        final milliseconds = entry.value;
+        if (key is! String ||
+            !requested.contains(key) ||
+            milliseconds is! int ||
+            milliseconds <= 0) {
+          continue;
+        }
+        result[key] = DateTime.fromMillisecondsSinceEpoch(
+          milliseconds,
+          isUtc: true,
+        );
+      }
+      return Map<String, DateTime>.unmodifiable(result);
+    } on MissingPluginException {
+      return const <String, DateTime>{};
+    } on PlatformException catch (error) {
+      throw BackgroundCheckException(
+        error.message ?? 'Could not correlate scheduled incident evidence.',
       );
     }
   }

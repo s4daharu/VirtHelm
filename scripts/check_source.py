@@ -42,6 +42,7 @@ required = [
   'app/test/background_node_cpu_threshold_checks_test.dart',
   'app/test/background_guest_cpu_threshold_checks_test.dart',
   'app/test/background_storage_usage_threshold_checks_test.dart',
+  'app/test/background_incident_correlation_test.dart',
   'app/test/alert_rules_test.dart',
   'app/test/alert_rules_widget_test.dart',
   'app/test/ui_components_test.dart',
@@ -123,6 +124,7 @@ required = [
     'docs/105-implementation-scheduled-node-cpu-thresholds.md',
     'docs/106-implementation-scheduled-guest-cpu-thresholds.md',
     'docs/107-implementation-scheduled-storage-usage-thresholds.md',
+    'docs/108-implementation-cross-mode-incident-correlation.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
@@ -171,6 +173,12 @@ assert 'nodeCpuThresholdChecksEnabled' in files['app/lib/core/background_checks.
 assert 'guestCpuThresholdChecksEnabled' in files['app/lib/core/background_checks.dart']
 assert 'storageUsageThresholdChecksEnabled' in files['app/lib/core/background_checks.dart']
 assert 'syncThresholdRules' in files['app/lib/core/background_checks.dart']
+assert 'IncidentCorrelationBackgroundCheckScheduler' in files['app/lib/core/background_checks.dart']
+assert 'correlateIncidents' in files['app/lib/core/background_checks.dart']
+assert 'maxScheduledIncidentCorrelationCandidates = 128' in files['app/lib/core/background_checks.dart']
+assert 'scheduled_observed_at' in files['app/lib/core/incident_history.dart']
+assert 'scheduledObservations: scheduledObservations' in files['app/lib/core/app_controller.dart']
+assert 'bounded cross-mode incident correlation' in files['docs/108-implementation-cross-mode-incident-correlation.md'].lower()
 assert "Key('periodic-node-cpu-threshold-checks')" in files['app/lib/ui/background_checks_page.dart']
 assert "Key('periodic-guest-cpu-threshold-checks')" in files['app/lib/ui/background_checks_page.dart']
 assert 'scheduled node cpu thresholds' in files['docs/105-implementation-scheduled-node-cpu-thresholds.md'].lower()
@@ -529,6 +537,16 @@ assert '.put("storageId"' not in threshold_state
 assert '.put("thresholdPercent"' not in threshold_state
 assert '.put("pending"' in threshold_state and '.put("active"' in threshold_state
 assert 'stateJson = null' in worker
+assert 'MAX_CORRELATION_CANDIDATES = 128' in worker
+assert 'incident-correlation:' in worker
+assert 'fun correlateIncidents(' in worker
+assert 'correlationHash(' in worker
+assert 'item.optString("upid")' in worker
+correlation_storage = worker.split('private fun updateCorrelationEvidence', 1)[1].split('fun correlateIncidents', 1)[0]
+assert '.put("observedAtMs"' in correlation_storage
+assert '.put("hashes"' in correlation_storage
+for forbidden in ('.put("identity"', '.put("node"', '.put("vmid"', '.put("storageId"', '.put("ruleId"', '.put("upid"', '.put("thresholdPercent"'):
+    assert forbidden not in correlation_storage, f'Correlation preference must not persist raw identity field: {forbidden}'
 navigation_intent = worker.split('internal object IncidentNotificationNavigation', 1)[1].split('internal data class ScheduledPolicy', 1)[0]
 assert 'putExtra(' not in navigation_intent
 assert 'instanceFollowRedirects = false' in worker

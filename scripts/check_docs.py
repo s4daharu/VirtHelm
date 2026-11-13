@@ -66,7 +66,8 @@ required=['README.md','SECURITY.md','CONTRIBUTING.md',
            'docs/104-implementation-background-failed-task-checks.md',
            'docs/105-implementation-scheduled-node-cpu-thresholds.md',
            'docs/106-implementation-scheduled-guest-cpu-thresholds.md',
-           'docs/107-implementation-scheduled-storage-usage-thresholds.md']
+           'docs/107-implementation-scheduled-storage-usage-thresholds.md',
+           'docs/108-implementation-cross-mode-incident-correlation.md']
 missing=[p for p in required if not (root/p).is_file()]
 assert not missing, f'Missing required docs: {missing}'
 with (root/'docs/api-endpoint-index.csv').open(newline='',encoding='utf-8') as f:
