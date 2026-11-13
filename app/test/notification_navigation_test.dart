@@ -79,34 +79,37 @@ void main() {
     );
   });
 
-  test('Android resolver bounds and allowlists current incident keys', () async {
-    const targetHash =
-        'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-    MethodCall? observed;
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          observed = call;
-          if (call.method == 'resolveIncidentTarget') return 'node:pve-7';
-          return null;
-        });
+  test(
+    'Android resolver bounds and allowlists current incident keys',
+    () async {
+      const targetHash =
+          'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+      MethodCall? observed;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            observed = call;
+            if (call.method == 'resolveIncidentTarget') return 'node:pve-7';
+            return null;
+          });
 
-    const bridge = AndroidIncidentNotificationNavigation();
-    final matched = await bridge.resolveIncidentTarget(
-      profileId: 'profile-alpha',
-      targetHash: targetHash,
-      incidentKeys: List<String>.generate(150, (index) => 'node:pve-$index'),
-    );
+      const bridge = AndroidIncidentNotificationNavigation();
+      final matched = await bridge.resolveIncidentTarget(
+        profileId: 'profile-alpha',
+        targetHash: targetHash,
+        incidentKeys: List<String>.generate(150, (index) => 'node:pve-$index'),
+      );
 
-    expect(matched, 'node:pve-7');
-    expect(observed?.method, 'resolveIncidentTarget');
-    final args = Map<String, Object?>.from(observed?.arguments as Map);
-    expect(args['profileId'], 'profile-alpha');
-    expect(args['targetHash'], targetHash);
-    expect(
-      List<Object?>.from(args['incidentKeys'] as List<Object?>),
-      hasLength(maxIncidentNavigationCandidates),
-    );
-  });
+      expect(matched, 'node:pve-7');
+      expect(observed?.method, 'resolveIncidentTarget');
+      final args = Map<String, Object?>.from(observed?.arguments as Map);
+      expect(args['profileId'], 'profile-alpha');
+      expect(args['targetHash'], targetHash);
+      expect(
+        List<Object?>.from(args['incidentKeys'] as List<Object?>),
+        hasLength(maxIncidentNavigationCandidates),
+      );
+    },
+  );
 
   test('invalid target hash fails closed before native resolution', () async {
     var calls = 0;
@@ -127,38 +130,50 @@ void main() {
     expect(calls, 0);
   });
 
-  test('controller revalidates native target against current incidents', () async {
-    final prefs = await SharedPreferences.getInstance();
-    final resolver = _Resolver()..result = 'node:pve-b';
-    final controller = AppController(
-      repository: ProfileRepository(prefs, _Vault()),
-      incidentNavigationTargetResolver: resolver,
-    );
-    addTearDown(controller.dispose);
-    controller.active = const ConnectionProfile(
-      id: 'lab',
-      name: 'Lab',
-      endpoint: 'https://pve.local:8006',
-    );
-    controller.inventory = Inventory(
-      nodes: const <Node>[
-        Node(name: 'pve-a', status: 'offline'),
-        Node(name: 'pve-b', status: 'offline'),
-      ],
-      guests: const <Guest>[],
-      fetchedAt: DateTime.utc(2026, 11, 14, 12),
-    );
-    const targetHash =
-        'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
+  test(
+    'controller revalidates native target against current incidents',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final resolver = _Resolver()..result = 'node:pve-b';
+      final controller = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        incidentNavigationTargetResolver: resolver,
+      );
+      addTearDown(controller.dispose);
+      controller.active = const ConnectionProfile(
+        id: 'lab',
+        name: 'Lab',
+        endpoint: 'https://pve.local:8006',
+      );
+      controller.inventory = Inventory(
+        nodes: const <Node>[
+          Node(name: 'pve-a', status: 'offline'),
+          Node(name: 'pve-b', status: 'offline'),
+        ],
+        guests: const <Guest>[],
+        fetchedAt: DateTime.utc(2026, 11, 14, 12),
+      );
+      const targetHash =
+          'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
 
-    expect(await controller.resolveIncidentNavigationTarget(targetHash), 'node:pve-b');
-    expect(resolver.profileId, 'lab');
-    expect(resolver.targetHash, targetHash);
-    expect(resolver.incidentKeys, containsAll(<String>['node:pve-a', 'node:pve-b']));
+      expect(
+        await controller.resolveIncidentNavigationTarget(targetHash),
+        'node:pve-b',
+      );
+      expect(resolver.profileId, 'lab');
+      expect(resolver.targetHash, targetHash);
+      expect(
+        resolver.incidentKeys,
+        containsAll(<String>['node:pve-a', 'node:pve-b']),
+      );
 
-    resolver.result = 'node:not-current';
-    expect(await controller.resolveIncidentNavigationTarget(targetHash), isNull);
-  });
+      resolver.result = 'node:not-current';
+      expect(
+        await controller.resolveIncidentNavigationTarget(targetHash),
+        isNull,
+      );
+    },
+  );
 
   testWidgets(
     'pending notification request opens Incidents on shell creation',
@@ -186,9 +201,9 @@ void main() {
     },
   );
 
-  testWidgets(
-    'opaque notification target focuses one exact current incident',
-    (tester) async {
+  testWidgets('opaque notification target focuses one exact current incident', (
+    tester,
+  ) async {
       final prefs = await SharedPreferences.getInstance();
       final resolver = _Resolver()..result = 'node:pve-b';
       final controller = AppController(
@@ -227,8 +242,7 @@ void main() {
       expect(find.byKey(const Key('notification-target-focus')), findsOneWidget);
       expect(find.text('Node pve-b is offline'), findsOneWidget);
       expect(find.text('Node pve-a is offline'), findsNothing);
-    },
-  );
+  });
 
   testWidgets(
     'consumed notification request does not reopen Incidents after shell recreation',
