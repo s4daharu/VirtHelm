@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
@@ -21,9 +23,14 @@ enum _IncidentTriageView { needsReview, acknowledged, earlier, history }
 enum _IncidentSourceFilter { all, nodes, tasks, rules }
 
 class IncidentCenterTab extends StatefulWidget {
-  const IncidentCenterTab({super.key, required this.controller});
+  const IncidentCenterTab({
+    super.key,
+    required this.controller,
+    this.notificationTargetHash,
+  });
 
   final AppController controller;
+  final String? notificationTargetHash;
 
   @override
   State<IncidentCenterTab> createState() => _IncidentCenterTabState();
@@ -35,6 +42,49 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
   _IncidentTriageView view = _IncidentTriageView.needsReview;
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
+  String? _focusedIncidentKey;
+
+  @override
+  void initState() {
+    super.initState();
+    final targetHash = widget.notificationTargetHash;
+    if (targetHash != null) {
+      unawaited(_resolveNotificationTarget(targetHash));
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant IncidentCenterTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final targetHash = widget.notificationTargetHash;
+    if (targetHash != null && targetHash != oldWidget.notificationTargetHash) {
+      unawaited(_resolveNotificationTarget(targetHash));
+    }
+  }
+
+  Future<void> _resolveNotificationTarget(String targetHash) async {
+    final matched = await widget.controller.resolveIncidentNavigationTarget(
+      targetHash,
+    );
+    if (!mounted || widget.notificationTargetHash != targetHash || matched == null) {
+      return;
+    }
+    final records = widget.controller.currentIncidentTriage
+        .where((record) => record.incident.key == matched && record.isCurrent)
+        .toList(growable: false);
+    if (records.length != 1) return;
+    _searchController.clear();
+    setState(() {
+      _query = '';
+      _focusedIncidentKey = null;
+      filter = _IncidentFilter.all;
+      source = _IncidentSourceFilter.all;
+      view = records.single.isAcknowledged
+          ? _IncidentTriageView.acknowledged
+          : _IncidentTriageView.needsReview;
+      _focusedIncidentKey = matched;
+    });
+  }
 
   @override
   void dispose() {
@@ -43,6 +93,7 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
   }
 
   bool get _hasActiveFilters =>
+      _focusedIncidentKey != null ||
       filter != _IncidentFilter.all ||
       source != _IncidentSourceFilter.all ||
       _query.trim().isNotEmpty;
@@ -57,6 +108,8 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
   }
 
   bool _matches(CockpitIncident incident) {
+    final focused = _focusedIncidentKey;
+    if (focused != null && incident.key != focused) return false;
     if (filter == _IncidentFilter.critical &&
         incident.severity != CockpitIncidentSeverity.critical) {
       return false;
@@ -395,7 +448,10 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
           TextField(
             key: const Key('incident-search'),
             controller: _searchController,
-            onChanged: (value) => setState(() => _query = value),
+            onChanged: (value) => setState(() {
+              _focusedIncidentKey = null;
+              _query = value;
+            }),
             textInputAction: TextInputAction.search,
             autocorrect: false,
             decoration: InputDecoration(
@@ -491,6 +547,23 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
               ),
             ],
           ),
+          if (_focusedIncidentKey != null) ...[
+            const SizedBox(height: 12),
+            MessageCard(
+              key: const Key('notification-target-focus'),
+              title: 'Notification target',
+              icon: Icons.my_location_rounded,
+              text:
+                  'Showing only the current incident matched by the opaque '
+                  'notification target. Resource details still require the '
+                  'current live profile/session checks.',
+              action: TextButton(
+                key: const Key('notification-target-clear'),
+                onPressed: _clearFilters,
+                child: const Text('Show all'),
+              ),
+            ),
+          ],
           if (_hasActiveFilters)
             Align(
               alignment: Alignment.centerRight,
