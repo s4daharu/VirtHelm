@@ -793,7 +793,7 @@
     "deferred": "materializing incidents that disappear before foreground observation, richer causal/cross-resource timelines, richer time-window rules, scheduled notification targets, relay/webhooks, physical Android/PVE 8.4/9.2 validation, critical paging guarantees and release certification; bounded foreground notification focus is implemented in 0.1.64"
   },
   "alert_notification_incident_targets": {
-    "status": "implemented_validation_pending",
+    "status": "implemented_ci_verified_device_validation_pending",
     "milestone": "EP-ALERT bounded opaque incident notification target",
     "version": "0.1.64",
     "behavior": "When exactly one new foreground durable occurrence maps uniquely to one current live incident, the foreground Android notification carries an opaque target digest. Tapping still opens Incidents first and only narrows the inbox to that exact current incident after profile/generation/current-membership revalidation. Multiple or ambiguous occurrences remain generic.",
@@ -801,7 +801,7 @@
     "privacy": "The explicit immutable PendingIntent carries only OPEN_INCIDENTS plus an optional lowercase 64-hex SHA-256 digest derived from the profile hash, fixed notification category and exact incident key. Raw profile/resource identifiers, VMIDs, task UPIDs, rule/storage IDs, credentials, logs and PVE responses are excluded. Raw incident keys cross only the in-process Flutter/native channel during creation or bounded resolution and are not persisted by this path.",
     "bounds": "At most 128 current incident keys are offered for native target resolution. Native returns only a unique matching submitted key; malformed, stale, ambiguous, profile-switched or generation-changed targets fall back to the generic Incidents destination.",
     "scheduled_boundary": "Scheduled WorkManager notifications remain generic and explicitly overwrite any older PendingIntent target with an empty value; scheduled correlation hashes do not become navigation authority.",
-    "verification": "Exact-head pull-request validation is pending. Required gates include docs/premium/source/Python checks, generated Android hardening, lockfile integrity, pinned Dart formatting, flutter analyze --fatal-infos, full Flutter tests and debug APK compilation.",
+    "verification": "Exact-head source validation passed in Docs and Android checks #729 (run 43522200949) for db2954def0ddb0bc5306f72c5fdd9324b0431829: docs/premium/source/privacy checks, Python regressions, generated Android hardening, lockfile integrity, pinned Dart formatting, flutter analyze --fatal-infos, 431 Flutter tests and debug APK compilation all succeeded. The verification-record-only follow-up head must pass the same exact-head gate before promotion to main.",
     "report": "docs/109-implementation-notification-incident-targets.md",
     "deferred": "scheduled notification targets, direct automatic resource-page navigation, richer causal/cross-resource timelines, relay/webhooks, physical Android/OEM notification-tap validation, PVE 8.4/9.2 release validation, critical paging guarantees and release certification"
   }

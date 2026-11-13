@@ -121,12 +121,17 @@ The implementation adds or extends regressions for:
 
 ## Validation
 
-Implementation validation is pending the exact-head pull-request gate. The
-required gate includes documentation/source/privacy checks, Python regression
-tests, generated Android hardening, lockfile integrity, pinned Dart formatting,
-`flutter analyze --fatal-infos`, the full Flutter test suite and debug APK
-compilation. The final verification-record commit must pass the same exact-head
-gate before promotion to `main`.
+Exact-head source validation passed in **Docs and Android checks #729**
+(run `43522200949`, commit
+`db2954def0ddb0bc5306f72c5fdd9324b0431829`). The gate passed
+documentation/premium/source/privacy checks, the Python regression suite,
+generated Android hardening, lockfile integrity, pinned Dart formatting,
+`flutter analyze --fatal-infos`, **431 Flutter tests**, and debug APK
+compilation.
+
+This verification-record-only follow-up must pass that same exact-head gate
+before promotion to `main`; physical-device/OEM and live PVE release evidence
+remain separate gates.
 
 ## Still gated
 
