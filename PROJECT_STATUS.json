@@ -155,8 +155,8 @@
       "GET-only smoke testing against one PVE 9.2.26 server exercised HTTP schemas and actual gateway parsers, including server-side free/occupied VMID checks. No mutations were attempted; 8.4, restricted ACL, backend variants, physical-device and production gates remain open."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 369,
-    "current_flutter_runtime_tests_passed": 426,
+    "current_flutter_tests_defined": 374,
+    "current_flutter_runtime_tests_passed": 431,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
     "p0_scope_complete": false,
@@ -699,12 +699,12 @@
     "version": "0.1.55",
     "behavior": "Foreground and scheduled incident notifications open the in-app Incidents destination for the current connection. Cold launch and warm onNewIntent delivery are both handled; a request received before ShellPage exists is honored when the shell is created.",
     "android": "Both notification paths share one explicit immutable PendingIntent targeting MainActivity with FLAG_ACTIVITY_CLEAR_TOP | FLAG_ACTIVITY_SINGLE_TOP and the package-scoped OPEN_INCIDENTS action. No notification trampoline, broadcast receiver, implicit URI or full-screen intent is introduced.",
-    "privacy": "The navigation intent contains no putExtra payload and carries no profile ID, endpoint, node/resource name, VMID, storage ID, task UPID, rule ID, credentials, raw response or other infrastructure selector. It only selects the generic Incidents tab after Android opens the app.",
-    "flutter": "A private method-channel bridge consumes cold pending intent state and receives warm openIncidents events. AppController stores only a consumable in-memory pending-navigation boolean; ShellPage consumes it once and switches to navigation index 3. Existing incident drill-down remains guarded by the current profile/generation/live state.",
+    "privacy": "The original 0.1.55 navigation carried only the OPEN_INCIDENTS action. The 0.1.64 follow-up may additionally carry one lowercase 64-hex profile-scoped incident-target digest for a uniquely identifiable foreground occurrence; it still carries no raw profile ID, endpoint, node/resource name, VMID, storage ID, task UPID, rule ID, credentials or PVE response.",
+    "flutter": "A private method-channel bridge consumes cold pending intent state and receives warm openIncidents events. The 0.1.64 follow-up stores only a consumable in-memory navigation request plus optional opaque digest; native resolution is bounded to current incident keys and AppController rechecks profile/generation/current membership. Existing incident drill-down remains guarded by current live state.",
     "safety": "Navigation never switches profiles, acknowledges/resolves incidents, submits PVE I/O, bypasses Android unlock policy, weakens ALERT-010 lock-screen privacy, or authorizes resource drill-down.",
     "verification": "Exact-head PR run 43159936358 passed repository source/docs checks, generated Android deep-link/privacy assertions, pinned Dart formatting, flutter analyze --fatal-infos, 395 Flutter runtime tests and debug APK compilation. Regression coverage includes native pending-target consumption, pre-shell requests, warm existing-shell switching and one-shot consumption across shell recreation. Physical-device secure-lock-screen/cold-warm notification-tap validation remains a release gate.",
     "report": "docs/101-implementation-notification-incident-deep-link.md",
-    "deferred": "physical-device secure-lock-screen/cold-warm tap validation, resource-specific notification links, scheduled storage-usage threshold parity, authoritative correlation, relay/webhooks and production critical-alert guarantees"
+    "deferred": "physical-device secure-lock-screen/cold-warm tap validation, scheduled notification targets, direct automatic resource-page navigation, relay/webhooks and production critical-alert guarantees; bounded foreground exact-current incident focus is implemented in 0.1.64"
   },
   "android_offline_stale_inventory": {
     "status": "implemented_ci_verified",
@@ -790,6 +790,19 @@
     "bounds": "At most 128 current foreground candidates are handed to native correlation and at most 128 hashes are retained per component. Complete component reads replace or clear prior evidence; incomplete reads preserve it as stale context.",
     "verification": "Exact-head PR validation passed in Docs and Android checks run #713 (43498204295) for b65968b4d7b53ff2eac4a3d6bb34ed5372c57df5: documentation/premium/source checks, Python delivery regressions, generated Android hardening, lockfile integrity, pinned Dart formatting, flutter analyze --fatal-infos, 426 Flutter tests and debug APK compilation all succeeded.",
     "report": "docs/108-implementation-cross-mode-incident-correlation.md",
-    "deferred": "materializing incidents that disappear before foreground observation, richer causal/cross-resource timelines, richer time-window rules, resource-specific notification links, relay/webhooks, physical Android/PVE 8.4/9.2 validation, critical paging guarantees and release certification"
+    "deferred": "materializing incidents that disappear before foreground observation, richer causal/cross-resource timelines, richer time-window rules, scheduled notification targets, relay/webhooks, physical Android/PVE 8.4/9.2 validation, critical paging guarantees and release certification; bounded foreground notification focus is implemented in 0.1.64"
+  },
+  "alert_notification_incident_targets": {
+    "status": "implemented_validation_pending",
+    "milestone": "EP-ALERT bounded opaque incident notification target",
+    "version": "0.1.64",
+    "behavior": "When exactly one new foreground durable occurrence maps uniquely to one current live incident, the foreground Android notification carries an opaque target digest. Tapping still opens Incidents first and only narrows the inbox to that exact current incident after profile/generation/current-membership revalidation. Multiple or ambiguous occurrences remain generic.",
+    "authority": "The target cannot select a profile, create/resolve/acknowledge health, perform PVE I/O, authorize drill-down or bypass existing resource guards. Resource detail navigation remains an explicit later user tap resolved against current live state.",
+    "privacy": "The explicit immutable PendingIntent carries only OPEN_INCIDENTS plus an optional lowercase 64-hex SHA-256 digest derived from the profile hash, fixed notification category and exact incident key. Raw profile/resource identifiers, VMIDs, task UPIDs, rule/storage IDs, credentials, logs and PVE responses are excluded. Raw incident keys cross only the in-process Flutter/native channel during creation or bounded resolution and are not persisted by this path.",
+    "bounds": "At most 128 current incident keys are offered for native target resolution. Native returns only a unique matching submitted key; malformed, stale, ambiguous, profile-switched or generation-changed targets fall back to the generic Incidents destination.",
+    "scheduled_boundary": "Scheduled WorkManager notifications remain generic and explicitly overwrite any older PendingIntent target with an empty value; scheduled correlation hashes do not become navigation authority.",
+    "verification": "Exact-head pull-request validation is pending. Required gates include docs/premium/source/Python checks, generated Android hardening, lockfile integrity, pinned Dart formatting, flutter analyze --fatal-infos, full Flutter tests and debug APK compilation.",
+    "report": "docs/109-implementation-notification-incident-targets.md",
+    "deferred": "scheduled notification targets, direct automatic resource-page navigation, richer causal/cross-resource timelines, relay/webhooks, physical Android/OEM notification-tap validation, PVE 8.4/9.2 release validation, critical paging guarantees and release certification"
   }
 }
