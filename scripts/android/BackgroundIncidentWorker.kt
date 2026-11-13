@@ -1363,7 +1363,11 @@ internal object BackgroundCheckCoordinator {
                 secret.storageUsageThresholdRules.isNotEmpty()
         val storageRead =
             if (storageMonitoringActive && node.taskNodesComplete) {
-                readStorageUsageState(secret, node.nodes)
+                try {
+                    readStorageUsageState(secret, node.nodes)
+                } catch (_: Exception) {
+                    StorageUsageReadResult("storage_usage_read_failed", false)
+                }
             } else if (storageMonitoringActive) {
                 StorageUsageReadResult(outcome = "storage_usage_incomplete", complete = false)
             } else {
