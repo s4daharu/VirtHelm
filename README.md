@@ -32,11 +32,17 @@ flutter build apk --debug
 
 `scripts/bootstrap_android.sh` generates only the Android runner, applies manifest/Gradle hardening, installs the reviewed VirtHelm adaptive launcher resources and ALERT-009 WorkManager worker, restores the committed dependency lockfile, and resolves with `--enforce-lockfile`. Release signing is intentionally not stored in Git.
 
+### GitHub Actions build resources
+
+Both Android workflows use all CPUs available to the GitHub-hosted runner and enable parallel Gradle tasks and the build cache. `scripts/configure_ci_gradle.py` sizes the Gradle heap to half the runner RAM, the Kotlin heap to one eighth, and metaspace to at most one sixteenth (capped at 1 GiB), leaving headroom for Flutter, native workers, and the OS. It refuses local and self-hosted execution; the generated runner's conservative local resource caps remain unchanged.
+
+Flutter SDK/Pub and Gradle dependency caches reduce repeat downloads. Only Gradle modules and wrapper distributions are persisted, not Gradle task outputs, user-home properties, signing material, or APKs. All existing verification gates still run, and both workflows stop Gradle daemons even after failure. CI timing improvements require measurement on GitHub; no speedup benchmark is claimed.
+
 ## APK downloads without Actions artifact storage
 
 After **Docs and Android checks** succeeds for a push to `main`, **Android split APK prerelease** runs automatically for that exact checked commit. It can also be started manually from Actions on `main`. The signed ARM64/ARMv7 APKs and `SHA256SUMS.txt` are uploaded directly from the build runner to [GitHub Releases](https://github.com/s4daharu/VirtHelm/releases), following NovelBridge's release-asset approach. The run summary includes release and direct download links; release assets are publicly downloadable from the GitHub Releases page.
 
-Neither workflow uploads Actions artifacts. Normal push/PR checks still compile a debug APK but do not retain it. Previously uploaded artifacts are not deleted by this change and remain until expiration or manual removal; build caches are separate and unchanged. Release publication is automatic only after successful main-branch CI (or manual dispatch on `main`) and does not imply production certification.
+Neither workflow uploads Actions artifacts. Normal push/PR checks still compile a debug APK but do not retain it. Previously uploaded artifacts are not deleted by this change and remain until expiration or manual removal; dependency caches are separate from APK storage. Release publication is automatic only after successful main-branch CI (or manual dispatch on `main`) and does not imply production certification.
 
 ## Current scope vs roadmap
 

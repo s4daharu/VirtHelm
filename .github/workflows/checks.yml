@@ -56,6 +56,19 @@ jobs:
         with:
           channel: stable
           flutter-version: '3.44.4'
+          cache: true
+      - name: Cache Gradle dependencies
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          # Dependencies only: never cache signing files, APKs, or task outputs.
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper
+          key: gradle-deps-v1-${{ runner.os }}-${{ runner.arch }}-java17-flutter3.44.4-${{ hashFiles('app/pubspec.lock', 'scripts/harden_android.py', 'scripts/bootstrap_android.sh') }}
+          restore-keys: |
+            gradle-deps-v1-${{ runner.os }}-${{ runner.arch }}-java17-flutter3.44.4-
+      - name: Configure hosted runner build resources
+        run: python3 ../scripts/configure_ci_gradle.py
       - run: bash ../scripts/bootstrap_android.sh
       - run: git diff --exit-code -- pubspec.lock
       - run: python3 ../scripts/check_android_generated.py
@@ -68,5 +81,11 @@ jobs:
       - run: flutter analyze --fatal-infos
       - run: flutter test --coverage
       - run: flutter build apk --debug
+      - name: Stop Gradle daemons
+        if: always()
+        run: |
+          if [[ -f android/gradlew ]]; then
+            (cd android && ./gradlew --stop)
+          fi
       # Compile-only gate: APK downloads are published by release-android.yml
       # directly to GitHub Releases, never to Actions artifact storage.
