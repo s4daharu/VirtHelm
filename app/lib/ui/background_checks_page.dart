@@ -284,8 +284,9 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                         title: const Text('Include recent failed tasks'),
                         subtitle: const Text(
                           'Also check up to 20 recent tasks per visible node. '
-                          'Only generic incident state is retained; task IDs, '
-                          'resource names and logs are never stored by the worker.',
+                          'Only generic incident state is retained; raw task IDs, '
+                          'resource names and logs are never stored by the worker. '
+                          'Correlation retains profile-scoped hashes only.',
                         ),
                         value: policy.failedTaskChecksEnabled,
                         onChanged: _busy
@@ -535,7 +536,8 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                   'with normal certificate and hostname validation and redirects '
                   'disabled. Failed-task scanning is separately opted in, is '
                   'bounded to 16 nodes and 20 recent task rows per node, and '
-                  'never persists task identifiers or resource names. Optional '
+                  'never persists raw task identifiers or resource names. '
+                   'Correlation retains profile-scoped hashes only. Optional '
                   'threshold rules keep node, guest and storage selectors plus '
                   'thresholds only inside the Android-Keystore-encrypted worker '
                   'payload. Runtime threshold and cross-mode correlation state '
