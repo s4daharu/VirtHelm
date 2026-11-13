@@ -105,6 +105,7 @@ abstract class ForegroundIncidentNotifier {
     required bool critical,
     required String profileId,
     required int cooldownMinutes,
+    String? incidentKey,
   });
 }
 
@@ -147,11 +148,17 @@ class AndroidForegroundIncidentNotifier implements ForegroundIncidentNotifier {
     required bool critical,
     required String profileId,
     required int cooldownMinutes,
+    String? incidentKey,
   }) async {
+    final target = incidentKey?.trim();
     if (profileId.trim().isEmpty ||
         profileId.length > 256 ||
         cooldownMinutes < 0 ||
-        cooldownMinutes > _minutesPerDay) {
+        cooldownMinutes > _minutesPerDay ||
+        target != null &&
+            (target.isEmpty ||
+                target.length > 1200 ||
+                target.codeUnits.any((unit) => unit < 0x20 || unit == 0x7f))) {
       return false;
     }
     try {
@@ -159,6 +166,7 @@ class AndroidForegroundIncidentNotifier implements ForegroundIncidentNotifier {
             'critical': critical,
             'profileId': profileId,
             'cooldownMinutes': cooldownMinutes,
+            'incidentKey': ?target,
           }) ??
           false;
     } on PlatformException {

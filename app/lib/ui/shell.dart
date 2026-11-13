@@ -35,13 +35,16 @@ class ShellPage extends StatefulWidget {
 
 class _ShellPageState extends State<ShellPage> {
   late int selectedIndex;
+  String? _incidentNavigationTargetHash;
+  int _incidentNavigationEpoch = 0;
 
   @override
   void initState() {
     super.initState();
-    selectedIndex = widget.controller.takeIncidentCenterNavigationRequest()
-        ? 3
-        : 0;
+    final request = widget.controller.takeIncidentCenterNavigationRequest();
+    selectedIndex = request == null ? 0 : 3;
+    _incidentNavigationTargetHash = request?.targetHash;
+    if (request != null) _incidentNavigationEpoch = 1;
     widget.controller.addListener(_handleControllerNavigation);
   }
 
@@ -56,9 +59,13 @@ class _ShellPageState extends State<ShellPage> {
   }
 
   void _handleControllerNavigation() {
-    if (!widget.controller.takeIncidentCenterNavigationRequest()) return;
-    if (!mounted || selectedIndex == 3) return;
-    setState(() => selectedIndex = 3);
+    final request = widget.controller.takeIncidentCenterNavigationRequest();
+    if (request == null || !mounted) return;
+    setState(() {
+      selectedIndex = 3;
+      _incidentNavigationTargetHash = request.targetHash;
+      _incidentNavigationEpoch++;
+    });
   }
 
   @override
@@ -249,9 +256,11 @@ class _ShellPageState extends State<ShellPage> {
                 ),
                 IncidentCenterTab(
                   key: ValueKey(
-                    'incidents:${profile?.id}:${controller.connectionGeneration}',
+                    'incidents:${profile?.id}:${controller.connectionGeneration}:'
+                    '$_incidentNavigationEpoch',
                   ),
                   controller: controller,
+                  notificationTargetHash: _incidentNavigationTargetHash,
                 ),
                 _SettingsTab(controller: controller),
               ],

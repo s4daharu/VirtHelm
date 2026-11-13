@@ -31,7 +31,10 @@ assert 'Notification.VISIBILITY_PUBLIC' not in activity
 assert 'com.s4daharu.virthelm/incident_navigation' in activity
 assert 'onNewIntent' in activity
 assert 'takePendingIncidentNavigation' in activity
-assert 'IncidentNotificationNavigation.contentIntent(this)' in activity
+assert 'resolveIncidentTarget' in activity
+assert 'pendingIncidentTargetHash' in activity
+assert 'incidentNavigationSequence' in activity
+assert 'IncidentNotificationNavigation.contentIntent(this, targetHash)' in activity
 assert 'IncidentNotificationDeliveryLedger.profileKey(profileId)' in activity
 assert 'cooldownMinutes = cooldownMinutes' in activity
 assert (root / 'app/android/app/src/main/res/drawable/virthelm_notification.xml').is_file()
@@ -102,7 +105,16 @@ if worker_template.is_file():
     assert '.put("pending"' in threshold_state and '.put("active"' in threshold_state
     assert 'stateJson = null' in worker_text
     navigation_intent = worker_text.split('internal object IncidentNotificationNavigation', 1)[1].split('internal data class ScheduledPolicy', 1)[0]
-    assert 'putExtra(' not in navigation_intent
+    assert 'EXTRA_TARGET_HASH' in navigation_intent
+    assert 'fun targetHash(profileId: String, incidentKey: String)' in navigation_intent
+    assert 'MessageDigest.getInstance("SHA-256")' in navigation_intent
+    assert '|notification|' in navigation_intent
+    assert 'fun resolveTarget(' in navigation_intent
+    intent_payload = navigation_intent.split('fun contentIntent', 1)[1].split('fun targetsIncidents', 1)[0]
+    assert intent_payload.count('putExtra(') == 1
+    assert 'putExtra(EXTRA_TARGET_HASH, targetHash ?: "")' in intent_payload
+    for forbidden in ('profileId', 'incidentKey', '"node"', '"vmid"', '"upid"', '"ruleId"', '"storageId"'):
+        assert forbidden not in intent_payload, f'Notification intent must not contain raw resource field: {forbidden}'
     assert 'instanceFollowRedirects = false' in worker_text
     assert 'requestMethod = "GET"' in worker_text
     assert 'Open VirtHelm to review current incidents.' in worker_text

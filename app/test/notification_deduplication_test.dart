@@ -13,7 +13,7 @@ void main() {
   });
 
   test(
-    'foreground bridge sends only profile identity and cooldown metadata',
+    'foreground bridge sends bounded metadata and optional exact target',
     () async {
       MethodCall? observed;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -27,6 +27,7 @@ void main() {
             critical: true,
             profileId: 'profile-alpha',
             cooldownMinutes: 30,
+            incidentKey: 'node:pve-a',
           );
 
       expect(shown, isTrue);
@@ -37,6 +38,7 @@ void main() {
           'critical': true,
           'profileId': 'profile-alpha',
           'cooldownMinutes': 30,
+          'incidentKey': 'node:pve-a',
         },
       );
     },
@@ -74,6 +76,15 @@ void main() {
           critical: false,
           profileId: 'profile-alpha',
           cooldownMinutes: 1441,
+        ),
+        isFalse,
+      );
+      expect(
+        await notifier.showIncidentSummary(
+          critical: false,
+          profileId: 'profile-alpha',
+          cooldownMinutes: 30,
+          incidentKey: 'bad\nkey',
         ),
         isFalse,
       );
