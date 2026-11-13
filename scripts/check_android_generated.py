@@ -74,6 +74,8 @@ if worker_template.is_file():
     assert 'MAX_BACKGROUND_GUEST_CPU_RULES = 32' in worker_text
     assert 'nodeCpuThresholdChecksEnabled' in worker_text
     assert 'guestCpuThresholdChecksEnabled' in worker_text
+    status_policy = worker_text.split('fun status(context: Context, profileId: String)', 1)[1].split('val secretAvailable', 1)[0]
+    assert 'guestCpuThresholdChecksEnabled = false' in status_policy
     assert 'nodeCpuThresholdRules' in worker_text
     assert 'guestCpuThresholdRules' in worker_text
     assert 'node-cpu-threshold-state:' in worker_text

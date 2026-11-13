@@ -656,6 +656,7 @@ internal object BackgroundCheckCoordinator {
                 cooldownMinutes = 30,
                 failedTaskChecksEnabled = false,
                 nodeCpuThresholdChecksEnabled = false,
+                guestCpuThresholdChecksEnabled = false,
             ),
         )
         val secretAvailable =

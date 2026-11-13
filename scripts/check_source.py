@@ -497,6 +497,8 @@ assert 'MAX_BACKGROUND_NODE_CPU_RULES = 32' in worker
 assert 'MAX_BACKGROUND_GUEST_CPU_RULES = 32' in worker
 assert 'nodeCpuThresholdChecksEnabled' in worker
 assert 'guestCpuThresholdChecksEnabled' in worker
+status_policy = worker.split('fun status(context: Context, profileId: String)', 1)[1].split('val secretAvailable', 1)[0]
+assert 'guestCpuThresholdChecksEnabled = false' in status_policy
 assert 'nodeCpuThresholdRules' in worker
 assert 'guestCpuThresholdRules' in worker
 assert 'node-cpu-threshold-state:' in worker
