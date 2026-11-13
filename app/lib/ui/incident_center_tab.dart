@@ -66,7 +66,9 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
     final matched = await widget.controller.resolveIncidentNavigationTarget(
       targetHash,
     );
-    if (!mounted || widget.notificationTargetHash != targetHash || matched == null) {
+    if (!mounted ||
+        widget.notificationTargetHash != targetHash ||
+        matched == null) {
       return;
     }
     final records = widget.controller.currentIncidentTriage
