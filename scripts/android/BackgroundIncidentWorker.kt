@@ -1248,7 +1248,7 @@ internal object BackgroundCheckCoordinator {
         }
 
         val activeRuleIds = rules
-            .where { rule ->
+            .filter { rule ->
                 states[thresholdRuleStateId(rule.id)]?.active == true
             }
             .map { it.id }
@@ -1344,7 +1344,7 @@ internal object BackgroundCheckCoordinator {
         }
 
         val activeRuleIds = rules
-            .where { rule ->
+            .filter { rule ->
                 states[thresholdRuleStateId(rule.id)]?.active == true
             }
             .map { it.id }
@@ -1440,7 +1440,7 @@ internal object BackgroundCheckCoordinator {
         }
 
         val activeRuleIds = rules
-            .where { rule ->
+            .filter { rule ->
                 states[thresholdRuleStateId(rule.id)]?.active == true
             }
             .map { it.id }
