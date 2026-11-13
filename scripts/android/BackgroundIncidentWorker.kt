@@ -993,7 +993,11 @@ internal object BackgroundCheckCoordinator {
                 root.remove(name)
                 return
             }
-            require(identities.size <= MAX_CORRELATION_CANDIDATES)
+            // Correlation metadata is optional context. If a complete read
+            // contains more identities than the privacy/storage cap, preserve
+            // the prior component rather than storing a partial set or failing
+            // the scheduled health check.
+            if (identities.size > MAX_CORRELATION_CANDIDATES) return
             val hashes = linkedSetOf<String>()
             for (identity in identities) {
                 if (!isSafeCorrelationIdentity(identity, 1024)) continue
