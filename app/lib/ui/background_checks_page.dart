@@ -197,6 +197,17 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
     'guest_cpu_incomplete' =>
       'Incomplete: guest CPU data could not be confirmed',
     'guest_cpu_read_failed' => 'Incomplete: guest CPU read failed',
+    'storage_threshold_incomplete' =>
+      'Incomplete: one or more storage usage threshold samples are unavailable',
+    'storage_threshold_incident' =>
+      'Completed: storage usage threshold incident found',
+    'storage_usage_authorization_denied' =>
+      'Incomplete: storage usage authorization denied',
+    'storage_usage_redirect_blocked' =>
+      'Incomplete: storage usage redirect blocked',
+    'storage_usage_incomplete' =>
+      'Incomplete: storage usage data could not be confirmed',
+    'storage_usage_read_failed' => 'Incomplete: storage usage read failed',
     'authorization_denied' => 'Incomplete: token authorization denied',
     'redirect_blocked' => 'Incomplete: redirect blocked',
     'incomplete' => 'Incomplete: node data could not be confirmed',
@@ -295,7 +306,7 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                           'Evaluate the '
                           '${widget.controller.thresholdAlertRules.where((rule) => rule.enabled && rule.metric == ForegroundThresholdMetric.nodeCpu).length} '
                           'enabled node CPU rule(s) on each scheduled node snapshot. '
-                          'Guest CPU rules use the separate opt-in below; storage thresholds remain foreground-only.',
+                          'Guest CPU and storage usage rules use separate opt-ins below.',
                         ),
                         value: policy.nodeCpuThresholdChecksEnabled,
                         onChanged: _busy
@@ -317,7 +328,7 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                           'Evaluate the '
                           '${widget.controller.thresholdAlertRules.where((rule) => rule.enabled && rule.metric == ForegroundThresholdMetric.guestCpu).length} '
                           'enabled guest CPU rule(s) from a bounded scheduled guest inventory read. '
-                          'Storage thresholds remain foreground-only.',
+                          'Storage usage rules use the separate opt-in below.',
                         ),
                         value: policy.guestCpuThresholdChecksEnabled,
                         onChanged: _busy
@@ -326,6 +337,32 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                                 _apply(
                                   policy.copyWith(
                                     guestCpuThresholdChecksEnabled: value,
+                                  ),
+                                ),
+                              ),
+                      ),
+                      const Divider(),
+                      SwitchListTile(
+                        key: const Key(
+                          'periodic-storage-usage-threshold-checks',
+                        ),
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          'Include storage usage threshold rules',
+                        ),
+                        subtitle: Text(
+                          'Evaluate the '
+                          '${widget.controller.thresholdAlertRules.where((rule) => rule.enabled && rule.metric == ForegroundThresholdMetric.storageUsage).length} '
+                          'enabled storage rule(s) from bounded per-node '
+                          'read-only storage checks (up to 16 nodes).',
+                        ),
+                        value: policy.storageUsageThresholdChecksEnabled,
+                        onChanged: _busy
+                            ? null
+                            : (value) => unawaited(
+                                _apply(
+                                  policy.copyWith(
+                                    storageUsageThresholdChecksEnabled: value,
                                   ),
                                 ),
                               ),

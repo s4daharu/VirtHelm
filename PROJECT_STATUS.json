@@ -155,7 +155,7 @@
       "GET-only smoke testing against one PVE 9.2.26 server exercised HTTP schemas and actual gateway parsers, including server-side free/occupied VMID checks. No mutations were attempted; 8.4, restricted ACL, backend variants, physical-device and production gates remain open."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 362,
+    "current_flutter_tests_defined": 366,
     "current_flutter_runtime_tests_passed": 413,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
@@ -756,7 +756,7 @@
     "deferred": "scheduled storage-usage threshold parity, richer window/time-duration rules, authoritative foreground/background incident correlation, resource-specific notification links, relay/webhooks, production critical-alert guarantees and release certification"
   },
   "alert_scheduled_guest_cpu_thresholds": {
-    "status": "implemented_source_level_ci_pending",
+    "status": "implemented_ci_verified",
     "milestone": "EP-ALERT bounded Android scheduled guest-CPU threshold parity",
     "version": "0.1.61",
     "behavior": "For a certificate-verified saved connection with scheduled checks enabled, the operator may separately opt into enabled guest-CPU threshold rules. When at least one enabled guest rule exists the worker performs one bounded GET /cluster/resources?type=vm, matches exact qemu/lxc + node + VMID identities, and applies the saved consecutive-sample and hysteresis controls. Storage-usage rules remain foreground-only.",
@@ -764,8 +764,20 @@
     "synchronization": "Flutter sends node and guest scheduled rule sets through one atomic syncThresholdRules channel. Native validation enforces unique rule IDs across categories and at most 32 combined rules; synchronization failure disables scheduled monitoring fail-closed.",
     "privacy": "Guest selectors and thresholds exist only in the Android-Keystore-encrypted worker payload. Runtime state uses SHA-256-derived rule IDs plus bounded pending/active values and stores no node, VMID, guest kind, threshold, CPU sample, task ID/log or display name.",
     "contract": "Adds no mutation. Guest monitoring uses HTTPS GET /api2/json/cluster/resources?type=vm with redirects disabled, 10-second timeouts and the existing 512 KiB response cap; no request is made when no enabled guest rule exists.",
-    "verification": "Six focused Flutter regressions plus source/generated-runner hardening assertions are added. Exact-head GitHub Actions is pending at source commit time; physical Android and sanitized PVE 8.4/9.2 ACL/type-filter/partial-visibility evidence remain release gates.",
+    "verification": "Exact-head main Docs and Android checks run 43355050235 passed for 3827826c2fa98ef93b3c072c7b754378b7b99f6b, followed by successful signed prerelease run 43355669780. Physical Android and PVE 8.4/9.2 ACL/type-filter/partial-visibility remain release gates.",
     "report": "docs/106-implementation-scheduled-guest-cpu-thresholds.md",
     "deferred": "scheduled storage-usage threshold parity, richer window/time-duration rules, authoritative foreground/background incident correlation, resource-specific notification links, relay/webhooks, production critical-alert guarantees and release certification"
+  },
+  "alert_scheduled_storage_usage_thresholds": {
+    "status": "implemented_ci_verified",
+    "milestone": "EP-ALERT bounded scheduled storage usage threshold parity",
+    "version": "0.1.62",
+    "behavior": "Separately opted-in schedule evaluates enabled exact node/storage usage thresholds using at most 16 additional per-node read-only storage GETs after the authenticated node snapshot; maximum 32 enabled node/guest/storage threshold rules combined.",
+    "state_machine": "Finite nonnegative integral used and positive total bytes produce usage samples; exact unambiguous identity, 1-10 successive usable samples and 0-20 hysteresis required. Missing/ambiguous/denied/malformed samples cannot resolve an active incident nor advance a complete run.",
+    "privacy": "Only Android-Keystore-encrypted worker secret holds selectors and thresholds; SHA-256-derived rule-ID runtime pending/active state contains no storage names, node, bytes, credentials, UPIDs, logs or PVE response.",
+    "contract": "Only HTTPS GET /api2/json/nodes/{node}/storage on at most 16 selected visible nodes; existing 10-second timeouts, 512 KiB successful body cap, redirect blocking, generic delivery, no mutation or immediate retry.",
+    "verification": "Exact PR source ea59e3acb53f09d3f162e4ca9a664abbad9c5e89 passed Docs and Android checks run 43384520765 (documentation/premium/source/Python, generated Android hardening, Dart format, Flutter static analyzer, full Flutter runtime tests and debug APK compile). Final verification-record-only head requires its own CI. Physical Android and PVE 8.4/9.2 backend/ACL fixture gates remain open.",
+    "report": "docs/107-implementation-scheduled-storage-usage-thresholds.md",
+    "deferred": "authoritative incident correlation, richer time windows, resource-specific deep links, relay/webhooks, critical paging guarantees and release certification"
   }
 }

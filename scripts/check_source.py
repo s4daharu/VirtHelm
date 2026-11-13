@@ -41,6 +41,7 @@ required = [
   'app/test/background_failed_task_checks_test.dart',
   'app/test/background_node_cpu_threshold_checks_test.dart',
   'app/test/background_guest_cpu_threshold_checks_test.dart',
+  'app/test/background_storage_usage_threshold_checks_test.dart',
   'app/test/alert_rules_test.dart',
   'app/test/alert_rules_widget_test.dart',
   'app/test/ui_components_test.dart',
@@ -121,6 +122,7 @@ required = [
     'docs/104-implementation-background-failed-task-checks.md',
     'docs/105-implementation-scheduled-node-cpu-thresholds.md',
     'docs/106-implementation-scheduled-guest-cpu-thresholds.md',
+    'docs/107-implementation-scheduled-storage-usage-thresholds.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
@@ -167,6 +169,7 @@ assert "Key('periodic-failed-task-checks')" in files['app/lib/ui/background_chec
 assert 'failedTaskChecksEnabled' in files['app/lib/core/background_checks.dart']
 assert 'nodeCpuThresholdChecksEnabled' in files['app/lib/core/background_checks.dart']
 assert 'guestCpuThresholdChecksEnabled' in files['app/lib/core/background_checks.dart']
+assert 'storageUsageThresholdChecksEnabled' in files['app/lib/core/background_checks.dart']
 assert 'syncThresholdRules' in files['app/lib/core/background_checks.dart']
 assert "Key('periodic-node-cpu-threshold-checks')" in files['app/lib/ui/background_checks_page.dart']
 assert "Key('periodic-guest-cpu-threshold-checks')" in files['app/lib/ui/background_checks_page.dart']
@@ -495,19 +498,26 @@ assert 'task-watermark:' in worker
 assert 'endTimeSeconds > previousWatermarkSeconds' in worker
 assert 'MAX_BACKGROUND_NODE_CPU_RULES = 32' in worker
 assert 'MAX_BACKGROUND_GUEST_CPU_RULES = 32' in worker
+assert 'MAX_BACKGROUND_STORAGE_RULE_NODES = 16' in worker
 assert 'nodeCpuThresholdChecksEnabled' in worker
 assert 'guestCpuThresholdChecksEnabled' in worker
+assert 'storageUsageThresholdChecksEnabled' in worker
 status_policy = worker.split('fun status(context: Context, profileId: String)', 1)[1].split('val secretAvailable', 1)[0]
 assert 'guestCpuThresholdChecksEnabled = false' in status_policy
+assert 'storageUsageThresholdChecksEnabled = false' in status_policy
 assert 'nodeCpuThresholdRules' in worker
 assert 'guestCpuThresholdRules' in worker
+assert 'storageUsageThresholdRules' in worker
 assert 'node-cpu-threshold-state:' in worker
 assert 'guest-cpu-threshold-state:' in worker
+assert 'storage-usage-threshold-state:' in worker
 assert 'evaluateNodeCpuThresholds' in worker
 assert 'evaluateGuestCpuThresholds' in worker
+assert 'evaluateStorageUsageThresholds' in worker
 assert '/api2/json/cluster/resources?type=vm' in worker
+assert '/api2/json/nodes/$node/storage' in worker
 assert 'fun syncThresholdRules(' in worker
-assert 'nodeRules.size + guestRules.size <= MAX_BACKGROUND_NODE_CPU_RULES' in worker
+assert 'nodeRules.size + guestRules.size + storageRules.size <=' in worker
 assert 'thresholdPercent - rule.hysteresisPercent' in worker
 assert 'previous.pendingSamples + 1' in worker
 assert 'IncidentNotificationDeliveryLedger.profileKey(ruleId)' in worker
@@ -515,6 +525,7 @@ threshold_state = worker.split('private fun encodeThresholdState', 1)[1].split('
 assert '.put("node"' not in threshold_state
 assert '.put("vmid"' not in threshold_state
 assert '.put("guestKind"' not in threshold_state
+assert '.put("storageId"' not in threshold_state
 assert '.put("thresholdPercent"' not in threshold_state
 assert '.put("pending"' in threshold_state and '.put("active"' in threshold_state
 assert 'stateJson = null' in worker

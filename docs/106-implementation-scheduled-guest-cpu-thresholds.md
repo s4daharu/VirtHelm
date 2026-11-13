@@ -1,5 +1,9 @@
 # Implementation — scheduled guest CPU thresholds
 
+> Follow-up: bounded scheduled storage-usage thresholds are implemented in
+> [107-implementation-scheduled-storage-usage-thresholds.md](107-implementation-scheduled-storage-usage-thresholds.md).
+
+
 ## Milestone
 
 VirtHelm 0.1.61 implements the next bounded Android Mode B threshold-parity slice:
