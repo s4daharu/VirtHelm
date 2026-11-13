@@ -118,24 +118,27 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
-  test('scheduled guest CPU threshold policy defaults off for legacy status', () {
-    final legacy = BackgroundCheckPolicy.fromChannel(<Object?, Object?>{
-      'enabled': true,
-      'intervalMinutes': 30,
-      'quietHoursEnabled': false,
-      'quietStartMinute': 1320,
-      'quietEndMinute': 420,
-      'cooldownMinutes': 30,
-    });
+  test(
+    'scheduled guest CPU threshold policy defaults off for legacy status',
+    () {
+      final legacy = BackgroundCheckPolicy.fromChannel(<Object?, Object?>{
+        'enabled': true,
+        'intervalMinutes': 30,
+        'quietHoursEnabled': false,
+        'quietStartMinute': 1320,
+        'quietEndMinute': 420,
+        'cooldownMinutes': 30,
+      });
 
-    expect(legacy.guestCpuThresholdChecksEnabled, isFalse);
-    expect(
-      legacy
-          .copyWith(guestCpuThresholdChecksEnabled: true)
-          .guestCpuThresholdChecksEnabled,
-      isTrue,
-    );
-  });
+      expect(legacy.guestCpuThresholdChecksEnabled, isFalse);
+      expect(
+        legacy
+            .copyWith(guestCpuThresholdChecksEnabled: true)
+            .guestCpuThresholdChecksEnabled,
+        isTrue,
+      );
+    },
+  );
 
   test('Android configure sends only enabled guest CPU rules', () async {
     MethodCall? observed;
@@ -190,52 +193,58 @@ void main() {
     });
   });
 
-  test('atomic threshold sync sends node and guest rules but excludes storage', () async {
-    MethodCall? observed;
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          observed = call;
-          return true;
-        });
+  test(
+    'atomic threshold sync sends node and guest rules but excludes storage',
+    () async {
+      MethodCall? observed;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            observed = call;
+            return true;
+          });
 
-    await const AndroidBackgroundCheckScheduler().syncThresholdRules(
-      'profile-alpha',
-      <ForegroundThresholdAlertRule>[
-        _nodeRule(),
-        _guestRule(),
-        _storageRule(),
-      ],
-    );
+      await const AndroidBackgroundCheckScheduler().syncThresholdRules(
+        'profile-alpha',
+        <ForegroundThresholdAlertRule>[
+          _nodeRule(),
+          _guestRule(),
+          _storageRule(),
+        ],
+      );
 
-    expect(observed?.method, 'syncThresholdRules');
-    final arguments = Map<String, Object?>.from(observed?.arguments as Map);
-    expect(arguments['nodeCpuThresholdRules'], hasLength(1));
-    expect(arguments['guestCpuThresholdRules'], hasLength(1));
-  });
+      expect(observed?.method, 'syncThresholdRules');
+      final arguments = Map<String, Object?>.from(observed?.arguments as Map);
+      expect(arguments['nodeCpuThresholdRules'], hasLength(1));
+      expect(arguments['guestCpuThresholdRules'], hasLength(1));
+    },
+  );
 
-  test('scheduled status reports guest CPU opt-in without guest identity data', () async {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          expect(call.method, 'status');
-          return <String, Object?>{
-            'enabled': true,
-            'intervalMinutes': 30,
-            'quietHoursEnabled': false,
-            'quietStartMinute': 1320,
-            'quietEndMinute': 420,
-            'cooldownMinutes': 30,
-            'guestCpuThresholdChecksEnabled': true,
-            'lastOutcome': 'guest_threshold_incident',
-          };
-        });
+  test(
+    'scheduled status reports guest CPU opt-in without guest identity data',
+    () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            expect(call.method, 'status');
+            return <String, Object?>{
+              'enabled': true,
+              'intervalMinutes': 30,
+              'quietHoursEnabled': false,
+              'quietStartMinute': 1320,
+              'quietEndMinute': 420,
+              'cooldownMinutes': 30,
+              'guestCpuThresholdChecksEnabled': true,
+              'lastOutcome': 'guest_threshold_incident',
+            };
+          });
 
-    final status = await const AndroidBackgroundCheckScheduler().status(
-      'profile-alpha',
-    );
+      final status = await const AndroidBackgroundCheckScheduler().status(
+        'profile-alpha',
+      );
 
-    expect(status.policy.guestCpuThresholdChecksEnabled, isTrue);
-    expect(status.lastOutcome, 'guest_threshold_incident');
-  });
+      expect(status.policy.guestCpuThresholdChecksEnabled, isTrue);
+      expect(status.lastOutcome, 'guest_threshold_incident');
+    },
+  );
 
   test('controller resynchronizes guest rules after a rule edit', () async {
     final prefs = await SharedPreferences.getInstance();
@@ -269,38 +278,41 @@ void main() {
     controller.dispose();
   });
 
-  test('failed atomic rule sync disables scheduled monitoring fail-closed', () async {
-    final prefs = await SharedPreferences.getInstance();
-    final vault = _Vault();
-    final repository = ProfileRepository(prefs, vault);
-    const profile = ConnectionProfile(
-      id: 'profile-alpha',
-      name: 'Lab',
-      endpoint: 'https://pve.example:8006',
-    );
-    const credentials = ApiCredentials(
-      tokenId: 'root@pam!virthelm',
-      secret: 'secret',
-    );
-    await repository.save(profile, credentials);
+  test(
+    'failed atomic rule sync disables scheduled monitoring fail-closed',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final vault = _Vault();
+      final repository = ProfileRepository(prefs, vault);
+      const profile = ConnectionProfile(
+        id: 'profile-alpha',
+        name: 'Lab',
+        endpoint: 'https://pve.example:8006',
+      );
+      const credentials = ApiCredentials(
+        tokenId: 'root@pam!virthelm',
+        secret: 'secret',
+      );
+      await repository.save(profile, credentials);
 
-    final scheduler = _Scheduler()..failSync = true;
-    final controller = AppController(
-      repository: repository,
-      backgroundCheckScheduler: scheduler,
-    );
-    controller.active = profile;
+      final scheduler = _Scheduler()..failSync = true;
+      final controller = AppController(
+        repository: repository,
+        backgroundCheckScheduler: scheduler,
+      );
+      controller.active = profile;
 
-    await expectLater(
-      controller.saveThresholdAlertRule(
-        _guestRule(),
-        expectedProfileId: profile.id,
-      ),
-      throwsA(isA<BackgroundCheckException>()),
-    );
+      await expectLater(
+        controller.saveThresholdAlertRule(
+          _guestRule(),
+          expectedProfileId: profile.id,
+        ),
+        throwsA(isA<BackgroundCheckException>()),
+      );
 
-    expect(scheduler.disables, 1);
-    expect(repository.readThresholdAlertRules(profile.id), hasLength(1));
-    controller.dispose();
-  });
+      expect(scheduler.disables, 1);
+      expect(repository.readThresholdAlertRules(profile.id), hasLength(1));
+      controller.dispose();
+    },
+  );
 }

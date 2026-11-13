@@ -1104,9 +1104,7 @@ class AppController extends ChangeNotifier {
     await _syncScheduledThresholdRules(profile);
   }
 
-  Future<void> _syncScheduledThresholdRules(
-    ConnectionProfile profile,
-  ) async {
+  Future<void> _syncScheduledThresholdRules(ConnectionProfile profile) async {
     final scheduler = _backgroundCheckScheduler;
     if (scheduler is AndroidBackgroundCheckScheduler && !Platform.isAndroid) {
       return;

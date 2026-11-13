@@ -188,12 +188,14 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
       'Completed: node-state, recent task and node CPU threshold incidents found',
     'guest_threshold_incomplete' =>
       'Incomplete: one or more guest CPU threshold samples are unavailable',
-    'guest_threshold_incident' => 'Completed: guest CPU threshold incident found',
+    'guest_threshold_incident' =>
+      'Completed: guest CPU threshold incident found',
     'combined_incident' => 'Completed: multiple scheduled incident types found',
     'guest_cpu_authorization_denied' =>
       'Incomplete: guest CPU authorization denied',
     'guest_cpu_redirect_blocked' => 'Incomplete: guest CPU redirect blocked',
-    'guest_cpu_incomplete' => 'Incomplete: guest CPU data could not be confirmed',
+    'guest_cpu_incomplete' =>
+      'Incomplete: guest CPU data could not be confirmed',
     'guest_cpu_read_failed' => 'Incomplete: guest CPU read failed',
     'authorization_denied' => 'Incomplete: token authorization denied',
     'redirect_blocked' => 'Incomplete: redirect blocked',

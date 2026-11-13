@@ -181,35 +181,38 @@ void main() {
     });
   });
 
-  test('Android rule sync serializes node and guest threshold targets', () async {
-    MethodCall? observed;
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          observed = call;
-          return true;
-        });
+  test(
+    'Android rule sync serializes node and guest threshold targets',
+    () async {
+      MethodCall? observed;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            observed = call;
+            return true;
+          });
 
-    await const AndroidBackgroundCheckScheduler().syncThresholdRules(
-      'profile-alpha',
-      <ForegroundThresholdAlertRule>[_nodeRule(), _guestRule()],
-    );
+      await const AndroidBackgroundCheckScheduler().syncThresholdRules(
+        'profile-alpha',
+        <ForegroundThresholdAlertRule>[_nodeRule(), _guestRule()],
+      );
 
-    expect(observed?.method, 'syncThresholdRules');
-    final arguments = Map<String, Object?>.from(observed?.arguments as Map);
-    final rules = List<Object?>.from(
-      arguments['nodeCpuThresholdRules'] as List<Object?>,
-    );
-    final guestRules = List<Object?>.from(
-      arguments['guestCpuThresholdRules'] as List<Object?>,
-    );
-    expect(rules, hasLength(1));
-    expect(guestRules, hasLength(1));
-    expect(Map<String, Object?>.from(rules.single as Map)['id'], 'node-rule');
-    expect(
-      Map<String, Object?>.from(guestRules.single as Map)['id'],
-      'guest-rule',
-    );
-  });
+      expect(observed?.method, 'syncThresholdRules');
+      final arguments = Map<String, Object?>.from(observed?.arguments as Map);
+      final rules = List<Object?>.from(
+        arguments['nodeCpuThresholdRules'] as List<Object?>,
+      );
+      final guestRules = List<Object?>.from(
+        arguments['guestCpuThresholdRules'] as List<Object?>,
+      );
+      expect(rules, hasLength(1));
+      expect(guestRules, hasLength(1));
+      expect(Map<String, Object?>.from(rules.single as Map)['id'], 'node-rule');
+      expect(
+        Map<String, Object?>.from(guestRules.single as Map)['id'],
+        'guest-rule',
+      );
+    },
+  );
 
   test('controller resynchronizes worker rules after a rule edit', () async {
     final prefs = await SharedPreferences.getInstance();
