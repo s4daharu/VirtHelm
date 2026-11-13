@@ -54,3 +54,11 @@ fixtures are still open release gates.
 Cross-mode authoritative incident correlation, long-window rule semantics,
 resource-specific notification links, relay/webhook delivery and production
 critical-alert guarantees remain deferred.
+
+
+## Follow-up
+
+The bounded exact foreground/scheduled incident-correlation gap named above is
+implemented by VirtHelm 0.1.63; see
+[the cross-mode correlation milestone](108-implementation-cross-mode-incident-correlation.md).
+Richer causal/cross-resource correlation remains gated.

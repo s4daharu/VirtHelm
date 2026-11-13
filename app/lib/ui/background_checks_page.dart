@@ -247,7 +247,8 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
               text:
                   'Android WorkManager can run read-only node-state checks and, '
                   'when separately enabled, bounded recent-task checks plus '
-                  'saved node CPU threshold rules while VirtHelm is closed. The minimum interval is 15 minutes, but '
+                  'saved node CPU, guest CPU and storage usage threshold rules '
+                  'while VirtHelm is closed. The minimum interval is 15 minutes, but '
                   'execution is inexact and may be delayed by the OS, battery '
                   'policy, missing network or VPN. This is not 24/7 monitoring '
                   'and is not suitable for critical paging.',
@@ -283,8 +284,9 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                         title: const Text('Include recent failed tasks'),
                         subtitle: const Text(
                           'Also check up to 20 recent tasks per visible node. '
-                          'Only generic incident state is retained; task IDs, '
-                          'resource names and logs are never stored by the worker.',
+                          'Only generic incident state is retained; raw task IDs, '
+                          'resource names and logs are never stored by the worker. '
+                          'Correlation retains profile-scoped hashes only.',
                         ),
                         value: policy.failedTaskChecksEnabled,
                         onChanged: _busy
@@ -534,11 +536,15 @@ class _BackgroundChecksPageState extends State<BackgroundChecksPage> {
                   'with normal certificate and hostname validation and redirects '
                   'disabled. Failed-task scanning is separately opted in, is '
                   'bounded to 16 nodes and 20 recent task rows per node, and '
-                  'never persists task identifiers or resource names. Optional '
-                  'node CPU threshold rules reuse the same node GET and keep '
-                  'their node selectors and thresholds only inside the existing '
-                  'Android-Keystore-encrypted worker payload. Runtime threshold '
-                  'state uses hashed rule IDs and counters only. The API token '
+                  'never persists raw task identifiers or resource names. '
+                  'Correlation retains profile-scoped hashes only. Optional '
+                  'threshold rules keep node, guest and storage selectors plus '
+                  'thresholds only inside the Android-Keystore-encrypted worker '
+                  'payload. Runtime threshold and cross-mode correlation state '
+                  'uses profile-scoped hashes, bounded counters/booleans and '
+                  'observation timestamps only. Exact identities are supplied '
+                  'only from the unlocked live incident list for in-memory '
+                  'matching. The API token '
                   'copy is encrypted with Android Keystore for this opt-in '
                   'worker. Notifications are generic: '
                   'no connection name, endpoint, node name, guest name, VMID, '

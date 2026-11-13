@@ -110,11 +110,15 @@ confirmation and hysteresis use the same saved rule values. Guest selectors and
 thresholds stay inside the Android-Keystore-encrypted payload; runtime state
 contains only hashed rule IDs plus bounded counters/booleans.
 
-This still does not implement full Mode B threshold parity: scheduled
-storage-usage rules, authoritative correlation and relay delivery remain gated.
-Cross-mode notification delivery deduplication is implemented in 0.1.57.
-The feature remains best-effort Android scheduling, never critical paging or
-24/7 monitoring.
+Scheduled storage-usage threshold parity is implemented in 0.1.62. VirtHelm
+0.1.63 adds bounded exact cross-mode incident correlation: when an unlocked
+foreground incident has the same exact node, task UPID or saved-rule identity as
+profile-scoped hashed scheduled evidence, durable History records the scheduled
+observation timestamp. Scheduled evidence never creates or resolves live health.
+Richer causal/cross-resource correlation and relay delivery remain gated.
+Cross-mode notification delivery deduplication is implemented in 0.1.57. The
+feature remains best-effort Android scheduling, never critical paging or 24/7
+monitoring.
 
 ## Notification lock-screen privacy follow-up (0.1.54)
 
@@ -150,6 +154,24 @@ write authorization.
 
 The check-and-post boundary is serialized inside the app process so an
 activity delivery and a WorkManager Worker cannot race through separate
-cooldown stores. Full profile/scheduled-state lifecycle cleanup clears the
-shared ledger. Background storage-threshold parity, authoritative
-cross-resource correlation and relay delivery remain gated.
+cooldown stores. Full profile/scheduled-state lifecycle cleanup clears the shared ledger.
+Scheduled storage-threshold parity is implemented in 0.1.62 and bounded exact
+foreground/scheduled correlation in 0.1.63. Richer causal cross-resource
+correlation and relay delivery remain gated.
+
+
+## Bounded exact cross-mode correlation follow-up (0.1.63)
+
+Mode A and Mode B now share local evidence for the same exact incident without
+sharing plaintext infrastructure identities at rest. Mode B keeps only
+profile-scoped SHA-256 values and timestamps for currently active node,
+definite-task and threshold-rule categories. During an unlocked foreground
+refresh, Mode A supplies the exact current incident identities in memory and
+receives only matching keys plus scheduled observation timestamps.
+
+A complete scheduled component replaces its older hashes; an incomplete
+component preserves them. A complete authenticated foreground refresh remains
+the only event that can close a missing durable occurrence. The correlation
+timestamp is historical context only and never authorizes resource access,
+changes acknowledgement/severity, or claims continuous coverage. See
+[the implementation milestone](108-implementation-cross-mode-incident-correlation.md).

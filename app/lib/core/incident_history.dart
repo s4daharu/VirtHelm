@@ -25,6 +25,7 @@ class IncidentHistoryEntry {
     required this.lastSeen,
     this.reviewedAt,
     this.noLongerObservedAt,
+    this.scheduledObservedAt,
     this.node,
     this.taskTitle,
     this.guestKind,
@@ -43,6 +44,7 @@ class IncidentHistoryEntry {
   final DateTime lastSeen;
   final DateTime? reviewedAt;
   final DateTime? noLongerObservedAt;
+  final DateTime? scheduledObservedAt;
   final String? node;
   final String? taskTitle;
   final String? guestKind;
@@ -87,6 +89,8 @@ class IncidentHistoryEntry {
       'reviewed_at': reviewedAt!.toUtc().toIso8601String(),
     if (noLongerObservedAt != null)
       'no_longer_observed_at': noLongerObservedAt!.toUtc().toIso8601String(),
+    if (scheduledObservedAt != null)
+      'scheduled_observed_at': scheduledObservedAt!.toUtc().toIso8601String(),
     if (node != null) 'node': node,
     if (taskTitle != null) 'task_title': taskTitle,
     if (guestKind != null) 'guest_kind': guestKind,
@@ -120,6 +124,10 @@ class IncidentHistoryEntry {
       json['no_longer_observed_at'],
       'no_longer_observed_at',
     );
+    final scheduledObservedAt = _optionalDate(
+      json['scheduled_observed_at'],
+      'scheduled_observed_at',
+    );
     if (departed != null && departed.isBefore(firstSeen)) {
       throw const FormatException('Incident history departure is invalid.');
     }
@@ -138,6 +146,7 @@ class IncidentHistoryEntry {
       lastSeen: lastSeen,
       reviewedAt: reviewedAt,
       noLongerObservedAt: departed,
+      scheduledObservedAt: scheduledObservedAt,
       node: _optionalText(json['node'], _maxIdentityLength, 'node'),
       taskTitle: _optionalText(
         json['task_title'],
@@ -155,7 +164,10 @@ class IncidentHistoryEntry {
     );
   }
 
-  IncidentHistoryEntry updatedFrom(IncidentTriageRecord record) {
+  IncidentHistoryEntry updatedFrom(
+    IncidentTriageRecord record, {
+    DateTime? scheduledObservedAt,
+  }) {
     final incident = record.incident;
     return IncidentHistoryEntry(
       occurrenceId: occurrenceId,
@@ -168,6 +180,10 @@ class IncidentHistoryEntry {
       lastSeen: record.lastSeen.toUtc(),
       reviewedAt: record.acknowledgedAt?.toUtc() ?? reviewedAt,
       noLongerObservedAt: record.noLongerObservedAt?.toUtc(),
+      scheduledObservedAt: _latestDate(
+        this.scheduledObservedAt,
+        scheduledObservedAt,
+      ),
       node: _boundedOptional(incident.node, _maxIdentityLength),
       taskTitle: _historyOptionalText(
         incident,
@@ -193,6 +209,7 @@ class IncidentHistoryEntry {
         lastSeen: lastSeen,
         reviewedAt: reviewedAt,
         noLongerObservedAt: time.toUtc(),
+        scheduledObservedAt: scheduledObservedAt,
         node: node,
         taskTitle: taskTitle,
         guestKind: guestKind,
@@ -203,8 +220,9 @@ class IncidentHistoryEntry {
 
   static IncidentHistoryEntry fromRecord(
     IncidentTriageRecord record,
-    String occurrenceId,
-  ) {
+    String occurrenceId, {
+    DateTime? scheduledObservedAt,
+  }) {
     final incident = record.incident;
     return IncidentHistoryEntry(
       occurrenceId: occurrenceId,
@@ -217,6 +235,7 @@ class IncidentHistoryEntry {
       lastSeen: record.lastSeen.toUtc(),
       reviewedAt: record.acknowledgedAt?.toUtc(),
       noLongerObservedAt: record.noLongerObservedAt?.toUtc(),
+      scheduledObservedAt: scheduledObservedAt?.toUtc(),
       node: _boundedOptional(incident.node, _maxIdentityLength),
       taskTitle: _historyOptionalText(
         incident,
@@ -277,6 +296,7 @@ List<IncidentHistoryEntry> reconcileIncidentHistory(
   Iterable<IncidentHistoryEntry> previous,
   Iterable<IncidentTriageRecord> sessionRecords, {
   required bool complete,
+  Map<String, DateTime> scheduledObservations = const <String, DateTime>{},
   DateTime? now,
 }) {
   final time = (now ?? DateTime.now()).toUtc();
@@ -296,8 +316,14 @@ List<IncidentHistoryEntry> reconcileIncidentHistory(
         break;
       }
     }
+    final scheduledObservedAt = record.isCurrent
+        ? scheduledObservations[record.incident.key]
+        : null;
     if (match >= 0) {
-      result[match] = result[match].updatedFrom(record);
+      result[match] = result[match].updatedFrom(
+        record,
+        scheduledObservedAt: scheduledObservedAt,
+      );
       continue;
     }
     final occurrenceId = _newOccurrenceId(
@@ -305,7 +331,13 @@ List<IncidentHistoryEntry> reconcileIncidentHistory(
       record.incident.source,
       result,
     );
-    result.add(IncidentHistoryEntry.fromRecord(record, occurrenceId));
+    result.add(
+      IncidentHistoryEntry.fromRecord(
+        record,
+        occurrenceId,
+        scheduledObservedAt: scheduledObservedAt,
+      ),
+    );
   }
 
   if (complete) {
@@ -397,6 +429,12 @@ String _bounded(String value, int maxLength) {
   final trimmed = value.trim();
   if (trimmed.length <= maxLength) return trimmed;
   return trimmed.substring(0, maxLength);
+}
+
+DateTime? _latestDate(DateTime? left, DateTime? right) {
+  if (left == null) return right?.toUtc();
+  if (right == null) return left.toUtc();
+  return right.toUtc().isAfter(left.toUtc()) ? right.toUtc() : left.toUtc();
 }
 
 String? _boundedOptional(String? value, int maxLength) {
