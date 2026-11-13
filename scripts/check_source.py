@@ -125,6 +125,7 @@ required = [
     'docs/106-implementation-scheduled-guest-cpu-thresholds.md',
     'docs/107-implementation-scheduled-storage-usage-thresholds.md',
     'docs/108-implementation-cross-mode-incident-correlation.md',
+    'docs/109-implementation-notification-incident-targets.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
@@ -149,6 +150,8 @@ assert 'setNotificationLockScreenPrivacy' in files['app/lib/core/app_controller.
 assert 'notificationLockScreenPrivacy' in files['app/lib/core/profile_repository.dart']
 assert 'com.s4daharu.virthelm/incident_navigation' in files['app/lib/core/notification_navigation.dart']
 assert 'takePendingIncidentIntent' in files['app/lib/core/notification_navigation.dart']
+assert 'maxIncidentNavigationCandidates = 128' in files['app/lib/core/notification_navigation.dart']
+assert 'resolveIncidentTarget' in files['app/lib/core/notification_navigation.dart']
 assert 'requestIncidentCenter' in files['app/lib/core/app_controller.dart']
 assert 'takeIncidentCenterNavigationRequest' in files['app/lib/core/app_controller.dart']
 assert 'takeIncidentCenterNavigationRequest' in files['app/lib/ui/shell.dart']
@@ -156,8 +159,12 @@ assert 'setForegroundNotificationPolicy' in files['app/lib/core/app_controller.d
 assert 'cross-mode notification delivery deduplication' in files['docs/103-implementation-cross-mode-notification-deduplication.md'].lower()
 assert "'profileId': profileId" in files['app/lib/core/foreground_notifications.dart']
 assert "'cooldownMinutes': cooldownMinutes" in files['app/lib/core/foreground_notifications.dart']
+assert "if (target != null) 'incidentKey': target" in files['app/lib/core/foreground_notifications.dart']
 assert 'profileId: profileId' in files['app/lib/core/app_controller.dart']
 assert 'cooldownMinutes: policy.cooldownMinutes' in files['app/lib/core/app_controller.dart']
+assert 'incidentKey: targetIncidentKey' in files['app/lib/core/app_controller.dart']
+assert "Key('notification-target-focus')" in files['app/lib/ui/incident_center_tab.dart']
+assert 'bounded opaque incident notification target' in files['docs/109-implementation-notification-incident-targets.md'].lower()
 assert "Key('foreground-incident-notifications')" in files['app/lib/ui/shell.dart']
 assert "Key('incident-notification-quiet-hours')" in files['app/lib/ui/shell.dart']
 assert "Key('incident-notification-cooldown')" in files['app/lib/ui/shell.dart']
@@ -474,7 +481,10 @@ assert 'Notification.VISIBILITY_PUBLIC' not in main_activity
 assert 'com.s4daharu.virthelm/incident_navigation' in main_activity
 assert 'onNewIntent' in main_activity
 assert 'takePendingIncidentNavigation' in main_activity
-assert 'IncidentNotificationNavigation.contentIntent(this)' in main_activity
+assert 'resolveIncidentTarget' in main_activity
+assert 'pendingIncidentTargetHash' in main_activity
+assert 'incidentNavigationSequence' in main_activity
+assert 'IncidentNotificationNavigation.contentIntent(this, targetHash)' in main_activity
 assert 'IncidentNotificationDeliveryLedger.profileKey(profileId)' in main_activity
 assert 'cooldownMinutes = cooldownMinutes' in main_activity
 worker = files['scripts/android/BackgroundIncidentWorker.kt']
@@ -548,7 +558,16 @@ assert '.put("hashes"' in correlation_storage
 for forbidden in ('.put("identity"', '.put("node"', '.put("vmid"', '.put("storageId"', '.put("ruleId"', '.put("upid"', '.put("thresholdPercent"'):
     assert forbidden not in correlation_storage, f'Correlation preference must not persist raw identity field: {forbidden}'
 navigation_intent = worker.split('internal object IncidentNotificationNavigation', 1)[1].split('internal data class ScheduledPolicy', 1)[0]
-assert 'putExtra(' not in navigation_intent
+assert 'EXTRA_TARGET_HASH' in navigation_intent
+assert 'fun targetHash(profileId: String, incidentKey: String)' in navigation_intent
+assert 'MessageDigest.getInstance("SHA-256")' in navigation_intent
+assert '|notification|' in navigation_intent
+assert 'fun resolveTarget(' in navigation_intent
+intent_payload = navigation_intent.split('fun contentIntent', 1)[1].split('fun targetsIncidents', 1)[0]
+assert intent_payload.count('putExtra(') == 1
+assert 'putExtra(EXTRA_TARGET_HASH, targetHash ?: "")' in intent_payload
+for forbidden in ('profileId', 'incidentKey', '"node"', '"vmid"', '"upid"', '"ruleId"', '"storageId"'):
+    assert forbidden not in intent_payload, f'Notification intent must not contain raw resource field: {forbidden}'
 assert 'instanceFollowRedirects = false' in worker
 assert 'requestMethod = "GET"' in worker
 assert 'PVEAPIToken=' in worker
