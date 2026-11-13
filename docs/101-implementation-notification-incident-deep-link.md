@@ -23,7 +23,11 @@ Both notification paths use one explicit immutable `PendingIntent` targeting
 
 `com.s4daharu.virthelm.action.OPEN_INCIDENTS`
 
-The intent contains no resource selector and no `putExtra` payload.
+At 0.1.55 the intent contained no `putExtra` payload. The 0.1.64 follow-up
+keeps that privacy boundary for raw infrastructure identity but may add one
+package-scoped extra containing only a lowercase 64-hex opaque target digest
+for a uniquely identifiable foreground incident. Generic and scheduled
+notifications explicitly overwrite that extra with an empty value.
 
 The intent uses `FLAG_ACTIVITY_CLEAR_TOP | FLAG_ACTIVITY_SINGLE_TOP` so the
 single-activity Flutter app can reuse an existing activity and receive
@@ -44,12 +48,16 @@ generic `openIncidents` event over the private app method channel. If Dart is
 not ready to receive the event, native code retains a pending boolean and
 Flutter also checks for a pending request when it resumes.
 
-The Flutter controller stores only a consumable in-memory pending-navigation
-boolean. No incident identifier or profile ID is persisted. `ShellPage`
-consumes a request once and selects the Incidents navigation destination.
-A request received before the shell exists is honored when the shell is first
-constructed after connection selection/initialization; an already consumed
-request cannot reopen Incidents after a later shell recreation.
+The Flutter controller stores only a consumable in-memory navigation request.
+As of 0.1.64 that request may contain the opaque target digest, never a raw
+resource identifier. `ShellPage` consumes each request once and selects the
+Incidents destination. The current incident set is then offered back to native
+code in memory, bounded to 128 keys, for exact digest resolution. AppController
+rechecks the active profile, connection generation and current incident
+membership before the inbox may focus one card. A request received before the
+shell exists is honored when the shell is first constructed after connection
+selection/initialization; an already consumed request cannot reopen Incidents
+after a later shell recreation.
 
 ## Security and privacy boundary
 
@@ -81,7 +89,9 @@ Tests and source assertions cover:
   consumption;
 - one shared immutable content intent for foreground and scheduled
   notifications;
-- absence of `putExtra` in the notification-navigation intent builder;
+- the 0.1.64 intent builder allowing exactly one opaque target extra while
+  source hardening forbids raw resource fields in that payload;
+- bounded native target resolution and result allowlisting;
 - continued absence of public lock-screen visibility.
 
 Exact-head PR run **43159936358** passed repository source/docs checks,
@@ -96,9 +106,11 @@ Physical Android validation still needs to cover notification taps from a
 secure lock screen, cold process start, warm foreground/background activity,
 multiple taps, OEM notification behavior and operator channel overrides.
 
-This milestone intentionally stops at the generic Incidents destination.
-Resource-specific notification payloads/deep links remain out of scope.
-Background failed-task/threshold parity, authoritative cross-resource
-correlation, optional relay delivery and production critical-alert guarantees
-remain gated. Cross-mode notification delivery deduplication is implemented by
-the 0.1.57 follow-up.
+The original 0.1.55 milestone intentionally stopped at the generic Incidents
+destination. VirtHelm 0.1.64 adds a bounded exact-current foreground incident
+focus using only an opaque digest; see
+[the 0.1.64 follow-up](109-implementation-notification-incident-targets.md).
+Scheduled notification targets, direct automatic resource-page navigation,
+richer causal/cross-resource correlation, optional relay delivery and
+production critical-alert guarantees remain gated. Cross-mode notification
+delivery deduplication is implemented by the 0.1.57 follow-up.
