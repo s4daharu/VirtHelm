@@ -74,19 +74,22 @@ class MainActivity : FlutterActivity() {
                 "resolveIncidentTarget" -> {
                     val profileId = call.argument<String>("profileId")
                     val targetHash = call.argument<String>("targetHash")
-                    val incidentKeys =
-                        call.argument<List<*>>("incidentKeys") ?: emptyList<Any?>()
+                    val candidates =
+                        call.argument<List<*>>("candidates")
+                            ?: call.argument<List<*>>("incidentKeys")?.map {
+                                mapOf("key" to it)
+                            }
                     val resolved = runCatching {
                         if (profileId.isNullOrBlank() ||
                             targetHash.isNullOrBlank() ||
-                            incidentKeys.any { it !is String }
+                            candidates == null
                         ) {
                             null
                         } else {
                             IncidentNotificationNavigation.resolveTarget(
                                 profileId = profileId,
                                 targetHash = targetHash,
-                                incidentKeys = incidentKeys.filterIsInstance<String>(),
+                                rawCandidates = candidates,
                             )
                         }
                     }.getOrNull()

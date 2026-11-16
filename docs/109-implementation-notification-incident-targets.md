@@ -72,8 +72,9 @@ The scheduled path calls the targetless PendingIntent constructor, which also
 clears any prior target extra. Scheduled hashed evidence is historical
 correlation context and is not promoted into a resource-navigation authority.
 
-A future scheduled target would require exact occurrence attribution without
-weakening the current incomplete-read, stale-evidence and privacy boundaries.
+The bounded 0.1.65 follow-up adds exact scheduled targets for one uniquely
+attributable new identity; see [the scheduled-target
+milestone](110-implementation-scheduled-notification-targets.md).
 
 ## Race and lifecycle behavior
 
@@ -95,7 +96,8 @@ remains disabled.
 - Only a lowercase 64-hex digest may be carried in the notification intent.
 - Raw incident keys cross only the in-process Flutter/native method channel for
   notification creation or target resolution.
-- Scheduled notifications remain generic.
+- Scheduled notifications remain generic in 0.1.64; 0.1.65 adds bounded exact
+  scheduled targets separately.
 - Target resolution cannot select/switch a connection.
 - Target resolution cannot acknowledge/resolve an incident.
 - Target resolution cannot change health, history or notification cooldown

@@ -137,18 +137,49 @@ internal object IncidentNotificationNavigation {
         "com.s4daharu.virthelm.extra.INCIDENT_TARGET_HASH"
     private const val REQUEST_CODE = 4109
     private val targetHashPattern = Regex("^[0-9a-f]{64}$")
+    private val scheduledSourcePattern = Regex("^(node|task|rule)$")
 
     private fun safeIncidentKey(value: String): Boolean =
         value.isNotBlank() &&
             value.length <= 1200 &&
             !value.any { it.code < 0x20 || it.code == 0x7f }
 
-    fun targetHash(profileId: String, incidentKey: String): String {
-        require(safeIncidentKey(incidentKey))
-        val profileKey = IncidentNotificationDeliveryLedger.profileKey(profileId)
-        return MessageDigest.getInstance("SHA-256")
-            .digest("$profileKey|notification|$incidentKey".toByteArray(Charsets.UTF_8))
+    private fun safeScheduledIdentity(source: String, value: String): Boolean {
+        val maxLength = if (source == "task") 1024 else 160
+        return value.isNotBlank() &&
+            value.length <= maxLength &&
+            !value.any { it.code < 0x20 || it.code == 0x7f }
+    }
+
+    private fun digest(value: String): String =
+        MessageDigest.getInstance("SHA-256")
+            .digest(value.toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it) }
+
+    private fun foregroundTargetHash(
+        profileKey: String,
+        incidentKey: String,
+    ): String {
+        require(profileKey.matches(targetHashPattern))
+        require(safeIncidentKey(incidentKey))
+        return digest("$profileKey|notification|$incidentKey")
+    }
+
+    fun targetHash(profileId: String, incidentKey: String): String =
+        foregroundTargetHash(
+            IncidentNotificationDeliveryLedger.profileKey(profileId),
+            incidentKey,
+        )
+
+    fun scheduledTargetHash(
+        profileKey: String,
+        source: String,
+        identity: String,
+    ): String {
+        require(profileKey.matches(targetHashPattern))
+        require(scheduledSourcePattern.matches(source))
+        require(safeScheduledIdentity(source, identity))
+        return digest("$profileKey|scheduled|$source|$identity")
     }
 
     fun contentIntent(context: Context, targetHash: String? = null): PendingIntent {
@@ -184,14 +215,33 @@ internal object IncidentNotificationNavigation {
     fun resolveTarget(
         profileId: String,
         targetHash: String,
-        incidentKeys: List<String>,
+        rawCandidates: List<*>,
     ): String? {
         require(targetHashPattern.matches(targetHash))
-        require(incidentKeys.size <= MAX_CORRELATION_CANDIDATES)
-        val matches = incidentKeys
-            .filter(::safeIncidentKey)
-            .filter { targetHash(profileId, it) == targetHash }
-        return matches.singleOrNull()
+        require(rawCandidates.size <= MAX_CORRELATION_CANDIDATES)
+        val profileKey = IncidentNotificationDeliveryLedger.profileKey(profileId)
+        val matches = mutableListOf<String>()
+        for (raw in rawCandidates) {
+            val candidate = raw as? Map<*, *>
+                ?: throw IllegalArgumentException("Invalid incident candidate")
+            val incidentKey = candidate["key"] as? String
+                ?: throw IllegalArgumentException("Missing incident key")
+            if (!safeIncidentKey(incidentKey)) continue
+            val source = candidate["source"] as? String
+            val identity = candidate["identity"] as? String
+            val scheduledMatch =
+                source != null &&
+                    identity != null &&
+                    scheduledSourcePattern.matches(source) &&
+                    safeScheduledIdentity(source, identity) &&
+                    scheduledTargetHash(profileKey, source, identity) == targetHash
+            if (foregroundTargetHash(profileKey, incidentKey) == targetHash ||
+                scheduledMatch
+            ) {
+                matches.add(incidentKey)
+            }
+        }
+        return matches.distinct().singleOrNull()
     }
 }
 
@@ -509,6 +559,8 @@ private data class FailedTaskReadResult(
     val watermarkSeconds: Long,
     val correlationComplete: Boolean = false,
     val incidentTaskIds: List<String> = emptyList(),
+    val newCorrelationComplete: Boolean = true,
+    val newIncidentTaskIds: List<String> = emptyList(),
 )
 
 private data class ThresholdRuleRuntimeState(
@@ -522,6 +574,7 @@ private data class ThresholdEvaluationResult(
     val newIncident: Boolean,
     val stateJson: String?,
     val activeRuleIds: List<String> = emptyList(),
+    val newRuleIds: List<String> = emptyList(),
 )
 
 private data class ScheduledCorrelationEvidence(
@@ -529,12 +582,17 @@ private data class ScheduledCorrelationEvidence(
     val nodeIds: List<String> = emptyList(),
     val taskComplete: Boolean = false,
     val taskIds: List<String> = emptyList(),
+    val taskNewComplete: Boolean = false,
+    val taskNewIds: List<String> = emptyList(),
     val nodeRuleComplete: Boolean = false,
     val nodeRuleIds: List<String> = emptyList(),
+    val nodeRuleNewIds: List<String> = emptyList(),
     val guestRuleComplete: Boolean = false,
     val guestRuleIds: List<String> = emptyList(),
+    val guestRuleNewIds: List<String> = emptyList(),
     val storageRuleComplete: Boolean = false,
     val storageRuleIds: List<String> = emptyList(),
+    val storageRuleNewIds: List<String> = emptyList(),
 )
 
 private data class ScheduledCheckResult(
@@ -935,9 +993,13 @@ internal object BackgroundCheckCoordinator {
         val previousNodeActive =
             storage.getBoolean(nodeIncidentKey(key), legacyNodeActive)
         var newlyActive = false
+        var newlyNodeActive = false
         if (result.nodeComplete) {
             editor.putBoolean(nodeIncidentKey(key), result.nodeIncident)
-            if (result.nodeIncident && !previousNodeActive) newlyActive = true
+            if (result.nodeIncident && !previousNodeActive) {
+                newlyActive = true
+                newlyNodeActive = true
+            }
         }
         if (result.taskComplete) {
             editor.putBoolean(taskIncidentKey(key), result.taskIncident)
@@ -969,10 +1031,90 @@ internal object BackgroundCheckCoordinator {
                 profileKey = key,
                 cooldownMinutes = policy.cooldownMinutes,
                 nowMs = now,
+                targetHash = newIncidentTargetHash(
+                    result = result,
+                    profileKey = key,
+                    newlyNodeActive = newlyNodeActive,
+                ),
             )
         ) {
             storage.edit().putLong(lastNotificationKey(key), now).apply()
         }
+    }
+
+    private fun newIncidentTargetHash(
+        result: ScheduledCheckResult,
+        profileKey: String,
+        newlyNodeActive: Boolean,
+    ): String? {
+        // A target narrows the inbox to one card. Only do that when every
+        // enabled scheduled component read completed, so no unknown new
+        // incident can be silently hidden behind the focus.
+        if (!result.complete) return null
+        val targets = linkedSetOf<Pair<String, String>>()
+        var attributable = true
+
+        if (newlyNodeActive) {
+            // A node incident transition means every currently incident node is
+            // newly incident in this run.
+            if (result.correlation.nodeComplete &&
+                result.correlation.nodeIds.isNotEmpty()
+            ) {
+                result.correlation.nodeIds.forEach {
+                    targets.add("node" to it)
+                }
+            } else {
+                attributable = false
+            }
+        }
+        if (result.taskNewIncident) {
+            // Only failures after the previous task watermark are new.
+            if (result.correlation.taskNewComplete &&
+                result.correlation.taskNewIds.isNotEmpty()
+            ) {
+                result.correlation.taskNewIds.forEach {
+                    targets.add("task" to it)
+                }
+            } else {
+                attributable = false
+            }
+        }
+        if (result.thresholdNewIncident) {
+            if (result.correlation.nodeRuleNewIds.isNotEmpty()) {
+                result.correlation.nodeRuleNewIds.forEach {
+                    targets.add("rule" to it)
+                }
+            } else {
+                attributable = false
+            }
+        }
+        if (result.guestThresholdNewIncident) {
+            if (result.correlation.guestRuleNewIds.isNotEmpty()) {
+                result.correlation.guestRuleNewIds.forEach {
+                    targets.add("rule" to it)
+                }
+            } else {
+                attributable = false
+            }
+        }
+        if (result.storageThresholdNewIncident) {
+            if (result.correlation.storageRuleNewIds.isNotEmpty()) {
+                result.correlation.storageRuleNewIds.forEach {
+                    targets.add("rule" to it)
+                }
+            } else {
+                attributable = false
+            }
+        }
+        if (!attributable) return null
+        val target = targets.singleOrNull() ?: return null
+        return runCatching {
+            IncidentNotificationNavigation.scheduledTargetHash(
+                profileKey = profileKey,
+                source = target.first,
+                identity = target.second,
+            )
+        }.getOrNull()
     }
 
     private fun isAppForeground(): Boolean {
@@ -1233,6 +1375,7 @@ internal object BackgroundCheckCoordinator {
             )
         var complete = true
         var newIncident = false
+        val newRuleIds = mutableListOf<String>()
 
         for (rule in rules) {
             val stateId = thresholdRuleStateId(rule.id)
@@ -1282,6 +1425,7 @@ internal object BackgroundCheckCoordinator {
                     active = true,
                 )
                 newIncident = true
+                newRuleIds.add(rule.id)
             } else {
                 states[stateId] = ThresholdRuleRuntimeState(
                     pendingSamples = pending,
@@ -1301,6 +1445,7 @@ internal object BackgroundCheckCoordinator {
             newIncident = newIncident,
             stateJson = encodeThresholdState(rules.map { it.id }, states),
             activeRuleIds = activeRuleIds,
+            newRuleIds = newRuleIds,
         )
     }
 
@@ -1329,6 +1474,7 @@ internal object BackgroundCheckCoordinator {
             )
         var complete = true
         var newIncident = false
+        val newRuleIds = mutableListOf<String>()
 
         for (rule in rules) {
             val stateId = thresholdRuleStateId(rule.id)
@@ -1378,6 +1524,7 @@ internal object BackgroundCheckCoordinator {
                     active = true,
                 )
                 newIncident = true
+                newRuleIds.add(rule.id)
             } else {
                 states[stateId] = ThresholdRuleRuntimeState(
                     pendingSamples = pending,
@@ -1397,6 +1544,7 @@ internal object BackgroundCheckCoordinator {
             newIncident = newIncident,
             stateJson = encodeThresholdState(rules.map { it.id }, states),
             activeRuleIds = activeRuleIds,
+            newRuleIds = newRuleIds,
         )
     }
 
@@ -1425,6 +1573,7 @@ internal object BackgroundCheckCoordinator {
             )
         var complete = true
         var newIncident = false
+        val newRuleIds = mutableListOf<String>()
 
         for (rule in rules) {
             val stateId = thresholdRuleStateId(rule.id)
@@ -1474,6 +1623,7 @@ internal object BackgroundCheckCoordinator {
                     active = true,
                 )
                 newIncident = true
+                newRuleIds.add(rule.id)
             } else {
                 states[stateId] = ThresholdRuleRuntimeState(
                     pendingSamples = pending,
@@ -1493,6 +1643,7 @@ internal object BackgroundCheckCoordinator {
             newIncident = newIncident,
             stateJson = encodeThresholdState(rules.map { it.id }, states),
             activeRuleIds = activeRuleIds,
+            newRuleIds = newRuleIds,
         )
     }
 
@@ -1691,12 +1842,18 @@ internal object BackgroundCheckCoordinator {
                 taskComplete =
                     !policy.failedTaskChecksEnabled || tasks.correlationComplete,
                 taskIds = tasks.incidentTaskIds,
+                taskNewComplete =
+                    !policy.failedTaskChecksEnabled || tasks.newCorrelationComplete,
+                taskNewIds = tasks.newIncidentTaskIds,
                 nodeRuleComplete = thresholds.complete,
                 nodeRuleIds = thresholds.activeRuleIds,
+                nodeRuleNewIds = thresholds.newRuleIds,
                 guestRuleComplete = guestThresholdComplete,
                 guestRuleIds = guestThresholds.activeRuleIds,
+                guestRuleNewIds = guestThresholds.newRuleIds,
                 storageRuleComplete = storageThresholdComplete,
                 storageRuleIds = storageThresholds.activeRuleIds,
+                storageRuleNewIds = storageThresholds.newRuleIds,
             ),
         )
     }
@@ -2012,7 +2169,9 @@ internal object BackgroundCheckCoordinator {
         var incident = false
         var newIncident = false
         var correlationComplete = true
+        var newCorrelationComplete = true
         val incidentTaskIds = linkedSetOf<String>()
+        val newIncidentTaskIds = linkedSetOf<String>()
         var watermarkSeconds = previousWatermarkSeconds
         for (node in nodes) {
             if (!isSafeNodePathSegment(node)) {
@@ -2137,6 +2296,11 @@ internal object BackgroundCheckCoordinator {
                         }
                         if (endTimeSeconds > previousWatermarkSeconds) {
                             newIncident = true
+                            if (isSafeCorrelationIdentity(taskId, 1024)) {
+                                newIncidentTaskIds.add(taskId)
+                            } else {
+                                newCorrelationComplete = false
+                            }
                         }
                     }
                 }
@@ -2152,6 +2316,8 @@ internal object BackgroundCheckCoordinator {
             watermarkSeconds = watermarkSeconds,
             correlationComplete = correlationComplete,
             incidentTaskIds = incidentTaskIds.toList(),
+            newCorrelationComplete = newCorrelationComplete,
+            newIncidentTaskIds = newIncidentTaskIds.toList(),
         )
     }
 
@@ -2174,6 +2340,7 @@ internal object BackgroundCheckCoordinator {
         profileKey: String,
         cooldownMinutes: Int,
         nowMs: Long,
+        targetHash: String?,
     ): Boolean {
         return IncidentNotificationDeliveryLedger.deliver(
             context = context,
@@ -2200,7 +2367,8 @@ internal object BackgroundCheckCoordinator {
             }
             manager.createNotificationChannel(channel)
 
-            val contentIntent = IncidentNotificationNavigation.contentIntent(context)
+            val contentIntent =
+                IncidentNotificationNavigation.contentIntent(context, targetHash)
             val notification = Notification.Builder(context, INCIDENT_CHANNEL_ID)
                 .setSmallIcon(R.drawable.virthelm_notification)
                 .setContentTitle("VirtHelm scheduled incident")

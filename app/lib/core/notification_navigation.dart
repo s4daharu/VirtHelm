@@ -2,6 +2,22 @@ import 'package:flutter/services.dart';
 
 const int maxIncidentNavigationCandidates = 128;
 final RegExp _targetHashPattern = RegExp(r'^[0-9a-f]{64}$');
+const Set<String> _scheduledIncidentSources = <String>{'node', 'task', 'rule'};
+
+class IncidentNavigationCandidate {
+  const IncidentNavigationCandidate({
+    required this.key,
+    required this.source,
+    required this.identity,
+  });
+
+  final String key;
+  final String source;
+  final String identity;
+}
+
+bool _hasControlCharacters(String value) =>
+    value.codeUnits.any((unit) => unit < 0x20 || unit == 0x7f);
 
 class IncidentNavigationRequest {
   const IncidentNavigationRequest({this.targetHash});
@@ -26,7 +42,7 @@ abstract interface class IncidentNavigationTargetResolver {
   Future<String?> resolveIncidentTarget({
     required String profileId,
     required String targetHash,
-    required Iterable<String> incidentKeys,
+    required Iterable<IncidentNavigationCandidate> candidates,
   });
 }
 
@@ -76,7 +92,7 @@ class AndroidIncidentNotificationNavigation
   Future<String?> resolveIncidentTarget({
     required String profileId,
     required String targetHash,
-    required Iterable<String> incidentKeys,
+    required Iterable<IncidentNavigationCandidate> candidates,
   }) async {
     final profile = profileId.trim();
     if (profile.isEmpty ||
@@ -84,28 +100,41 @@ class AndroidIncidentNotificationNavigation
         !_targetHashPattern.hasMatch(targetHash)) {
       return null;
     }
-    final candidates = <String>[];
-    for (final raw in incidentKeys) {
-      if (candidates.length >= maxIncidentNavigationCandidates) break;
-      final key = raw.trim();
+    final payload = <Map<String, Object?>>[];
+    for (final candidate in candidates) {
+      if (payload.length >= maxIncidentNavigationCandidates) break;
+      final key = candidate.key.trim();
+      final source = candidate.source.trim();
+      final identity = candidate.identity.trim();
       if (key.isEmpty ||
           key.length > 1200 ||
-          key.codeUnits.any((unit) => unit < 0x20 || unit == 0x7f)) {
+          _hasControlCharacters(key) ||
+          !_scheduledIncidentSources.contains(source) ||
+          identity.isEmpty ||
+          identity.length > 1024 ||
+          _hasControlCharacters(identity)) {
         continue;
       }
-      candidates.add(key);
+      payload.add(<String, Object?>{
+        'key': key,
+        'source': source,
+        'identity': identity,
+      });
     }
-    if (candidates.isEmpty) return null;
+    if (payload.isEmpty) return null;
     try {
       final matched = await _channel.invokeMethod<String>(
         'resolveIncidentTarget',
         <String, Object?>{
           'profileId': profile,
           'targetHash': targetHash,
-          'incidentKeys': candidates,
+          'candidates': payload,
         },
       );
-      return matched != null && candidates.contains(matched) ? matched : null;
+      return matched != null &&
+              payload.any((candidate) => candidate['key'] == matched)
+          ? matched
+          : null;
     } on PlatformException {
       return null;
     } on MissingPluginException {

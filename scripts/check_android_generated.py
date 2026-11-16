@@ -32,6 +32,8 @@ assert 'com.s4daharu.virthelm/incident_navigation' in activity
 assert 'onNewIntent' in activity
 assert 'takePendingIncidentNavigation' in activity
 assert 'resolveIncidentTarget' in activity
+assert 'call.argument<List<*>>("candidates")' in activity
+assert 'rawCandidates = candidates' in activity
 assert 'pendingIncidentTargetHash' in activity
 assert 'incidentNavigationSequence' in activity
 assert 'IncidentNotificationNavigation.contentIntent(this, targetHash)' in activity
@@ -59,7 +61,11 @@ if worker_template.is_file():
     assert 'Notification.VISIBILITY_PUBLIC' not in worker_text
     assert 'ACTION_OPEN_INCIDENTS' in worker_text
     assert 'PendingIntent.FLAG_IMMUTABLE' in worker_text
-    assert 'IncidentNotificationNavigation.contentIntent(context)' in worker_text
+    assert 'IncidentNotificationNavigation.contentIntent(context, targetHash)' in worker_text
+    assert 'IncidentNotificationNavigation.scheduledTargetHash(' in worker_text
+    assert '|scheduled|' in worker_text
+    assert 'newIncidentTargetHash(' in worker_text
+    assert 'scheduledSourcePattern' in worker_text
     assert 'internal object IncidentNotificationDeliveryLedger' in worker_text
     assert 'virthelm_incident_delivery_v1' in worker_text
     assert 'Context.MODE_PRIVATE' in worker_text

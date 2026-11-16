@@ -23,17 +23,17 @@ class _Resolver implements IncidentNavigationTargetResolver {
   String? result;
   String? profileId;
   String? targetHash;
-  List<String> incidentKeys = const [];
+  List<IncidentNavigationCandidate> candidates = const [];
 
   @override
   Future<String?> resolveIncidentTarget({
     required String profileId,
     required String targetHash,
-    required Iterable<String> incidentKeys,
+    required Iterable<IncidentNavigationCandidate> candidates,
   }) async {
     this.profileId = profileId;
     this.targetHash = targetHash;
-    this.incidentKeys = incidentKeys.toList(growable: false);
+    this.candidates = candidates.toList(growable: false);
     return result;
   }
 }
@@ -80,7 +80,7 @@ void main() {
   });
 
   test(
-    'Android resolver bounds and allowlists current incident keys',
+    'Android resolver bounds and allowlists current incident candidates',
     () async {
       const targetHash =
           'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
@@ -96,7 +96,14 @@ void main() {
       final matched = await bridge.resolveIncidentTarget(
         profileId: 'profile-alpha',
         targetHash: targetHash,
-        incidentKeys: List<String>.generate(150, (index) => 'node:pve-$index'),
+        candidates: List<IncidentNavigationCandidate>.generate(
+          150,
+          (index) => IncidentNavigationCandidate(
+            key: 'node:pve-$index',
+            source: 'node',
+            identity: 'pve-$index',
+          ),
+        ),
       );
 
       expect(matched, 'node:pve-7');
@@ -104,10 +111,52 @@ void main() {
       final args = Map<String, Object?>.from(observed?.arguments as Map);
       expect(args['profileId'], 'profile-alpha');
       expect(args['targetHash'], targetHash);
-      expect(
-        List<Object?>.from(args['incidentKeys'] as List<Object?>),
-        hasLength(maxIncidentNavigationCandidates),
+      final candidates = List<Object?>.from(
+        args['candidates'] as List<Object?>,
       );
+      expect(candidates, hasLength(maxIncidentNavigationCandidates));
+      expect(
+        Map<String, Object?>.from(candidates.first as Map),
+        <String, Object?>{
+          'key': 'node:pve-0',
+          'source': 'node',
+          'identity': 'pve-0',
+        },
+      );
+    },
+  );
+
+  test(
+    'malformed scheduled identities fail closed before native resolution',
+    () async {
+      var calls = 0;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls++;
+            return null;
+          });
+
+      expect(
+        await const AndroidIncidentNotificationNavigation().resolveIncidentTarget(
+          profileId: 'profile-alpha',
+          targetHash:
+              'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+          candidates: const <IncidentNavigationCandidate>[
+            IncidentNavigationCandidate(
+              key: 'node:pve-a',
+              source: 'unsupported',
+              identity: 'pve-a',
+            ),
+            IncidentNavigationCandidate(
+              key: 'node:pve-b',
+              source: 'node',
+              identity: '',
+            ),
+          ],
+        ),
+        isNull,
+      );
+      expect(calls, 0);
     },
   );
 
@@ -123,7 +172,13 @@ void main() {
       await const AndroidIncidentNotificationNavigation().resolveIncidentTarget(
         profileId: 'profile-alpha',
         targetHash: 'invalid',
-        incidentKeys: const <String>['node:pve-a'],
+        candidates: const <IncidentNavigationCandidate>[
+          IncidentNavigationCandidate(
+            key: 'node:pve-a',
+            source: 'node',
+            identity: 'pve-a',
+          ),
+        ],
       ),
       isNull,
     );
@@ -163,15 +218,64 @@ void main() {
       expect(resolver.profileId, 'lab');
       expect(resolver.targetHash, targetHash);
       expect(
-        resolver.incidentKeys,
+        resolver.candidates.map((candidate) => candidate.key),
         containsAll(<String>['node:pve-a', 'node:pve-b']),
       );
+      final nodeBCandidate = resolver.candidates.firstWhere(
+        (candidate) => candidate.key == 'node:pve-b',
+      );
+      expect(nodeBCandidate.source, 'node');
+      expect(nodeBCandidate.identity, 'pve-b');
 
       resolver.result = 'node:not-current';
       expect(
         await controller.resolveIncidentNavigationTarget(targetHash),
         isNull,
       );
+    },
+  );
+
+  test(
+    'controller forwards scheduled identities for failed task incidents',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      const upid = 'UPID:pve-a:0001:0002:0003:qmstart:100:root@pam:';
+      final resolver = _Resolver()..result = 'task:$upid';
+      final controller = AppController(
+        repository: ProfileRepository(prefs, _Vault()),
+        incidentNavigationTargetResolver: resolver,
+      );
+      addTearDown(controller.dispose);
+      controller.active = const ConnectionProfile(
+        id: 'lab',
+        name: 'Lab',
+        endpoint: 'https://pve.local:8006',
+      );
+      controller.inventory = Inventory(
+        nodes: const <Node>[Node(name: 'pve-a', status: 'online')],
+        guests: const <Guest>[],
+        fetchedAt: DateTime.utc(2026, 11, 14, 12),
+      );
+      controller.serverTasks = const <RecentServerTask>[
+        RecentServerTask(
+          upid: upid,
+          node: 'pve-a',
+          operation: 'qmstart',
+          status: 'stopped',
+          exitStatus: 'VM is locked',
+        ),
+      ];
+      const targetHash =
+          'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+
+      expect(
+        await controller.resolveIncidentNavigationTarget(targetHash),
+        'task:$upid',
+      );
+      final candidate = resolver.candidates.single;
+      expect(candidate.key, 'task:$upid');
+      expect(candidate.source, 'task');
+      expect(candidate.identity, upid);
     },
   );
 

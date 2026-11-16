@@ -110,7 +110,10 @@ The original 0.1.55 milestone intentionally stopped at the generic Incidents
 destination. VirtHelm 0.1.64 adds a bounded exact-current foreground incident
 focus using only an opaque digest; see
 [the 0.1.64 follow-up](109-implementation-notification-incident-targets.md).
-Scheduled notification targets, direct automatic resource-page navigation,
-richer causal/cross-resource correlation, optional relay delivery and
-production critical-alert guarantees remain gated. Cross-mode notification
-delivery deduplication is implemented by the 0.1.57 follow-up.
+VirtHelm 0.1.65 extends the same bounded focus to one exactly attributable
+scheduled incident; see
+[the 0.1.65 follow-up](110-implementation-scheduled-notification-targets.md).
+Direct automatic resource-page navigation, richer causal/cross-resource
+correlation, optional relay delivery and production critical-alert guarantees
+remain gated. Cross-mode notification delivery deduplication is implemented by
+the 0.1.57 follow-up.

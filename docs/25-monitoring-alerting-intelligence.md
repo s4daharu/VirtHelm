@@ -134,8 +134,9 @@ Unknown or missing values fail closed to hidden. Android and operator channel
 settings remain authoritative and may further restrict lock-screen display.
 AND-010 adds notification navigation to the unlocked Incidents destination.
 VirtHelm 0.1.64 may focus one uniquely identifiable current foreground incident
-using only an opaque profile-scoped digest; scheduled notifications remain
-generic and no raw resource selector is carried. Direct automatic resource-page
+using only an opaque profile-scoped digest. VirtHelm 0.1.65 extends the same
+bounded focus to one exactly attributable scheduled incident; every notification
+still carries no raw resource selector. Direct automatic resource-page
 navigation and any unlock bypass remain gated.
 
 
@@ -196,5 +197,21 @@ one card. Failed, stale, malformed or ambiguous resolution falls back to the
 generic Incidents view. The target never performs PVE I/O, changes health or
 acknowledgement, or authorizes drill-down.
 
-Scheduled notifications remain generic and explicitly clear any prior target
-extra. See [the implementation milestone](109-implementation-notification-incident-targets.md).
+In 0.1.64, scheduled notifications remained generic and explicitly cleared any
+prior target extra. See [the implementation milestone](109-implementation-notification-incident-targets.md).
+
+## Bounded scheduled notification target follow-up (0.1.65)
+
+A WorkManager run now may attach the same kind of opaque focus digest when its
+new-incident set is exactly one unique exact node, failed-task or saved-rule
+identity. Multiple new identities, mixed components, incomplete reads and
+unattributable identities stay generic rather than guessing. The digest is
+derived from the profile-scoped hash, a fixed `scheduled` category, the source
+tag and the exact scheduled identity.
+
+Resolution reuses the foreground path: unlock first, open Incidents, offer at
+most 128 current incident keys/sources/identities in memory, accept only one
+match, then revalidate profile, generation and current membership. The
+`scheduled` digest never becomes resource-navigation authority, never performs
+PVE I/O and never changes health, acknowledgement or delivery cooldown. See
+[the implementation milestone](110-implementation-scheduled-notification-targets.md).

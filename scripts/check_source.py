@@ -126,6 +126,7 @@ required = [
     'docs/107-implementation-scheduled-storage-usage-thresholds.md',
     'docs/108-implementation-cross-mode-incident-correlation.md',
     'docs/109-implementation-notification-incident-targets.md',
+    'docs/110-implementation-scheduled-notification-targets.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
@@ -152,6 +153,10 @@ assert 'com.s4daharu.virthelm/incident_navigation' in files['app/lib/core/notifi
 assert 'takePendingIncidentIntent' in files['app/lib/core/notification_navigation.dart']
 assert 'maxIncidentNavigationCandidates = 128' in files['app/lib/core/notification_navigation.dart']
 assert 'resolveIncidentTarget' in files['app/lib/core/notification_navigation.dart']
+assert 'class IncidentNavigationCandidate' in files['app/lib/core/notification_navigation.dart']
+assert "'candidates': payload" in files['app/lib/core/notification_navigation.dart']
+assert 'IncidentNavigationCandidate(' in files['app/lib/core/app_controller.dart']
+assert 'source: incident.source.name' in files['app/lib/core/app_controller.dart']
 assert 'requestIncidentCenter' in files['app/lib/core/app_controller.dart']
 assert 'takeIncidentCenterNavigationRequest' in files['app/lib/core/app_controller.dart']
 assert 'takeIncidentCenterNavigationRequest' in files['app/lib/ui/shell.dart']
@@ -165,6 +170,7 @@ assert 'cooldownMinutes: policy.cooldownMinutes' in files['app/lib/core/app_cont
 assert 'incidentKey: targetIncidentKey' in files['app/lib/core/app_controller.dart']
 assert "Key('notification-target-focus')" in files['app/lib/ui/incident_center_tab.dart']
 assert 'bounded opaque incident notification target' in files['docs/109-implementation-notification-incident-targets.md'].lower()
+assert 'bounded scheduled incident notification target' in files['docs/110-implementation-scheduled-notification-targets.md'].lower()
 assert "Key('foreground-incident-notifications')" in files['app/lib/ui/shell.dart']
 assert "Key('incident-notification-quiet-hours')" in files['app/lib/ui/shell.dart']
 assert "Key('incident-notification-cooldown')" in files['app/lib/ui/shell.dart']
@@ -482,6 +488,8 @@ assert 'com.s4daharu.virthelm/incident_navigation' in main_activity
 assert 'onNewIntent' in main_activity
 assert 'takePendingIncidentNavigation' in main_activity
 assert 'resolveIncidentTarget' in main_activity
+assert 'call.argument<List<*>>("candidates")' in main_activity
+assert 'rawCandidates = candidates' in main_activity
 assert 'pendingIncidentTargetHash' in main_activity
 assert 'incidentNavigationSequence' in main_activity
 assert 'IncidentNotificationNavigation.contentIntent(this, targetHash)' in main_activity
@@ -498,7 +506,27 @@ assert 'IncidentNotificationPrivacy.visibility' in worker
 assert 'Notification.VISIBILITY_PUBLIC' not in worker
 assert 'ACTION_OPEN_INCIDENTS' in worker
 assert 'PendingIntent.FLAG_IMMUTABLE' in worker
-assert 'IncidentNotificationNavigation.contentIntent(context)' in worker
+assert 'IncidentNotificationNavigation.contentIntent(context, targetHash)' in worker
+assert 'newIncidentTargetHash(' in worker
+assert 'scheduledTargetHash(' in worker
+assert 'newRuleIds.add(rule.id)' in worker
+assert 'newRuleIds = newRuleIds' in worker
+assert 'newIncidentTaskIds' in worker
+assert 'taskNewComplete' in worker
+assert 'taskNewIds' in worker
+assert 'nodeRuleNewIds' in worker
+assert 'guestRuleNewIds' in worker
+assert 'storageRuleNewIds' in worker
+target_fn = worker.split('private fun newIncidentTargetHash(', 1)[1].split(
+    'private fun isAppForeground', 1
+)[0]
+assert 'if (!result.complete) return null' in target_fn
+assert 'nodeRuleNewIds' in target_fn
+assert 'guestRuleNewIds' in target_fn
+assert 'storageRuleNewIds' in target_fn
+assert 'activeRuleIds' not in target_fn
+assert 'incidentTaskIds' not in target_fn
+assert 'taskNewIds' in target_fn
 assert 'internal object IncidentNotificationDeliveryLedger' in worker
 assert 'virthelm_incident_delivery_v1' in worker
 assert 'Context.MODE_PRIVATE' in worker
@@ -560,9 +588,13 @@ for forbidden in ('.put("identity"', '.put("node"', '.put("vmid"', '.put("storag
 navigation_intent = worker.split('internal object IncidentNotificationNavigation', 1)[1].split('internal data class ScheduledPolicy', 1)[0]
 assert 'EXTRA_TARGET_HASH' in navigation_intent
 assert 'fun targetHash(profileId: String, incidentKey: String)' in navigation_intent
+assert 'fun scheduledTargetHash(' in navigation_intent
 assert 'MessageDigest.getInstance("SHA-256")' in navigation_intent
 assert '|notification|' in navigation_intent
+assert '|scheduled|' in navigation_intent
 assert 'fun resolveTarget(' in navigation_intent
+assert 'rawCandidates: List<*>' in navigation_intent
+assert 'scheduledSourcePattern' in navigation_intent
 intent_payload = navigation_intent.split('fun contentIntent', 1)[1].split('fun targetsIncidents', 1)[0]
 assert intent_payload.count('putExtra(') == 1
 assert 'putExtra(EXTRA_TARGET_HASH, targetHash ?: "")' in intent_payload

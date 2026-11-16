@@ -52,6 +52,7 @@ Evidence status codes: **DOC** = official source substantiates the concept; **AU
 | Contextual TLS exception labels without permanent banner | AUTO source/widget tests | physical Android accessibility and TLS security review |
 | Shared Material 3 status/component foundation and scoped MaterialApp rebuild | AUTO widget tests + analyzer | physical Android TalkBack/contrast/200% text, 360/393/412dp screenshots and performance benchmarks |
 | Screen-level recovery actions, clear-filter paths and incident severity summary | AUTO widget tests + analyzer | physical Android touch-target/TalkBack/200% text and state-transition review |
+| Bounded foreground/scheduled notification targets: only one opaque SHA-256 digest in the intent; shared native resolution accepts one current profile/session incident; scheduled attribution uses only the new run's exact identity and stays generic for multiple/mixed new evidence or unattributable identities | AUTO Flutter channel/controller/widget regressions, source/native hardening guards and shared foreground compatibility | physical Android cold/warm notification taps, OEM secure-lock-screen behavior, WorkManager delivery timing and PVE 8.4/9.2 release validation |
 | 200-guest responsiveness/accessibility targets | PENDING | representative phone benchmark/TalkBack/font-scale |
 | Ticket/MFA, console, PBS/PDM and high-risk operations | PLAN/deferred | separate milestone RFC/integration gates |
 
