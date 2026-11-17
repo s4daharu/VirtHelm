@@ -406,6 +406,7 @@ List<Map<String, Object?>> _nodeCpuRuleChannelPayload(
         'node': rule.node,
         'thresholdPercent': rule.thresholdPercent,
         'consecutiveSamples': rule.consecutiveSamples,
+        'minimumDurationSeconds': rule.minimumDurationSeconds,
         'hysteresisPercent': rule.hysteresisPercent,
       },
     )
@@ -427,6 +428,7 @@ List<Map<String, Object?>> _guestCpuRuleChannelPayload(
         'vmid': rule.guestVmid,
         'thresholdPercent': rule.thresholdPercent,
         'consecutiveSamples': rule.consecutiveSamples,
+        'minimumDurationSeconds': rule.minimumDurationSeconds,
         'hysteresisPercent': rule.hysteresisPercent,
       },
     )
@@ -447,6 +449,7 @@ List<Map<String, Object?>> _storageUsageRuleChannelPayload(
         'storageId': rule.storageId,
         'thresholdPercent': rule.thresholdPercent,
         'consecutiveSamples': rule.consecutiveSamples,
+        'minimumDurationSeconds': rule.minimumDurationSeconds,
         'hysteresisPercent': rule.hysteresisPercent,
       },
     )

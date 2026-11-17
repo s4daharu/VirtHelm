@@ -246,6 +246,7 @@ class _ForegroundThresholdAlertRulesPageState
                               '${rule.metric.label} • at or above '
                               '${rule.thresholdPercent}% • '
                               '${rule.consecutiveSamples} sample(s) • '
+                              '${rule.minimumDurationMinutes} min • '
                               '${rule.hysteresisPercent}% hysteresis • '
                               '${rule.severity.name}',
                             ),
@@ -296,8 +297,11 @@ class _ThresholdRuleEditorPageState extends State<_ThresholdRuleEditorPage> {
   late String _selectedKey;
   late double _threshold;
   late int _consecutiveSamples;
+  late int _minimumDurationMinutes;
   late double _hysteresis;
   late ForegroundAlertSeverity _severity;
+
+  static const List<int> _durationOptions = <int>[0, 5, 10, 15, 30, 60];
 
   bool get _editing => widget.existing != null;
 
@@ -311,6 +315,10 @@ class _ThresholdRuleEditorPageState extends State<_ThresholdRuleEditorPage> {
         : widget.targets.first.key;
     _threshold = (existing?.thresholdPercent ?? 80).toDouble();
     _consecutiveSamples = (existing?.consecutiveSamples ?? 1).clamp(1, 10);
+    _minimumDurationMinutes =
+        _durationOptions.contains(existing?.minimumDurationMinutes ?? 0)
+        ? (existing?.minimumDurationMinutes ?? 0)
+        : 0;
     _hysteresis = (existing?.hysteresisPercent ?? 0).toDouble().clamp(
       0,
       _threshold - 1,
@@ -346,12 +354,14 @@ class _ThresholdRuleEditorPageState extends State<_ThresholdRuleEditorPage> {
     if (target == null) return;
     final threshold = _threshold.round();
     final hysteresis = _hysteresis.round().clamp(0, threshold - 1);
+    final minimumDurationSeconds = _minimumDurationMinutes * 60;
     final existing = widget.existing;
     final rule = existing == null
         ? target.toRule(
             thresholdPercent: threshold,
             severity: _severity,
             consecutiveSamples: _consecutiveSamples,
+            minimumDurationSeconds: minimumDurationSeconds,
             hysteresisPercent: hysteresis,
           )
         : ForegroundThresholdAlertRule(
@@ -366,6 +376,7 @@ class _ThresholdRuleEditorPageState extends State<_ThresholdRuleEditorPage> {
             storageId: target.storageId,
             enabled: existing.enabled,
             consecutiveSamples: _consecutiveSamples,
+            minimumDurationSeconds: minimumDurationSeconds,
             hysteresisPercent: hysteresis,
           );
     Navigator.pop(context, rule);
@@ -398,7 +409,9 @@ class _ThresholdRuleEditorPageState extends State<_ThresholdRuleEditorPage> {
             'This rule is evaluated during foreground live refreshes. Node CPU '
             'rules can also be evaluated by Scheduled checks when separately '
             'enabled. Missing samples reset pending confirmation but never '
-            'resolve a prior firing.',
+            'resolve a prior firing. Scheduled runs are inexact and at least '
+            '15 minutes apart, so a minimum duration is a lower bound checked '
+            'at the next run.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 16),
@@ -449,6 +462,28 @@ class _ThresholdRuleEditorPageState extends State<_ThresholdRuleEditorPage> {
             onChanged: (value) {
               if (value == null) return;
               setState(() => _consecutiveSamples = value);
+            },
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<int>(
+            key: const Key('threshold-rule-minimum-duration'),
+            initialValue: _minimumDurationMinutes,
+            decoration: const InputDecoration(
+              labelText: 'Minimum wall-clock duration',
+              helperText: 'Time is measured from the first breaching sample.',
+            ),
+            items: [
+              for (final minutes in _durationOptions)
+                DropdownMenuItem(
+                  value: minutes,
+                  child: Text(
+                    minutes == 0 ? 'No minimum' : '$minutes minute(s)',
+                  ),
+                ),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() => _minimumDurationMinutes = value);
             },
           ),
           const SizedBox(height: 20),
@@ -510,8 +545,9 @@ class _ThresholdRuleEditorPageState extends State<_ThresholdRuleEditorPage> {
                     'Fire ${_severity.name} when ${target.displayName} '
                     '${target.metric == ForegroundThresholdMetric.storageUsage ? 'usage' : 'CPU'} '
                     'is at or above ${_threshold.round()}% for '
-                    '$_consecutiveSamples usable sample(s). Resolve at or '
-                    'below $clearAt%.',
+                    '$_consecutiveSamples usable sample(s)'
+                    '${_minimumDurationMinutes == 0 ? '' : ' spanning at least $_minimumDurationMinutes minute(s)'}'
+                    '. Resolve at or below $clearAt%.',
                   ),
                 ],
               ),
@@ -680,6 +716,7 @@ class _ThresholdTarget {
     required ForegroundAlertSeverity severity,
     required int consecutiveSamples,
     required int hysteresisPercent,
+    int minimumDurationSeconds = 0,
   }) {
     return ForegroundThresholdAlertRule.create(
       metric: metric,
@@ -689,6 +726,7 @@ class _ThresholdTarget {
       severity: severity,
       consecutiveSamples: consecutiveSamples,
       hysteresisPercent: hysteresisPercent,
+      minimumDurationSeconds: minimumDurationSeconds,
       guestKind: guestKind,
       guestVmid: guestVmid,
       storageId: storageId,

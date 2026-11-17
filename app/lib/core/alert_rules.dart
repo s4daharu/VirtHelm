@@ -3,6 +3,7 @@ enum ForegroundAlertSeverity { warning, critical }
 enum ForegroundThresholdMetric { nodeCpu, guestCpu, storageUsage }
 
 const int maxForegroundThresholdRules = 32;
+const int maxThresholdMinimumDurationSeconds = 60 * 60;
 
 extension ForegroundThresholdMetricLabel on ForegroundThresholdMetric {
   String get label => switch (this) {
@@ -26,6 +27,7 @@ class ForegroundThresholdAlertRule {
     this.enabled = true,
     this.consecutiveSamples = 1,
     this.hysteresisPercent = 0,
+    this.minimumDurationSeconds = 0,
   });
 
   factory ForegroundThresholdAlertRule.create({
@@ -39,6 +41,7 @@ class ForegroundThresholdAlertRule {
     String? storageId,
     int consecutiveSamples = 1,
     int hysteresisPercent = 0,
+    int minimumDurationSeconds = 0,
   }) {
     return ForegroundThresholdAlertRule(
       id: 'rule-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}',
@@ -52,6 +55,7 @@ class ForegroundThresholdAlertRule {
       storageId: storageId,
       consecutiveSamples: consecutiveSamples,
       hysteresisPercent: hysteresisPercent,
+      minimumDurationSeconds: minimumDurationSeconds,
     );
   }
 
@@ -67,6 +71,9 @@ class ForegroundThresholdAlertRule {
   final bool enabled;
   final int consecutiveSamples;
   final int hysteresisPercent;
+  final int minimumDurationSeconds;
+
+  int get minimumDurationMinutes => minimumDurationSeconds ~/ 60;
 
   double get thresholdFraction => thresholdPercent / 100;
   double get clearThresholdFraction =>
@@ -82,6 +89,7 @@ class ForegroundThresholdAlertRule {
     bool? enabled,
     int? consecutiveSamples,
     int? hysteresisPercent,
+    int? minimumDurationSeconds,
   }) {
     return ForegroundThresholdAlertRule(
       id: id,
@@ -96,6 +104,8 @@ class ForegroundThresholdAlertRule {
       enabled: enabled ?? this.enabled,
       consecutiveSamples: consecutiveSamples ?? this.consecutiveSamples,
       hysteresisPercent: hysteresisPercent ?? this.hysteresisPercent,
+      minimumDurationSeconds:
+          minimumDurationSeconds ?? this.minimumDurationSeconds,
     );
   }
 
@@ -112,6 +122,7 @@ class ForegroundThresholdAlertRule {
     'enabled': enabled,
     'consecutive_samples': consecutiveSamples,
     'hysteresis_percent': hysteresisPercent,
+    'minimum_duration_seconds': minimumDurationSeconds,
   };
 
   factory ForegroundThresholdAlertRule.fromJson(Map<String, dynamic> json) {
@@ -124,6 +135,7 @@ class ForegroundThresholdAlertRule {
     final enabled = json['enabled'];
     final consecutiveSamples = json['consecutive_samples'] ?? 1;
     final hysteresisPercent = json['hysteresis_percent'] ?? 0;
+    final minimumDurationSeconds = json['minimum_duration_seconds'] ?? 0;
 
     ForegroundThresholdMetric? metric;
     for (final value in ForegroundThresholdMetric.values) {
@@ -155,7 +167,10 @@ class ForegroundThresholdAlertRule {
         hysteresisPercent is! int ||
         hysteresisPercent < 0 ||
         hysteresisPercent > 20 ||
-        hysteresisPercent >= threshold) {
+        hysteresisPercent >= threshold ||
+        minimumDurationSeconds is! int ||
+        minimumDurationSeconds < 0 ||
+        minimumDurationSeconds > maxThresholdMinimumDurationSeconds) {
       throw const FormatException('Invalid foreground threshold rule.');
     }
 
@@ -194,6 +209,7 @@ class ForegroundThresholdAlertRule {
       enabled: enabled,
       consecutiveSamples: consecutiveSamples,
       hysteresisPercent: hysteresisPercent,
+      minimumDurationSeconds: minimumDurationSeconds,
     );
   }
 }

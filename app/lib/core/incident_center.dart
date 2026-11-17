@@ -50,7 +50,7 @@ class CockpitIncident {
 
 class ForegroundThresholdAlertEngine {
   final Map<String, CockpitIncident> _active = {};
-  final Map<String, int> _pendingSamples = {};
+  final Map<String, _PendingThresholdConfirmation> _pending = {};
 
   List<CockpitIncident> get incidents {
     final values = _active.values.toList(growable: false)
@@ -66,7 +66,7 @@ class ForegroundThresholdAlertEngine {
 
   void clear() {
     _active.clear();
-    _pendingSamples.clear();
+    _pending.clear();
   }
 
   void reconcileRules(Iterable<ForegroundThresholdAlertRule> rules) {
@@ -75,7 +75,7 @@ class ForegroundThresholdAlertEngine {
         if (rule.enabled) rule.id,
     };
     _active.removeWhere((id, _) => !enabledIds.contains(id));
-    _pendingSamples.removeWhere((id, _) => !enabledIds.contains(id));
+    _pending.removeWhere((id, _) => !enabledIds.contains(id));
   }
 
   void evaluate({
@@ -90,6 +90,7 @@ class ForegroundThresholdAlertEngine {
     };
     reconcileRules(enabled.values);
     final storageList = storages.toList(growable: false);
+    final observedAtMs = inventory.fetchedAt.millisecondsSinceEpoch;
 
     for (final rule in enabled.values) {
       final sample = _sample(
@@ -99,7 +100,7 @@ class ForegroundThresholdAlertEngine {
         storageDataCurrent: storageDataCurrent,
       );
       if (sample == null) {
-        _pendingSamples.remove(rule.id);
+        _pending.remove(rule.id);
         final previous = _active[rule.id];
         if (previous != null) {
           _active[rule.id] = CockpitIncident(
@@ -129,7 +130,7 @@ class ForegroundThresholdAlertEngine {
             : sample.fraction <= rule.clearThresholdFraction;
         if (shouldResolve) {
           _active.remove(rule.id);
-          _pendingSamples.remove(rule.id);
+          _pending.remove(rule.id);
           continue;
         }
         final clearDetail = rule.hysteresisPercent == 0
@@ -154,20 +155,45 @@ class ForegroundThresholdAlertEngine {
       }
 
       if (sample.fraction < rule.thresholdFraction) {
-        _pendingSamples.remove(rule.id);
+        _pending.remove(rule.id);
         continue;
       }
 
-      final pending = (_pendingSamples[rule.id] ?? 0) + 1;
-      if (pending < rule.consecutiveSamples) {
-        _pendingSamples[rule.id] = pending;
-        continue;
+      // Confirmation accumulates only from strictly newer foreground
+      // snapshots. A repeated `fetchedAt` (the same read evaluated twice) must
+      // not double-count a sample or stretch the wall-clock window.
+      final pending = _pending[rule.id];
+      final _PendingThresholdConfirmation confirmation;
+      if (pending == null) {
+        confirmation = _PendingThresholdConfirmation(
+          samples: 1,
+          sinceMs: observedAtMs,
+          lastSampleMs: observedAtMs,
+        );
+        _pending[rule.id] = confirmation;
+      } else if (observedAtMs > pending.lastSampleMs) {
+        confirmation = _PendingThresholdConfirmation(
+          samples: pending.samples + 1,
+          sinceMs: pending.sinceMs,
+          lastSampleMs: observedAtMs,
+        );
+        _pending[rule.id] = confirmation;
+      } else {
+        confirmation = pending;
       }
-      _pendingSamples.remove(rule.id);
+
+      if (confirmation.samples < rule.consecutiveSamples) continue;
+      final elapsedMs = confirmation.lastSampleMs - confirmation.sinceMs;
+      if (elapsedMs < rule.minimumDurationSeconds * 1000) continue;
+
+      _pending.remove(rule.id);
       final clearDetail = rule.hysteresisPercent == 0
           ? 'It clears below ${rule.thresholdPercent}%.'
           : 'It clears at or below '
                 '${rule.thresholdPercent - rule.hysteresisPercent}%.';
+      final durationDetail = rule.minimumDurationSeconds == 0
+          ? ''
+          : ' over at least ${rule.minimumDurationSeconds} second(s)';
       _active[rule.id] = CockpitIncident(
         key: 'rule:${rule.id}',
         severity: _severity(rule.severity),
@@ -175,8 +201,8 @@ class ForegroundThresholdAlertEngine {
         title: sample.title,
         detail:
             'Foreground rule threshold ${rule.thresholdPercent}% was met for '
-            '${rule.consecutiveSamples} consecutive usable sample(s). '
-            '$clearDetail',
+            '${rule.consecutiveSamples} consecutive usable sample(s)'
+            '$durationDetail. $clearDetail',
         observedAt: inventory.fetchedAt,
         node: sample.node,
         guestKind: sample.guestKind,
@@ -253,6 +279,18 @@ class ForegroundThresholdAlertEngine {
         );
     }
   }
+}
+
+class _PendingThresholdConfirmation {
+  const _PendingThresholdConfirmation({
+    required this.samples,
+    required this.sinceMs,
+    required this.lastSampleMs,
+  });
+
+  final int samples;
+  final int sinceMs;
+  final int lastSampleMs;
 }
 
 class _ThresholdSample {

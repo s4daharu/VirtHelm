@@ -83,6 +83,7 @@ ForegroundThresholdAlertRule _guestRule({
   enabled: enabled,
   consecutiveSamples: 2,
   hysteresisPercent: 7,
+  minimumDurationSeconds: 600,
 );
 
 ForegroundThresholdAlertRule _nodeRule() => const ForegroundThresholdAlertRule(
@@ -189,6 +190,7 @@ void main() {
       'vmid': 100,
       'thresholdPercent': 90,
       'consecutiveSamples': 2,
+      'minimumDurationSeconds': 600,
       'hysteresisPercent': 7,
     });
   });

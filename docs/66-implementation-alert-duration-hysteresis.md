@@ -27,6 +27,19 @@ Samples between the clear threshold and firing threshold remain inside the hyste
 
 Because this is foreground-only polling, “consecutive samples” is deliberately not presented as an exact number of minutes. Actual wall-clock spacing depends on manual refreshes and the selected foreground auto-refresh interval.
 
+## Wall-clock duration follow-up (0.1.66)
+
+The ALERT-006 follow-up adds `minimumDurationSeconds` / `minimum_duration_seconds`
+in the range 0–3600, defaulting to 0 for existing saved rules. A rule now fires
+only when the configured consecutive-sample count **and** the minimum elapsed
+window are both satisfied. The window starts at the first usable breaching
+sample, resets on a missing or unusable sample, and never resolves an active
+incident. A repeated snapshot timestamp cannot advance either control. The same
+state machine is enforced by the opt-in Android scheduled worker for node,
+guest and storage rules, using the run's wall-clock time and persisted
+`pendingSinceMs`/`lastSampleMs`. See
+[bounded wall-clock threshold duration windows](111-implementation-threshold-duration-windows.md).
+
 ## Persistence and isolation
 
 Only rule configuration is persisted as profile-scoped non-secret SharedPreferences metadata. Saving, enabling, disabling or deleting rule configuration does not count as a live sample; those changes only reconcile runtime state. Pending counters and active firing state remain runtime-only and are cleared when the threshold engine is cleared during profile switch/reconnect.
@@ -61,6 +74,6 @@ Repository CI remains the required formatter, analyzer, Flutter test and Android
 
 ## Deliberately deferred
 
-ALERT-007 quiet hours/cooldown, ALERT-02 durable history, ALERT-009/010 Android scheduled checks/privacy, the bounded 0.1.59 scheduled node-CPU rule state machine, and the bounded 0.1.61 scheduled guest-CPU rule state machine are implemented as later milestones. Scheduled storage-usage threshold parity, richer duration/window semantics, authoritative correlation, and relay/webhook work remain deferred.
+ALERT-007 quiet hours/cooldown, ALERT-02 durable history, ALERT-009/010 Android scheduled checks/privacy, the bounded 0.1.59 scheduled node-CPU rule state machine, and the bounded 0.1.61 scheduled guest-CPU rule state machine are implemented as later milestones. Scheduled storage-usage threshold parity, authoritative cross-mode correlation and the bounded notification-focus slices landed in later milestones. Bounded duration windows landed in 0.1.66; long historical windows, maintenance suppression and relay/webhook work remain deferred.
 
 Live PVE 9.2/8.4 field behavior, physical Android lifecycle/accessibility/performance testing, signing review and production release certification are still required before broader release claims.

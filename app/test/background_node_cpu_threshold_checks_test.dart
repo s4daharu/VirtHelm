@@ -81,6 +81,7 @@ ForegroundThresholdAlertRule _nodeRule({
   enabled: enabled,
   consecutiveSamples: 3,
   hysteresisPercent: 5,
+  minimumDurationSeconds: 300,
 );
 
 ForegroundThresholdAlertRule _guestRule() => const ForegroundThresholdAlertRule(
@@ -177,6 +178,7 @@ void main() {
       'node': 'pve-a',
       'thresholdPercent': 80,
       'consecutiveSamples': 3,
+      'minimumDurationSeconds': 300,
       'hysteresisPercent': 5,
     });
   });

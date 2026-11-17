@@ -329,6 +329,12 @@ assert 'clearThresholdFraction' in files['app/lib/core/alert_rules.dart']
 assert 'reconcileRules' in files['app/lib/core/incident_center.dart']
 assert "Key('threshold-rule-consecutive-samples')" in files['app/lib/ui/alert_rules_page.dart']
 assert "Key('threshold-rule-hysteresis-slider')" in files['app/lib/ui/alert_rules_page.dart']
+assert "Key('threshold-rule-minimum-duration')" in files['app/lib/ui/alert_rules_page.dart']
+assert 'minimum_duration_seconds' in files['app/lib/core/alert_rules.dart']
+assert 'maxThresholdMinimumDurationSeconds = 60 * 60' in files['app/lib/core/alert_rules.dart']
+assert "'minimumDurationSeconds': rule.minimumDurationSeconds" in files['app/lib/core/background_checks.dart']
+assert 'PendingThresholdConfirmation' in files['app/lib/core/incident_center.dart']
+assert 'elapsedMs < rule.minimumDurationSeconds * 1000' in files['app/lib/core/incident_center.dart']
 assert "Key('manage-threshold-rules')" in files['app/lib/ui/incident_center_tab.dart']
 assert 'final bool isTemplate' in files['app/lib/core/models.dart']
 assert "final template = asFlag(json['template']);" in files['app/lib/core/models.dart']
@@ -564,8 +570,18 @@ assert '/api2/json/cluster/resources?type=vm' in worker
 assert '/api2/json/nodes/$node/storage' in worker
 assert 'fun syncThresholdRules(' in worker
 assert 'nodeRules.size + guestRules.size + storageRules.size <=' in worker
-assert 'thresholdPercent - rule.hysteresisPercent' in worker
+assert 'thresholdPercent - hysteresisPercent' in worker
 assert 'previous.pendingSamples + 1' in worker
+assert 'minimumDurationSeconds in 0..3600' in worker
+assert '.put("minimumDurationSeconds", minimumDurationSeconds)' in worker
+assert 'minimumDurationSeconds = map["minimumDurationSeconds"] as? Int' in worker
+assert 'json.optInt("minimumDurationSeconds", 0)' in worker
+assert 'item.optLong("pendingSinceMs", 0L)' in worker
+assert 'item.optLong("lastSampleMs", 0L)' in worker
+assert '.put("pendingSinceMs", state.pendingSinceMs)' in worker
+assert '.put("lastSampleMs", state.lastSampleMs)' in worker
+assert 'nowMs > previous.lastSampleMs' in worker
+assert 'nowMs = nowMs,' in worker
 assert 'IncidentNotificationDeliveryLedger.profileKey(ruleId)' in worker
 threshold_state = worker.split('private fun encodeThresholdState', 1)[1].split('private fun reconcileThresholdState', 1)[0]
 assert '.put("node"' not in threshold_state

@@ -14,6 +14,7 @@ const _storage = ForegroundThresholdAlertRule(
   severity: ForegroundAlertSeverity.warning,
   consecutiveSamples: 3,
   hysteresisPercent: 5,
+  minimumDurationSeconds: 900,
 );
 
 const _node = ForegroundThresholdAlertRule(
@@ -87,6 +88,7 @@ void main() {
       'storageId': 'local-lvm',
       'thresholdPercent': 85,
       'consecutiveSamples': 3,
+      'minimumDurationSeconds': 900,
       'hysteresisPercent': 5,
     });
   });

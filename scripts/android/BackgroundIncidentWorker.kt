@@ -332,6 +332,7 @@ internal data class ScheduledNodeCpuRule(
     val thresholdPercent: Int,
     val consecutiveSamples: Int,
     val hysteresisPercent: Int,
+    val minimumDurationSeconds: Int,
 ) {
     fun validate() {
         require(id.isNotBlank() && id.length <= 80)
@@ -341,6 +342,7 @@ internal data class ScheduledNodeCpuRule(
         require(consecutiveSamples in 1..10)
         require(hysteresisPercent in 0..20)
         require(hysteresisPercent < thresholdPercent)
+        require(minimumDurationSeconds in 0..3600)
     }
 
     fun toJson(): JSONObject = JSONObject()
@@ -349,6 +351,7 @@ internal data class ScheduledNodeCpuRule(
         .put("thresholdPercent", thresholdPercent)
         .put("consecutiveSamples", consecutiveSamples)
         .put("hysteresisPercent", hysteresisPercent)
+        .put("minimumDurationSeconds", minimumDurationSeconds)
 
     companion object {
         fun fromJson(json: JSONObject): ScheduledNodeCpuRule =
@@ -358,6 +361,8 @@ internal data class ScheduledNodeCpuRule(
                 thresholdPercent = json.getInt("thresholdPercent"),
                 consecutiveSamples = json.getInt("consecutiveSamples"),
                 hysteresisPercent = json.getInt("hysteresisPercent"),
+                minimumDurationSeconds =
+                    json.optInt("minimumDurationSeconds", 0),
             ).also { it.validate() }
 
         fun fromChannel(raw: Any?): ScheduledNodeCpuRule {
@@ -374,6 +379,8 @@ internal data class ScheduledNodeCpuRule(
                     ?: throw IllegalArgumentException("Missing rule samples"),
                 hysteresisPercent = map["hysteresisPercent"] as? Int
                     ?: throw IllegalArgumentException("Missing rule hysteresis"),
+                minimumDurationSeconds = map["minimumDurationSeconds"] as? Int
+                    ?: 0,
             ).also { it.validate() }
         }
     }
@@ -387,6 +394,7 @@ internal data class ScheduledGuestCpuRule(
     val thresholdPercent: Int,
     val consecutiveSamples: Int,
     val hysteresisPercent: Int,
+    val minimumDurationSeconds: Int,
 ) {
     fun validate() {
         require(id.isNotBlank() && id.length <= 80)
@@ -398,6 +406,7 @@ internal data class ScheduledGuestCpuRule(
         require(consecutiveSamples in 1..10)
         require(hysteresisPercent in 0..20)
         require(hysteresisPercent < thresholdPercent)
+        require(minimumDurationSeconds in 0..3600)
     }
 
     fun toJson(): JSONObject = JSONObject()
@@ -408,6 +417,7 @@ internal data class ScheduledGuestCpuRule(
         .put("thresholdPercent", thresholdPercent)
         .put("consecutiveSamples", consecutiveSamples)
         .put("hysteresisPercent", hysteresisPercent)
+        .put("minimumDurationSeconds", minimumDurationSeconds)
 
     companion object {
         fun fromJson(json: JSONObject): ScheduledGuestCpuRule =
@@ -419,6 +429,8 @@ internal data class ScheduledGuestCpuRule(
                 thresholdPercent = json.getInt("thresholdPercent"),
                 consecutiveSamples = json.getInt("consecutiveSamples"),
                 hysteresisPercent = json.getInt("hysteresisPercent"),
+                minimumDurationSeconds =
+                    json.optInt("minimumDurationSeconds", 0),
             ).also { it.validate() }
 
         private fun channelPositiveInt(raw: Any?): Int {
@@ -453,11 +465,12 @@ internal data class ScheduledGuestCpuRule(
                     ?: throw IllegalArgumentException("Missing rule samples"),
                 hysteresisPercent = map["hysteresisPercent"] as? Int
                     ?: throw IllegalArgumentException("Missing rule hysteresis"),
+                minimumDurationSeconds = map["minimumDurationSeconds"] as? Int
+                    ?: 0,
             ).also { it.validate() }
         }
     }
 }
-
 
 internal data class ScheduledStorageUsageRule(
     val id: String,
@@ -466,6 +479,7 @@ internal data class ScheduledStorageUsageRule(
     val thresholdPercent: Int,
     val consecutiveSamples: Int,
     val hysteresisPercent: Int,
+    val minimumDurationSeconds: Int,
 ) {
     fun validate() {
         require(id.isNotBlank() && id.length <= 80)
@@ -478,6 +492,7 @@ internal data class ScheduledStorageUsageRule(
         require(consecutiveSamples in 1..10)
         require(hysteresisPercent in 0..20)
         require(hysteresisPercent < thresholdPercent)
+        require(minimumDurationSeconds in 0..3600)
     }
 
     fun toJson(): JSONObject = JSONObject()
@@ -487,6 +502,7 @@ internal data class ScheduledStorageUsageRule(
         .put("thresholdPercent", thresholdPercent)
         .put("consecutiveSamples", consecutiveSamples)
         .put("hysteresisPercent", hysteresisPercent)
+        .put("minimumDurationSeconds", minimumDurationSeconds)
 
     companion object {
         fun fromJson(json: JSONObject): ScheduledStorageUsageRule =
@@ -497,6 +513,8 @@ internal data class ScheduledStorageUsageRule(
                 thresholdPercent = json.getInt("thresholdPercent"),
                 consecutiveSamples = json.getInt("consecutiveSamples"),
                 hysteresisPercent = json.getInt("hysteresisPercent"),
+                minimumDurationSeconds =
+                    json.optInt("minimumDurationSeconds", 0),
             ).also { it.validate() }
 
         fun fromChannel(raw: Any?): ScheduledStorageUsageRule {
@@ -515,6 +533,8 @@ internal data class ScheduledStorageUsageRule(
                     ?: throw IllegalArgumentException("Missing rule samples"),
                 hysteresisPercent = map["hysteresisPercent"] as? Int
                     ?: throw IllegalArgumentException("Missing rule hysteresis"),
+                minimumDurationSeconds = map["minimumDurationSeconds"] as? Int
+                    ?: 0,
             ).also { it.validate() }
         }
     }
@@ -566,6 +586,8 @@ private data class FailedTaskReadResult(
 private data class ThresholdRuleRuntimeState(
     val pendingSamples: Int,
     val active: Boolean,
+    val pendingSinceMs: Long = 0L,
+    val lastSampleMs: Long = 0L,
 )
 
 private data class ThresholdEvaluationResult(
@@ -956,6 +978,7 @@ internal object BackgroundCheckCoordinator {
                     storage.getString(guestThresholdStateKey(key), null),
                 previousStorageThresholdState =
                     storage.getString(storageThresholdStateKey(key), null),
+                nowMs = now,
             )
         } catch (_: Exception) {
             ScheduledCheckResult(
@@ -1309,10 +1332,17 @@ internal object BackgroundCheckCoordinator {
                 val item = json.getJSONObject(id)
                 val pending = item.getInt("pending")
                 val active = item.getBoolean("active")
+                val pendingSinceMs = item.optLong("pendingSinceMs", 0L)
+                val lastSampleMs = item.optLong("lastSampleMs", 0L)
                 require(pending in 0..10)
+                require(pendingSinceMs >= 0L)
+                require(lastSampleMs >= 0L)
+                require(lastSampleMs == 0L || lastSampleMs >= pendingSinceMs)
                 state[id] = ThresholdRuleRuntimeState(
                     pendingSamples = pending,
                     active = active,
+                    pendingSinceMs = pendingSinceMs,
+                    lastSampleMs = lastSampleMs,
                 )
             }
             state
@@ -1334,7 +1364,9 @@ internal object BackgroundCheckCoordinator {
                 id,
                 JSONObject()
                     .put("pending", state.pendingSamples)
-                    .put("active", state.active),
+                    .put("active", state.active)
+                    .put("pendingSinceMs", state.pendingSinceMs)
+                    .put("lastSampleMs", state.lastSampleMs),
             )
         }
         return json.toString()
@@ -1361,10 +1393,74 @@ internal object BackgroundCheckCoordinator {
             .apply()
     }
 
+    private fun advanceThresholdState(
+        previous: ThresholdRuleRuntimeState,
+        sample: Double,
+        thresholdPercent: Int,
+        consecutiveSamples: Int,
+        hysteresisPercent: Int,
+        minimumDurationSeconds: Int,
+        nowMs: Long,
+    ): ThresholdRuleRuntimeState {
+        if (previous.active) {
+            val clearPercent = thresholdPercent - hysteresisPercent
+            val shouldResolve =
+                if (hysteresisPercent == 0) {
+                    sample < thresholdPercent / 100.0
+                } else {
+                    sample <= clearPercent / 100.0
+                }
+            return if (shouldResolve) {
+                ThresholdRuleRuntimeState(pendingSamples = 0, active = false)
+            } else {
+                previous.copy(
+                    pendingSamples = 0,
+                    pendingSinceMs = 0L,
+                    lastSampleMs = 0L,
+                )
+            }
+        }
+
+        if (sample < thresholdPercent / 100.0) {
+            return ThresholdRuleRuntimeState(pendingSamples = 0, active = false)
+        }
+
+        val samples: Int
+        val sinceMs: Long
+        val lastSampleMs: Long
+        if (previous.pendingSamples == 0 || previous.pendingSinceMs <= 0L) {
+            samples = 1
+            sinceMs = nowMs
+            lastSampleMs = nowMs
+        } else if (nowMs > previous.lastSampleMs) {
+            samples = previous.pendingSamples + 1
+            sinceMs = previous.pendingSinceMs
+            lastSampleMs = nowMs
+        } else {
+            samples = previous.pendingSamples
+            sinceMs = previous.pendingSinceMs
+            lastSampleMs = previous.lastSampleMs
+        }
+
+        val elapsedMs = lastSampleMs - sinceMs
+        val durationMs = minimumDurationSeconds * 1000L
+        return if (samples >= consecutiveSamples && elapsedMs >= durationMs) {
+            ThresholdRuleRuntimeState(pendingSamples = 0, active = true)
+        } else {
+            ThresholdRuleRuntimeState(
+                pendingSamples = samples,
+                active = false,
+                pendingSinceMs = sinceMs,
+                lastSampleMs = lastSampleMs,
+            )
+        }
+    }
+
     private fun evaluateNodeCpuThresholds(
         rules: List<ScheduledNodeCpuRule>,
         cpuByNode: Map<String, Double>,
         rawState: String?,
+        nowMs: Long,
     ): ThresholdEvaluationResult {
         val states = readThresholdState(rawState, rules.map { it.id })
             ?: return ThresholdEvaluationResult(
@@ -1386,51 +1482,27 @@ internal object BackgroundCheckCoordinator {
             val sample = cpuByNode[rule.node]
             if (sample == null) {
                 complete = false
-                states[stateId] = previous.copy(pendingSamples = 0)
-                continue
-            }
-
-            if (previous.active) {
-                val clearPercent =
-                    rule.thresholdPercent - rule.hysteresisPercent
-                val shouldResolve =
-                    if (rule.hysteresisPercent == 0) {
-                        sample < rule.thresholdPercent / 100.0
-                    } else {
-                        sample <= clearPercent / 100.0
-                    }
-                states[stateId] =
-                    if (shouldResolve) {
-                        ThresholdRuleRuntimeState(
-                            pendingSamples = 0,
-                            active = false,
-                        )
-                    } else {
-                        previous.copy(pendingSamples = 0)
-                    }
-                continue
-            }
-
-            if (sample < rule.thresholdPercent / 100.0) {
-                states[stateId] = ThresholdRuleRuntimeState(
+                states[stateId] = previous.copy(
                     pendingSamples = 0,
-                    active = false,
+                    pendingSinceMs = 0L,
+                    lastSampleMs = 0L,
                 )
                 continue
             }
-            val pending = previous.pendingSamples + 1
-            if (pending >= rule.consecutiveSamples) {
-                states[stateId] = ThresholdRuleRuntimeState(
-                    pendingSamples = 0,
-                    active = true,
-                )
+
+            val next = advanceThresholdState(
+                previous = previous,
+                sample = sample,
+                thresholdPercent = rule.thresholdPercent,
+                consecutiveSamples = rule.consecutiveSamples,
+                hysteresisPercent = rule.hysteresisPercent,
+                minimumDurationSeconds = rule.minimumDurationSeconds,
+                nowMs = nowMs,
+            )
+            states[stateId] = next
+            if (!previous.active && next.active) {
                 newIncident = true
                 newRuleIds.add(rule.id)
-            } else {
-                states[stateId] = ThresholdRuleRuntimeState(
-                    pendingSamples = pending,
-                    active = false,
-                )
             }
         }
 
@@ -1456,6 +1528,7 @@ internal object BackgroundCheckCoordinator {
         rules: List<ScheduledGuestCpuRule>,
         cpuByGuest: Map<String, Double>,
         rawState: String?,
+        nowMs: Long,
     ): ThresholdEvaluationResult {
         if (rules.isEmpty()) {
             return ThresholdEvaluationResult(
@@ -1485,51 +1558,27 @@ internal object BackgroundCheckCoordinator {
             val sample = cpuByGuest[guestCpuKey(rule)]
             if (sample == null) {
                 complete = false
-                states[stateId] = previous.copy(pendingSamples = 0)
-                continue
-            }
-
-            if (previous.active) {
-                val clearPercent =
-                    rule.thresholdPercent - rule.hysteresisPercent
-                val shouldResolve =
-                    if (rule.hysteresisPercent == 0) {
-                        sample < rule.thresholdPercent / 100.0
-                    } else {
-                        sample <= clearPercent / 100.0
-                    }
-                states[stateId] =
-                    if (shouldResolve) {
-                        ThresholdRuleRuntimeState(
-                            pendingSamples = 0,
-                            active = false,
-                        )
-                    } else {
-                        previous.copy(pendingSamples = 0)
-                    }
-                continue
-            }
-
-            if (sample < rule.thresholdPercent / 100.0) {
-                states[stateId] = ThresholdRuleRuntimeState(
+                states[stateId] = previous.copy(
                     pendingSamples = 0,
-                    active = false,
+                    pendingSinceMs = 0L,
+                    lastSampleMs = 0L,
                 )
                 continue
             }
-            val pending = previous.pendingSamples + 1
-            if (pending >= rule.consecutiveSamples) {
-                states[stateId] = ThresholdRuleRuntimeState(
-                    pendingSamples = 0,
-                    active = true,
-                )
+
+            val next = advanceThresholdState(
+                previous = previous,
+                sample = sample,
+                thresholdPercent = rule.thresholdPercent,
+                consecutiveSamples = rule.consecutiveSamples,
+                hysteresisPercent = rule.hysteresisPercent,
+                minimumDurationSeconds = rule.minimumDurationSeconds,
+                nowMs = nowMs,
+            )
+            states[stateId] = next
+            if (!previous.active && next.active) {
                 newIncident = true
                 newRuleIds.add(rule.id)
-            } else {
-                states[stateId] = ThresholdRuleRuntimeState(
-                    pendingSamples = pending,
-                    active = false,
-                )
             }
         }
 
@@ -1555,6 +1604,7 @@ internal object BackgroundCheckCoordinator {
         rules: List<ScheduledStorageUsageRule>,
         usageByStorage: Map<String, Double>,
         rawState: String?,
+        nowMs: Long,
     ): ThresholdEvaluationResult {
         if (rules.isEmpty()) {
             return ThresholdEvaluationResult(
@@ -1584,51 +1634,27 @@ internal object BackgroundCheckCoordinator {
             val sample = usageByStorage[storageUsageKey(rule)]
             if (sample == null) {
                 complete = false
-                states[stateId] = previous.copy(pendingSamples = 0)
-                continue
-            }
-
-            if (previous.active) {
-                val clearPercent =
-                    rule.thresholdPercent - rule.hysteresisPercent
-                val shouldResolve =
-                    if (rule.hysteresisPercent == 0) {
-                        sample < rule.thresholdPercent / 100.0
-                    } else {
-                        sample <= clearPercent / 100.0
-                    }
-                states[stateId] =
-                    if (shouldResolve) {
-                        ThresholdRuleRuntimeState(
-                            pendingSamples = 0,
-                            active = false,
-                        )
-                    } else {
-                        previous.copy(pendingSamples = 0)
-                    }
-                continue
-            }
-
-            if (sample < rule.thresholdPercent / 100.0) {
-                states[stateId] = ThresholdRuleRuntimeState(
+                states[stateId] = previous.copy(
                     pendingSamples = 0,
-                    active = false,
+                    pendingSinceMs = 0L,
+                    lastSampleMs = 0L,
                 )
                 continue
             }
-            val pending = previous.pendingSamples + 1
-            if (pending >= rule.consecutiveSamples) {
-                states[stateId] = ThresholdRuleRuntimeState(
-                    pendingSamples = 0,
-                    active = true,
-                )
+
+            val next = advanceThresholdState(
+                previous = previous,
+                sample = sample,
+                thresholdPercent = rule.thresholdPercent,
+                consecutiveSamples = rule.consecutiveSamples,
+                hysteresisPercent = rule.hysteresisPercent,
+                minimumDurationSeconds = rule.minimumDurationSeconds,
+                nowMs = nowMs,
+            )
+            states[stateId] = next
+            if (!previous.active && next.active) {
                 newIncident = true
                 newRuleIds.add(rule.id)
-            } else {
-                states[stateId] = ThresholdRuleRuntimeState(
-                    pendingSamples = pending,
-                    active = false,
-                )
             }
         }
 
@@ -1654,6 +1680,7 @@ internal object BackgroundCheckCoordinator {
         previousThresholdState: String?,
         previousGuestThresholdState: String?,
         previousStorageThresholdState: String?,
+        nowMs: Long,
     ): ScheduledCheckResult {
         val node = readNodeState(secret)
         if (!node.complete) {
@@ -1706,6 +1733,7 @@ internal object BackgroundCheckCoordinator {
                 rules = secret.nodeCpuThresholdRules,
                 cpuByNode = node.cpuByNode,
                 rawState = previousThresholdState,
+                nowMs = nowMs,
             )
         } else {
             ThresholdEvaluationResult(
@@ -1734,6 +1762,7 @@ internal object BackgroundCheckCoordinator {
                     rules = secret.guestCpuThresholdRules,
                     cpuByGuest = guestRead.cpuByGuest,
                     rawState = previousGuestThresholdState,
+                    nowMs = nowMs,
                 )
             } else {
                 ThresholdEvaluationResult(
@@ -1767,6 +1796,7 @@ internal object BackgroundCheckCoordinator {
                     rules = secret.storageUsageThresholdRules,
                     usageByStorage = storageRead.usageByStorage,
                     rawState = previousStorageThresholdState,
+                    nowMs = nowMs,
                 )
             } else {
                 ThresholdEvaluationResult(

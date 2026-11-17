@@ -22,6 +22,8 @@ class _MemoryVault implements CredentialVault {
   }
 }
 
+const _second = Duration(seconds: 1);
+
 void main() {
   test('foreground threshold rule JSON round-trips and validates targets', () {
     const rule = ForegroundThresholdAlertRule(
@@ -35,6 +37,7 @@ void main() {
       guestVmid: 101,
       consecutiveSamples: 3,
       hysteresisPercent: 5,
+      minimumDurationSeconds: 300,
     );
 
     final decoded = ForegroundThresholdAlertRule.fromJson(rule.toJson());
@@ -43,12 +46,16 @@ void main() {
     expect(decoded.clearThresholdFraction, 0.80);
     expect(decoded.consecutiveSamples, 3);
     expect(decoded.hysteresisPercent, 5);
+    expect(decoded.minimumDurationSeconds, 300);
+    expect(decoded.minimumDurationMinutes, 5);
     final legacy = Map<String, dynamic>.from(rule.toJson())
       ..remove('consecutive_samples')
-      ..remove('hysteresis_percent');
+      ..remove('hysteresis_percent')
+      ..remove('minimum_duration_seconds');
     final legacyDecoded = ForegroundThresholdAlertRule.fromJson(legacy);
     expect(legacyDecoded.consecutiveSamples, 1);
     expect(legacyDecoded.hysteresisPercent, 0);
+    expect(legacyDecoded.minimumDurationSeconds, 0);
     expect(
       () => ForegroundThresholdAlertRule.fromJson({
         ...rule.toJson(),
@@ -56,6 +63,20 @@ void main() {
       }),
       throwsFormatException,
     );
+    for (final invalid in <Object>[
+      -1,
+      maxThresholdMinimumDurationSeconds + 1,
+      '300',
+    ]) {
+      expect(
+        () => ForegroundThresholdAlertRule.fromJson({
+          ...rule.toJson(),
+          'minimum_duration_seconds': invalid,
+        }),
+        throwsFormatException,
+        reason: 'invalid minimum duration: $invalid',
+      );
+    }
   });
 
   test('duration requires consecutive usable samples and resets on gaps', () {
@@ -70,12 +91,13 @@ void main() {
       hysteresisPercent: 5,
     );
     final engine = ForegroundThresholdAlertEngine();
-    Inventory high() => Inventory.fromResources([
+    Inventory high(DateTime at) => Inventory.fromResources([
       {'type': 'node', 'node': 'pve1', 'status': 'online', 'cpu': 0.9},
-    ]);
+    ], fetchedAt: at);
 
+    final start = DateTime.utc(2026, 11, 16, 12);
     engine.evaluate(
-      inventory: high(),
+      inventory: high(start),
       storages: const [],
       rules: const [rule],
       storageDataCurrent: true,
@@ -83,7 +105,7 @@ void main() {
     expect(engine.incidents, isEmpty);
 
     engine.evaluate(
-      inventory: Inventory.fromResources([]),
+      inventory: Inventory.fromResources([], fetchedAt: start.add(_second)),
       storages: const [],
       rules: const [rule],
       storageDataCurrent: true,
@@ -91,7 +113,7 @@ void main() {
     expect(engine.incidents, isEmpty);
 
     engine.evaluate(
-      inventory: high(),
+      inventory: high(start.add(_second * 2)),
       storages: const [],
       rules: const [rule],
       storageDataCurrent: true,
@@ -99,7 +121,163 @@ void main() {
     expect(engine.incidents, isEmpty);
 
     engine.evaluate(
-      inventory: high(),
+      inventory: high(start.add(_second * 3)),
+      storages: const [],
+      rules: const [rule],
+      storageDataCurrent: true,
+    );
+    expect(engine.incidents, hasLength(1));
+  });
+
+  test('a repeated snapshot timestamp does not double count samples', () {
+    const rule = ForegroundThresholdAlertRule(
+      id: 'node-duplicate',
+      metric: ForegroundThresholdMetric.nodeCpu,
+      node: 'pve1',
+      displayName: 'pve1',
+      thresholdPercent: 80,
+      severity: ForegroundAlertSeverity.warning,
+      consecutiveSamples: 2,
+    );
+    final engine = ForegroundThresholdAlertEngine();
+    Inventory high(DateTime at) => Inventory.fromResources([
+      {'type': 'node', 'node': 'pve1', 'status': 'online', 'cpu': 0.9},
+    ], fetchedAt: at);
+    final start = DateTime.utc(2026, 11, 16, 12);
+
+    for (var index = 0; index < 4; index++) {
+      engine.evaluate(
+        inventory: high(start),
+        storages: const [],
+        rules: const [rule],
+        storageDataCurrent: true,
+      );
+      expect(
+        engine.incidents,
+        isEmpty,
+        reason: 'the same snapshot cannot satisfy two samples',
+      );
+    }
+
+    engine.evaluate(
+      inventory: high(start.add(_second)),
+      storages: const [],
+      rules: const [rule],
+      storageDataCurrent: true,
+    );
+    expect(engine.incidents, hasLength(1));
+  });
+
+  test('a minimum wall-clock duration delays firing and resets on gaps', () {
+    const rule = ForegroundThresholdAlertRule(
+      id: 'node-window',
+      metric: ForegroundThresholdMetric.nodeCpu,
+      node: 'pve1',
+      displayName: 'pve1',
+      thresholdPercent: 80,
+      severity: ForegroundAlertSeverity.critical,
+      minimumDurationSeconds: 300,
+    );
+    final engine = ForegroundThresholdAlertEngine();
+    Inventory at(DateTime time, {double cpu = 0.9}) => Inventory.fromResources([
+      {'type': 'node', 'node': 'pve1', 'status': 'online', 'cpu': cpu},
+    ], fetchedAt: time);
+
+    final start = DateTime.utc(2026, 11, 16, 12);
+    engine.evaluate(
+      inventory: at(start),
+      storages: const [],
+      rules: const [rule],
+      storageDataCurrent: true,
+    );
+    expect(engine.incidents, isEmpty);
+
+    engine.evaluate(
+      inventory: at(start.add(_second * 299)),
+      storages: const [],
+      rules: const [rule],
+      storageDataCurrent: true,
+    );
+    expect(engine.incidents, isEmpty, reason: 'window is not yet satisfied');
+
+    engine.evaluate(
+      inventory: at(start.add(_second * 300)),
+      storages: const [],
+      rules: const [rule],
+      storageDataCurrent: true,
+    );
+    expect(engine.incidents, hasLength(1));
+    expect(engine.incidents.single.detail, contains('300 second(s)'));
+
+    // A usable clear sample resolves through hysteresis as before.
+    engine.evaluate(
+      inventory: at(start.add(_second * 301), cpu: 0.4),
+      storages: const [],
+      rules: const [rule],
+      storageDataCurrent: true,
+    );
+    expect(engine.incidents, isEmpty);
+
+    // The next window restarts from the first breaching sample.
+    engine.evaluate(
+      inventory: at(start.add(_second * 302)),
+      storages: const [],
+      rules: const [rule],
+      storageDataCurrent: true,
+    );
+    expect(engine.incidents, isEmpty);
+    engine.evaluate(
+      inventory: at(start.add(_second * 603)),
+      storages: const [],
+      rules: const [rule],
+      storageDataCurrent: true,
+    );
+    expect(engine.incidents, hasLength(1));
+  });
+
+  test('a missing sample inside a duration window resets confirmation', () {
+    const rule = ForegroundThresholdAlertRule(
+      id: 'node-window-gap',
+      metric: ForegroundThresholdMetric.nodeCpu,
+      node: 'pve1',
+      displayName: 'pve1',
+      thresholdPercent: 80,
+      severity: ForegroundAlertSeverity.warning,
+      minimumDurationSeconds: 300,
+    );
+    final engine = ForegroundThresholdAlertEngine();
+    Inventory high(DateTime at) => Inventory.fromResources([
+      {'type': 'node', 'node': 'pve1', 'status': 'online', 'cpu': 0.9},
+    ], fetchedAt: at);
+    Inventory gap(DateTime at) => Inventory.fromResources([], fetchedAt: at);
+    final start = DateTime.utc(2026, 11, 16, 12);
+
+    engine.evaluate(
+      inventory: high(start),
+      storages: const [],
+      rules: const [rule],
+      storageDataCurrent: true,
+    );
+    engine.evaluate(
+      inventory: gap(start.add(_second * 100)),
+      storages: const [],
+      rules: const [rule],
+      storageDataCurrent: true,
+    );
+    engine.evaluate(
+      inventory: high(start.add(_second * 300)),
+      storages: const [],
+      rules: const [rule],
+      storageDataCurrent: true,
+    );
+    expect(
+      engine.incidents,
+      isEmpty,
+      reason: 'the window restarts after unusable samples',
+    );
+
+    engine.evaluate(
+      inventory: high(start.add(_second * 600)),
       storages: const [],
       rules: const [rule],
       storageDataCurrent: true,

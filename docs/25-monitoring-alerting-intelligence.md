@@ -28,7 +28,19 @@ Different interval/bucketing and availability must be normalized without false p
 **Mode C — optional self-hosted alert relay (future):** owner-hosted server receives events/polls securely, sends alert notifications via an explicitly consented push or webhook integration. Only mode C could aim for low-latency alerting while app is closed; design separate key rotation, registration, disable, auditing and operational maintenance. No mandatory vendor cloud.
 
 ## Alert rule model
-Rule(id, profileId, resourceSelector, metric, comparator, threshold, window, consecutiveSamples, severity, quietHours, cooldown, dedupKey, locale, enabled). State machine OK -> Pending -> Firing -> Acknowledged -> Resolved with hysteresis and per-profile dedup. Suppress repeats during known maintenance, stale data, permission errors and missing samples; **unknown is not healthy**. Alert payload redacted: alias, severity, generic resource display, timestamp; no secrets or customer-sensitive guest names on lock screen by default.
+Rule(id, profileId, resourceSelector, metric, comparator, threshold, window, consecutiveSamples, minimumDurationSeconds, severity, quietHours, cooldown, dedupKey, locale, enabled). State machine OK -> Pending -> Firing -> Acknowledged -> Resolved with hysteresis and per-profile dedup. Suppress repeats during known maintenance, stale data, permission errors and missing samples; **unknown is not healthy**. Alert payload redacted: alias, severity, generic resource display, timestamp; no secrets or customer-sensitive guest names on lock screen by default.
+
+## Bounded wall-clock duration windows (0.1.66)
+
+Foreground and opted-in Android scheduled threshold rules can require a minimum
+wall-clock duration of 0–60 minutes in addition to 1–10 usable samples. The
+window starts at the first usable breaching sample, resets on a missing or
+unusable sample, and never resolves an already-active incident. Confirmation
+requires a strictly newer snapshot, so a repeated foreground `fetchedAt` or a
+same-millisecond scheduled run cannot double-count. The result is a lower bound
+observed at evaluation time, not a timer: foreground refresh spacing and
+WorkManager's inexact >=15-minute interval quantize it, and device clock
+changes affect it. No new endpoint, permission or mutation authority is added.
 
 ## Current bounded ALERT-02 triage slice (0.1.49)
 The Android foreground inbox now supports session-local needs-review/acknowledged

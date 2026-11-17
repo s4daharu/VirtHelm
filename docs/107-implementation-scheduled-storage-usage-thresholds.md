@@ -51,9 +51,11 @@ fixtures are still open release gates.
 
 ## Deferred
 
-Cross-mode authoritative incident correlation, long-window rule semantics,
-resource-specific notification links, relay/webhook delivery and production
-critical-alert guarantees remain deferred.
+Cross-mode authoritative incident correlation and the bounded 0–60-minute
+threshold duration window landed in later milestones. Long-window rule
+semantics, exact timer scheduling, resource-specific notification links,
+relay/webhook delivery and production critical-alert guarantees remain
+deferred.
 
 
 ## Follow-up

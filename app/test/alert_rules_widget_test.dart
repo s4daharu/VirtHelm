@@ -63,6 +63,15 @@ void main() {
       findsOneWidget,
     );
     expect(
+      find.byKey(const Key('threshold-rule-minimum-duration')),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('threshold-rule-hysteresis-slider')),
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
       find.byKey(const Key('threshold-rule-hysteresis-slider')),
       findsOneWidget,
     );
@@ -132,6 +141,15 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('threshold-target-node:pve1')));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('threshold-rule-minimum-duration')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('5 minute(s)').last);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Critical'),
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Critical'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirm-threshold-rule')));
@@ -142,6 +160,8 @@ void main() {
       controller.thresholdAlertRules.single.severity,
       ForegroundAlertSeverity.critical,
     );
+    expect(controller.thresholdAlertRules.single.minimumDurationSeconds, 300);
     expect(find.textContaining('critical'), findsOneWidget);
+    expect(find.textContaining('5 min'), findsOneWidget);
   });
 }

@@ -33,7 +33,10 @@ When enabled:
 
 WorkManager intervals remain inexact and begin at 15 minutes. Consecutive
 scheduled samples therefore mean consecutive usable worker runs, not an exact
-wall-clock duration.
+wall-clock duration. The 0.1.66 follow-up adds a bounded minimum wall-clock
+window (0–60 minutes) evaluated with the same run timestamp; it remains a lower
+bound at evaluation time, not a timer or delivery guarantee.
+See [bounded wall-clock threshold duration windows](111-implementation-threshold-duration-windows.md).
 
 ## State-machine semantics
 
@@ -152,7 +155,7 @@ Scheduled guest CPU threshold parity is implemented by the 0.1.61 follow-up in
 Still gated:
 
 - scheduled storage-usage threshold parity;
-- richer window/time-duration rules;
+- longer historical windows and exact timer scheduling (the bounded 0–60-minute duration window landed in 0.1.66);
 - authoritative foreground/background incident correlation;
 - resource-specific notification links;
 - optional relay/webhook delivery;
