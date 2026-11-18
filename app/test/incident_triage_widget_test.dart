@@ -284,15 +284,22 @@ void main() {
       );
 
       expect(controller.incidents, hasLength(2));
-      await tester.scrollUntilVisible(
-        find.textContaining('Shared node is context only'),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(
-        find.textContaining('Shared node is context only'),
-        findsNWidgets(2),
-      );
+      final contexts = buildCurrentIncidentNodeContexts(controller.incidents);
+      expect(contexts, hasLength(2));
+      for (final incident in controller.incidents) {
+        expect(contexts.containsKey(incident.key), isTrue);
+        final related = find.byKey(Key('incident-related-${incident.key}'));
+        await tester.scrollUntilVisible(
+          related,
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(related, findsOneWidget);
+        expect(
+          tester.widget<Text>(related).data,
+          contains('Shared node is context only'),
+        );
+      }
       expect(controller.incidentHistory, isEmpty);
     },
   );
