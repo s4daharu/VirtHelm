@@ -49,9 +49,6 @@ jobs:
           flutter-version: '3.44.4'
           cache: true
 
-      - name: Configure hosted runner build resources
-        run: python3 ../scripts/configure_ci_gradle.py
-
       - name: Run repository checks for manual release
         if: github.event_name == 'workflow_dispatch'
         working-directory: .
@@ -75,6 +72,9 @@ jobs:
           add-job-summary: on-failure
 
 
+
+      - name: Configure hosted runner build resources
+        run: python3 ../scripts/configure_ci_gradle.py
       - name: Verify generated runner and lockfile
         run: |
           git diff --exit-code -- pubspec.lock
