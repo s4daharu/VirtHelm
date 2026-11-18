@@ -79,6 +79,8 @@ internal object IncidentNotificationPrivacy {
 internal object IncidentNotificationDeliveryLedger {
     private const val PREFS_NAME = "virthelm_incident_delivery_v1"
     private const val KEY_PREFIX = "last:"
+    private const val MAINTENANCE_PREFIX = "maintenance-until:"
+    private const val MAX_MAINTENANCE_DURATION_MS = 24L * 60L * 60L * 1000L
     private val lock = Any()
 
     fun profileKey(profileId: String): String {
@@ -86,6 +88,50 @@ internal object IncidentNotificationDeliveryLedger {
         val digest = MessageDigest.getInstance("SHA-256")
             .digest(profileId.toByteArray(Charsets.UTF_8))
         return digest.joinToString("") { "%02x".format(it) }
+    }
+
+    fun setMaintenanceUntil(
+        context: Context,
+        profileKey: String,
+        untilMs: Long,
+        nowMs: Long = System.currentTimeMillis(),
+    ): Boolean {
+        require(profileKey.matches(Regex("^[0-9a-f]{64}$")))
+        if (untilMs != 0L &&
+            (untilMs <= nowMs || untilMs - nowMs > MAX_MAINTENANCE_DURATION_MS)
+        ) {
+            return false
+        }
+        return synchronized(lock) {
+            val storage =
+                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val editor = storage.edit()
+            if (untilMs == 0L) {
+                editor.remove(MAINTENANCE_PREFIX + profileKey)
+            } else {
+                editor.putLong(MAINTENANCE_PREFIX + profileKey, untilMs)
+            }
+            editor.commit()
+        }
+    }
+
+    private fun maintenanceActive(
+        storage: SharedPreferences,
+        profileKey: String,
+        nowMs: Long,
+    ): Boolean {
+        val key = MAINTENANCE_PREFIX + profileKey
+        val untilMs = try {
+            storage.getLong(key, 0L)
+        } catch (_: ClassCastException) {
+            storage.edit().remove(key).apply()
+            return false
+        }
+        if (untilMs <= nowMs || untilMs - nowMs > MAX_MAINTENANCE_DURATION_MS) {
+            if (untilMs != 0L) storage.edit().remove(key).apply()
+            return false
+        }
+        return true
     }
 
     fun deliver(
@@ -100,6 +146,9 @@ internal object IncidentNotificationDeliveryLedger {
         return synchronized(lock) {
             val storage =
                 context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            if (maintenanceActive(storage, profileKey, nowMs)) {
+                return@synchronized false
+            }
             val key = KEY_PREFIX + profileKey
             val previous = storage.getLong(key, 0L)
             if (previous > nowMs) {
@@ -125,6 +174,7 @@ internal object IncidentNotificationDeliveryLedger {
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit()
                 .remove(KEY_PREFIX + profileKey)
+                .remove(MAINTENANCE_PREFIX + profileKey)
                 .apply()
         }
     }

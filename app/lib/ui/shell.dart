@@ -2382,6 +2382,42 @@ class _SettingsTab extends StatelessWidget {
     }
   }
 
+  Future<void> _updateIncidentMaintenance(
+    BuildContext context,
+    Duration? duration,
+  ) async {
+    final profileId = controller.active?.id;
+    if (profileId == null) return;
+    final until = duration == null
+        ? null
+        : DateTime.now().toUtc().add(duration);
+    try {
+      final applied = await controller.setIncidentNotificationMaintenanceUntil(
+        until,
+        expectedProfileId: profileId,
+      );
+      if (!applied && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not apply maintenance notification silence.',
+            ),
+          ),
+        );
+      }
+    } on FormatException {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Maintenance silence must end within 24 hours.'),
+          ),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) _showPreferenceError(context);
+    }
+  }
+
   Future<void> _pickQuietTime(
     BuildContext context, {
     required bool start,
@@ -2418,6 +2454,13 @@ class _SettingsTab extends StatelessWidget {
       MaterialLocalizations.of(
         context,
       ).formatTimeOfDay(TimeOfDay(hour: minute ~/ 60, minute: minute % 60));
+
+  String _formatMaintenanceUntil(BuildContext context, DateTime value) {
+    final local = value.toLocal();
+    final material = MaterialLocalizations.of(context);
+    return '${material.formatMediumDate(local)} '
+        '${material.formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
+  }
 
   void _showPreferenceError(BuildContext context) {
     if (context.mounted) {
@@ -2640,6 +2683,76 @@ class _SettingsTab extends StatelessWidget {
               ),
               const Text(
                 'This device setting applies to both foreground and scheduled incident notifications. Android system/channel settings can further restrict lock-screen visibility.',
+              ),
+              const Divider(),
+              Text(
+                'Maintenance notification silence',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                controller.incidentNotificationMaintenanceActive
+                    ? 'Active until ${_formatMaintenanceUntil(context, controller.incidentNotificationMaintenanceUntil!)}.'
+                    : 'Off. Start a bounded local silence window when planned work would otherwise create expected alerts.',
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton(
+                    key: const Key('incident-maintenance-1h'),
+                    onPressed: () => unawaited(
+                      _updateIncidentMaintenance(
+                        context,
+                        const Duration(hours: 1),
+                      ),
+                    ),
+                    child: const Text('1 hour'),
+                  ),
+                  OutlinedButton(
+                    key: const Key('incident-maintenance-4h'),
+                    onPressed: () => unawaited(
+                      _updateIncidentMaintenance(
+                        context,
+                        const Duration(hours: 4),
+                      ),
+                    ),
+                    child: const Text('4 hours'),
+                  ),
+                  OutlinedButton(
+                    key: const Key('incident-maintenance-12h'),
+                    onPressed: () => unawaited(
+                      _updateIncidentMaintenance(
+                        context,
+                        const Duration(hours: 12),
+                      ),
+                    ),
+                    child: const Text('12 hours'),
+                  ),
+                  OutlinedButton(
+                    key: const Key('incident-maintenance-24h'),
+                    onPressed: () => unawaited(
+                      _updateIncidentMaintenance(
+                        context,
+                        const Duration(hours: 24),
+                      ),
+                    ),
+                    child: const Text('24 hours'),
+                  ),
+                  if (controller.incidentNotificationMaintenanceActive)
+                    TextButton(
+                      key: const Key('incident-maintenance-end'),
+                      onPressed: () => unawaited(
+                        _updateIncidentMaintenance(context, null),
+                      ),
+                      child: const Text('End now'),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Starts immediately and suppresses only Android incident delivery for this connection, in both foreground and scheduled modes. Incidents, health, history and scheduled reads continue normally; suppressed occurrences are not queued for later.',
               ),
               const Divider(),
               SwitchListTile(

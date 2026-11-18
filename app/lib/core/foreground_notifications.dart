@@ -1,6 +1,29 @@
 import 'package:flutter/services.dart';
 
 const int _minutesPerDay = 24 * 60;
+const int maxIncidentMaintenanceMinutes = 24 * 60;
+const Duration maxIncidentMaintenanceDuration = Duration(
+  minutes: maxIncidentMaintenanceMinutes,
+);
+
+DateTime? validateIncidentMaintenanceUntil(
+  DateTime? until, {
+  DateTime? now,
+}) {
+  if (until == null) return null;
+  final current = (now ?? DateTime.now()).toUtc();
+  final normalized = until.toUtc();
+  final remaining = normalized.difference(current);
+  if (remaining <= Duration.zero || remaining > maxIncidentMaintenanceDuration) {
+    throw const FormatException(
+      'Incident maintenance silence must end within 24 hours.',
+    );
+  }
+  return normalized;
+}
+
+bool isIncidentMaintenanceActive(DateTime? until, DateTime now) =>
+    until != null && until.toUtc().isAfter(now.toUtc());
 
 enum IncidentNotificationLockScreenPrivacy { hidden, generic }
 
@@ -96,6 +119,13 @@ class ForegroundNotificationPolicy {
   }
 }
 
+abstract interface class IncidentMaintenanceNotifier {
+  Future<bool> setMaintenanceUntil({
+    required String profileId,
+    required DateTime? until,
+  });
+}
+
 abstract class ForegroundIncidentNotifier {
   Future<bool> requestPermission();
   Future<bool> setLockScreenPrivacy(
@@ -109,7 +139,8 @@ abstract class ForegroundIncidentNotifier {
   });
 }
 
-class AndroidForegroundIncidentNotifier implements ForegroundIncidentNotifier {
+class AndroidForegroundIncidentNotifier
+    implements ForegroundIncidentNotifier, IncidentMaintenanceNotifier {
   const AndroidForegroundIncidentNotifier();
 
   static const MethodChannel _channel = MethodChannel(
@@ -134,6 +165,31 @@ class AndroidForegroundIncidentNotifier implements ForegroundIncidentNotifier {
     try {
       return await _channel.invokeMethod<bool>('setLockScreenPrivacy', {
             'privacy': privacy.name,
+          }) ??
+          false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> setMaintenanceUntil({
+    required String profileId,
+    required DateTime? until,
+  }) async {
+    if (profileId.trim().isEmpty || profileId.length > 256) return false;
+    DateTime? validated;
+    try {
+      validated = validateIncidentMaintenanceUntil(until);
+    } on FormatException {
+      return false;
+    }
+    try {
+      return await _channel.invokeMethod<bool>('setMaintenanceUntil', {
+            'profileId': profileId,
+            'untilMs': validated?.millisecondsSinceEpoch ?? 0,
           }) ??
           false;
     } on PlatformException {

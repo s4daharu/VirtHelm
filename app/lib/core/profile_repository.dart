@@ -54,6 +54,8 @@ class ProfileRepository {
       'foreground_notification_policy_v1';
   static const _foregroundNotificationStateKey =
       'foreground_notification_state_v1';
+  static const _incidentNotificationMaintenanceKey =
+      'incident_notification_maintenance_v1';
   static const _notificationLockScreenPrivacyKey =
       'notification_lock_screen_privacy_v1';
   static const _themeKey = 'ui_theme_v1';
@@ -252,6 +254,37 @@ class ProfileRepository {
     }
   });
 
+  DateTime? readIncidentNotificationMaintenanceUntil(String profileId) {
+    final raw =
+        _readProfileScopedJsonRoot(_incidentNotificationMaintenanceKey)[profileId];
+    if (raw is! String) return null;
+    return DateTime.tryParse(raw)?.toUtc();
+  }
+
+  Future<void> saveIncidentNotificationMaintenanceUntil(
+    String profileId,
+    DateTime? until,
+  ) => _mutate(() async {
+    if (!readProfiles().any((profile) => profile.id == profileId)) {
+      throw StateError('Connection no longer exists.');
+    }
+    final root = _readProfileScopedJsonRoot(_incidentNotificationMaintenanceKey);
+    if (until == null) {
+      root.remove(profileId);
+    } else {
+      root[profileId] = until.toUtc().toIso8601String();
+    }
+    final saved = root.isEmpty
+        ? await _prefs.remove(_incidentNotificationMaintenanceKey)
+        : await _prefs.setString(
+            _incidentNotificationMaintenanceKey,
+            jsonEncode(root),
+          );
+    if (!saved) {
+      throw StateError('Could not save incident maintenance silence.');
+    }
+  });
+
   Map<String, dynamic> _readProfileScopedJsonRoot(String key) {
     final raw = _storedString(key);
     if (raw == null) return <String, dynamic>{};
@@ -307,6 +340,11 @@ class ProfileRepository {
       _foregroundNotificationStateKey,
       profileId,
       'foreground notification state',
+    );
+    await _clearProfileScopedJsonEntry(
+      _incidentNotificationMaintenanceKey,
+      profileId,
+      'incident maintenance silence',
     );
   }
 

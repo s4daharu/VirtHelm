@@ -50,6 +50,12 @@ class MainActivity : FlutterActivity() {
                         call.argument<String>("privacy"),
                     ),
                 )
+                "setMaintenanceUntil" -> result.success(
+                    setIncidentMaintenanceUntil(
+                        profileId = call.argument<String>("profileId"),
+                        untilMs = call.argument<Number>("untilMs")?.toLong(),
+                    ),
+                )
                 "showIncidentSummary" -> result.success(
                     showIncidentSummary(
                         critical = call.argument<Boolean>("critical") == true,
@@ -206,6 +212,25 @@ class MainActivity : FlutterActivity() {
             arrayOf(Manifest.permission.POST_NOTIFICATIONS),
             NOTIFICATION_PERMISSION_REQUEST,
         )
+    }
+
+    private fun setIncidentMaintenanceUntil(
+        profileId: String?,
+        untilMs: Long?,
+    ): Boolean {
+        if (profileId.isNullOrBlank() || profileId.length > 256 || untilMs == null) {
+            return false
+        }
+        val profileKey = runCatching {
+            IncidentNotificationDeliveryLedger.profileKey(profileId)
+        }.getOrNull() ?: return false
+        return runCatching {
+            IncidentNotificationDeliveryLedger.setMaintenanceUntil(
+                context = applicationContext,
+                profileKey = profileKey,
+                untilMs = untilMs,
+            )
+        }.getOrDefault(false)
     }
 
     private fun showIncidentSummary(
