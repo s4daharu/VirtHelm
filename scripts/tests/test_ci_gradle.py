@@ -87,10 +87,13 @@ class CiGradleTests(unittest.TestCase):
         for name in ('android-ci.yml', 'release-android.yml'):
             with self.subTest(workflow=name):
                 text = (ROOT / '.github/workflows' / name).read_text()
-                tune = text.index('run: python3 ../scripts/configure_ci_gradle.py')
                 bootstrap = text.index('run: bash ../scripts/bootstrap_android.sh')
-                self.assertLess(tune, bootstrap)
-                self.assertLess(bootstrap, text.index('flutter build apk'))
+                cache_index = text.index('      - name: Setup Gradle build cache')
+                tune = text.index('run: python3 ../scripts/configure_ci_gradle.py')
+                build = text.index('flutter build apk')
+                self.assertLess(bootstrap, cache_index)
+                self.assertLess(cache_index, tune)
+                self.assertLess(tune, build)
                 self.assertIn("flutter-version: '3.44.4'\n          cache: true", text)
 
                 cache = text.split('      - name: Setup Gradle build cache\n', 1)[1]
