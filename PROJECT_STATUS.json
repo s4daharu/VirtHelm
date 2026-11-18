@@ -156,7 +156,7 @@
     ],
     "full_premium_scope_complete": false,
     "current_flutter_tests_defined": 387,
-    "current_flutter_runtime_tests_passed": 439,
+    "current_flutter_runtime_tests_passed": 444,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
     "p0_scope_complete": false,
@@ -845,7 +845,7 @@
     "deferred": "Richer historical/causal cross-resource timelines, relay/webhooks, physical Android validation and PVE 8.4/9.2 release validation remain gated. Bounded operator-started notification-only maintenance silence is implemented separately in 0.1.68; automatic/server-derived maintenance calendars remain gated."
   },
   "alert_notification_maintenance_suppression": {
-    "status": "implemented_ci_pending",
+    "status": "implemented_ci_verified_device_validation_pending",
     "milestone": "EP-ALERT bounded operator-started maintenance notification silence",
     "version": "0.1.68",
     "behavior": "For the active saved profile, Settings can start an immediate 1, 4, 12 or 24 hour maintenance silence or end it early. While active, new foreground and WorkManager incident occurrences still update health/history/correlation, but Android notification delivery is suppressed and suppressed occurrences are not queued.",
@@ -853,7 +853,7 @@
     "persistence": "SharedPreferences stores only a profile-scoped UTC expiry timestamp. Native Android delivery state stores the existing SHA-256 profile key plus expiry; no profile name, endpoint, node/guest identity, task ID, rule selector, raw response or credential is added.",
     "native_boundary": "The shared foreground/scheduled IncidentNotificationDeliveryLedger checks the same maximum-24-hour expiry before cooldown/posting, clears expired/corrupt/out-of-range state fail-open, persists updates synchronously for the stopped-isolate WorkManager path, and clears maintenance state with full profile cleanup.",
     "safety": "No PVE endpoint, permission, read cadence, incident builder, history transition, acknowledgement, mutation authority, background credential scope or retry behavior changes. Foreground Dart checks the window before attempting delivery; native enforcement independently covers both Android delivery modes.",
-    "verification": "Five new Flutter regressions cover duration bounds, MethodChannel payload, profile persistence/deletion, controller apply/clear behavior and Settings controls. Offline source checks are extended for Dart/native/UI/docs wiring. Exact-head pull-request CI is required before promotion to main; physical Android and live PVE validation remain separate gates.",
+    "verification": "Exact feature head 494e7688823e488b3caf38473989dc0b6f747c04 passed PR #69 Docs and Android checks run 44402373118 and Android CI run 44402373082: documentation/premium/source assertions, Python delivery tests, hardened generated-runner/lockfile verification, pinned Dart formatting, flutter analyze --no-pub --fatal-infos, 444 Flutter runtime tests, and ARM64 debug APK compilation all succeeded. Five maintenance-specific Flutter test declarations are included; physical Android and live PVE validation remain separate gates.",
     "report": "docs/113-implementation-maintenance-notification-silence.md",
     "deferred": "Future/recurring calendars, Proxmox-derived maintenance detection, per-resource scopes, queued catch-up notifications, relay/webhooks, richer causal timelines and physical-device/release-matrix certification remain gated."
   }

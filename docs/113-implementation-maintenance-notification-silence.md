@@ -74,21 +74,22 @@ Settings control key and this milestone document.
 
 ## Validation status
 
-The implementation is source-complete on the feature branch. Promotion to
-`main` is gated on the repository's exact-head pull-request workflows:
+Exact feature head `494e7688823e488b3caf38473989dc0b6f747c04` on PR #69
+passed both pull-request workflows:
 
-- `python3 scripts/check_docs.py`
-- `python3 scripts/check_premium.py`
-- `python3 scripts/check_source.py`
-- `python3 -m unittest discover -s scripts/tests -v`
-- pinned Dart formatting and `flutter analyze --no-pub --fatal-infos`
-- `flutter test --no-pub`
-- ARM64 Android debug compilation from the hardened generated runner
+- Docs and Android checks run `44402373118` passed documentation, premium,
+  source/security assertions and the Python delivery-test suite.
+- Android CI run `44402373082` passed the same repository checks, hardened
+  generated-runner/lockfile verification, pinned Dart formatting,
+  `flutter analyze --no-pub --fatal-infos`, all **444 Flutter runtime tests**,
+  and the ARM64 debug APK compile.
+- The maintenance slice contributes five dedicated Flutter test declarations.
 
-The working environment used for this implementation has no outbound Git
-network checkout and no local Flutter/Dart SDK, so those repository/runtime
-checks cannot be truthfully reported as local passes here. Exact-head GitHub CI
-is authoritative before promotion.
+The implementation environment itself has no outbound Git network checkout and
+no local Flutter/Dart SDK, so the repository/runtime evidence above comes from
+the exact GitHub feature head rather than being mislabeled as a local pass. A
+small verification-record follow-up changes documentation/status only; the
+verified application tree is unchanged.
 
 Physical Android notification delivery, process-death/WorkManager timing,
 clock-change behavior, secure-storage/device lifecycle and the PVE 8.4/9.2
