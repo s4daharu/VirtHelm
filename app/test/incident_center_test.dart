@@ -87,18 +87,74 @@ void main() {
   test('same-node context correlates cross-source current signals only', () {
     final observedAt = DateTime.utc(2026, 11, 19, 1);
     final incidents = <CockpitIncident>[
-      CockpitIncident(key: 'node:pve1', severity: CockpitIncidentSeverity.critical, source: CockpitIncidentSource.node, title: 'Node pve1 is offline', detail: 'offline', observedAt: observedAt, node: 'pve1'),
-      CockpitIncident(key: 'task:one', severity: CockpitIncidentSeverity.critical, source: CockpitIncidentSource.task, title: 'Task failed', detail: 'failed', observedAt: observedAt, node: 'pve1'),
-      CockpitIncident(key: 'rule:cpu', severity: CockpitIncidentSeverity.warning, source: CockpitIncidentSource.rule, title: 'CPU high', detail: 'threshold', observedAt: observedAt, node: 'pve1'),
-      CockpitIncident(key: 'task:two', severity: CockpitIncidentSeverity.critical, source: CockpitIncidentSource.task, title: 'Task failed 2', detail: 'failed', observedAt: observedAt, node: 'pve2'),
-      CockpitIncident(key: 'task:three', severity: CockpitIncidentSeverity.warning, source: CockpitIncidentSource.task, title: 'Task unknown 3', detail: 'unknown', observedAt: observedAt, node: 'pve2'),
-      CockpitIncident(key: 'task:no-node', severity: CockpitIncidentSeverity.warning, source: CockpitIncidentSource.task, title: 'Task without node', detail: 'unknown', observedAt: observedAt),
+      CockpitIncident(
+        key: 'node:pve1',
+        severity: CockpitIncidentSeverity.critical,
+        source: CockpitIncidentSource.node,
+        title: 'Node pve1 is offline',
+        detail: 'offline',
+        observedAt: observedAt,
+        node: 'pve1',
+      ),
+      CockpitIncident(
+        key: 'task:one',
+        severity: CockpitIncidentSeverity.critical,
+        source: CockpitIncidentSource.task,
+        title: 'Task failed',
+        detail: 'failed',
+        observedAt: observedAt,
+        node: 'pve1',
+      ),
+      CockpitIncident(
+        key: 'rule:cpu',
+        severity: CockpitIncidentSeverity.warning,
+        source: CockpitIncidentSource.rule,
+        title: 'CPU high',
+        detail: 'threshold',
+        observedAt: observedAt,
+        node: 'pve1',
+      ),
+      CockpitIncident(
+        key: 'task:two',
+        severity: CockpitIncidentSeverity.critical,
+        source: CockpitIncidentSource.task,
+        title: 'Task failed 2',
+        detail: 'failed',
+        observedAt: observedAt,
+        node: 'pve2',
+      ),
+      CockpitIncident(
+        key: 'task:three',
+        severity: CockpitIncidentSeverity.warning,
+        source: CockpitIncidentSource.task,
+        title: 'Task unknown 3',
+        detail: 'unknown',
+        observedAt: observedAt,
+        node: 'pve2',
+      ),
+      CockpitIncident(
+        key: 'task:no-node',
+        severity: CockpitIncidentSeverity.warning,
+        source: CockpitIncidentSource.task,
+        title: 'Task without node',
+        detail: 'unknown',
+        observedAt: observedAt,
+      ),
     ];
     final contexts = buildCurrentIncidentNodeContexts(incidents);
-    expect(contexts.keys, unorderedEquals(<String>['node:pve1', 'task:one', 'rule:cpu']));
+    expect(
+      contexts.keys,
+      unorderedEquals(<String>['node:pve1', 'task:one', 'rule:cpu']),
+    );
     expect(contexts['node:pve1']!.relatedCount, 2);
-    expect(contexts['node:pve1']!.relatedSources, <CockpitIncidentSource>[CockpitIncidentSource.task, CockpitIncidentSource.rule]);
-    expect(contexts['task:one']!.sourceSummary, 'Node inventory + Foreground rule');
+    expect(contexts['node:pve1']!.relatedSources, <CockpitIncidentSource>[
+      CockpitIncidentSource.task,
+      CockpitIncidentSource.rule,
+    ]);
+    expect(
+      contexts['task:one']!.sourceSummary,
+      'Node inventory + Foreground rule',
+    );
     expect(contexts.containsKey('task:two'), isFalse);
     expect(contexts.containsKey('task:no-node'), isFalse);
   });
@@ -106,14 +162,29 @@ void main() {
   test('same-node context bounds candidate processing', () {
     final observedAt = DateTime.utc(2026, 11, 19, 2);
     final incidents = <CockpitIncident>[
-      CockpitIncident(key: 'node:pve1', severity: CockpitIncidentSeverity.critical, source: CockpitIncidentSource.node, title: 'Node pve1 is offline', detail: 'offline', observedAt: observedAt, node: 'pve1'),
+      CockpitIncident(
+        key: 'node:pve1',
+        severity: CockpitIncidentSeverity.critical,
+        source: CockpitIncidentSource.node,
+        title: 'Node pve1 is offline',
+        detail: 'offline',
+        observedAt: observedAt,
+        node: 'pve1',
+      ),
       for (var i = 0; i < maxCurrentIncidentCorrelationCandidates + 10; i++)
-        CockpitIncident(key: 'task:$i', severity: CockpitIncidentSeverity.critical, source: CockpitIncidentSource.task, title: 'Task failed $i', detail: 'failed', observedAt: observedAt, node: 'pve1'),
+        CockpitIncident(
+          key: 'task:$i',
+          severity: CockpitIncidentSeverity.critical,
+          source: CockpitIncidentSource.task,
+          title: 'Task failed $i',
+          detail: 'failed',
+          observedAt: observedAt,
+          node: 'pve1',
+        ),
     ];
     final contexts = buildCurrentIncidentNodeContexts(incidents);
     expect(contexts, hasLength(maxCurrentIncidentCorrelationCandidates));
     expect(contexts.containsKey('task:126'), isTrue);
     expect(contexts.containsKey('task:127'), isFalse);
   });
-
 }

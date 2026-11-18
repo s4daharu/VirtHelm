@@ -5,11 +5,12 @@ enum CockpitIncidentSeverity { critical, warning }
 
 enum CockpitIncidentSource { node, task, rule }
 
-String cockpitIncidentSourceLabel(CockpitIncidentSource source) => switch (source) {
-  CockpitIncidentSource.node => 'Node inventory',
-  CockpitIncidentSource.task => 'Task history',
-  CockpitIncidentSource.rule => 'Foreground rule',
-};
+String cockpitIncidentSourceLabel(CockpitIncidentSource source) =>
+    switch (source) {
+      CockpitIncidentSource.node => 'Node inventory',
+      CockpitIncidentSource.task => 'Task history',
+      CockpitIncidentSource.rule => 'Foreground rule',
+    };
 
 const int maxCurrentIncidentCorrelationCandidates = 128;
 
@@ -58,18 +59,23 @@ Map<String, IncidentNodeContext> buildCurrentIncidentNodeContexts(
   final contexts = <String, IncidentNodeContext>{};
   for (final entry in byNode.entries) {
     final group = entry.value;
-    if (group.length < 2 || group.map((item) => item.source).toSet().length < 2) {
+    if (group.length < 2 ||
+        group.map((item) => item.source).toSet().length < 2) {
       continue;
     }
     for (final incident in group) {
-      final related = group.where((item) => item.key != incident.key).toList(growable: false);
+      final related = group
+          .where((item) => item.key != incident.key)
+          .toList(growable: false);
       final relatedSources = related.map((item) => item.source).toSet().toList()
         ..sort((left, right) => left.index.compareTo(right.index));
       if (!relatedSources.any((source) => source != incident.source)) continue;
       contexts[incident.key] = IncidentNodeContext(
         node: entry.key,
         relatedCount: related.length,
-        relatedSources: List<CockpitIncidentSource>.unmodifiable(relatedSources),
+        relatedSources: List<CockpitIncidentSource>.unmodifiable(
+          relatedSources,
+        ),
       );
     }
   }
