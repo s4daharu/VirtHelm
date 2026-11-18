@@ -1467,7 +1467,11 @@ class AppController extends ChangeNotifier {
     if (notifier is! IncidentMaintenanceNotifier) {
       return Future<bool>.value(true);
     }
-    return notifier.setMaintenanceUntil(profileId: profileId, until: until);
+    final maintenanceNotifier = notifier as IncidentMaintenanceNotifier;
+    return maintenanceNotifier.setMaintenanceUntil(
+      profileId: profileId,
+      until: until,
+    );
   }
 
   Future<bool> setIncidentNotificationMaintenanceUntil(
