@@ -83,9 +83,8 @@ class CiGradleTests(unittest.TestCase):
         write.assert_called_once_with(Path('/offline-fixture/gradle'),
                                       CI_GRADLE.resource_properties(4, 16384))
 
-    def test_both_workflows_tune_before_build_and_cache_only_dependencies(self):
-        keys = []
-        for name in ('checks.yml', 'release-android.yml'):
+    def test_android_workflows_tune_before_build_and_use_setup_gradle_cache(self):
+        for name in ('android-ci.yml', 'release-android.yml'):
             with self.subTest(workflow=name):
                 text = (ROOT / '.github/workflows' / name).read_text()
                 tune = text.index('run: python3 ../scripts/configure_ci_gradle.py')
@@ -93,18 +92,37 @@ class CiGradleTests(unittest.TestCase):
                 self.assertLess(tune, bootstrap)
                 self.assertLess(bootstrap, text.index('flutter build apk'))
                 self.assertIn("flutter-version: '3.44.4'\n          cache: true", text)
-                cache = text.split('      - name: Cache Gradle dependencies\n', 1)[1]
+
+                cache = text.split('      - name: Setup Gradle build cache\n', 1)[1]
                 cache = cache.split('\n      - name:', 1)[0]
-                self.assertIn('actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306', cache)
-                paths = cache.split('          path: |\n', 1)[1].split('          key:', 1)[0]
-                self.assertEqual(paths.split(), ['~/.gradle/caches/modules-2', '~/.gradle/wrapper'])
-                keys.append(cache.split('          key: ', 1)[1].strip())
+                self.assertIn(
+                    'gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c',
+                    cache,
+                )
+                self.assertIn('cache-provider: basic', cache)
+                includes = cache.split('          gradle-home-cache-includes: |\n', 1)[1]
+                includes = includes.split('          add-job-summary:', 1)[0]
+                self.assertEqual(includes.split(), ['caches', 'wrapper'])
+                self.assertNotIn('actions/cache@', text)
+
                 self.assertRegex(text, r'name: Stop Gradle daemons\n\s+if: always\(\)')
                 step = text.split('      - name: Stop Gradle daemons\n', 1)[1]
                 step = step.split('\n      - name:', 1)[0]
                 self.assertIn('./gradlew --stop', step)
                 self.assertNotRegex(text, r'ionice|taskset|nice -n')
-        self.assertEqual(keys[0], keys[1])
+
+        android = (ROOT / '.github/workflows/android-ci.yml').read_text()
+        self.assertIn('flutter test --no-pub', android)
+        self.assertIn(
+            'flutter build apk --debug --target-platform android-arm64 --no-pub',
+            android,
+        )
+        self.assertNotIn('flutter test --coverage', android)
+
+        release = (ROOT / '.github/workflows/release-android.yml').read_text()
+        self.assertIn('cache-read-only: true', release)
+        self.assertIn("if: github.event_name == 'workflow_dispatch'", release)
+
 
 
 if __name__ == '__main__':
