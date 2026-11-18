@@ -127,6 +127,7 @@ required = [
     'docs/108-implementation-cross-mode-incident-correlation.md',
     'docs/109-implementation-notification-incident-targets.md',
     'docs/110-implementation-scheduled-notification-targets.md',
+    'docs/112-implementation-same-node-incident-context.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
@@ -192,6 +193,11 @@ assert 'maxScheduledIncidentCorrelationCandidates = 128' in files['app/lib/core/
 assert 'scheduled_observed_at' in files['app/lib/core/incident_history.dart']
 assert 'scheduledObservations: scheduledObservations' in files['app/lib/core/app_controller.dart']
 assert 'bounded cross-mode incident correlation' in files['docs/108-implementation-cross-mode-incident-correlation.md'].lower()
+assert 'class IncidentNodeContext' in files['app/lib/core/incident_center.dart']
+assert 'maxCurrentIncidentCorrelationCandidates = 128' in files['app/lib/core/incident_center.dart']
+assert 'buildCurrentIncidentNodeContexts' in files['app/lib/core/incident_center.dart']
+assert 'Shared node is context only; it does not prove causality.' in files['app/lib/ui/incident_center_tab.dart']
+assert 'bounded same-node incident context' in files['docs/112-implementation-same-node-incident-context.md'].lower()
 assert "Key('periodic-node-cpu-threshold-checks')" in files['app/lib/ui/background_checks_page.dart']
 assert "Key('periodic-guest-cpu-threshold-checks')" in files['app/lib/ui/background_checks_page.dart']
 assert 'scheduled node cpu thresholds' in files['docs/105-implementation-scheduled-node-cpu-thresholds.md'].lower()
