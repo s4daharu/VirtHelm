@@ -93,11 +93,17 @@ branch publication the implementation transform validates exact source anchors,
 parses the updated `PROJECT_STATUS.json`, and checks the bounded correlation
 contract structurally.
 
-The repository's pull-request workflow is therefore the authoritative pre-merge
-gate. It pins Flutter 3.44.4 and Java 17 and runs documentation/premium/source
-checks, generated Android hardening validation, Dart formatting,
-`flutter analyze --fatal-infos`, the full Flutter test suite and a debug APK
-build.
+Exact-head PR #63 validation passed in Docs and Android checks #736
+(run 44389829533) for
+`39200f3474a3bd0329f1d17fcecc56edcf5b9b26`. The pinned Flutter 3.44.4 /
+Java 17 gate passed documentation, premium and source checks, Python delivery
+regressions, generated Android hardening validation, lockfile integrity, Dart
+formatting, `flutter analyze --fatal-infos`, **439 Flutter tests** and debug APK
+compilation.
+
+This verification-record-only follow-up must pass the same exact-head gate
+before promotion to `main`; physical Android and live PVE release validation
+remain separate gates.
 
 ## Still gated
 
