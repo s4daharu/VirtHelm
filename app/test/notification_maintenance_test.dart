@@ -73,15 +73,9 @@ void main() {
     final now = DateTime.utc(2026, 11, 19, 8);
     final until = now.add(const Duration(hours: 4));
 
-    expect(
-      validateIncidentMaintenanceUntil(until, now: now),
-      until,
-    );
+    expect(validateIncidentMaintenanceUntil(until, now: now), until);
     expect(isIncidentMaintenanceActive(until, now), isTrue);
-    expect(
-      isIncidentMaintenanceActive(until, until),
-      isFalse,
-    );
+    expect(isIncidentMaintenanceActive(until, until), isFalse);
     expect(
       () => validateIncidentMaintenanceUntil(now, now: now),
       throwsFormatException,
@@ -95,63 +89,69 @@ void main() {
     );
   });
 
-  test('Android bridge sends only profile id and bounded expiry timestamp', () async {
-    MethodCall? observed;
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          observed = call;
-          return true;
-        });
-    final until = DateTime.now().toUtc().add(const Duration(hours: 1));
+  test(
+    'Android bridge sends only profile id and bounded expiry timestamp',
+    () async {
+      MethodCall? observed;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            observed = call;
+            return true;
+          });
+      final until = DateTime.now().toUtc().add(const Duration(hours: 1));
 
-    expect(
-      await const AndroidForegroundIncidentNotifier().setMaintenanceUntil(
-        profileId: 'profile-alpha',
-        until: until,
-      ),
-      isTrue,
-    );
-    expect(observed?.method, 'setMaintenanceUntil');
-    expect(
-      Map<String, Object?>.from(observed?.arguments as Map),
-      <String, Object?>{
-        'profileId': 'profile-alpha',
-        'untilMs': until.millisecondsSinceEpoch,
-      },
-    );
-  });
+      expect(
+        await const AndroidForegroundIncidentNotifier().setMaintenanceUntil(
+          profileId: 'profile-alpha',
+          until: until,
+        ),
+        isTrue,
+      );
+      expect(observed?.method, 'setMaintenanceUntil');
+      expect(
+        Map<String, Object?>.from(observed?.arguments as Map),
+        <String, Object?>{
+          'profileId': 'profile-alpha',
+          'untilMs': until.millisecondsSinceEpoch,
+        },
+      );
+    },
+  );
 
-  test('maintenance expiry persists per profile and deletion clears it', () async {
-    final prefs = await SharedPreferences.getInstance();
-    final repository = ProfileRepository(prefs, _Vault());
-    final profile = ConnectionProfile.create(
-      name: 'Lab',
-      address: 'https://pve.local',
-    );
-    await repository.save(
-      profile,
-      const ApiCredentials(
-        tokenId: 'operator@pve!mobile',
-        secret: 'test-secret',
-      ),
-    );
-    final until = DateTime.utc(2026, 11, 19, 12);
+  test(
+    'maintenance expiry persists per profile and deletion clears it',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final repository = ProfileRepository(prefs, _Vault());
+      final profile = ConnectionProfile.create(
+        name: 'Lab',
+        address: 'https://pve.local',
+      );
+      await repository.save(
+        profile,
+        const ApiCredentials(
+          tokenId: 'operator@pve!mobile',
+          secret: 'test-secret',
+        ),
+      );
+      final until = DateTime.utc(2026, 11, 19, 12);
 
-    await repository.saveIncidentNotificationMaintenanceUntil(
-      profile.id,
-      until,
-    );
-    expect(
-      repository.readIncidentNotificationMaintenanceUntil(profile.id),
-      until,
-    );
+      await repository.saveIncidentNotificationMaintenanceUntil(
+        profile.id,
+        until,
+      );
+      expect(
+        repository.readIncidentNotificationMaintenanceUntil(profile.id),
+        until,
+      );
 
-    await repository.delete(profile.id);
-    expect(
-      repository.readIncidentNotificationMaintenanceUntil(profile.id),
-      isNull,
-    );
-  });
+      await repository.delete(profile.id);
+      expect(
+        repository.readIncidentNotificationMaintenanceUntil(profile.id),
+        isNull,
+      );
+    },
+  );
 
   test('controller applies, persists and clears maintenance silence', () async {
     final prefs = await SharedPreferences.getInstance();

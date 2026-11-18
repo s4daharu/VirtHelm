@@ -6,15 +6,13 @@ const Duration maxIncidentMaintenanceDuration = Duration(
   minutes: maxIncidentMaintenanceMinutes,
 );
 
-DateTime? validateIncidentMaintenanceUntil(
-  DateTime? until, {
-  DateTime? now,
-}) {
+DateTime? validateIncidentMaintenanceUntil(DateTime? until, {DateTime? now}) {
   if (until == null) return null;
   final current = (now ?? DateTime.now()).toUtc();
   final normalized = until.toUtc();
   final remaining = normalized.difference(current);
-  if (remaining <= Duration.zero || remaining > maxIncidentMaintenanceDuration) {
+  if (remaining <= Duration.zero ||
+      remaining > maxIncidentMaintenanceDuration) {
     throw const FormatException(
       'Incident maintenance silence must end within 24 hours.',
     );

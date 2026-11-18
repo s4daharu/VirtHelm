@@ -73,11 +73,10 @@ class AppController extends ChangeNotifier {
   DateTime? incidentNotificationMaintenanceUntil;
   bool _notificationDeliveryInFlight = false;
 
-  bool get incidentNotificationMaintenanceActive =>
-      isIncidentMaintenanceActive(
-        incidentNotificationMaintenanceUntil,
-        DateTime.now(),
-      );
+  bool get incidentNotificationMaintenanceActive => isIncidentMaintenanceActive(
+    incidentNotificationMaintenanceUntil,
+    DateTime.now(),
+  );
   IncidentNavigationRequest? _incidentCenterNavigationRequest;
 
   void requestIncidentCenter([
@@ -283,7 +282,10 @@ class AppController extends ChangeNotifier {
     }
     final policy = foregroundNotificationPolicy;
     final now = DateTime.now();
-    if (isIncidentMaintenanceActive(incidentNotificationMaintenanceUntil, now)) {
+    if (isIncidentMaintenanceActive(
+      incidentNotificationMaintenanceUntil,
+      now,
+    )) {
       return;
     }
     if (!policy.canDeliverAt(
@@ -1479,10 +1481,8 @@ class AppController extends ChangeNotifier {
     final generation = _generation;
     final now = DateTime.now().toUtc();
     final validated = validateIncidentMaintenanceUntil(until, now: now);
-    final previous = isIncidentMaintenanceActive(
-      incidentNotificationMaintenanceUntil,
-      now,
-    )
+    final previous =
+        isIncidentMaintenanceActive(incidentNotificationMaintenanceUntil, now)
         ? incidentNotificationMaintenanceUntil?.toUtc()
         : null;
 
@@ -1943,8 +1943,8 @@ class AppController extends ChangeNotifier {
     _lastForegroundNotificationAt = repository.readLastForegroundNotificationAt(
       profile.id,
     );
-    final storedMaintenanceUntil =
-        repository.readIncidentNotificationMaintenanceUntil(profile.id);
+    final storedMaintenanceUntil = repository
+        .readIncidentNotificationMaintenanceUntil(profile.id);
     try {
       incidentNotificationMaintenanceUntil = validateIncidentMaintenanceUntil(
         storedMaintenanceUntil,

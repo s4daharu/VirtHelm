@@ -255,8 +255,9 @@ class ProfileRepository {
   });
 
   DateTime? readIncidentNotificationMaintenanceUntil(String profileId) {
-    final raw =
-        _readProfileScopedJsonRoot(_incidentNotificationMaintenanceKey)[profileId];
+    final raw = _readProfileScopedJsonRoot(
+      _incidentNotificationMaintenanceKey,
+    )[profileId];
     if (raw is! String) return null;
     return DateTime.tryParse(raw)?.toUtc();
   }
@@ -268,7 +269,9 @@ class ProfileRepository {
     if (!readProfiles().any((profile) => profile.id == profileId)) {
       throw StateError('Connection no longer exists.');
     }
-    final root = _readProfileScopedJsonRoot(_incidentNotificationMaintenanceKey);
+    final root = _readProfileScopedJsonRoot(
+      _incidentNotificationMaintenanceKey,
+    );
     if (until == null) {
       root.remove(profileId);
     } else {

@@ -2399,9 +2399,7 @@ class _SettingsTab extends StatelessWidget {
       if (!applied && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Could not apply maintenance notification silence.',
-            ),
+            content: Text('Could not apply maintenance notification silence.'),
           ),
         );
       }
@@ -2743,9 +2741,8 @@ class _SettingsTab extends StatelessWidget {
                   if (controller.incidentNotificationMaintenanceActive)
                     TextButton(
                       key: const Key('incident-maintenance-end'),
-                      onPressed: () => unawaited(
-                        _updateIncidentMaintenance(context, null),
-                      ),
+                      onPressed: () =>
+                          unawaited(_updateIncidentMaintenance(context, null)),
                       child: const Text('End now'),
                     ),
                 ],
