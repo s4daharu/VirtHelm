@@ -63,9 +63,6 @@ jobs:
           flutter-version: '3.44.4'
           cache: true
 
-      - name: Configure hosted runner build resources
-        run: python3 ../scripts/configure_ci_gradle.py
-
       - name: Bootstrap hardened Android runner
         run: bash ../scripts/bootstrap_android.sh
 
@@ -79,6 +76,9 @@ jobs:
           add-job-summary: on-failure
 
 
+
+      - name: Configure hosted runner build resources
+        run: python3 ../scripts/configure_ci_gradle.py
       - name: Verify generated runner and lockfile
         run: |
           git diff --exit-code -- pubspec.lock
