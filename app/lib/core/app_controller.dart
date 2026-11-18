@@ -70,7 +70,13 @@ class AppController extends ChangeNotifier {
   IncidentNotificationLockScreenPrivacy notificationLockScreenPrivacy =
       IncidentNotificationLockScreenPrivacy.hidden;
   DateTime? _lastForegroundNotificationAt;
+  DateTime? incidentNotificationMaintenanceUntil;
   bool _notificationDeliveryInFlight = false;
+
+  bool get incidentNotificationMaintenanceActive => isIncidentMaintenanceActive(
+    incidentNotificationMaintenanceUntil,
+    DateTime.now(),
+  );
   IncidentNavigationRequest? _incidentCenterNavigationRequest;
 
   void requestIncidentCenter([
@@ -276,6 +282,12 @@ class AppController extends ChangeNotifier {
     }
     final policy = foregroundNotificationPolicy;
     final now = DateTime.now();
+    if (isIncidentMaintenanceActive(
+      incidentNotificationMaintenanceUntil,
+      now,
+    )) {
+      return;
+    }
     if (!policy.canDeliverAt(
       now,
       lastDeliveredAt: _lastForegroundNotificationAt,
@@ -1447,6 +1459,68 @@ class AppController extends ChangeNotifier {
     return true;
   }
 
+  Future<bool> _applyIncidentMaintenanceNative(
+    String profileId,
+    DateTime? until,
+  ) {
+    final notifier = _incidentNotifier;
+    if (notifier is! IncidentMaintenanceNotifier) {
+      return Future<bool>.value(true);
+    }
+    final maintenanceNotifier = notifier as IncidentMaintenanceNotifier;
+    return maintenanceNotifier.setMaintenanceUntil(
+      profileId: profileId,
+      until: until,
+    );
+  }
+
+  Future<bool> setIncidentNotificationMaintenanceUntil(
+    DateTime? until, {
+    required String expectedProfileId,
+  }) async {
+    final profile = active;
+    if (_disposed || profile == null || profile.id != expectedProfileId) {
+      return false;
+    }
+    final generation = _generation;
+    final now = DateTime.now().toUtc();
+    final validated = validateIncidentMaintenanceUntil(until, now: now);
+    final previous =
+        isIncidentMaintenanceActive(incidentNotificationMaintenanceUntil, now)
+        ? incidentNotificationMaintenanceUntil?.toUtc()
+        : null;
+
+    final applied = await _applyIncidentMaintenanceNative(
+      expectedProfileId,
+      validated,
+    );
+    if (!applied) return false;
+    if (_disposed ||
+        active?.id != expectedProfileId ||
+        generation != _generation) {
+      await _applyIncidentMaintenanceNative(expectedProfileId, previous);
+      return false;
+    }
+
+    try {
+      await repository.saveIncidentNotificationMaintenanceUntil(
+        expectedProfileId,
+        validated,
+      );
+    } catch (_) {
+      await _applyIncidentMaintenanceNative(expectedProfileId, previous);
+      rethrow;
+    }
+    if (_disposed ||
+        active?.id != expectedProfileId ||
+        generation != _generation) {
+      return false;
+    }
+    incidentNotificationMaintenanceUntil = validated;
+    _notify();
+    return true;
+  }
+
   Future<void> setOfflineOverviewEnabled(bool enabled) async {
     final profileId = active?.id;
     if (_disposed || profileId == null) return;
@@ -1872,6 +1946,21 @@ class AppController extends ChangeNotifier {
     );
     _lastForegroundNotificationAt = repository.readLastForegroundNotificationAt(
       profile.id,
+    );
+    final storedMaintenanceUntil = repository
+        .readIncidentNotificationMaintenanceUntil(profile.id);
+    try {
+      incidentNotificationMaintenanceUntil = validateIncidentMaintenanceUntil(
+        storedMaintenanceUntil,
+      );
+    } on FormatException {
+      incidentNotificationMaintenanceUntil = null;
+    }
+    unawaited(
+      _applyIncidentMaintenanceNative(
+        profile.id,
+        incidentNotificationMaintenanceUntil,
+      ),
     );
     _thresholdAlertEngine.clear();
     _incidentTriage.clear();
@@ -4370,6 +4459,7 @@ class AppController extends ChangeNotifier {
       incidentHistory = const <IncidentHistoryEntry>[];
       foregroundNotificationPolicy = const ForegroundNotificationPolicy();
       _lastForegroundNotificationAt = null;
+      incidentNotificationMaintenanceUntil = null;
       storageMessage = null;
       serverTaskMessage = null;
       inventoryWarning = null;

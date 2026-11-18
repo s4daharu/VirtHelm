@@ -155,8 +155,8 @@
       "GET-only smoke testing against one PVE 9.2.26 server exercised HTTP schemas and actual gateway parsers, including server-side free/occupied VMID checks. No mutations were attempted; 8.4, restricted ACL, backend variants, physical-device and production gates remain open."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 382,
-    "current_flutter_runtime_tests_passed": 439,
+    "current_flutter_tests_defined": 387,
+    "current_flutter_runtime_tests_passed": 444,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
     "p0_scope_complete": false,
@@ -842,6 +842,19 @@
     "privacy": "No relationship graph, task UPID, rule selector or additional infrastructure identity is persisted. The calculation uses only already-loaded current incident node/source metadata and is discarded with the current session.",
     "verification": "Exact-head PR #63 validation passed in Docs and Android checks #736 (run 44389829533) for 39200f3474a3bd0329f1d17fcecc56edcf5b9b26: documentation/premium/source checks, Python delivery regressions, generated Android hardening, lockfile integrity, pinned Flutter 3.44.4 Dart formatting, flutter analyze --fatal-infos, 439 Flutter tests and debug APK compilation all succeeded. This verification-record-only follow-up must pass the same exact-head gate before promotion to main. Physical Android and PVE 8.4/9.2 release validation remain gates.",
     "report": "docs/112-implementation-same-node-incident-context.md",
-    "deferred": "Richer historical/causal cross-resource timelines, maintenance-window suppression, relay/webhooks, physical Android validation and PVE 8.4/9.2 release validation remain gated."
+    "deferred": "Richer historical/causal cross-resource timelines, relay/webhooks, physical Android validation and PVE 8.4/9.2 release validation remain gated. Bounded operator-started notification-only maintenance silence is implemented separately in 0.1.68; automatic/server-derived maintenance calendars remain gated."
+  },
+  "alert_notification_maintenance_suppression": {
+    "status": "implemented_ci_verified_device_validation_pending",
+    "milestone": "EP-ALERT bounded operator-started maintenance notification silence",
+    "version": "0.1.68",
+    "behavior": "For the active saved profile, Settings can start an immediate 1, 4, 12 or 24 hour maintenance silence or end it early. While active, new foreground and WorkManager incident occurrences still update health/history/correlation, but Android notification delivery is suppressed and suppressed occurrences are not queued.",
+    "scope": "Notification delivery only. This is a local operator-declared window and never claims that Proxmox, a node or a guest is actually in maintenance mode.",
+    "persistence": "SharedPreferences stores only a profile-scoped UTC expiry timestamp. Native Android delivery state stores the existing SHA-256 profile key plus expiry; no profile name, endpoint, node/guest identity, task ID, rule selector, raw response or credential is added.",
+    "native_boundary": "The shared foreground/scheduled IncidentNotificationDeliveryLedger checks the same maximum-24-hour expiry before cooldown/posting, clears expired/corrupt/out-of-range state fail-open, persists updates synchronously for the stopped-isolate WorkManager path, and clears maintenance state with full profile cleanup.",
+    "safety": "No PVE endpoint, permission, read cadence, incident builder, history transition, acknowledgement, mutation authority, background credential scope or retry behavior changes. Foreground Dart checks the window before attempting delivery; native enforcement independently covers both Android delivery modes.",
+    "verification": "Exact feature head 494e7688823e488b3caf38473989dc0b6f747c04 passed PR #69 Docs and Android checks run 44402373118 and Android CI run 44402373082: documentation/premium/source assertions, Python delivery tests, hardened generated-runner/lockfile verification, pinned Dart formatting, flutter analyze --no-pub --fatal-infos, 444 Flutter runtime tests, and ARM64 debug APK compilation all succeeded. Five maintenance-specific Flutter test declarations are included; physical Android and live PVE validation remain separate gates.",
+    "report": "docs/113-implementation-maintenance-notification-silence.md",
+    "deferred": "Future/recurring calendars, Proxmox-derived maintenance detection, per-resource scopes, queued catch-up notifications, relay/webhooks, richer causal timelines and physical-device/release-matrix certification remain gated."
   }
 }

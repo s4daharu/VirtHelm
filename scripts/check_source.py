@@ -38,6 +38,7 @@ required = [
   'app/test/notification_privacy_test.dart',
   'app/test/notification_navigation_test.dart',
   'app/test/notification_deduplication_test.dart',
+  'app/test/notification_maintenance_test.dart',
   'app/test/background_failed_task_checks_test.dart',
   'app/test/background_node_cpu_threshold_checks_test.dart',
   'app/test/background_guest_cpu_threshold_checks_test.dart',
@@ -52,6 +53,7 @@ required = [
   'app/test/offline_inventory_test.dart',
   'scripts/bootstrap_android.sh','scripts/harden_android.py',
   'scripts/check_android_generated.py','scripts/android/BackgroundIncidentWorker.kt',
+  'scripts/android/MainActivity.kt',
   'scripts/android/branding/virthelm_icon.svg',
   'scripts/android/launcher/drawable/virthelm_icon_background.xml',
   'scripts/android/launcher/drawable/virthelm_icon_foreground.xml',
@@ -128,6 +130,7 @@ required = [
     'docs/109-implementation-notification-incident-targets.md',
     'docs/110-implementation-scheduled-notification-targets.md',
     'docs/112-implementation-same-node-incident-context.md',
+    'docs/113-implementation-maintenance-notification-silence.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
@@ -162,6 +165,17 @@ assert 'requestIncidentCenter' in files['app/lib/core/app_controller.dart']
 assert 'takeIncidentCenterNavigationRequest' in files['app/lib/core/app_controller.dart']
 assert 'takeIncidentCenterNavigationRequest' in files['app/lib/ui/shell.dart']
 assert 'setForegroundNotificationPolicy' in files['app/lib/core/app_controller.dart']
+assert 'maxIncidentMaintenanceMinutes = 24 * 60' in files['app/lib/core/foreground_notifications.dart']
+assert 'IncidentMaintenanceNotifier' in files['app/lib/core/foreground_notifications.dart']
+assert "'setMaintenanceUntil'" in files['app/lib/core/foreground_notifications.dart']
+assert 'incident_notification_maintenance_v1' in files['app/lib/core/profile_repository.dart']
+assert 'setIncidentNotificationMaintenanceUntil' in files['app/lib/core/app_controller.dart']
+assert 'isIncidentMaintenanceActive(incidentNotificationMaintenanceUntil, now)' in files['app/lib/core/app_controller.dart']
+assert "Key('incident-maintenance-24h')" in files['app/lib/ui/shell.dart']
+assert 'MAINTENANCE_PREFIX = "maintenance-until:"' in files['scripts/android/BackgroundIncidentWorker.kt']
+assert 'maintenanceActive(storage, profileKey, nowMs)' in files['scripts/android/BackgroundIncidentWorker.kt']
+assert '"setMaintenanceUntil"' in files['scripts/android/MainActivity.kt']
+assert 'bounded operator-started maintenance notification silence' in files['docs/113-implementation-maintenance-notification-silence.md'].lower()
 assert 'cross-mode notification delivery deduplication' in files['docs/103-implementation-cross-mode-notification-deduplication.md'].lower()
 assert "'profileId': profileId" in files['app/lib/core/foreground_notifications.dart']
 assert "'cooldownMinutes': cooldownMinutes" in files['app/lib/core/foreground_notifications.dart']

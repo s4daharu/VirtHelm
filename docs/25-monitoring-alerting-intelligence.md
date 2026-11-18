@@ -54,10 +54,34 @@ This is deliberately **context, not causality**. The relationship is rebuilt
 from the current in-memory incident set, is not written to durable History or
 native Android state, cannot create/resolve/acknowledge an incident, performs no
 PVE I/O and grants no drill-down authority. Same-source-only clusters are not
-presented as cross-resource correlation. Richer historical/causal timelines,
-maintenance-window suppression and relay-backed intelligence remain gated.
+presented as cross-resource correlation. Richer historical/causal timelines and
+relay-backed intelligence remain gated. Bounded operator-started notification
+silence is implemented separately in 0.1.68; automatic or server-derived
+maintenance state remains gated.
 
 See [the implementation milestone](112-implementation-same-node-incident-context.md).
+
+## Bounded operator-started maintenance notification silence (0.1.68)
+
+A saved profile can start a local maintenance silence window for 1, 4, 12 or
+24 hours. The window starts immediately and suppresses **Android incident
+notification delivery only** for both foreground Mode A and scheduled
+WorkManager Mode B. It does not suppress incident creation, current health,
+durable occurrence history, acknowledgement/triage state, scheduled GET reads
+or cross-mode correlation evidence. Suppressed occurrences are not queued for
+later delivery.
+
+The expiry is stored as non-secret profile-scoped local metadata. The native
+shared notification-delivery ledger stores only the SHA-256 profile key and the
+expiry timestamp so WorkManager enforces the same window after the Dart isolate
+stops. Expired, malformed or more-than-24-hour native values fail open and are
+cleared rather than silently extending suppression. Profile deletion clears
+both Dart metadata and native ledger state.
+
+This is a manual notification convenience, **not** proof that Proxmox or a
+resource is in a maintenance state. It adds no endpoint, background mutation,
+permission, relay, calendar, recurrence or automatic maintenance detection.
+See [the implementation milestone](113-implementation-maintenance-notification-silence.md).
 
 ## Current bounded ALERT-02 triage slice (0.1.49)
 The Android foreground inbox now supports session-local needs-review/acknowledged
