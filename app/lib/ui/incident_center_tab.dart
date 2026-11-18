@@ -298,6 +298,7 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
     final renderingProfileId = controller.active?.id;
     final renderingGeneration = controller.connectionGeneration;
     final incidents = controller.incidents;
+    final incidentNodeContexts = buildCurrentIncidentNodeContexts(incidents);
     final current = controller.currentIncidentTriage;
     final earlier = controller.earlierIncidentTriage;
     final needsReview = current
@@ -384,8 +385,10 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
             'on this device. When the same live incident also matches opaque '
             'scheduled Android evidence, History records only that observation '
             'time. Task UPIDs and task logs are never stored in History. '
-            'Saved and scheduled evidence is context, not recovery proof or '
-            'continuous monitoring.',
+            'Current cross-source signals that share one exact node may show '
+            'a bounded related-signal hint; that is context only and never a '
+            'causality claim. Saved and scheduled evidence is context, not '
+            'recovery proof or continuous monitoring.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           if (_focusedIncidentKey != null) ...[
@@ -681,6 +684,7 @@ class _IncidentCenterTabState extends State<IncidentCenterTab> {
               if (record.isCurrent)
                 _IncidentCard(
                   incident: record.incident,
+                  nodeContext: incidentNodeContexts[record.incident.key],
                   acknowledged: record.isAcknowledged,
                   onTap: () => _openIncident(context, record.incident),
                   onAcknowledge: () {
@@ -879,12 +883,14 @@ class _IncidentCard extends StatelessWidget {
     required this.onTap,
     required this.onAcknowledge,
     required this.acknowledged,
+    this.nodeContext,
   });
 
   final CockpitIncident incident;
   final VoidCallback onTap;
   final VoidCallback onAcknowledge;
   final bool acknowledged;
+  final IncidentNodeContext? nodeContext;
 
   @override
   Widget build(BuildContext context) {
@@ -930,6 +936,19 @@ class _IncidentCard extends StatelessWidget {
                     maxLines: 4,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (nodeContext != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      '${nodeContext!.relatedCount} related current '
+                      '${nodeContext!.relatedCount == 1 ? "signal" : "signals"} '
+                      'on ${nodeContext!.node} • ${nodeContext!.sourceSummary}. '
+                      'Shared node is context only; it does not prove causality.',
+                      key: Key('incident-related-${incident.key}'),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

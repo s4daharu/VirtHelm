@@ -5,6 +5,77 @@ enum CockpitIncidentSeverity { critical, warning }
 
 enum CockpitIncidentSource { node, task, rule }
 
+String cockpitIncidentSourceLabel(CockpitIncidentSource source) => switch (source) {
+  CockpitIncidentSource.node => 'Node inventory',
+  CockpitIncidentSource.task => 'Task history',
+  CockpitIncidentSource.rule => 'Foreground rule',
+};
+
+const int maxCurrentIncidentCorrelationCandidates = 128;
+
+/// Bounded, current-session relationship context for incidents sharing one
+/// exact node identity across different signal sources.
+///
+/// This is presentation context only. It does not establish causality, alter
+/// health, persist a relationship graph or authorize resource access.
+class IncidentNodeContext {
+  const IncidentNodeContext({
+    required this.node,
+    required this.relatedCount,
+    required this.relatedSources,
+  });
+
+  final String node;
+  final int relatedCount;
+  final List<CockpitIncidentSource> relatedSources;
+
+  String get sourceSummary =>
+      relatedSources.map(cockpitIncidentSourceLabel).join(' + ');
+}
+
+/// Correlates only the first bounded set of unique current incident keys.
+///
+/// A context is emitted only when one exact node currently has at least two
+/// incidents spanning at least two source types. Same-source-only clusters are
+/// deliberately omitted so this cannot imply richer correlation than exists.
+Map<String, IncidentNodeContext> buildCurrentIncidentNodeContexts(
+  Iterable<CockpitIncident> incidents,
+) {
+  final unique = <String, CockpitIncident>{};
+  for (final incident in incidents) {
+    if (unique.length >= maxCurrentIncidentCorrelationCandidates) break;
+    if (incident.key.isEmpty || unique.containsKey(incident.key)) continue;
+    unique[incident.key] = incident;
+  }
+
+  final byNode = <String, List<CockpitIncident>>{};
+  for (final incident in unique.values) {
+    final node = incident.node;
+    if (node == null || node.isEmpty) continue;
+    (byNode[node] ??= <CockpitIncident>[]).add(incident);
+  }
+
+  final contexts = <String, IncidentNodeContext>{};
+  for (final entry in byNode.entries) {
+    final group = entry.value;
+    if (group.length < 2 || group.map((item) => item.source).toSet().length < 2) {
+      continue;
+    }
+    for (final incident in group) {
+      final related = group.where((item) => item.key != incident.key).toList(growable: false);
+      final relatedSources = related.map((item) => item.source).toSet().toList()
+        ..sort((left, right) => left.index.compareTo(right.index));
+      if (!relatedSources.any((source) => source != incident.source)) continue;
+      contexts[incident.key] = IncidentNodeContext(
+        node: entry.key,
+        relatedCount: related.length,
+        relatedSources: List<CockpitIncidentSource>.unmodifiable(relatedSources),
+      );
+    }
+  }
+  return Map<String, IncidentNodeContext>.unmodifiable(contexts);
+}
+
 class CockpitIncident {
   const CockpitIncident({
     required this.key,
@@ -41,11 +112,7 @@ class CockpitIncident {
     CockpitIncidentSeverity.warning => 'warning',
   };
 
-  String get sourceLabel => switch (source) {
-    CockpitIncidentSource.node => 'Node inventory',
-    CockpitIncidentSource.task => 'Task history',
-    CockpitIncidentSource.rule => 'Foreground rule',
-  };
+  String get sourceLabel => cockpitIncidentSourceLabel(source);
 }
 
 class ForegroundThresholdAlertEngine {

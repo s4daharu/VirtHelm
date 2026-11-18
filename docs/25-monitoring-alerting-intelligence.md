@@ -42,6 +42,23 @@ observed at evaluation time, not a timer: foreground refresh spacing and
 WorkManager's inexact >=15-minute interval quantize it, and device clock
 changes affect it. No new endpoint, permission or mutation authority is added.
 
+## Bounded same-node related incident context (0.1.67)
+
+The unlocked foreground incident inbox now derives a local relationship hint
+when current node, failed/unknown task or threshold-rule signals share one exact
+node identity and span at least two source types. At most 128 unique current
+incident keys are considered. Each affected card shows how many other current
+signals share that node and which source categories they come from.
+
+This is deliberately **context, not causality**. The relationship is rebuilt
+from the current in-memory incident set, is not written to durable History or
+native Android state, cannot create/resolve/acknowledge an incident, performs no
+PVE I/O and grants no drill-down authority. Same-source-only clusters are not
+presented as cross-resource correlation. Richer historical/causal timelines,
+maintenance-window suppression and relay-backed intelligence remain gated.
+
+See [the implementation milestone](112-implementation-same-node-incident-context.md).
+
 ## Current bounded ALERT-02 triage slice (0.1.49)
 The Android foreground inbox now supports session-local needs-review/acknowledged
 and earlier-signal views. Acknowledgement is strictly a local annotation and

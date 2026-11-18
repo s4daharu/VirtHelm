@@ -246,4 +246,51 @@ void main() {
       expect(find.text('Acknowledge'), findsNothing);
     },
   );
+
+  testWidgets('same-node cross-source context is visible but non-authoritative', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = AppController(
+      repository: ProfileRepository(prefs, _EmptyVault()),
+    );
+    addTearDown(controller.dispose);
+    controller.active = const ConnectionProfile(
+      id: 'a',
+      name: 'Test',
+      endpoint: 'https://example.invalid',
+    );
+    final observedAt = DateTime.utc(2026, 11, 19, 3);
+    controller.inventory = Inventory.fromResources([
+      {'type': 'node', 'node': 'pve1', 'status': 'offline'},
+    ], fetchedAt: observedAt);
+    controller.serverTasks = [
+      RecentServerTask(
+        upid: 'UPID:pve1:1:2:3:qmstart:101:user@pve:',
+        node: 'pve1',
+        operation: 'qmstart',
+        resourceId: '101',
+        status: 'stopped',
+        exitStatus: 'ERROR',
+        endedAt: observedAt,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: IncidentCenterTab(controller: controller)),
+      ),
+    );
+
+    expect(controller.incidents, hasLength(2));
+    await tester.scrollUntilVisible(
+      find.textContaining('Shared node is context only'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.textContaining('Shared node is context only'), findsNWidgets(2));
+    expect(controller.incidentHistory, isEmpty);
+  });
+
 }
