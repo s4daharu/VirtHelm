@@ -173,7 +173,7 @@ android {
         release = (ROOT / '.github/workflows/release-android.yml').read_text()
         self.assertIn('  workflow_dispatch:', release)
         self.assertIn('  workflow_run:', release)
-        self.assertIn('workflows: ["Docs and Android checks"]', release)
+        self.assertIn('workflows: ["Android CI"]', release)
         self.assertIn("github.event.workflow_run.event == 'push'", release)
         self.assertIn("github.event.workflow_run.head_branch == 'main'", release)
         self.assertIn("github.event.workflow_run.conclusion == 'success'", release)
