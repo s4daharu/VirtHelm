@@ -145,7 +145,7 @@ assert f"virthelmDisplayVersion = '{version_match.group(1)}'" in files['app/lib/
 assert 'class CapacityReview' in files['app/lib/core/capacity_review.dart']
 assert 'maxSignals = 5' in files['app/lib/core/capacity_review.dart']
 assert 'elevatedUsageFraction = 0.85' in files['app/lib/core/capacity_review.dart']
-assert 'isTrusted: controller.isInventoryFresh' in files['app/lib/ui/shell.dart']
+assert 'controller.isInventoryFresh &&' in files['app/lib/ui/shell.dart']
 assert 'controller.storageMessage == null' in files['app/lib/ui/shell.dart']
 assert "Key('capacity-review')" in files['app/lib/ui/capacity_review_section.dart']
 assert 'bounded local capacity review' in files['docs/114-implementation-local-capacity-review.md'].lower()
