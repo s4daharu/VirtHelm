@@ -59,6 +59,8 @@ The committed `pubspec.lock` is enforced. The bootstrap generates the Android ru
 - Guest/node/storage RRD charts include visible percentage/time axes plus an on-demand timestamped sample table; chart alternatives remain read-only and transient.
 - CI format/analyzer/coverage tests and Android debug APK compile verification.
 
+Home now includes a bounded **local capacity review** of fresh, complete online-node RAM, running-guest RAM and active per-node storage measurements at or above 85%. It is snapshot-only, lists missing evidence, never aggregates shared storage and never recommends automatic actions. See [the implementation](../docs/114-implementation-local-capacity-review.md).
+
 ## Not yet release-complete
 The [2026-11-11 cross-check](../docs/93-whole-repository-cross-check-2026-11-11.md) records bounded GET-only HTTP and actual-gateway/parser smoke evidence from one PVE 9.2.26 server, plus the safety fixes and plan gaps present before the later [snapshot lifecycle slice](../docs/94-implementation-guest-snapshot-lifecycle.md). It is not mutation, PVE 8.4, restricted-ACL or physical-device certification.
 
