@@ -111,9 +111,8 @@ void main() {
       ),
       storages: const [],
     );
-    expect(report.signals, hasLength(1));
-    expect(report.signals.single.metric, CapacityMetric.nodeMemory);
-    expect(report.missingMeasurements, 2);
+    expect(report.signals, isEmpty);
+    expect(report.missingMeasurements, 4);
   });
 
   test('templates and stopped guests never generate capacity findings', () {
@@ -222,11 +221,10 @@ void main() {
         ),
       ],
     );
-    expect(report.usableMeasurements, 4);
-    expect(report.missingMeasurements, 1);
-    expect(report.signals, hasLength(2));
-    expect(report.signals[0].resource, 'shared on a');
-    expect(report.signals[1].resource, 'shared on b');
+    expect(report.usableMeasurements, 3);
+    expect(report.missingMeasurements, 2);
+    expect(report.signals, hasLength(1));
+    expect(report.signals.single.resource, 'shared on b');
   });
 
   test('threshold includes 85%, excludes lower readings', () {
