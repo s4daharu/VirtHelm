@@ -82,7 +82,7 @@ class CapacityReviewSection extends StatelessWidget {
                       const SizedBox(height: 5),
                       Text(
                         '${review.signals[index].percentage} used in this snapshot. '
-                            'Review the resource manually; no action was taken.',
+                        'Review the resource manually; no action was taken.',
                       ),
                     ],
                   ),

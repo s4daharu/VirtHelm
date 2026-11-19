@@ -243,12 +243,8 @@ void main() {
       inventory: snapshot(
         nodes: List.generate(
           9,
-          (i) => Node(
-            name: 'pve$i',
-            status: 'online',
-            mem: 90 + i,
-            maxMem: 100,
-          ),
+          (i) =>
+              Node(name: 'pve$i', status: 'online', mem: 90 + i, maxMem: 100),
         ),
       ),
       storages: const [],
@@ -264,12 +260,7 @@ void main() {
       inventory: snapshot(
         nodes: List.generate(
           CapacityReview.maxNodeCandidates + 1,
-          (i) => Node(
-            name: 'n$i',
-            status: 'online',
-            mem: 1,
-            maxMem: 100,
-          ),
+          (i) => Node(name: 'n$i', status: 'online', mem: 1, maxMem: 100),
         ),
       ),
       storages: const [],
