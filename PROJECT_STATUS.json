@@ -155,7 +155,7 @@
       "GET-only smoke testing against one PVE 9.2.26 server exercised HTTP schemas and actual gateway parsers, including server-side free/occupied VMID checks. No mutations were attempted; 8.4, restricted ACL, backend variants, physical-device and production gates remain open."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 387,
+    "current_flutter_tests_defined": 399,
     "current_flutter_runtime_tests_passed": 444,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
@@ -856,5 +856,16 @@
     "verification": "Exact feature head 494e7688823e488b3caf38473989dc0b6f747c04 passed PR #69 Docs and Android checks run 44402373118 and Android CI run 44402373082: documentation/premium/source assertions, Python delivery tests, hardened generated-runner/lockfile verification, pinned Dart formatting, flutter analyze --no-pub --fatal-infos, 444 Flutter runtime tests, and ARM64 debug APK compilation all succeeded. Five maintenance-specific Flutter test declarations are included; physical Android and live PVE validation remain separate gates.",
     "report": "docs/113-implementation-maintenance-notification-silence.md",
     "deferred": "Future/recurring calendars, Proxmox-derived maintenance detection, per-resource scopes, queued catch-up notifications, relay/webhooks, richer causal timelines and physical-device/release-matrix certification remain gated."
+  },
+  "alert_capacity_review": {
+    "status": "implemented_ci_pending_device_validation_pending",
+    "milestone": "EP-ALERT-05 bounded local snapshot capacity review",
+    "version": "0.1.69",
+    "behavior": "Home uses already-loaded complete fresh foreground data to show at most five elevated usage hints at >=85% for online-node RAM, running non-template guest RAM on unambiguous online nodes and active per-node storage. Reports usable/missing measurements and bounded scan; stale/partial states suppress all advice.",
+    "safety": "Pure in-memory read-only evaluation. No new API endpoints/requests, writes, foreground polling, alarms, background workers, permissions, persistence, notifications, changes to incidents/acknowledgment or any task/action authority.",
+    "scope": "128 nodes, 512 guests, 256 storage rows maximum inspected; at most five cards, deterministic sort. Shared storage never aggregated, duplicate node/storage records ignored; invalid inputs are unknown, no forecasts.",
+    "verification": "12 new synthetic unit/widget test declarations. GitHub pinned-format/analyzer/flutter-tests/Android debug build and source/docs/delivery checks pending on feature PR; local Flutter/Dart SDK and network checkout unavailable in this container.",
+    "report": "docs/114-implementation-local-capacity-review.md",
+    "deferred": "Historical trends/forecasts, physical Android TalkBack/font-scale/performance, PVE 8.4/9.2 storage/ACL fixture matrix, site planning and production certification."
   }
 }
