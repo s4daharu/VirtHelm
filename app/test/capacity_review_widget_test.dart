@@ -5,9 +5,7 @@ import 'package:virthelm/ui/capacity_review_section.dart';
 
 void main() {
   final snapshot = Inventory(
-    nodes: const [
-      Node(name: 'pve1', status: 'online', mem: 95, maxMem: 100),
-    ],
+    nodes: const [Node(name: 'pve1', status: 'online', mem: 95, maxMem: 100)],
     guests: const [],
     fetchedAt: DateTime.utc(2026, 11, 19),
   );

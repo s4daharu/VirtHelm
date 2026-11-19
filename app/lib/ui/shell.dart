@@ -483,7 +483,8 @@ class _OverviewTab extends StatelessWidget {
             CapacityReviewSection(
               inventory: inv,
               storages: controller.storages,
-              isTrusted: controller.isInventoryFresh &&
+              isTrusted:
+                  controller.isInventoryFresh &&
                   controller.inventoryWarning == null &&
                   controller.storageMessage == null &&
                   !controller.refreshing,

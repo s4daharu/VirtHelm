@@ -57,7 +57,8 @@ class CapacityReviewSection extends StatelessWidget {
           const SizedBox(height: 8),
           if (review.usableMeasurements == 0)
             const MessageCard(
-              text: 'No usable capacity measurements in this snapshot. '
+              text:
+                  'No usable capacity measurements in this snapshot. '
                   'Missing metrics must not be treated as healthy.',
             )
           else if (review.signals.isEmpty)
@@ -86,7 +87,7 @@ class CapacityReviewSection extends StatelessWidget {
                       Text(
                         review.signals[index].percentage +
                             ' used in this snapshot. Review the '
-                            'resource manually; no action was taken.',
+                                'resource manually; no action was taken.',
                       ),
                     ],
                   ),

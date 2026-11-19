@@ -43,14 +43,11 @@ void main() {
     );
     expect(report.usableMeasurements, 3);
     expect(report.missingMeasurements, 0);
-    expect(
-      report.signals.map((signal) => signal.metric),
-      [
-        CapacityMetric.storageUsage,
-        CapacityMetric.guestMemory,
-        CapacityMetric.nodeMemory,
-      ],
-    );
+    expect(report.signals.map((signal) => signal.metric), [
+      CapacityMetric.storageUsage,
+      CapacityMetric.guestMemory,
+      CapacityMetric.nodeMemory,
+    ]);
     expect(report.signals.first.percentage, '99.0%');
   });
 
