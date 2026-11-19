@@ -1,6 +1,6 @@
 # VirtHelm — Flutter/Dart Android client for Proxmox VE
 
-VirtHelm 0.1.68 adds bounded operator-started maintenance notification silence: a saved connection can suppress foreground and scheduled Android incident delivery for 1, 4, 12 or 24 hours without hiding incidents, changing health/history, stopping scheduled reads, or claiming that Proxmox itself is in maintenance mode.
+VirtHelm 0.1.69 adds a bounded local capacity review: Home highlights high node/guest RAM and per-node storage usage from fresh, complete foreground measurements only, without forecasting, new PVE requests, persistence or automatic actions. The 0.1.68 operator-started notification silence remains available.
 
 **Status:** executable Android source with CI-verified debug builds; **not release-certified**.  
 **Reviewed:** 2026-11-12. **Platform:** Android phones only.  
