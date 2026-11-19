@@ -8,6 +8,8 @@ required = [
   'app/lib/core/profile_repository.dart','app/lib/core/pve_api.dart',
   'app/lib/core/app_controller.dart','app/lib/core/app_preferences.dart',
   'app/lib/core/offline_overview.dart','app/lib/core/offline_inventory.dart',
+  'app/lib/core/capacity_review.dart','app/lib/ui/capacity_review_section.dart',
+  'app/test/capacity_review_test.dart','app/test/capacity_review_widget_test.dart',
   'app/lib/core/device_connectivity.dart',
   'app/lib/core/guest_list_filter.dart','app/lib/core/task_history_filter.dart',
   'app/lib/core/guest_saved_view.dart','app/lib/core/alert_rules.dart',
@@ -131,6 +133,7 @@ required = [
     'docs/110-implementation-scheduled-notification-targets.md',
     'docs/112-implementation-same-node-incident-context.md',
     'docs/113-implementation-maintenance-notification-silence.md',
+  'docs/114-implementation-local-capacity-review.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
@@ -139,6 +142,13 @@ files = {p: (root/p).read_text(encoding='utf-8') for p in required}
 version_match = re.search(r'^version: (\d+\.\d+\.\d+)\+', files['app/pubspec.yaml'], re.MULTILINE)
 assert version_match, 'pubspec version missing'
 assert f"virthelmDisplayVersion = '{version_match.group(1)}'" in files['app/lib/core/app_info.dart'], 'display version drift'
+assert 'class CapacityReview' in files['app/lib/core/capacity_review.dart']
+assert 'maxSignals = 5' in files['app/lib/core/capacity_review.dart']
+assert 'elevatedUsageFraction = 0.85' in files['app/lib/core/capacity_review.dart']
+assert 'isTrusted: controller.isInventoryFresh' in files['app/lib/ui/shell.dart']
+assert 'controller.storageMessage == null' in files['app/lib/ui/shell.dart']
+assert "Key('capacity-review')" in files['app/lib/ui/capacity_review_section.dart']
+assert 'bounded local capacity review' in files['docs/114-implementation-local-capacity-review.md'].lower()
 assert 'class VirtHelmStatusColors' in files['app/lib/ui/theme.dart']
 assert 'class SparklineCard' in files['app/lib/ui/components.dart']
 assert "Key('overview-incident-summary')" in files['app/lib/ui/shell.dart']
