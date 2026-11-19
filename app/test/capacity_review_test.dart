@@ -244,7 +244,7 @@ void main() {
         nodes: List.generate(
           9,
           (i) => Node(
-            name: 'pve' + i.toString(),
+            name: 'pve$i',
             status: 'online',
             mem: 90 + i,
             maxMem: 100,
@@ -265,7 +265,7 @@ void main() {
         nodes: List.generate(
           CapacityReview.maxNodeCandidates + 1,
           (i) => Node(
-            name: 'n' + i.toString(),
+            name: 'n$i',
             status: 'online',
             mem: 1,
             maxMem: 100,

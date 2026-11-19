@@ -47,11 +47,9 @@ class CapacityReviewSection extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            review.usableMeasurements.toString() +
-                ' usable measurements • ' +
-                review.missingMeasurements.toString() +
-                ' missing or ambiguous' +
-                (review.truncated ? ' • candidate scan capped' : ''),
+            '${review.usableMeasurements} usable measurements • '
+            '${review.missingMeasurements} missing or ambiguous'
+            '${review.truncated ? ' • candidate scan capped' : ''}',
             style: theme.textTheme.labelSmall,
           ),
           const SizedBox(height: 8),
@@ -71,23 +69,20 @@ class CapacityReviewSection extends StatelessWidget {
           else ...[
             for (var index = 0; index < review.signals.length; index++) ...[
               Card(
-                key: Key('capacity-signal-' + index.toString()),
+                key: Key('capacity-signal-$index'),
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        review.signals[index].metric.label +
-                            ' • ' +
-                            review.signals[index].resource,
+                        '${review.signals[index].metric.label} • ${review.signals[index].resource}',
                         style: theme.textTheme.titleSmall,
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        review.signals[index].percentage +
-                            ' used in this snapshot. Review the '
-                                'resource manually; no action was taken.',
+                        '${review.signals[index].percentage} used in this snapshot. '
+                            'Review the resource manually; no action was taken.',
                       ),
                     ],
                   ),

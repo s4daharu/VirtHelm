@@ -21,7 +21,7 @@ class CapacitySignal {
   final String resource;
   final double fraction;
 
-  String get percentage => (fraction * 100).toStringAsFixed(1) + '%';
+  String get percentage => '${(fraction * 100).toStringAsFixed(1)}%';
 }
 
 /// A bounded, deterministic review of already-loaded foreground metrics.
@@ -115,11 +115,7 @@ class CapacityReview {
       }
       measure(
         CapacityMetric.guestMemory,
-        guest.kind.toUpperCase() +
-            ' ' +
-            guest.vmid.toString() +
-            ' on ' +
-            guest.node,
+        '${guest.kind.toUpperCase()} ${guest.vmid} on ${guest.node}',
         _fraction(guest.mem, guest.maxMem),
       );
     }
@@ -129,12 +125,12 @@ class CapacityReview {
     final scopedStorage = storages.take(maxStorageCandidates).toList();
     final storageCounts = <String, int>{};
     for (final storage in scopedStorage) {
-      final identity = storage.node + '\u0000' + storage.id;
+      final identity = '${storage.node}\u0000${storage.id}';
       storageCounts.update(identity, (count) => count + 1, ifAbsent: () => 1);
     }
     for (final storage in scopedStorage) {
       if (storage.enabled == false || storage.active != true) continue;
-      final identity = storage.node + '\u0000' + storage.id;
+      final identity = '${storage.node}\u0000${storage.id}';
       if (storageCounts[identity] != 1) {
         missing++;
         continue;
@@ -146,7 +142,7 @@ class CapacityReview {
       }
       measure(
         CapacityMetric.storageUsage,
-        storage.id + ' on ' + storage.node,
+        '${storage.id} on ${storage.node}',
         _fraction(storage.used, storage.total),
       );
     }
