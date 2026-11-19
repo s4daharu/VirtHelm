@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
+import 'capacity_review_section.dart';
 import '../core/app_info.dart';
 import '../core/device_connectivity.dart';
 import '../core/foreground_notifications.dart';
@@ -475,6 +476,17 @@ class _OverviewTab extends StatelessWidget {
             _OverviewIncidentSummary(
               controller: controller,
               onTap: onOpenIncidents,
+            ),
+          ],
+          if (inv != null) ...[
+            const SizedBox(height: 18),
+            CapacityReviewSection(
+              inventory: inv,
+              storages: controller.storages,
+              isTrusted: controller.isInventoryFresh &&
+                  controller.inventoryWarning == null &&
+                  controller.storageMessage == null &&
+                  !controller.refreshing,
             ),
           ],
           const SizedBox(height: 24),
