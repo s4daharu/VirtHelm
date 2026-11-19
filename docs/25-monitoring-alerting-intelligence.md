@@ -104,6 +104,17 @@ underlying severities and badges are unchanged. Mobile cards present severity
 at a readable theme-scaled size. This introduces no network endpoint,
 persistence, background notification or server acknowledgement.
 
+## Bounded local capacity review (0.1.69)
+
+Home derives at most five high-usage hints (>=85%) for online-node RAM,
+running non-template guest RAM and active per-node storage from fresh,
+complete foreground inventory/storage data. Missing, invalid, ambiguous
+or stale values are unknown, not healthy; shared storage is never summed.
+It requires no new API call or persistence, performs no mutation and
+is not a capacity forecast or notification rule. Read-only local
+heuristics remain distinct from the historical/causal insight roadmap.
+See [milestone 114](114-implementation-local-capacity-review.md).
+
 ## Intelligence without unsafe automation
 F3 “Insights” are deterministic, explainable, local by default: suspicious CPU plateau, insufficient free space, frequent restart, failed task cluster, missing recent backup, irregular node load, capacity risk. A recommendation card includes: evidence and date range, uncertainty, why this matters, docs link, and **Review action** (never execute). Optional LLM/on-device natural-language interface is research-gated; no auto-remediation, no secret sharing, no cloud upload without explicit and revocable consent.
 
