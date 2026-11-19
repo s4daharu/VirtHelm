@@ -15,7 +15,7 @@ snapshot-only indicators for:
 - online node RAM usage;
 - running, non-template QEMU/LXC guest RAM usage, only with an unambiguous
   online host node; and
-- active, enabled per-node storage used/total capacity.
+- active, not-explicitly-disabled per-node storage used/total capacity.
 
 Measurements at or above **85%** are displayed highest-first with one-decimal
 percentage, source type and exact visible resource scope. There are at most
@@ -33,7 +33,7 @@ counts/identity caches cannot supply capacity advice.
 
 The evaluator reads only existing transient Inventory and StoragePool
 objects. It processes at most 128 nodes, 512 guests and 256 storage records,
-and holds only the top five readings. Invalid, negative, over-total, zero
+and displays only the top five readings. Invalid, negative, over-total, zero
 denominator, inactive and ambiguous values are excluded. Duplicate exact
 node+storage ID entries do not produce duplicate cards. Readings are
 sorted deterministically and recomputed on each foreground build.
@@ -51,9 +51,18 @@ Synthetic unit tests cover thresholds, sorting, five-card cap, missing and
 invalid measurements, templates, stopped/offline/duplicate node records,
 inactive and shared storage, and capped scans. Widget tests exercise
 snapshot wording, absence of server actions and stale/incomplete gating.
-Source guards and documentation matrix track the feature. GitHub CI is the
-available pinned Flutter/analyzer/Android-build gate; no Flutter/Dart SDK or
-outbound Git network is available in this implementation container.
+Source guards and documentation matrix track the feature. Exact feature-source
+head 1aea8c4bea664937f905783d24058dcd76282b60 on PR #70 passed:
+- Docs and Android checks run 44559807523 (docs, premium, source/security and
+  Python delivery regressions).
+- Android CI run 44559806966 (pinned Flutter 3.44.4 formatting,
+  flutter analyze --fatal-infos, all 456 Flutter runtime tests, generated
+  Android hardening and lockfile integrity, ARM64 debug APK build).
+
+This is automated source/build evidence, not a live PVE or physical Android
+test. The verification-record-only follow-up does not modify application
+source. The implementation container has no Flutter/Dart SDK or outbound
+Git network checkout; GitHub-hosted CI supplied the pinned execution.
 
 The findings are advisory heuristics, not measured forecasts or independent
 capacity verification. Physical Android accessibility/large text/performance,

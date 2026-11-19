@@ -3,7 +3,7 @@
 VirtHelm 0.1.69 adds a bounded local capacity review: Home highlights high node/guest RAM and per-node storage usage from fresh, complete foreground measurements only, without forecasting, new PVE requests, persistence or automatic actions. The 0.1.68 operator-started notification silence remains available.
 
 **Status:** executable Android source with CI-verified debug builds; **not release-certified**.  
-**Reviewed:** 2026-11-12. **Platform:** Android phones only.  
+**Reviewed:** 2026-11-19. **Platform:** Android phones only.  
 **Compatibility target:** PVE 9.2 primary / PVE 8.4 regression; live compatibility evidence remains required.
 
 VirtHelm is an independent, unofficial mobile client for user-operated Proxmox VE. The repository contains a working Flutter implementation plus the product/security/release documentation. It has no mandatory vendor cloud backend.
