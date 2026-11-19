@@ -90,16 +90,22 @@ class CapacityReview {
     // Never infer guest health from an unknown/offline/ambiguous node.
     final onlineNodes = <String>{};
     final nodeCounts = <String, int>{};
-    for (final node in inventory.nodes.take(maxNodeCandidates)) {
+    final scopedNodes = inventory.nodes.take(maxNodeCandidates).toList();
+    for (final node in scopedNodes) {
       nodeCounts.update(node.name, (count) => count + 1, ifAbsent: () => 1);
-      if (node.status == 'online' && node.name.trim().isNotEmpty) {
-        onlineNodes.add(node.name);
-        measure(
-          CapacityMetric.nodeMemory,
-          node.name,
-          _fraction(node.mem, node.maxMem),
-        );
+    }
+    for (final node in scopedNodes) {
+      if (node.status != 'online' || node.name.trim().isEmpty) continue;
+      if (nodeCounts[node.name] != 1) {
+        missing++;
+        continue;
       }
+      onlineNodes.add(node.name);
+      measure(
+        CapacityMetric.nodeMemory,
+        node.name,
+        _fraction(node.mem, node.maxMem),
+      );
     }
     for (final guest in inventory.guests.take(maxGuestCandidates)) {
       if (guest.isTemplate || !guest.isRunning) continue;
@@ -120,11 +126,16 @@ class CapacityReview {
 
     // Storage capacity may be shared, mirrored or backend-dependent: no totals
     // or percentages are combined across nodes, even for the same storage ID.
-    final seenStorage = <String>{};
-    for (final storage in storages.take(maxStorageCandidates)) {
+    final scopedStorage = storages.take(maxStorageCandidates).toList();
+    final storageCounts = <String, int>{};
+    for (final storage in scopedStorage) {
+      final identity = storage.node + '\u0000' + storage.id;
+      storageCounts.update(identity, (count) => count + 1, ifAbsent: () => 1);
+    }
+    for (final storage in scopedStorage) {
       if (storage.enabled == false || storage.active != true) continue;
       final identity = storage.node + '\u0000' + storage.id;
-      if (!seenStorage.add(identity)) {
+      if (storageCounts[identity] != 1) {
         missing++;
         continue;
       }
