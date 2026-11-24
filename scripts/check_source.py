@@ -15,6 +15,8 @@ required = [
   'app/lib/core/storage_runway.dart','app/test/storage_runway_test.dart','app/test/storage_runway_widget_test.dart',
   'app/lib/core/node_history_comparison.dart','app/test/node_history_comparison_test.dart',
   'app/test/node_history_comparison_widget_test.dart',
+  'app/lib/core/guest_history_comparison.dart','app/test/guest_history_comparison_test.dart',
+  'app/test/guest_history_comparison_widget_test.dart',
   'app/lib/core/device_connectivity.dart',
   'app/lib/core/guest_list_filter.dart','app/lib/core/task_history_filter.dart',
   'app/lib/core/guest_saved_view.dart','app/lib/core/alert_rules.dart',
@@ -142,6 +144,7 @@ required = [
   'docs/115-implementation-storage-history-review.md',
   'docs/116-implementation-storage-runway-scenario.md',
   'docs/117-implementation-node-history-comparison.md',
+  'docs/118-implementation-guest-history-comparison.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
@@ -154,6 +157,10 @@ assert 'class CapacityReview' in files['app/lib/core/capacity_review.dart']
 assert 'maxSignals = 5' in files['app/lib/core/capacity_review.dart']
 assert 'class StorageHistoryReview' in files['app/lib/core/storage_history_review.dart']
 assert 'maxSamples = 1500' in files['app/lib/core/storage_history_review.dart']
+assert 'class GuestHistoryComparison' in files['app/lib/core/guest_history_comparison.dart']
+assert 'NodeHistoryComparison.evaluate(' in files['app/lib/core/guest_history_comparison.dart']
+assert 'GuestHistoryComparison.evaluate(' in files['app/lib/ui/guest_page.dart']
+assert "Key('load-guest-comparison')" in files['app/lib/ui/guest_page.dart']
 assert 'class NodeHistoryComparison' in files['app/lib/core/node_history_comparison.dart']
 assert 'NodeHistoryComparison.evaluate(' in files['app/lib/ui/node_page.dart']
 assert "Key('load-node-comparison')" in files['app/lib/ui/node_page.dart']

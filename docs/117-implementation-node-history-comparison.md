@@ -43,3 +43,5 @@ bucket/ACL behavior, physical Android accessibility and performance remain
 gated. Guest-to-guest comparisons, mixed-resource aggregation and statistical
 forecasting are not part of this slice. Revert removes only this local
 presentation and one explicit GET path; no data migration is required.
+
+Exact feature head 4ae16fc8cd7e29cf78b3ce968b0c1e48a85a1eef passed Android CI 45355092618 and repository checks 45355092615: 20 Python tests, pinned formatting/analyze, 486 Flutter runtime tests, generated runner/lockfile checks and ARM64 debug compilation. Merged main 3a19fe1fbd76d60ef31fc7f27f973b4419c8999f has the identical Git tree. No new live PVE or physical Android evidence.
