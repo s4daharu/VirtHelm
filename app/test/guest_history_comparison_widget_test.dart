@@ -137,7 +137,7 @@ void main() {
     expect(controller.reads, [101]);
   });
 
-  testWidgets('inventory refresh invalidates a completed comparison', (
+  testWidgets('inventory refresh invalidates completed and delayed results', (
     tester,
   ) async {
     final controller = await open(tester);
@@ -154,6 +154,23 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('7 matched RRD samples'), findsNothing);
     expect(controller.reads, [101, 102]);
+    controller.pending = Completer<GuestMetricSeries?>();
+    await tester.tap(find.byKey(const Key('load-guest-comparison')));
+    await tester.pump();
+    expect(controller.reads, [101, 102, 102]);
+    controller.inventory = Inventory(
+      nodes: const [Node(name: 'pve1', status: 'online')],
+      guests: const [primary, peer],
+      fetchedAt: DateTime.now(),
+    );
+    controller.notifyListeners();
+    controller.pending!.complete(controller.history(102));
+    await tester.pumpAndSettle();
+    expect(find.text('7 matched RRD samples'), findsNothing);
+    expect(
+      find.text('Comparison unavailable. Refresh and try again.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('profile switch redacts a delayed peer response', (tester) async {

@@ -19,8 +19,8 @@ The selector considers at most 200 guest records from a fresh authenticated
 inventory with no partial or malformed warning. It excludes duplicate
 cluster-wide VMIDs, stopped/template guests, other kinds/nodes, unknown or
 ambiguous node identity and guests with blocked operations. Session/profile,
-generation, eligible identities and inventory snapshot are rechecked after
-the read. Inventory replacement invalidates completed comparisons;
+generation, selected peer, timeframe, eligible identities and inventory
+snapshot are rechecked after the read. Inventory replacement invalidates completed comparisons;
 selection, primary reload and timeframe changes clear the peer series.
 No automatic read, new endpoint, permission, persistence, dependency,
 background polling or mutation is added. Historical identity continuity

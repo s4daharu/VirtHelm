@@ -171,7 +171,7 @@ class _GuestPageState extends State<GuestPage> {
   }
 
   void selectMetricTimeframe(GuestMetricTimeframe value) {
-    if (value == metricTimeframe || comparisonLoading) return;
+    if (value == metricTimeframe || loadingMetrics || comparisonLoading) return;
     setState(() {
       metricTimeframe = value;
       metricSeries = null;
@@ -204,10 +204,10 @@ class _GuestPageState extends State<GuestPage> {
 
   Future<void> _loadComparison() async {
     final primary = metricSeries;
-    final peerName = comparisonPeer;
+    final peerVmid = comparisonPeer;
     final inventory = widget.controller.inventory;
     final timeframe = metricTimeframe;
-    final peers = _comparisonPeers().where((guest) => guest.vmid == peerName);
+    final peers = _comparisonPeers().where((guest) => guest.vmid == peerVmid);
     if (loadingMetrics ||
         comparisonLoading ||
         primary == null ||
@@ -234,10 +234,12 @@ class _GuestPageState extends State<GuestPage> {
       );
       if (!mounted || !_currentSession) return;
       final stillEligible = _comparisonPeers().any(
-        (guest) => guest.vmid == peerName,
+        (guest) => guest.vmid == peerVmid,
       );
       setState(() {
         if (stillEligible &&
+            comparisonPeer == peerVmid &&
+            metricTimeframe == timeframe &&
             identical(primary, metricSeries) &&
             identical(inventory, widget.controller.inventory)) {
           comparisonSeries = result;
@@ -320,12 +322,15 @@ class _GuestPageState extends State<GuestPage> {
                 ],
                 onChanged: loadingMetrics || comparisonLoading
                     ? null
-                    : (value) => setState(() {
-                        comparisonPeer = value;
-                        comparisonSeries = null;
-                        comparisonInventory = null;
-                        comparisonError = null;
-                      }),
+                    : (value) {
+                        if (loadingMetrics || comparisonLoading) return;
+                        setState(() {
+                          comparisonPeer = value;
+                          comparisonSeries = null;
+                          comparisonInventory = null;
+                          comparisonError = null;
+                        });
+                      },
               ),
               FilledButton.tonal(
                 key: const Key('load-guest-comparison'),
@@ -2023,7 +2028,9 @@ class _GuestPageState extends State<GuestPage> {
                 label: Text(timeframe.label),
                 selected: metricTimeframe == timeframe,
                 onSelected:
-                    currentGuest() == null || loadingMetrics || comparisonLoading
+                    currentGuest() == null ||
+                        loadingMetrics ||
+                        comparisonLoading
                     ? null
                     : (_) => selectMetricTimeframe(timeframe),
               ),
