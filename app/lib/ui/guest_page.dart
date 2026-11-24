@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
+import '../core/guest_history_comparison.dart';
 import '../core/models.dart';
 import 'components.dart';
 import 'snapshot_action_dialog.dart';
@@ -30,6 +31,11 @@ class _GuestPageState extends State<GuestPage> {
   GuestMetricTimeframe metricTimeframe = GuestMetricTimeframe.hour;
   GuestMetricSeries? metricSeries;
   String? metricError;
+  int? comparisonPeer;
+  GuestMetricSeries? comparisonSeries;
+  Inventory? comparisonInventory;
+  bool comparisonLoading = false;
+  String? comparisonError;
   bool loadingSnapshots = false;
   GuestSnapshotInventory? snapshotInventory;
   String? snapshotError;
@@ -117,10 +123,18 @@ class _GuestPageState extends State<GuestPage> {
 
   Future<void> loadMetrics() async {
     final guest = currentGuest();
-    if (loadingMetrics || !_currentSession || guest == null) return;
+    if (loadingMetrics ||
+        comparisonLoading ||
+        !_currentSession ||
+        guest == null) {
+      return;
+    }
     setState(() {
       loadingMetrics = true;
       metricError = null;
+      comparisonSeries = null;
+      comparisonInventory = null;
+      comparisonError = null;
     });
     try {
       final result = await widget.controller.inspectGuestMetrics(
@@ -157,12 +171,206 @@ class _GuestPageState extends State<GuestPage> {
   }
 
   void selectMetricTimeframe(GuestMetricTimeframe value) {
-    if (value == metricTimeframe) return;
+    if (value == metricTimeframe || comparisonLoading) return;
     setState(() {
       metricTimeframe = value;
       metricSeries = null;
       metricError = null;
+      comparisonPeer = null;
+      comparisonSeries = null;
+      comparisonInventory = null;
+      comparisonError = null;
     });
+  }
+
+  List<Guest> _comparisonPeers() {
+    final controller = widget.controller;
+    final inventory = controller.inventory;
+    final guest = currentGuest();
+    if (!_currentSession ||
+        !controller.isInventoryFresh ||
+        controller.inventoryWarning != null ||
+        controller.refreshing ||
+        submitting ||
+        inventory == null ||
+        guest == null ||
+        controller.isGuestActionBlocked(guest)) {
+      return const [];
+    }
+    return GuestHistoryComparison.eligiblePeers(inventory, guest)
+        .where((peer) => !controller.isGuestActionBlocked(peer))
+        .toList(growable: false);
+  }
+
+  Future<void> _loadComparison() async {
+    final primary = metricSeries;
+    final peerName = comparisonPeer;
+    final inventory = widget.controller.inventory;
+    final timeframe = metricTimeframe;
+    final peers = _comparisonPeers().where((guest) => guest.vmid == peerName);
+    if (loadingMetrics ||
+        comparisonLoading ||
+        primary == null ||
+        peers.length != 1 ||
+        !GuestHistoryComparison.accepts(
+          series: primary,
+          timeframe: timeframe,
+          now: DateTime.now(),
+        )) {
+      return;
+    }
+    setState(() {
+      comparisonLoading = true;
+      comparisonSeries = null;
+      comparisonInventory = null;
+      comparisonError = null;
+    });
+    try {
+      final result = await widget.controller.inspectGuestMetrics(
+        profileId: widget.profileId,
+        generation: widget.generation,
+        guest: peers.single,
+        timeframe: timeframe,
+      );
+      if (!mounted || !_currentSession) return;
+      final stillEligible = _comparisonPeers().any(
+        (guest) => guest.vmid == peerName,
+      );
+      setState(() {
+        if (stillEligible &&
+            identical(primary, metricSeries) &&
+            identical(inventory, widget.controller.inventory)) {
+          comparisonSeries = result;
+          comparisonInventory = inventory;
+        }
+        if (comparisonSeries == null) {
+          comparisonError = 'Comparison unavailable. Refresh and try again.';
+        }
+      });
+    } on PveFailure catch (error) {
+      if (!mounted || !_currentSession) return;
+      setState(() => comparisonError = error.message);
+    } catch (_) {
+      if (!mounted || !_currentSession) return;
+      setState(() => comparisonError = 'Could not load peer guest history.');
+    } finally {
+      if (mounted && _currentSession) {
+        setState(() => comparisonLoading = false);
+      }
+    }
+  }
+
+  Widget _comparisonCard(GuestMetricSeries primary) {
+    final peers = _comparisonPeers();
+    final selected = peers.any((guest) => guest.vmid == comparisonPeer)
+        ? comparisonPeer
+        : null;
+    final now = DateTime.now();
+    final ready = GuestHistoryComparison.accepts(
+      series: primary,
+      timeframe: metricTimeframe,
+      now: now,
+    );
+    final other = identical(comparisonInventory, widget.controller.inventory)
+        ? comparisonSeries
+        : null;
+    final result = ready && selected != null && other != null && !loadingMetrics
+        ? GuestHistoryComparison.evaluate(
+            primary: primary,
+            peer: other,
+            timeframe: metricTimeframe,
+            now: now,
+          )
+        : null;
+    return Card(
+      key: const Key('guest-history-comparison'),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Compare guest history',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const Text(
+              'Compare CPU and memory percentages on matching RRD timestamps. '
+              'Peer history is requested only when you choose to compare.',
+            ),
+            if (peers.isEmpty || !ready)
+              const Text(
+                'Comparison requires fresh inventory, another uniquely '
+                'visible running same-kind guest on this node and recent history.',
+              )
+            else ...[
+              DropdownButton<int>(
+                key: const Key('guest-comparison-peer'),
+                isExpanded: true,
+                value: selected,
+                hint: const Text('Choose peer guest'),
+                items: [
+                  for (final guest in peers)
+                    DropdownMenuItem(
+                      value: guest.vmid,
+                      child: Text(
+                        '${guest.vmid} · ${guest.name}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: loadingMetrics || comparisonLoading
+                    ? null
+                    : (value) => setState(() {
+                        comparisonPeer = value;
+                        comparisonSeries = null;
+                        comparisonInventory = null;
+                        comparisonError = null;
+                      }),
+              ),
+              FilledButton.tonal(
+                key: const Key('load-guest-comparison'),
+                onPressed:
+                    selected == null || loadingMetrics || comparisonLoading
+                    ? null
+                    : _loadComparison,
+                child: Text(
+                  comparisonLoading ? 'Loading peer…' : 'Compare history',
+                ),
+              ),
+            ],
+            if (comparisonError != null) Text(comparisonError!),
+            if (comparisonSeries != null && other == null)
+              const Text(
+                'Inventory changed. Compare again for current evidence.',
+              ),
+            if (other != null && result == null)
+              const Text(
+                'Comparison unavailable: no sufficiently matched history.',
+              ),
+            if (result != null) ...[
+              const Divider(),
+              Text('${result.sampleCount} matched RRD samples'),
+              Text(
+                '${result.first.toUtc().toIso8601String()} to '
+                '${result.last.toUtc().toIso8601String()} (UTC)',
+              ),
+              Text(
+                'VMID ${widget.guest.vmid}: CPU ${formatPercent(result.primaryCpu)}, '
+                'memory ${formatPercent(result.primaryMemory)}',
+              ),
+              Text(
+                'VMID $selected: CPU ${formatPercent(result.peerCpu)}, '
+                'memory ${formatPercent(result.peerMemory)}',
+              ),
+              const Text(
+                'Paired sample means only, not time-weighted utilization, '
+                'absolute capacity, a forecast or a placement recommendation.',
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> loadConfiguration() async {
@@ -1814,7 +2022,8 @@ class _GuestPageState extends State<GuestPage> {
               ChoiceChip(
                 label: Text(timeframe.label),
                 selected: metricTimeframe == timeframe,
-                onSelected: currentGuest() == null || loadingMetrics
+                onSelected:
+                    currentGuest() == null || loadingMetrics || comparisonLoading
                     ? null
                     : (_) => selectMetricTimeframe(timeframe),
               ),
@@ -1824,7 +2033,8 @@ class _GuestPageState extends State<GuestPage> {
         Align(
           alignment: Alignment.centerLeft,
           child: FilledButton.tonalIcon(
-            onPressed: currentGuest() == null || loadingMetrics
+            onPressed:
+                currentGuest() == null || loadingMetrics || comparisonLoading
                 ? null
                 : loadMetrics,
             icon: loadingMetrics
@@ -1853,6 +2063,10 @@ class _GuestPageState extends State<GuestPage> {
             '${metricSeries!.truncated ? ' • response truncated locally' : ''}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
+          if (_comparisonPeers().isNotEmpty || comparisonPeer != null) ...[
+            const SizedBox(height: 8),
+            _comparisonCard(metricSeries!),
+          ],
           const SizedBox(height: 8),
           SparklineCard(
             title: 'CPU average',

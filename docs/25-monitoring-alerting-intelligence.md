@@ -305,3 +305,12 @@ The matched sample count and UTC endpoints are visible; the separate sample
 means do not imply workload equivalence, time weighting or placement advice.
 One existing GET is requested explicitly; no automatic polling or mutation.
 See [milestone 117](117-implementation-node-history-comparison.md).
+
+## Bounded same-node guest historical comparison (0.1.73)
+
+Guest Metrics reuses the exact paired-sample algorithm for one explicitly
+selected running same-kind guest on the same uniquely visible online node.
+Duplicate VMIDs, stale or partial inventory and incomplete history suppress
+the comparison. Inventory replacement invalidates the result. No new API
+endpoint, persistence, permission or automatic action is introduced.
+See [milestone 118](118-implementation-guest-history-comparison.md).
