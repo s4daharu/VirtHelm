@@ -32,6 +32,7 @@ class _GuestPageState extends State<GuestPage> {
   GuestMetricSeries? metricSeries;
   String? metricError;
   int? comparisonPeer;
+  String? comparisonPeerNode;
   GuestMetricSeries? comparisonSeries;
   Inventory? comparisonInventory;
   bool comparisonLoading = false;
@@ -177,6 +178,7 @@ class _GuestPageState extends State<GuestPage> {
       metricSeries = null;
       metricError = null;
       comparisonPeer = null;
+      comparisonPeerNode = null;
       comparisonSeries = null;
       comparisonInventory = null;
       comparisonError = null;
@@ -197,17 +199,24 @@ class _GuestPageState extends State<GuestPage> {
         controller.isGuestActionBlocked(guest)) {
       return const [];
     }
-    return GuestHistoryComparison.eligiblePeers(inventory, guest)
-        .where((peer) => !controller.isGuestActionBlocked(peer))
+    return GuestHistoryComparison.eligiblePeers(
+      inventory,
+      guest,
+      includeOtherNodes: true,
+    ).where((peer) => !controller.isGuestActionBlocked(peer))
         .toList(growable: false);
   }
+
+  bool _matchesComparisonPeer(Guest guest) =>
+      guest.vmid == comparisonPeer && guest.node == comparisonPeerNode;
 
   Future<void> _loadComparison() async {
     final primary = metricSeries;
     final peerVmid = comparisonPeer;
+    final peerNode = comparisonPeerNode;
     final inventory = widget.controller.inventory;
     final timeframe = metricTimeframe;
-    final peers = _comparisonPeers().where((guest) => guest.vmid == peerVmid);
+    final peers = _comparisonPeers().where(_matchesComparisonPeer);
     if (loadingMetrics ||
         comparisonLoading ||
         primary == null ||
@@ -234,11 +243,12 @@ class _GuestPageState extends State<GuestPage> {
       );
       if (!mounted || !_currentSession) return;
       final stillEligible = _comparisonPeers().any(
-        (guest) => guest.vmid == peerVmid,
+        (guest) => guest.vmid == peerVmid && guest.node == peerNode,
       );
       setState(() {
         if (stillEligible &&
             comparisonPeer == peerVmid &&
+            comparisonPeerNode == peerNode &&
             metricTimeframe == timeframe &&
             identical(primary, metricSeries) &&
             identical(inventory, widget.controller.inventory)) {
@@ -264,7 +274,7 @@ class _GuestPageState extends State<GuestPage> {
 
   Widget _comparisonCard(GuestMetricSeries primary) {
     final peers = _comparisonPeers();
-    final selected = peers.any((guest) => guest.vmid == comparisonPeer)
+    final selected = peers.any(_matchesComparisonPeer)
         ? comparisonPeer
         : null;
     final now = DateTime.now();
@@ -302,7 +312,7 @@ class _GuestPageState extends State<GuestPage> {
             if (peers.isEmpty || !ready)
               const Text(
                 'Comparison requires fresh inventory, another uniquely '
-                'visible running same-kind guest on this node and recent history.',
+                'visible running same-kind guest on an online node and recent history.',
               )
             else ...[
               DropdownButton<int>(
@@ -315,7 +325,8 @@ class _GuestPageState extends State<GuestPage> {
                     DropdownMenuItem(
                       value: guest.vmid,
                       child: Text(
-                        '${guest.vmid} · ${guest.name}',
+                        '${guest.vmid} · ${guest.name}'
+                        '${guest.node == widget.guest.node ? '' : ' · ${guest.node}'}',
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -324,8 +335,13 @@ class _GuestPageState extends State<GuestPage> {
                     ? null
                     : (value) {
                         if (loadingMetrics || comparisonLoading) return;
+                        final matches = peers.where(
+                          (guest) => guest.vmid == value,
+                        );
+                        if (matches.length != 1) return;
                         setState(() {
                           comparisonPeer = value;
+                          comparisonPeerNode = matches.single.node;
                           comparisonSeries = null;
                           comparisonInventory = null;
                           comparisonError = null;
@@ -355,6 +371,8 @@ class _GuestPageState extends State<GuestPage> {
             if (result != null) ...[
               const Divider(),
               Text('${result.sampleCount} matched RRD samples'),
+              if (comparisonPeerNode != widget.guest.node)
+                Text('Nodes: ${widget.guest.node} / $comparisonPeerNode'),
               Text(
                 '${result.first.toUtc().toIso8601String()} to '
                 '${result.last.toUtc().toIso8601String()} (UTC)',

@@ -145,6 +145,7 @@ required = [
   'docs/116-implementation-storage-runway-scenario.md',
   'docs/117-implementation-node-history-comparison.md',
   'docs/118-implementation-guest-history-comparison.md',
+  'docs/119-implementation-cross-node-guest-history-comparison.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
@@ -159,6 +160,8 @@ assert 'class StorageHistoryReview' in files['app/lib/core/storage_history_revie
 assert 'maxSamples = 1500' in files['app/lib/core/storage_history_review.dart']
 assert 'class GuestHistoryComparison' in files['app/lib/core/guest_history_comparison.dart']
 assert 'NodeHistoryComparison.evaluate(' in files['app/lib/core/guest_history_comparison.dart']
+assert 'includeOtherNodes' in files['app/lib/core/guest_history_comparison.dart']
+assert 'comparisonPeerNode == peerNode' in files['app/lib/ui/guest_page.dart']
 assert 'GuestHistoryComparison.evaluate(' in files['app/lib/ui/guest_page.dart']
 assert "Key('load-guest-comparison')" in files['app/lib/ui/guest_page.dart']
 assert 'class NodeHistoryComparison' in files['app/lib/core/node_history_comparison.dart']

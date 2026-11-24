@@ -22,6 +22,7 @@ class _Controller extends AppController {
 
   final now = DateTime.now();
   final reads = <int>[];
+  final readNodes = <String>[];
   Completer<GuestMetricSeries?>? pending;
 
   GuestMetricSeries history(int vmid) => GuestMetricSeries(
@@ -43,6 +44,7 @@ class _Controller extends AppController {
     required GuestMetricTimeframe timeframe,
   }) async {
     reads.add(guest.vmid);
+    readNodes.add(guest.node);
     if (guest.vmid == 102 && pending != null) return pending!.future;
     return history(guest.vmid);
   }
@@ -64,9 +66,18 @@ void main() {
     status: 'running',
   );
 
+  const remote = Guest(
+    node: 'pve2',
+    vmid: 102,
+    kind: 'qemu',
+    name: 'Peer',
+    status: 'running',
+  );
+
   Future<_Controller> open(
     WidgetTester tester, {
     bool duplicate = false,
+    bool crossNode = false,
   }) async {
     tester.view.physicalSize = const Size(1000, 1400);
     tester.view.devicePixelRatio = 1;
@@ -82,8 +93,11 @@ void main() {
       endpoint: 'https://a.example',
     );
     controller.inventory = Inventory(
-      nodes: const [Node(name: 'pve1', status: 'online')],
-      guests: [primary, peer, if (duplicate) peer],
+      nodes: [
+        const Node(name: 'pve1', status: 'online'),
+        if (crossNode) const Node(name: 'pve2', status: 'online'),
+      ],
+      guests: [primary, crossNode ? remote : peer, if (duplicate) peer],
       fetchedAt: DateTime.now(),
     );
     await tester.pumpWidget(
@@ -107,10 +121,13 @@ void main() {
     return controller;
   }
 
-  Future<void> selectPeer(WidgetTester tester) async {
+  Future<void> selectPeer(
+    WidgetTester tester, {
+    String label = '102 · Peer',
+  }) async {
     await tester.tap(find.byKey(const Key('guest-comparison-peer')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('102 · Peer').last);
+    await tester.tap(find.text(label).last);
     await tester.pumpAndSettle();
   }
 
@@ -191,5 +208,45 @@ void main() {
     expect(find.text('Guest unavailable'), findsOneWidget);
     expect(find.text('7 matched RRD samples'), findsNothing);
     expect(find.textContaining('VMID 102: CPU'), findsNothing);
+  });
+
+  testWidgets('remote peer read is explicit and identifies both nodes', (
+    tester,
+  ) async {
+    final controller = await open(tester, crossNode: true);
+    await selectPeer(tester, label: '102 · Peer · pve2');
+    expect(controller.readNodes, ['pve1']);
+    await tester.tap(find.byKey(const Key('load-guest-comparison')));
+    await tester.pumpAndSettle();
+    expect(controller.readNodes, ['pve1', 'pve2']);
+    expect(find.text('7 matched RRD samples'), findsOneWidget);
+    expect(find.text('Nodes: pve1 / pve2'), findsOneWidget);
+  });
+
+  testWidgets('moved peer requires reselection before another GET', (
+    tester,
+  ) async {
+    final controller = await open(tester, crossNode: true);
+    await selectPeer(tester, label: '102 · Peer · pve2');
+    controller.inventory = Inventory(
+      nodes: const [
+        Node(name: 'pve1', status: 'online'),
+        Node(name: 'pve2', status: 'online'),
+      ],
+      guests: const [primary, peer],
+      fetchedAt: DateTime.now(),
+    );
+    controller.notifyListeners();
+    await tester.pumpAndSettle();
+    final button = tester.widget<FilledButton>(
+      find.byKey(const Key('load-guest-comparison')),
+    );
+    expect(button.onPressed, isNull);
+    expect(controller.readNodes, ['pve1']);
+    await selectPeer(tester);
+    await tester.tap(find.byKey(const Key('load-guest-comparison')));
+    await tester.pumpAndSettle();
+    expect(controller.readNodes, ['pve1', 'pve1']);
+    expect(find.text('7 matched RRD samples'), findsOneWidget);
   });
 }
