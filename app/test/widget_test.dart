@@ -625,6 +625,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Latest 75.0%'), findsOneWidget);
     expect(find.textContaining('Usage range 50.0%–75.0%'), findsOneWidget);
+    final capacityScrollable = find.descendant(
+      of: find.byKey(const Key('storage-capacity-list')),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(
+      find.textContaining('Comparison unavailable'),
+      150,
+      scrollable: capacityScrollable,
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Comparison unavailable'), findsOneWidget);
+    expect(find.textContaining('percentage points'), findsNothing);
+    await tester.scrollUntilVisible(
+      find.textContaining('1 malformed ignored'),
+      -150,
+      scrollable: capacityScrollable,
+    );
+    await tester.pumpAndSettle();
     expect(find.textContaining('1 malformed ignored'), findsOneWidget);
 
     await tester.scrollUntilVisible(

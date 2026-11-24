@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/app_controller.dart';
 import '../core/models.dart';
 import 'components.dart';
+import 'storage_history_review_card.dart';
 import 'theme.dart';
 
 class StoragePage extends StatefulWidget {
@@ -48,6 +49,7 @@ class _StoragePageState extends State<StoragePage> {
     if (loadingMetrics || !_currentSession || storage == null) return;
     setState(() {
       loadingMetrics = true;
+      metricSeries = null;
       metricError = null;
     });
     try {
@@ -238,6 +240,7 @@ class _StoragePageState extends State<StoragePage> {
   }
 
   Widget _capacityTab() {
+    final storage = currentStorage();
     final usablePoints = (metricSeries?.points ?? const <StorageMetricPoint>[])
         .where(
           (point) =>
@@ -333,6 +336,19 @@ class _StoragePageState extends State<StoragePage> {
             secondaryText: storageRange,
             axisLabel: 'Storage usage (%)',
             timeframeLabel: metricTimeframe.label,
+          ),
+          const SizedBox(height: 8),
+          StorageHistoryReviewCard(
+            series: metricSeries!,
+            timeframe: metricTimeframe,
+            now: DateTime.now(),
+            isTrusted:
+                widget.controller.isInventoryFresh &&
+                widget.controller.inventoryWarning == null &&
+                widget.controller.storageMessage == null &&
+                !widget.controller.refreshing &&
+                storage?.active == true &&
+                storage?.enabled != false,
           ),
         ],
       ],
