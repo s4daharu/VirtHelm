@@ -47,5 +47,5 @@
 
 ## Delivery and claims
 - Follow `CONTRIBUTING.md`: small branches/PRs; API changes cite official PVE contracts and update `docs/15-verification-matrix.md`. Do not mark planned catalog entries verified: `check_premium.py` requires `planned_unimplemented`.
-- `.github/workflows/checks.yml` compiles a debug APK without retaining it. Successful push checks on `main` automatically trigger `.github/workflows/release-android.yml` for that exact checked SHA; manual dispatch is main-only.
+- `.github/workflows/checks.yml` runs repository checks; `.github/workflows/android-ci.yml` runs repository and Flutter checks and compiles an ARM64 debug APK without retaining it. Successful Android CI pushes on `main` automatically trigger `.github/workflows/release-android.yml` for that exact checked SHA; manual dispatch is main-only.
 - Signed ARM64/ARMv7 prerelease APKs and checksums go directly to GitHub Releases, never Actions artifacts. Signing configuration is injected by CI; preserve external signing and never substitute debug keys or equate prerelease publication with certification.

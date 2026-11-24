@@ -29,7 +29,7 @@ across past migrations/restarts is not established.
 Seven model and four route widget tests cover adapter parity, all windows,
 data rejection, candidate selection, duplicate IDs, incomplete inventory,
 explicit loading, timeframe invalidation, inventory refresh and profile
-switch during a pending read. Exact-head CI must pass before promotion.
+switch during a pending read. Exact main head eefeebe50d61f3905d5071d536c542d7ef7d5bd3 passed Android CI 45356732745 and Docs and Android checks 45356732880: repository checks, 20 Python regressions, pinned Flutter 3.44.4 formatting, analysis, 497 Flutter runtime tests, generated runner/lockfile checks and ARM64 debug compilation. Signed prerelease 45357187541 also passed split APK/signature/ABI verification and publication. No new live PVE or physical-device validation.
 Live PVE 8.4/9.2 RRD/ACL fixtures and physical Android accessibility and
 performance remain gated. Cross-node/mixed-kind guests and broader
 aggregations remain deferred. Revert removes local presentation and an
