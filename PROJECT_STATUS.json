@@ -80,7 +80,7 @@
   "apk_delivery": {
     "storage": "GitHub Release assets uploaded directly from the signed build runner, following NovelBridge",
     "actions_artifact_uploads": false,
-    "publication_trigger": "automatic workflow_run after successful Docs and Android checks for a push to main; manual workflow_dispatch on main remains available",
+    "publication_trigger": "automatic workflow_run after successful Android CI for a push to main; manual workflow_dispatch on main remains available",
     "download_links": "release page plus ARM64, ARMv7 and checksums URLs in the workflow summary",
     "existing_artifacts": "not deleted; expire or are removed manually",
     "cache_policy": "separate Actions build caches are unchanged",
@@ -156,8 +156,8 @@
     ],
     "full_premium_scope_complete": false,
     "current_flutter_tests_defined": 440,
-    "current_flutter_runtime_tests_passed": 486,
-    "current_delivery_tests_defined": 14,
+    "current_flutter_runtime_tests_passed": 497,
+    "current_delivery_tests_defined": 15,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
     "p0_scope_complete": false,
     "p0_gaps": [
@@ -898,13 +898,20 @@
     "report": "docs/117-implementation-node-history-comparison.md",
     "deferred": "Broader multi-resource aggregation, live PVE bucket/ACL matrix and physical Android validation."
   },
-  "alert_guest_history_comparison": {
+  "delivery_java_action_update": {
     "status": "implemented_source_ci_pending",
+    "version": "0.1.74",
+    "behavior": "Both Android workflows pin actions/setup-java 6.3.0 and explicitly retain Java compiler annotations, with Java 17 and existing runner, lockfile, analysis, test and release safety gates unchanged.",
+    "verification": "One offline delivery regression added. Exact-head CI is required before promotion; the 0.1.73 evidence does not certify this update.",
+    "deferred": "flutter_secure_storage 11.x upgrade requires pinned lockfile resolution and credential migration validation."
+  },
+  "alert_guest_history_comparison": {
+    "status": "implemented_ci_verified_device_validation_pending",
     "milestone": "EP-ALERT-05 / UX-06 bounded same-node guest historical comparison",
     "version": "0.1.73",
     "behavior": "One explicitly selected running same-kind peer on the same online node; reuse exact matched CPU/memory RRD means and 80% coverage guard.",
     "safety": "Fresh complete inventory, global VMID uniqueness, route/profile generation and inventory-snapshot checks, no new endpoint, permission, dependency, persistence or mutation.",
-    "verification": "Eleven synthetic model/widget test declarations; exact-head CI required before promotion.",
+    "verification": "Exact main head eefeebe50d61f3905d5071d536c542d7ef7d5bd3 passed Android CI 45356732745 and Docs and Android checks 45356732880: repository checks, 20 Python regressions, pinned Flutter 3.44.4 formatting, analysis, 497 Flutter runtime tests, generated runner/lockfile checks and ARM64 debug compilation. Signed prerelease 45357187541 also passed split APK/signature/ABI verification and publication. No new live PVE or physical-device validation.",
     "report": "docs/118-implementation-guest-history-comparison.md",
     "deferred": "Cross-node and mixed-kind comparison, broader aggregation, live PVE fixtures and physical Android validation."
   }

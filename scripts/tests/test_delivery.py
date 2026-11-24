@@ -163,6 +163,20 @@ android {
             script = re.sub(r'\$\{\{.*?\}\}', 'SAFE_TEST_VALUE', script)
             self.run_checked(['bash', '-n'], input=script)
 
+    def test_java_setup_preserves_compiler_annotations(self):
+        for name in ('android-ci.yml', 'release-android.yml'):
+            with self.subTest(workflow=name):
+                workflow = (ROOT / '.github/workflows' / name).read_text()
+                match = re.search(
+                    r'(?m)^ +(?:- )?uses: actions/setup-java@([0-9a-f]{40})[^\n]*\n'
+                    r' +with:\n((?: {10}[^\n]+\n)+)',
+                    workflow,
+                )
+                self.assertIsNotNone(match)
+                self.assertIn("          distribution: temurin\n", match.group(2))
+                self.assertIn("          java-version: '17'\n", match.group(2))
+                self.assertIn("          problem-matcher: true\n", match.group(2))
+
     def test_workflows_never_store_apks_as_actions_artifacts(self):
         for path in (ROOT / '.github/workflows').iterdir():
             if path.suffix not in ('.yml', '.yaml'):
