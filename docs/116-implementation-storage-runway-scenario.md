@@ -50,3 +50,5 @@ and presentation; no data migration is required.
 Seasonal/statistical forecasting, allocation-aware estimates, historical
 cross-resource comparisons, physical-device validation and production
 certification remain gated.
+
+Exact feature head 8f3cbd10afc087bc75b1800a03f2edf4309faa67 passed Android CI 45353245870 and repository checks 45353245880 (20 Python tests, pinned formatting/analyze, 476 Flutter tests, generated runner/lockfile checks and ARM64 debug compilation). Merged main f1c3f2154f03448643afb1628cbc347b2d34dff4 also passed Android CI 45353775704 and repository checks 45353775535. No live PVE or physical Android validation claimed.
