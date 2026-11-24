@@ -23,8 +23,10 @@ A missing result is not evidence of healthy capacity.
 
 ## Session and request boundaries
 
-Only one peer is fetched per explicit tap. A maximum of 64 visible node
-records is considered; ambiguous/offline peers are excluded. Current profile,
+Only one logical peer read is initiated per explicit tap, subject to the
+existing bounded transient GET retry policy. A maximum of 64 visible node
+records is considered; ambiguous/offline peers and trimmed-name aliases are
+excluded. Current profile,
 generation, unique primary/peer identity, current inventory freshness,
 partial-read and refresh gates are rechecked before and after the peer read.
 Peer selection, timeframe change or primary reload invalidates the result;

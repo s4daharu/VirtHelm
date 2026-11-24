@@ -52,7 +52,10 @@ void main() {
   const primary = Node(name: 'pve1', status: 'online');
   const peer = Node(name: 'pve2', status: 'online');
 
-  Future<_Controller> open(WidgetTester tester, {bool duplicate = false}) async {
+  Future<_Controller> open(
+    WidgetTester tester, {
+    bool duplicate = false,
+  }) async {
     tester.view.physicalSize = const Size(1000, 1400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -67,7 +70,11 @@ void main() {
       endpoint: 'https://a.example',
     );
     controller.inventory = Inventory(
-      nodes: [primary, peer, if (duplicate) peer],
+      nodes: [
+        primary,
+        peer,
+        if (duplicate) const Node(name: ' pve2 ', status: 'online'),
+      ],
       guests: const [],
       fetchedAt: DateTime.now(),
     );

@@ -122,7 +122,14 @@ class _NodePageState extends State<NodePage> {
     }
     final counts = <String, int>{};
     for (final node in nodes) {
-      counts.update(node.name, (count) => count + 1, ifAbsent: () => 1);
+      counts.update(node.name.trim(), (count) => count + 1, ifAbsent: () => 1);
+    }
+    final name = widget.node.name;
+    if (name.isEmpty ||
+        name != name.trim() ||
+        name.length > 200 ||
+        counts[name] != 1) {
+      return const [];
     }
     return nodes
         .where(
@@ -202,8 +209,7 @@ class _NodePageState extends State<NodePage> {
       now: now,
     );
     final other = comparisonSeries;
-    final result =
-        ready && selected != null && other != null && !loadingMetrics
+    final result = ready && selected != null && other != null && !loadingMetrics
         ? NodeHistoryComparison.evaluate(
             primary: primary,
             peer: other,
@@ -224,7 +230,7 @@ class _NodePageState extends State<NodePage> {
             ),
             const Text(
               'Compare CPU and memory percentages on matching RRD timestamps. '
-              'One additional read only when requested.',
+              'Peer history is requested only when you choose to compare.',
             ),
             if (peers.isEmpty || !ready)
               const Text(
