@@ -6,22 +6,35 @@ VirtHelm is Android-phone only. CI pins Flutter **3.44.4**, commits `app/pubspec
 The generated `app/android/` directory is intentionally not committed yet; `scripts/check_android_generated.py` fails CI if the pinned Flutter template drifts away from the expected security configuration.
 
 ## CI gates
-For every push and pull request:
-1. documentation/premium/source consistency checks;
+`checks.yml` runs the documentation/premium/source and Python regression checks
+on pushes to `main` and on pull requests. `android-ci.yml` runs on Android-impacting PRs
+and pushes to `main` (or manual dispatch) and adds:
+1. the same repository checks;
 2. exact locked dependency resolution using `flutter pub get --enforce-lockfile` after Android generation;
 3. generated Android hardening assertions;
-4. `dart format --output=none --set-exit-if-changed lib test`;
-5. `flutter analyze --fatal-infos`;
-6. `flutter test --coverage`;
-7. `flutter build apk --debug`;
+4. `dart format lib test` with a clean diff required;
+5. `flutter analyze --no-pub --fatal-infos`;
+6. `flutter test --no-pub`;
+7. `flutter build apk --debug --target-platform android-arm64 --no-pub`;
 8. no APK upload or retention in Actions artifact storage; the debug build is a compile-only gate.
 
 A debug APK is not a release artifact. Live PVE tests are deliberately not run automatically against production infrastructure.
 
 ## Direct APK release assets
-The manual `release-android.yml` workflow uploads signed ARM64/ARMv7 APKs and checksums directly from the same runner using `gh release create`/`gh release upload`, as in NovelBridge. There is no `upload-artifact`/`download-artifact` handoff in either workflow and no future APK consumption of Actions artifact storage. API operations have bounded retries; all three uploaded assets must be present with matching sizes before download URLs are emitted into the summary. Reruns use an attempt-specific tag rather than force-moving an existing tag.
+`release-android.yml` runs after a successful Android CI push to `main` and
+checks out the exact checked SHA. It also supports manual dispatch on `main`,
+with repository and Flutter checks. The workflow verifies the signing
+certificate and the exact native ABI in each split before uploading signed
+ARM64/ARMv7 APKs and checksums directly using `gh release create` and
+`gh release upload`. All three uploaded assets must match the expected sizes
+before it emits links. Reruns use an attempt-specific tag rather than
+force-moving an existing tag.
 
-Downloads live on the repository's Releases page, subject to its private access controls. Existing Actions artifacts are left untouched until expiration or manual deletion. SDK/build caches have separate storage accounting and remain enabled where already configured. Checks still run on push/PR; publishing a signed prerelease remains an explicit manual action on `main`.
+Downloads are public on the repository's Releases page. There is no Actions
+artifact handoff; existing artifacts expire or may be removed manually. SDK/Pub
+cache storage is separate. Android CI saves only the Gradle dependency and
+wrapper distribution directories to its Gradle cache; the signing workflow is
+restore-only and does not cache task outputs or signing files.
 
 ## Android release requirements
 Release APK/AAB signing keys and passwords must remain outside Git and Actions logs. Release signing must be configured through a reviewed external secret/signing workflow before distribution. Verify the merged release manifest, network security, target/compile SDK policy, dependency advisories, SBOM/license inventory, and binary hashes before any release tag.

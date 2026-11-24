@@ -716,6 +716,7 @@ internal object BackgroundCheckCoordinator {
     private fun lastOutcomeKey(key: String) = "last-outcome:$key"
     private fun lastNotificationKey(key: String) = "last-notification:$key"
 
+    @Synchronized
     fun configure(
         context: Context,
         profileId: String,
@@ -827,6 +828,7 @@ internal object BackgroundCheckCoordinator {
         }
     }
 
+    @Synchronized
     fun syncThresholdRules(
         context: Context,
         profileId: String,
@@ -905,6 +907,7 @@ internal object BackgroundCheckCoordinator {
         return true
     }
 
+    @Synchronized
     fun disable(context: Context, profileId: String, clearPolicy: Boolean) {
         val key = profileKey(profileId)
         WorkManager.getInstance(context).cancelUniqueWork(workName(key))
@@ -969,7 +972,7 @@ internal object BackgroundCheckCoordinator {
                 failedTaskChecksEnabled = false,
                 nodeCpuThresholdChecksEnabled = false,
                 guestCpuThresholdChecksEnabled = false,
-                    storageUsageThresholdChecksEnabled = false,
+                storageUsageThresholdChecksEnabled = false,
             ),
         )
         val secretAvailable =
@@ -1003,19 +1006,24 @@ internal object BackgroundCheckCoordinator {
     fun runPeriodicCheck(context: Context, key: String) {
         if (!key.matches(Regex("^[0-9a-f]{64}$"))) return
         val storage = prefs(context)
-        val policy = runCatching {
-            ScheduledPolicy.fromJson(storage.getString(policyKey(key), null))
-        }.getOrNull() ?: return
-        if (!policy.enabled) return
-        val secret = readSecret(storage.getString(secretKey(key), null), key) ?: return
         val now = System.currentTimeMillis()
-        storage.edit().putLong(lastAttemptKey(key), now).apply()
+        val (policy, encrypted, secret) = synchronized(this) {
+            val policy = runCatching {
+                ScheduledPolicy.fromJson(storage.getString(policyKey(key), null))
+            }.getOrNull() ?: return
+            if (!policy.enabled) return
+            val encrypted = storage.getString(secretKey(key), null) ?: return
+            val secret = readSecret(encrypted, key) ?: return
+            storage.edit().putLong(lastAttemptKey(key), now).apply()
 
-        if (isAppForeground()) {
-            storage.edit().putString(lastOutcomeKey(key), "skipped_foreground").apply()
-            return
+            if (isAppForeground()) {
+                storage.edit().putString(lastOutcomeKey(key), "skipped_foreground").apply()
+                return
+            }
+            Triple(policy, encrypted, secret)
         }
 
+        // Do not hold the configuration monitor while performing network I/O.
         val result = try {
             readScheduledState(
                 secret = secret,
@@ -1029,6 +1037,11 @@ internal object BackgroundCheckCoordinator {
                 previousStorageThresholdState =
                     storage.getString(storageThresholdStateKey(key), null),
                 nowMs = now,
+                stillCurrent = {
+                    synchronized(this) {
+                        storage.getString(secretKey(key), null) == encrypted
+                    }
+                },
             )
         } catch (_: Exception) {
             ScheduledCheckResult(
@@ -1051,6 +1064,22 @@ internal object BackgroundCheckCoordinator {
             )
         }
 
+        finishPeriodicCheck(context, key, encrypted, policy, result, now)
+    }
+
+    @Synchronized
+    private fun finishPeriodicCheck(
+        context: Context,
+        key: String,
+        encrypted: String,
+        policy: ScheduledPolicy,
+        result: ScheduledCheckResult,
+        now: Long,
+    ) {
+        val storage = prefs(context)
+        // Configure/rule sync re-encrypt with a fresh IV; disable removes the
+        // ciphertext. An old run must not recreate state or notify afterward.
+        if (storage.getString(secretKey(key), null) != encrypted) return
         val correlationJson = updateCorrelationEvidence(
             raw = storage.getString(correlationKey(key), null),
             profileKey = key,
@@ -1731,8 +1760,9 @@ internal object BackgroundCheckCoordinator {
         previousGuestThresholdState: String?,
         previousStorageThresholdState: String?,
         nowMs: Long,
+        stillCurrent: () -> Boolean,
     ): ScheduledCheckResult {
-        val node = readNodeState(secret)
+        val node = readNodeState(secret, stillCurrent)
         if (!node.complete) {
             return ScheduledCheckResult(
                 outcome = node.outcome,
@@ -1767,6 +1797,7 @@ internal object BackgroundCheckCoordinator {
                 secret = secret,
                 nodes = node.nodes,
                 previousWatermarkSeconds = previousTaskWatermarkSeconds,
+                stillCurrent = stillCurrent,
             )
         } else {
             FailedTaskReadResult(
@@ -1799,7 +1830,7 @@ internal object BackgroundCheckCoordinator {
                 secret.guestCpuThresholdRules.isNotEmpty()
         val guestRead =
             if (guestMonitoringActive) {
-                readGuestCpuState(secret)
+                readGuestCpuState(secret, stillCurrent)
             } else {
                 GuestCpuReadResult(
                     outcome = "healthy",
@@ -1831,7 +1862,7 @@ internal object BackgroundCheckCoordinator {
         val storageRead =
             if (storageMonitoringActive && node.taskNodesComplete) {
                 try {
-                    readStorageUsageState(secret, node.nodes)
+                    readStorageUsageState(secret, node.nodes, stillCurrent)
                 } catch (_: Exception) {
                     StorageUsageReadResult("storage_usage_read_failed", false)
                 }
@@ -1938,7 +1969,21 @@ internal object BackgroundCheckCoordinator {
         )
     }
 
-    private fun readGuestCpuState(secret: ScheduledSecret): GuestCpuReadResult {
+    private fun scheduledResponseCode(
+        connection: HttpsURLConnection,
+        stillCurrent: () -> Boolean,
+    ): Int {
+        // Opening the connection object does not perform the request; reading
+        // the status code does. Recheck between requests without holding a
+        // lock across the HTTPS exchange.
+        check(stillCurrent())
+        return connection.responseCode
+    }
+
+    private fun readGuestCpuState(
+        secret: ScheduledSecret,
+        stillCurrent: () -> Boolean,
+    ): GuestCpuReadResult {
         val url = URL(
             secret.endpoint.trimEnd('/') +
                 "/api2/json/cluster/resources?type=vm",
@@ -1952,7 +1997,7 @@ internal object BackgroundCheckCoordinator {
         connection.setRequestProperty("Accept", "application/json")
         connection.setRequestProperty("Authorization", secret.authorization)
         try {
-            val code = connection.responseCode
+            val code = scheduledResponseCode(connection, stillCurrent)
             if (code in 300..399) {
                 return GuestCpuReadResult(
                     outcome = "guest_cpu_redirect_blocked",
@@ -2023,6 +2068,7 @@ internal object BackgroundCheckCoordinator {
     private fun readStorageUsageState(
         secret: ScheduledSecret,
         visibleNodes: List<String>,
+        stillCurrent: () -> Boolean,
     ): StorageUsageReadResult {
         val ruleNodes = secret.storageUsageThresholdRules
             .map { it.node }
@@ -2049,7 +2095,7 @@ internal object BackgroundCheckCoordinator {
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty("Authorization", secret.authorization)
             try {
-                val code = connection.responseCode
+                val code = scheduledResponseCode(connection, stillCurrent)
                 if (code in 300..399) {
                     return StorageUsageReadResult("storage_usage_redirect_blocked", false)
                 }
@@ -2115,7 +2161,10 @@ internal object BackgroundCheckCoordinator {
         return numeric.toInt()
     }
 
-    private fun readNodeState(secret: ScheduledSecret): NodeStateReadResult {
+    private fun readNodeState(
+        secret: ScheduledSecret,
+        stillCurrent: () -> Boolean,
+    ): NodeStateReadResult {
         val url = URL(
             secret.endpoint.trimEnd('/') +
                 "/api2/json/cluster/resources?type=node",
@@ -2129,7 +2178,7 @@ internal object BackgroundCheckCoordinator {
         connection.setRequestProperty("Accept", "application/json")
         connection.setRequestProperty("Authorization", secret.authorization)
         try {
-            val code = connection.responseCode
+            val code = scheduledResponseCode(connection, stillCurrent)
             if (code in 300..399) {
                 return NodeStateReadResult(
                     outcome = "redirect_blocked",
@@ -2236,6 +2285,7 @@ internal object BackgroundCheckCoordinator {
         secret: ScheduledSecret,
         nodes: List<String>,
         previousWatermarkSeconds: Long,
+        stillCurrent: () -> Boolean,
     ): FailedTaskReadResult {
         if (nodes.isEmpty() || nodes.size > MAX_BACKGROUND_TASK_NODES) {
             return FailedTaskReadResult(
@@ -2276,7 +2326,7 @@ internal object BackgroundCheckCoordinator {
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty("Authorization", secret.authorization)
             try {
-                val code = connection.responseCode
+                val code = scheduledResponseCode(connection, stillCurrent)
                 if (code in 300..399) {
                     return FailedTaskReadResult(
                         outcome = "task_redirect_blocked",

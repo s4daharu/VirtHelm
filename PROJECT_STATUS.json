@@ -83,7 +83,7 @@
     "publication_trigger": "automatic workflow_run after successful Android CI for a push to main; manual workflow_dispatch on main remains available",
     "download_links": "release page plus ARM64, ARMv7 and checksums URLs in the workflow summary",
     "existing_artifacts": "not deleted; expire or are removed manually",
-    "cache_policy": "separate Actions build caches are unchanged",
+    "cache_policy": "Android CI saves Gradle modules-2 and wrapper distributions only; release restores but never saves that cache. Flutter SDK/Pub caching is separate.",
     "release_source_sha": "workflow_run head_sha for automatic publication; github.sha for manual main dispatch"
   },
   "tls_policy": {
@@ -155,10 +155,11 @@
       "GET-only smoke testing against one PVE 9.2.26 server exercised HTTP schemas and actual gateway parsers, including server-side free/occupied VMID checks. No mutations were attempted; 8.4, restricted ACL, backend variants, physical-device and production gates remain open."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 445,
-    "current_flutter_runtime_tests_passed": 497,
-    "current_delivery_tests_defined": 15,
-    "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
+    "current_flutter_tests_defined": 446,
+    "current_flutter_runtime_tests_passed": 503,
+    "current_delivery_tests_defined": 18,
+    "current_ci_policy": "Repository checks cover pushes and pull requests. Android CI adds Flutter and ARM64 debug compilation for Android-impacting changes; signed prereleases are built from the checked SHA on main. Automated evidence is not a production release claim.",
+    "latest_cross_check": "docs/120-whole-repository-cross-check-2026-11-24.md",
     "p0_scope_complete": false,
     "p0_gaps": [
       "Full persistent offline guest/node detail/metrics/config/task cache remains unimplemented; AND-011 implements only a separate opt-in 24-hour display-only node/guest identity/status list",
@@ -916,12 +917,12 @@
     "deferred": "Cross-node comparison advanced in 0.1.75; mixed-kind comparison, broader aggregation, live PVE fixtures and physical Android validation remain gated."
   },
   "alert_guest_cross_node_history_comparison": {
-    "status": "implemented_source_ci_pending",
+    "status": "implemented_ci_verified_device_validation_pending",
     "milestone": "EP-ALERT-05 / UX-06 bounded cross-node same-kind guest historical comparison",
     "version": "0.1.75",
     "behavior": "One explicitly selected same-profile running same-kind guest on a unique online node; node label for remote peer, exact matched RRD CPU/memory means and existing coverage guards.",
     "safety": "At most 64 nodes and 200 guests; global VMID uniqueness and exact trimmed node identity; moved peer requires explicit reselection; existing profile/generation/inventory/timeframe checks and GET-only read path retained.",
-    "verification": "Three model and two widget regression declarations added. Exact-head CI required before promotion. No live PVE or physical Android evidence.",
+    "verification": "Three model and two widget regressions. Exact main head 3bb5f6390d8028295fafab0cf598d0c319813760 passed Android CI 45406986657, repository checks 45406986511 and signed prerelease run 45407605109. No live PVE or physical Android evidence.",
     "report": "docs/119-implementation-cross-node-guest-history-comparison.md",
     "deferred": "Mixed-kind, cross-profile and multi-resource aggregation; statistical or placement advice; live PVE and physical Android validation."
   }

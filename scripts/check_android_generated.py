@@ -52,6 +52,22 @@ if worker_template.is_file():
     worker = root / 'app/android/app/src/main/kotlin/com/s4daharu/virthelm/BackgroundIncidentWorker.kt'
     assert worker.is_file()
     worker_text = worker.read_text(encoding='utf-8')
+    assert worker_text == worker_template.read_text(encoding='utf-8')
+    for mutation in ('configure', 'syncThresholdRules', 'disable'):
+        assert f'@Synchronized\n    fun {mutation}(' in worker_text
+    scheduled_run = worker_text.split('fun runPeriodicCheck(', 1)[1].split(
+        'private fun newIncidentTargetHash(', 1)[0]
+    assert 'val (policy, encrypted, secret) = synchronized(this)' in scheduled_run
+    assert 'storage.getString(secretKey(key), null) == encrypted' in scheduled_run
+    assert 'finishPeriodicCheck(context, key, encrypted, policy, result, now)' in scheduled_run
+    assert '@Synchronized\n    private fun finishPeriodicCheck(' in scheduled_run
+    finish = scheduled_run.split('private fun finishPeriodicCheck(', 1)[1]
+    guard = finish.index('if (storage.getString(secretKey(key), null) != encrypted) return')
+    assert guard < finish.index('storage.edit()')
+    assert guard < finish.index('showScheduledIncidentNotification(')
+    assert 'check(stillCurrent())\n        return connection.responseCode' in worker_text
+    assert worker_text.count('connection.responseCode') == 1
+    assert worker_text.count('scheduledResponseCode(connection, stillCurrent)') == 4
     assert 'PeriodicWorkRequest.Builder' in worker_text
     assert 'NetworkType.CONNECTED' in worker_text
     assert 'AndroidKeyStore' in worker_text

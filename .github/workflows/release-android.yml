@@ -65,16 +65,13 @@ jobs:
       - name: Bootstrap hardened Android runner
         run: bash ../scripts/bootstrap_android.sh
 
-      - name: Setup Gradle build cache
-        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+      - name: Restore Gradle dependencies
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
-          cache-provider: basic
-          cache-read-only: true
-          gradle-home-cache-includes: |
-            caches
-            wrapper
-          add-job-summary: on-failure
-
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+          key: gradle-deps-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('app/.flutter-version', 'app/pubspec.lock', 'app/android/**/*.gradle.kts', 'app/android/gradle/wrapper/gradle-wrapper.properties') }}
 
       - name: Verify generated runner and lockfile
         run: |
@@ -239,14 +236,23 @@ jobs:
             test "$signer_digest" = "$expected_digest"
           done
 
-          arm64_libs="$(unzip -l "$ARM64" | grep -Eo 'lib/[^/]+/' | sort -u || true)"
-          armv7_libs="$(unzip -l "$ARMV7" | grep -Eo 'lib/[^/]+/' | sort -u || true)"
+          python3 - "$ARM64" "$ARMV7" <<'PY'
+          import sys
+          from zipfile import ZipFile
 
-          echo "$arm64_libs" | grep -q '^lib/arm64-v8a/$'
-          ! echo "$arm64_libs" | grep -qE '^lib/(armeabi-v7a|x86|x86_64)/$'
-
-          echo "$armv7_libs" | grep -q '^lib/armeabi-v7a/$'
-          ! echo "$armv7_libs" | grep -qE '^lib/(arm64-v8a|x86|x86_64)/$'
+          for path, expected in zip(sys.argv[1:], ('arm64-v8a', 'armeabi-v7a'), strict=True):
+              with ZipFile(path) as apk:
+                  libraries = {
+                      entry.filename for entry in apk.infolist()
+                      if not entry.is_dir() and entry.filename.startswith('lib/')
+                  }
+              abis = {entry.split('/')[1] for entry in libraries}
+              if abis != {expected}:
+                  raise SystemExit(f'{path}: expected only {expected}, found {sorted(abis)}')
+              required = {f'lib/{expected}/lib{lib}.so' for lib in ('app', 'flutter')}
+              if not required.issubset(libraries):
+                  raise SystemExit(f'{path}: missing required Flutter native libraries')
+          PY
 
           VERSION="${{ steps.metadata.outputs.version }}"
           ARM64_NAME="VirtHelm-v${VERSION}-arm64-v8a.apk"

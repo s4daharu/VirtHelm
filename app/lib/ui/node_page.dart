@@ -31,6 +31,7 @@ class _NodePageState extends State<NodePage> {
   String? metricError;
   String? comparisonPeer;
   NodeMetricSeries? comparisonSeries;
+  Inventory? comparisonInventory;
   bool comparisonLoading = false;
   String? comparisonError;
 
@@ -60,6 +61,7 @@ class _NodePageState extends State<NodePage> {
       loadingMetrics = true;
       metricError = null;
       comparisonSeries = null;
+      comparisonInventory = null;
       comparisonError = null;
     });
     try {
@@ -97,13 +99,14 @@ class _NodePageState extends State<NodePage> {
   }
 
   void selectMetricTimeframe(NodeMetricTimeframe value) {
-    if (value == metricTimeframe || comparisonLoading) return;
+    if (value == metricTimeframe || loadingMetrics || comparisonLoading) return;
     setState(() {
       metricTimeframe = value;
       metricSeries = null;
       metricError = null;
       comparisonPeer = null;
       comparisonSeries = null;
+      comparisonInventory = null;
       comparisonError = null;
     });
   }
@@ -148,6 +151,7 @@ class _NodePageState extends State<NodePage> {
     final primary = metricSeries;
     final peerName = comparisonPeer;
     final timeframe = metricTimeframe;
+    final inventory = widget.controller.inventory;
     final peers = _comparisonPeers().where((node) => node.name == peerName);
     if (loadingMetrics ||
         comparisonLoading ||
@@ -163,6 +167,7 @@ class _NodePageState extends State<NodePage> {
     setState(() {
       comparisonLoading = true;
       comparisonSeries = null;
+      comparisonInventory = null;
       comparisonError = null;
     });
     try {
@@ -177,8 +182,13 @@ class _NodePageState extends State<NodePage> {
         (node) => node.name == peerName,
       );
       setState(() {
-        if (stillEligible && identical(primary, metricSeries)) {
+        if (stillEligible &&
+            comparisonPeer == peerName &&
+            metricTimeframe == timeframe &&
+            identical(primary, metricSeries) &&
+            identical(inventory, widget.controller.inventory)) {
           comparisonSeries = result;
+          comparisonInventory = inventory;
         }
         if (comparisonSeries == null) {
           comparisonError = 'Comparison unavailable. Refresh and try again.';
@@ -208,7 +218,9 @@ class _NodePageState extends State<NodePage> {
       timeframe: metricTimeframe,
       now: now,
     );
-    final other = comparisonSeries;
+    final other = identical(comparisonInventory, widget.controller.inventory)
+        ? comparisonSeries
+        : null;
     final result = ready && selected != null && other != null && !loadingMetrics
         ? NodeHistoryComparison.evaluate(
             primary: primary,
@@ -255,6 +267,7 @@ class _NodePageState extends State<NodePage> {
                     : (value) => setState(() {
                         comparisonPeer = value;
                         comparisonSeries = null;
+                        comparisonInventory = null;
                         comparisonError = null;
                       }),
               ),

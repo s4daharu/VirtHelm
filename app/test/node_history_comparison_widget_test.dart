@@ -127,6 +127,42 @@ void main() {
     expect(controller.reads, ['pve1']);
   });
 
+  testWidgets('new inventory discards delayed and previously shown results', (
+    tester,
+  ) async {
+    final controller = await open(tester);
+    await selectPeer(tester);
+    const compare = Key('load-node-comparison');
+
+    void refreshInventory() {
+      controller.inventory = Inventory(
+        nodes: const [primary, peer],
+        guests: const [],
+        fetchedAt: DateTime.now(),
+      );
+      controller.notifyListeners();
+    }
+
+    final delayed = Completer<NodeMetricSeries?>();
+    controller.pending = delayed;
+    await tester.tap(find.byKey(compare));
+    await tester.pump();
+    expect(controller.reads, ['pve1', 'pve2']);
+    refreshInventory();
+    delayed.complete(controller.history('pve2'));
+    await tester.pumpAndSettle();
+    expect(find.text('7 matched RRD samples'), findsNothing);
+
+    controller.pending = null;
+    await tester.tap(find.byKey(compare));
+    await tester.pumpAndSettle();
+    expect(find.text('7 matched RRD samples'), findsOneWidget);
+    refreshInventory();
+    await tester.pumpAndSettle();
+    expect(find.text('7 matched RRD samples'), findsNothing);
+    expect(controller.reads, ['pve1', 'pve2', 'pve2']);
+  });
+
   testWidgets('profile switch redacts a delayed peer response', (tester) async {
     final controller = await open(tester);
     await selectPeer(tester);

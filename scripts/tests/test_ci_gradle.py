@@ -84,37 +84,43 @@ class CiGradleTests(unittest.TestCase):
                                       CI_GRADLE.resource_properties(4, 16384))
 
     def test_android_workflows_bootstrap_before_gradle_cache_and_build(self):
-        for name in ('android-ci.yml', 'release-android.yml'):
+        cache_specs = []
+        for name, step_name, action in (
+            ('android-ci.yml', 'Cache Gradle dependencies', 'actions/cache'),
+            ('release-android.yml', 'Restore Gradle dependencies', 'actions/cache/restore'),
+        ):
             with self.subTest(workflow=name):
                 text = (ROOT / '.github/workflows' / name).read_text()
                 tune = text.index('run: python3 ../scripts/configure_ci_gradle.py')
                 bootstrap = text.index('run: bash ../scripts/bootstrap_android.sh')
-                cache = text.index(
-                    'uses: gradle/actions/setup-gradle@'
-                    '8da46b539cd8fe6ab27ca75128919a18d757604c'
-                )
+                cache = text.index(f'      - name: {step_name}\n')
                 build = text.index('flutter build apk')
                 self.assertLess(tune, bootstrap)
                 self.assertLess(bootstrap, cache)
                 self.assertLess(cache, build)
                 self.assertIn("flutter-version: '3.44.4'\n          cache: true", text)
 
-                cache_step = text.split(
-                    '      - name: Setup Gradle build cache\n', 1
-                )[1].split('\n      - name:', 1)[0]
-                self.assertIn('cache-provider: basic', cache_step)
-                self.assertIn('gradle-home-cache-includes: |', cache_step)
-                self.assertRegex(cache_step, r'\n\s+caches\n\s+wrapper(?:\n|$)')
+                cache_step = text[cache:].split('\n      - name:', 1)[0]
+                self.assertRegex(cache_step, rf'uses: {action}@[0-9a-f]{{40}}')
+                spec = cache_step.split('          path: |\n', 1)[1].strip()
+                self.assertEqual(spec.splitlines()[:2], [
+                    '~/.gradle/caches/modules-2',
+                    '            ~/.gradle/wrapper/dists',
+                ])
+                self.assertEqual(len(spec.splitlines()), 3)
+                self.assertIn('key: gradle-deps-v1-', spec)
+                self.assertIn('app/pubspec.lock', spec)
+                self.assertIn('gradle-wrapper.properties', spec)
+                cache_specs.append(spec)
                 if name == 'release-android.yml':
-                    self.assertIn('cache-read-only: true', cache_step)
-                else:
-                    self.assertNotIn('cache-read-only: true', cache_step)
+                    self.assertLess(cache, text.index('name: Restore required release keystore'))
 
                 self.assertRegex(text, r'name: Stop Gradle daemons\n\s+if: always\(\)')
                 step = text.split('      - name: Stop Gradle daemons\n', 1)[1]
                 step = step.split('\n      - name:', 1)[0]
                 self.assertIn('./gradlew --stop', step)
                 self.assertNotRegex(text, r'ionice|taskset|nice -n')
+        self.assertEqual(len(set(cache_specs)), 1)
 
 
 if __name__ == '__main__':

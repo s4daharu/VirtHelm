@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import textwrap
 import unittest
+from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -46,6 +47,7 @@ class DeliveryTests(unittest.TestCase):
         template = self.root / 'scripts/android/MainActivity.kt'
         template.parent.mkdir(parents=True)
         shutil.copy2(ROOT / 'scripts/android/MainActivity.kt', template)
+        shutil.copy2(ROOT / 'scripts/android/BackgroundIncidentWorker.kt', template.parent)
         launcher = self.root / 'scripts/android/launcher'
         shutil.copytree(ROOT / 'scripts/android/launcher', launcher)
         gradle = self.root / 'app/android/app/build.gradle.kts'
@@ -176,6 +178,61 @@ android {
                 self.assertIn("          distribution: temurin\n", match.group(2))
                 self.assertIn("          java-version: '17'\n", match.group(2))
                 self.assertIn("          problem-matcher: true\n", match.group(2))
+
+    def verify_apks(self, *, extra_abi=None, missing_library=False):
+        """Execute the real ABI check against ZIP fixtures and synthetic signers."""
+        output = self.root / 'output.txt'
+        build_tools = self.root / 'sdk/build-tools/36.0.0'
+        build_tools.mkdir(parents=True, exist_ok=True)
+        bin_dir = self.root / 'bin'
+        bin_dir.mkdir(exist_ok=True)
+        for tool, body in [
+            (bin_dir / 'keytool', 'printf "test-certificate"'),
+            (build_tools / 'apksigner',
+             'printf "Signer #1 certificate SHA-256 digest: " '
+             '&& printf "test-certificate" | sha256sum | cut -d" " -f1'),
+        ]:
+            tool.write_text(f'#!/bin/sh\n{body}\n')
+            tool.chmod(0o700)
+        apks = self.root / 'build/app/outputs/flutter-apk'
+        apks.mkdir(parents=True, exist_ok=True)
+        for abi in ('arm64-v8a', 'armeabi-v7a'):
+            path = apks / f'app-{abi}-release.apk'
+            with ZipFile(path, 'w') as apk:
+                apk.writestr(f'lib/{abi}/libflutter.so', b'synthetic')
+                if not missing_library or abi != 'arm64-v8a':
+                    apk.writestr(f'lib/{abi}/libapp.so', b'synthetic')
+                if extra_abi and abi == 'arm64-v8a':
+                    apk.writestr(f'lib/{extra_abi}/libextra.so', b'synthetic')
+        script = release_script('Verify APK set, signatures, and ABIs')
+        script = script.replace('${{ steps.metadata.outputs.version }}', '0.1.0')
+        return subprocess.run(
+            ['bash', '-eo', 'pipefail', '-c', script],
+            cwd=self.root, capture_output=True, text=True,
+            env=dict(os.environ, PATH=f'{bin_dir}:{os.environ["PATH"]}',
+                     ANDROID_HOME=str(self.root / 'sdk'), GITHUB_OUTPUT=str(output),
+                     RELEASE_KEY_ALIAS='synthetic', RELEASE_STORE_PASSWORD='synthetic'),
+        )
+
+    def test_release_abi_check_accepts_exact_split_and_writes_checksums(self):
+        result = self.verify_apks()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('VirtHelm-v0.1.0-arm64-v8a.apk', (self.root / 'output.txt').read_text())
+        self.assertTrue((self.root / 'build/app/outputs/flutter-apk/SHA256SUMS.txt').is_file())
+
+    def test_release_abi_check_rejects_extra_abis_before_publication(self):
+        for abi in ('armeabi-v7a', 'x86_64', 'unexpected'):
+            with self.subTest(abi=abi):
+                result = self.verify_apks(extra_abi=abi)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('expected only arm64-v8a', result.stderr)
+                self.assertFalse((self.root / 'output.txt').exists())
+
+    def test_release_abi_check_requires_flutter_native_libraries(self):
+        result = self.verify_apks(missing_library=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('missing required Flutter native libraries', result.stderr)
+        self.assertFalse((self.root / 'output.txt').exists())
 
     def test_workflows_never_store_apks_as_actions_artifacts(self):
         for path in (ROOT / '.github/workflows').iterdir():
