@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
 import '../core/models.dart';
+import '../core/node_history_comparison.dart';
 import 'components.dart';
 import 'theme.dart';
 
@@ -28,6 +29,10 @@ class _NodePageState extends State<NodePage> {
   NodeMetricTimeframe metricTimeframe = NodeMetricTimeframe.hour;
   NodeMetricSeries? metricSeries;
   String? metricError;
+  String? comparisonPeer;
+  NodeMetricSeries? comparisonSeries;
+  bool comparisonLoading = false;
+  String? comparisonError;
 
   bool get _currentSession =>
       widget.controller.active?.id == widget.profileId &&
@@ -45,10 +50,17 @@ class _NodePageState extends State<NodePage> {
 
   Future<void> loadMetrics() async {
     final node = currentNode();
-    if (loadingMetrics || !_currentSession || node == null) return;
+    if (loadingMetrics ||
+        comparisonLoading ||
+        !_currentSession ||
+        node == null) {
+      return;
+    }
     setState(() {
       loadingMetrics = true;
       metricError = null;
+      comparisonSeries = null;
+      comparisonError = null;
     });
     try {
       final result = await widget.controller.inspectNodeMetrics(
@@ -85,12 +97,207 @@ class _NodePageState extends State<NodePage> {
   }
 
   void selectMetricTimeframe(NodeMetricTimeframe value) {
-    if (value == metricTimeframe) return;
+    if (value == metricTimeframe || comparisonLoading) return;
     setState(() {
       metricTimeframe = value;
       metricSeries = null;
       metricError = null;
+      comparisonPeer = null;
+      comparisonSeries = null;
+      comparisonError = null;
     });
+  }
+
+  bool get _comparisonTrusted =>
+      _currentSession &&
+      widget.controller.isInventoryFresh &&
+      widget.controller.inventoryWarning == null &&
+      !widget.controller.refreshing &&
+      currentNode()?.status == 'online';
+
+  List<Node> _comparisonPeers() {
+    final nodes = widget.controller.inventory?.nodes;
+    if (!_comparisonTrusted || nodes == null || nodes.length > 64) {
+      return const [];
+    }
+    final counts = <String, int>{};
+    for (final node in nodes) {
+      counts.update(node.name.trim(), (count) => count + 1, ifAbsent: () => 1);
+    }
+    final name = widget.node.name;
+    if (name.isEmpty ||
+        name != name.trim() ||
+        name.length > 200 ||
+        counts[name] != 1) {
+      return const [];
+    }
+    return nodes
+        .where(
+          (node) =>
+              node.name != widget.node.name &&
+              node.name.isNotEmpty &&
+              node.name == node.name.trim() &&
+              node.name.length <= 200 &&
+              node.status == 'online' &&
+              counts[node.name] == 1,
+        )
+        .toList(growable: false);
+  }
+
+  Future<void> _loadComparison() async {
+    final primary = metricSeries;
+    final peerName = comparisonPeer;
+    final timeframe = metricTimeframe;
+    final peers = _comparisonPeers().where((node) => node.name == peerName);
+    if (loadingMetrics ||
+        comparisonLoading ||
+        primary == null ||
+        peers.length != 1 ||
+        !NodeHistoryComparison.accepts(
+          series: primary,
+          timeframe: timeframe,
+          now: DateTime.now(),
+        )) {
+      return;
+    }
+    setState(() {
+      comparisonLoading = true;
+      comparisonSeries = null;
+      comparisonError = null;
+    });
+    try {
+      final result = await widget.controller.inspectNodeMetrics(
+        profileId: widget.profileId,
+        generation: widget.generation,
+        node: peers.single,
+        timeframe: timeframe,
+      );
+      if (!mounted || !_currentSession) return;
+      final stillEligible = _comparisonPeers().any(
+        (node) => node.name == peerName,
+      );
+      setState(() {
+        if (stillEligible && identical(primary, metricSeries)) {
+          comparisonSeries = result;
+        }
+        if (comparisonSeries == null) {
+          comparisonError = 'Comparison unavailable. Refresh and try again.';
+        }
+      });
+    } on PveFailure catch (error) {
+      if (!mounted || !_currentSession) return;
+      setState(() => comparisonError = error.message);
+    } catch (_) {
+      if (!mounted || !_currentSession) return;
+      setState(() => comparisonError = 'Could not load peer node history.');
+    } finally {
+      if (mounted && _currentSession) {
+        setState(() => comparisonLoading = false);
+      }
+    }
+  }
+
+  Widget _comparisonCard(NodeMetricSeries primary) {
+    final peers = _comparisonPeers();
+    final selected = peers.any((node) => node.name == comparisonPeer)
+        ? comparisonPeer
+        : null;
+    final now = DateTime.now();
+    final ready = NodeHistoryComparison.accepts(
+      series: primary,
+      timeframe: metricTimeframe,
+      now: now,
+    );
+    final other = comparisonSeries;
+    final result = ready && selected != null && other != null && !loadingMetrics
+        ? NodeHistoryComparison.evaluate(
+            primary: primary,
+            peer: other,
+            timeframe: metricTimeframe,
+            now: now,
+          )
+        : null;
+    return Card(
+      key: const Key('node-history-comparison'),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Compare node history',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const Text(
+              'Compare CPU and memory percentages on matching RRD timestamps. '
+              'Peer history is requested only when you choose to compare.',
+            ),
+            if (peers.isEmpty || !ready)
+              const Text(
+                'Comparison requires fresh inventory, another uniquely '
+                'visible online node and complete recent history.',
+              )
+            else ...[
+              DropdownButton<String>(
+                key: const Key('node-comparison-peer'),
+                isExpanded: true,
+                value: selected,
+                hint: const Text('Choose peer node'),
+                items: [
+                  for (final node in peers)
+                    DropdownMenuItem(
+                      value: node.name,
+                      child: Text(node.name, overflow: TextOverflow.ellipsis),
+                    ),
+                ],
+                onChanged: loadingMetrics || comparisonLoading
+                    ? null
+                    : (value) => setState(() {
+                        comparisonPeer = value;
+                        comparisonSeries = null;
+                        comparisonError = null;
+                      }),
+              ),
+              FilledButton.tonal(
+                key: const Key('load-node-comparison'),
+                onPressed:
+                    selected == null || loadingMetrics || comparisonLoading
+                    ? null
+                    : _loadComparison,
+                child: Text(
+                  comparisonLoading ? 'Loading peer…' : 'Compare history',
+                ),
+              ),
+            ],
+            if (comparisonError != null) Text(comparisonError!),
+            if (other != null && result == null)
+              const Text(
+                'Comparison unavailable: no sufficiently matched history.',
+              ),
+            if (result != null) ...[
+              const Divider(),
+              Text('${result.sampleCount} matched RRD samples'),
+              Text(
+                '${result.first.toUtc().toIso8601String()} to '
+                '${result.last.toUtc().toIso8601String()} (UTC)',
+              ),
+              Text(
+                '${widget.node.name}: CPU ${formatPercent(result.primaryCpu)}, '
+                'memory ${formatPercent(result.primaryMemory)}',
+              ),
+              Text(
+                '$selected: CPU ${formatPercent(result.peerCpu)}, '
+                'memory ${formatPercent(result.peerMemory)}',
+              ),
+              const Text(
+                'Paired sample means only, not time-weighted utilization, '
+                'absolute capacity, a forecast or a placement recommendation.',
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _tabList({required Key key, required List<Widget> children}) =>
@@ -263,7 +470,8 @@ class _NodePageState extends State<NodePage> {
               ChoiceChip(
                 label: Text(timeframe.label),
                 selected: metricTimeframe == timeframe,
-                onSelected: currentNode() == null || loadingMetrics
+                onSelected:
+                    currentNode() == null || loadingMetrics || comparisonLoading
                     ? null
                     : (_) => selectMetricTimeframe(timeframe),
               ),
@@ -273,7 +481,8 @@ class _NodePageState extends State<NodePage> {
         Align(
           alignment: Alignment.centerLeft,
           child: FilledButton.tonalIcon(
-            onPressed: currentNode() == null || loadingMetrics
+            onPressed:
+                currentNode() == null || loadingMetrics || comparisonLoading
                 ? null
                 : loadMetrics,
             icon: loadingMetrics
@@ -302,6 +511,10 @@ class _NodePageState extends State<NodePage> {
             '${metricSeries!.truncated ? ' • response truncated locally' : ''}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
+          if (_comparisonPeers().isNotEmpty || comparisonPeer != null) ...[
+            const SizedBox(height: 8),
+            _comparisonCard(metricSeries!),
+          ],
           const SizedBox(height: 8),
           SparklineCard(
             title: 'CPU average',

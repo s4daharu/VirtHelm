@@ -14,7 +14,7 @@
   "framework": "Flutter",
   "primary_pve": "9.2",
   "regression_pve": "8.4",
-  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, snapshot creation/stopped-only non-RAM rollback/deletion, one-off backup-start, exact-guest backup-archive visibility, evidence-limited backup validation confidence, and GET-only same-node alternate-VMID restore-plan/conflict-preflight operational slices + ALERT-007 foreground notification quiet-hours/cooldown delivery policy + ALERT-009 opt-in Android WorkManager node-state checks + ALERT-010 device-wide notification lock-screen privacy + AND-010 generic Android notification deep link to unlocked Incidents + AND-011 separate opt-in bounded stale node/guest inventory cache + shared cross-mode foreground/scheduled notification delivery deduplication + bounded opt-in Android scheduled recent failed-task checks + bounded opt-in Android scheduled node-CPU threshold checks; scheduled guest CPU threshold checks; bounded exact scheduled notification targets; bounded foreground and scheduled threshold minimum-duration windows + bounded same-node current incident context + bounded local snapshot-only Home capacity review + bounded retrospective storage capacity comparison + conditional linear storage runway scenario",
+  "source_type": "documentation + audited Flutter Android M1/M2/M3 implementation preview + M4 configuration/permission/template-discovery foundations + guarded template-clone, QEMU/LXC creation, same-cluster migration, stopped-guest deletion, snapshot creation/stopped-only non-RAM rollback/deletion, one-off backup-start, exact-guest backup-archive visibility, evidence-limited backup validation confidence, and GET-only same-node alternate-VMID restore-plan/conflict-preflight operational slices + ALERT-007 foreground notification quiet-hours/cooldown delivery policy + ALERT-009 opt-in Android WorkManager node-state checks + ALERT-010 device-wide notification lock-screen privacy + AND-010 generic Android notification deep link to unlocked Incidents + AND-011 separate opt-in bounded stale node/guest inventory cache + shared cross-mode foreground/scheduled notification delivery deduplication + bounded opt-in Android scheduled recent failed-task checks + bounded opt-in Android scheduled node-CPU threshold checks; scheduled guest CPU threshold checks; bounded exact scheduled notification targets; bounded foreground and scheduled threshold minimum-duration windows + bounded same-node current incident context + bounded local snapshot-only Home capacity review + bounded retrospective storage capacity comparison + conditional linear storage runway scenario; bounded two-node matched RRD history comparison",
   "github_repository_url": "https://github.com/s4daharu/VirtHelm",
   "documentation_uploaded_and_verified": true,
   "docs_initial_remote_commit": "4fdfcd704aced213508f798533fd6370573ac284",
@@ -155,8 +155,8 @@
       "GET-only smoke testing against one PVE 9.2.26 server exercised HTTP schemas and actual gateway parsers, including server-side free/occupied VMID checks. No mutations were attempted; 8.4, restricted ACL, backend variants, physical-device and production gates remain open."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 419,
-    "current_flutter_runtime_tests_passed": 444,
+    "current_flutter_tests_defined": 429,
+    "current_flutter_runtime_tests_passed": 476,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
     "p0_scope_complete": false,
@@ -879,13 +879,23 @@
     "deferred": "Conditional linear scenarios implemented separately in 0.1.71; statistical forecasts, cross-resource historical comparison, allocation-aware headroom and production certification remain gated."
   },
   "alert_storage_runway": {
-    "status": "implemented_source_ci_pending",
+    "status": "implemented_ci_verified_device_validation_pending",
     "milestone": "EP-ALERT-05 conditional per-storage linear runway scenario",
     "version": "0.1.71",
     "behavior": "Two half-window linear scenarios from last RRD average to 100% usage; only recent well-covered 24h/7d nondecreasing fixed-capacity series with compatible fresh current storage and consistent positive slopes. Bounded 1h–90d, rounded outward; not a confidence interval or reliable prediction.",
     "safety": "No new PVE I/O, permission, dependency, persistence, notification, mutation or background activity. Existing freshness, exact target and route-session guards retained.",
-    "verification": "Ten synthetic test declarations; exact-head PR CI required before promotion. No live PVE or physical Android validation claimed.",
+    "verification": "Exact feature head 8f3cbd10afc087bc75b1800a03f2edf4309faa67 passed Android CI 45353245870 and repository checks 45353245880 (20 Python tests, pinned formatting/analyze, 476 Flutter tests, generated runner/lockfile checks and ARM64 debug compilation). Merged main f1c3f2154f03448643afb1628cbc347b2d34dff4 also passed Android CI 45353775704 and repository checks 45353775535. No live PVE or physical Android validation claimed.",
     "report": "docs/116-implementation-storage-runway-scenario.md",
-    "deferred": "Statistical/seasonal forecasts, allocation-aware estimates, cross-resource comparisons and production certification."
+    "deferred": "Statistical/seasonal forecasts, allocation-aware estimates, broader cross-resource comparisons and production certification."
+  },
+  "alert_node_history_comparison": {
+    "status": "implemented_source_ci_pending",
+    "milestone": "EP-ALERT-05 / UX-06 bounded two-node historical utilization comparison",
+    "version": "0.1.72",
+    "behavior": "One explicitly selected same-profile online peer; exact matched CPU/memory RRD samples only, 80% match and bounded coverage guards, separate arithmetic means with UTC endpoints.",
+    "safety": "One existing logical GET per explicit comparison request, subject to existing bounded retry policy; fresh complete inventory, unique online nodes including trimmed-name ambiguity checks, profile/generation and route result guards. No write, persistence, background polling, permission or dependency.",
+    "verification": "Ten synthetic model/widget test declarations; exact-head CI required before promotion.",
+    "report": "docs/117-implementation-node-history-comparison.md",
+    "deferred": "Guest comparisons, multi-resource aggregation, live PVE bucket/ACL matrix and physical Android validation."
   }
 }

@@ -296,3 +296,12 @@ rates and a compatible current reading. The range is not a confidence
 interval, allocation-aware estimate or prediction of failure. No additional
 I/O or automatic action is introduced.
 See [milestone 116](116-implementation-storage-runway-scenario.md).
+
+## Bounded two-node historical utilization comparison (0.1.72)
+
+Node Metrics can compare one explicitly selected peer node using exact
+matching CPU and memory RRD sample instants and a shared selected timeframe.
+The matched sample count and UTC endpoints are visible; the separate sample
+means do not imply workload equivalence, time weighting or placement advice.
+One existing GET is requested explicitly; no automatic polling or mutation.
+See [milestone 117](117-implementation-node-history-comparison.md).
