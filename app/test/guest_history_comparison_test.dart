@@ -189,4 +189,91 @@ void main() {
       expect(GuestHistoryComparison.eligiblePeers(bad, primary), isEmpty);
     }
   });
+
+  test('cross-node peers require explicit scope and exact online nodes', () {
+    final data = inventory(
+      [
+        primary,
+        guest(102),
+        guest(103, node: 'pve2'),
+        guest(104, node: 'pve3'),
+        guest(105, node: 'pve4'),
+        guest(106, node: 'pve2', kind: 'lxc'),
+        guest(107, node: 'pve2', status: 'stopped'),
+        guest(108, node: 'pve2', template: true),
+      ],
+      nodes: const [
+        Node(name: 'pve1', status: 'online'),
+        Node(name: 'pve2', status: 'online'),
+        Node(name: 'pve3', status: 'offline'),
+      ],
+    );
+    expect(
+      GuestHistoryComparison.eligiblePeers(data, primary).map((g) => g.vmid),
+      [102],
+    );
+    expect(
+      GuestHistoryComparison.eligiblePeers(
+        data,
+        primary,
+        includeOtherNodes: true,
+      ).map((g) => g.vmid),
+      [102, 103],
+    );
+  });
+
+  test('ambiguous remote nodes and VMIDs cannot be selected', () {
+    final data = inventory(
+      [
+        primary,
+        guest(102, node: 'pve2'),
+        guest(103, node: 'pve3'),
+        guest(103, node: 'pve4'),
+      ],
+      nodes: const [
+        Node(name: 'pve1', status: 'online'),
+        Node(name: 'pve2', status: 'online'),
+        Node(name: ' pve2 ', status: 'online'),
+        Node(name: 'pve3', status: 'online'),
+        Node(name: 'pve4', status: 'online'),
+      ],
+    );
+    expect(
+      GuestHistoryComparison.eligiblePeers(
+        data,
+        primary,
+        includeOtherNodes: true,
+      ),
+      isEmpty,
+    );
+  });
+
+  test('cross-node scope rejects moved primary and oversized inventory', () {
+    for (final data in [
+      inventory(
+        [guest(101, node: 'pve2'), guest(102)],
+        nodes: const [
+          Node(name: 'pve1', status: 'online'),
+          Node(name: 'pve2', status: 'online'),
+        ],
+      ),
+      inventory(
+        [primary, guest(102)],
+        nodes: [
+          const Node(name: 'pve1', status: 'online'),
+          for (var i = 0; i < GuestHistoryComparison.maxNodes; i++)
+            Node(name: 'other$i', status: 'online'),
+        ],
+      ),
+    ]) {
+      expect(
+        GuestHistoryComparison.eligiblePeers(
+          data,
+          primary,
+          includeOtherNodes: true,
+        ),
+        isEmpty,
+      );
+    }
+  });
 }
