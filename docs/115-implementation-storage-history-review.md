@@ -13,8 +13,8 @@ The card reports the signed direction, absolute used-byte change, absolute
 percentage-point change, first/last UTC timestamps and sample count for the
 selected 1h, 24h or 7d response. This is an endpoint-to-endpoint observation
 of averages, not a fitted trend, current free-space reading or forecast.
-A comparison requires an active uniquely visible storage, fresh foreground
-inventory and no in-flight inventory refresh. Existing profile/generation
+A comparison requires an active uniquely visible storage, fresh, complete foreground
+inventory and storage reads, with no in-flight inventory refresh. Existing profile/generation
 route isolation is preserved. Starting an explicit history refresh clears
 the previous history, so an old comparison cannot be presented as new.
 

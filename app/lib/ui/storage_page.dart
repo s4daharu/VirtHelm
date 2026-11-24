@@ -344,6 +344,8 @@ class _StoragePageState extends State<StoragePage> {
             now: DateTime.now(),
             isTrusted:
                 widget.controller.isInventoryFresh &&
+                widget.controller.inventoryWarning == null &&
+                widget.controller.storageMessage == null &&
                 !widget.controller.refreshing &&
                 storage?.active == true &&
                 storage?.enabled != false,

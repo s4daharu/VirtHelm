@@ -80,15 +80,9 @@ void main() {
   });
 
   test('rejects stale, future and out-of-window samples', () {
-    expect(
-      review(List.generate(5, (i) => point(55 - i * 10, 50))),
-      isNull,
-    );
+    expect(review(List.generate(5, (i) => point(55 - i * 10, 50))), isNull);
     expect(review(samples()..[4] = point(-1, 70)), isNull);
-    expect(
-      review(List.generate(9, (i) => point(80 - i * 10, 50))),
-      isNull,
-    );
+    expect(review(List.generate(9, (i) => point(80 - i * 10, 50))), isNull);
   });
 
   test('rejects coverage shorter than half the requested window', () {

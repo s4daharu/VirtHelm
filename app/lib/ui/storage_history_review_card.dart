@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../core/models.dart';
 import '../core/storage_history_review.dart';
-import 'components.dart';
 
 class StorageHistoryReviewCard extends StatelessWidget {
   const StorageHistoryReviewCard({
