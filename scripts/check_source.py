@@ -10,6 +10,8 @@ required = [
   'app/lib/core/offline_overview.dart','app/lib/core/offline_inventory.dart',
   'app/lib/core/capacity_review.dart','app/lib/ui/capacity_review_section.dart',
   'app/test/capacity_review_test.dart','app/test/capacity_review_widget_test.dart',
+  'app/lib/core/storage_history_review.dart','app/lib/ui/storage_history_review_card.dart',
+  'app/test/storage_history_review_test.dart','app/test/storage_history_review_widget_test.dart',
   'app/lib/core/device_connectivity.dart',
   'app/lib/core/guest_list_filter.dart','app/lib/core/task_history_filter.dart',
   'app/lib/core/guest_saved_view.dart','app/lib/core/alert_rules.dart',
@@ -134,6 +136,7 @@ required = [
     'docs/112-implementation-same-node-incident-context.md',
     'docs/113-implementation-maintenance-notification-silence.md',
   'docs/114-implementation-local-capacity-review.md',
+  'docs/115-implementation-storage-history-review.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
@@ -144,6 +147,10 @@ assert version_match, 'pubspec version missing'
 assert f"virthelmDisplayVersion = '{version_match.group(1)}'" in files['app/lib/core/app_info.dart'], 'display version drift'
 assert 'class CapacityReview' in files['app/lib/core/capacity_review.dart']
 assert 'maxSignals = 5' in files['app/lib/core/capacity_review.dart']
+assert 'class StorageHistoryReview' in files['app/lib/core/storage_history_review.dart']
+assert 'maxSamples = 1500' in files['app/lib/core/storage_history_review.dart']
+assert "Key('storage-history-review')" in files['app/lib/ui/storage_history_review_card.dart']
+assert 'StorageHistoryReviewCard(' in files['app/lib/ui/storage_page.dart']
 assert 'elevatedUsageFraction = 0.85' in files['app/lib/core/capacity_review.dart']
 assert 'controller.isInventoryFresh &&' in files['app/lib/ui/shell.dart']
 assert 'controller.storageMessage == null' in files['app/lib/ui/shell.dart']

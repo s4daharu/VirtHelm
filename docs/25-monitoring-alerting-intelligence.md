@@ -279,3 +279,11 @@ match, then revalidate profile, generation and current membership. The
 `scheduled` digest never becomes resource-navigation authority, never performs
 PVE I/O and never changes health, acknowledgement or delivery cooldown. See
 [the implementation milestone](110-implementation-scheduled-notification-targets.md).
+
+## Bounded retrospective storage capacity comparison (0.1.70)
+
+The existing Storage Capacity tab now compares the first and last RRD
+averages in an explicitly loaded, sufficiently covered, fixed-capacity series.
+Missing, stale, duplicate, malformed, resized or sparse history suppresses the
+comparison. No new I/O, persistence, forecast or action is introduced.
+See [milestone 115](115-implementation-storage-history-review.md).

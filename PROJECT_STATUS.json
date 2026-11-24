@@ -1,6 +1,6 @@
 {
   "project": "VirtHelm",
-  "as_of": "2026-11-19",
+  "as_of": "2026-11-24",
   "app_code_written": true,
   "flutter_build_executed": true,
   "live_pve_tested": false,
@@ -155,7 +155,7 @@
       "GET-only smoke testing against one PVE 9.2.26 server exercised HTTP schemas and actual gateway parsers, including server-side free/occupied VMID checks. No mutations were attempted; 8.4, restricted ACL, backend variants, physical-device and production gates remain open."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 399,
+    "current_flutter_tests_defined": 409,
     "current_flutter_runtime_tests_passed": 444,
     "current_delivery_tests_defined": 14,
     "current_ci_policy": "Every current commit must pass Docs and Android checks; declaration/runtime test counts alone are not a release claim. Audited baseline fa41718 passed checks run 42913689940 and signed prerelease run 42914642302.",
@@ -867,5 +867,15 @@
     "verification": "Exact feature-source head 1aea8c4bea664937f905783d24058dcd76282b60 on PR #70 passed Docs and Android checks run 44559807523 and Android CI run 44559806966 (repository docs/premium/source/Python tests; pinned Flutter 3.44.4 formatting, flutter analyze --fatal-infos, 456 Flutter runtime tests, hardened generated runner/lockfile, and ARM64 debug APK compile). The verification-record-only follow-up does not change application source. Physical Android and PVE 8.4/9.2 validation remain open.",
     "report": "docs/114-implementation-local-capacity-review.md",
     "deferred": "Historical trends/forecasts, physical Android TalkBack/font-scale/performance, PVE 8.4/9.2 storage/ACL fixture matrix, site planning and production certification."
+  },
+  "alert_storage_history_review": {
+    "status": "implemented_source_ci_pending",
+    "milestone": "EP-ALERT-05 bounded retrospective per-storage RRD capacity review",
+    "version": "0.1.70",
+    "behavior": "Existing Capacity detail tab compares first/last RRD averages with byte and percentage-point change, UTC endpoints and sample count. Suppressed on untrusted, stale, sparse, resized, incomplete, malformed or ambiguous input.",
+    "safety": "No new network requests, mutation, persistence, notification, dependency or permission. Existing profile/generation isolation retained.",
+    "verification": "Ten synthetic test declarations added; pinned exact-head PR CI required before promotion. No new live PVE or physical Android evidence.",
+    "report": "docs/115-implementation-storage-history-review.md",
+    "deferred": "Forecasts, cross-resource historical comparison, allocation-aware headroom and production certification."
   }
 }
