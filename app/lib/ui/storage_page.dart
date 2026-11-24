@@ -342,6 +342,7 @@ class _StoragePageState extends State<StoragePage> {
             series: metricSeries!,
             timeframe: metricTimeframe,
             now: DateTime.now(),
+            currentStorage: storage,
             isTrusted:
                 widget.controller.isInventoryFresh &&
                 widget.controller.inventoryWarning == null &&

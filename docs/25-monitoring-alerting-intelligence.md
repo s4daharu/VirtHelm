@@ -287,3 +287,12 @@ averages in an explicitly loaded, sufficiently covered, fixed-capacity series.
 Missing, stale, duplicate, malformed, resized or sparse history suppresses the
 comparison. No new I/O, persistence, forecast or action is introduced.
 See [milestone 115](115-implementation-storage-history-review.md).
+
+## Conditional per-storage runway scenario (0.1.71)
+
+The Capacity tab can show a bounded linear scenario from the last RRD
+average to 100% usage using two sufficiently consistent positive half-window
+rates and a compatible current reading. The range is not a confidence
+interval, allocation-aware estimate or prediction of failure. No additional
+I/O or automatic action is introduced.
+See [milestone 116](116-implementation-storage-runway-scenario.md).

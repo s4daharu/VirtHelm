@@ -12,6 +12,7 @@ required = [
   'app/test/capacity_review_test.dart','app/test/capacity_review_widget_test.dart',
   'app/lib/core/storage_history_review.dart','app/lib/ui/storage_history_review_card.dart',
   'app/test/storage_history_review_test.dart','app/test/storage_history_review_widget_test.dart',
+  'app/lib/core/storage_runway.dart','app/test/storage_runway_test.dart','app/test/storage_runway_widget_test.dart',
   'app/lib/core/device_connectivity.dart',
   'app/lib/core/guest_list_filter.dart','app/lib/core/task_history_filter.dart',
   'app/lib/core/guest_saved_view.dart','app/lib/core/alert_rules.dart',
@@ -137,6 +138,7 @@ required = [
     'docs/113-implementation-maintenance-notification-silence.md',
   'docs/114-implementation-local-capacity-review.md',
   'docs/115-implementation-storage-history-review.md',
+  'docs/116-implementation-storage-runway-scenario.md',
    'app/test/guest_backup_start_test.dart',
    'app/test/guest_snapshot_lifecycle_test.dart',
    'app/lib/ui/snapshot_action_dialog.dart']
@@ -149,6 +151,10 @@ assert 'class CapacityReview' in files['app/lib/core/capacity_review.dart']
 assert 'maxSignals = 5' in files['app/lib/core/capacity_review.dart']
 assert 'class StorageHistoryReview' in files['app/lib/core/storage_history_review.dart']
 assert 'maxSamples = 1500' in files['app/lib/core/storage_history_review.dart']
+assert 'class StorageRunway' in files['app/lib/core/storage_runway.dart']
+assert 'StorageHistoryReview.evaluate(' in files['app/lib/core/storage_runway.dart']
+assert 'maximumHours = 90 * 24' in files['app/lib/core/storage_runway.dart']
+assert "Key('storage-runway')" in files['app/lib/ui/storage_history_review_card.dart']
 assert "Key('storage-history-review')" in files['app/lib/ui/storage_history_review_card.dart']
 assert 'StorageHistoryReviewCard(' in files['app/lib/ui/storage_page.dart']
 assert 'elevatedUsageFraction = 0.85' in files['app/lib/core/capacity_review.dart']
