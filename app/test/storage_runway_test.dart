@@ -9,7 +9,6 @@ void main() {
     List<int> usage, {
     int stepHours = 4,
     int total = 100,
-    bool truncated = false,
   }) => StorageMetricSeries(
     points: List.generate(
       usage.length,
@@ -21,18 +20,22 @@ void main() {
         totalBytes: total,
       ),
     ),
-    truncated: truncated,
   );
 
-  StoragePool storage({int? used = 64, int total = 100, bool active = true}) =>
-      StoragePool(
-        node: 'pve1',
-        id: 'local',
-        type: 'dir',
-        active: active,
-        used: used,
-        total: total,
-      );
+  StoragePool storage({
+    int? used = 64,
+    int total = 100,
+    bool? active = true,
+    bool? enabled,
+  }) => StoragePool(
+    node: 'pve1',
+    id: 'local',
+    type: 'dir',
+    active: active,
+    enabled: enabled,
+    used: used,
+    total: total,
+  );
 
   final rising = history([40, 44, 48, 52, 56, 60, 64]);
 
@@ -58,9 +61,7 @@ void main() {
   });
 
   test('different half-window slopes produce outward rounded bounds', () {
-    final result = estimate(
-      history([34, 38, 42, 46, 52, 58, 64]),
-    )!;
+    final result = estimate(history([34, 38, 42, 46, 52, 58, 64]))!;
     expect(result.lowerHours, 24);
     expect(result.upperHours, 36);
     expect(result.secondRatePerHour, 1.5);
@@ -107,6 +108,8 @@ void main() {
       storage(used: 67),
       storage(total: 200),
       storage(active: false),
+      storage(active: null),
+      storage(enabled: false),
     ]) {
       expect(estimate(rising, current: current), isNull);
     }
