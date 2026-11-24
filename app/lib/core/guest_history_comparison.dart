@@ -79,7 +79,11 @@ class GuestHistoryComparison {
     }
     final nodeCounts = <String, int>{};
     for (final node in inventory.nodes) {
-      nodeCounts.update(node.name.trim(), (count) => count + 1, ifAbsent: () => 1);
+      nodeCounts.update(
+        node.name.trim(),
+        (count) => count + 1,
+        ifAbsent: () => 1,
+      );
     }
     final onlineNodes = <String>{
       for (final node in inventory.nodes)

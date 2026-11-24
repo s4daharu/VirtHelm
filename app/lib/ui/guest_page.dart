@@ -200,10 +200,11 @@ class _GuestPageState extends State<GuestPage> {
       return const [];
     }
     return GuestHistoryComparison.eligiblePeers(
-      inventory,
-      guest,
-      includeOtherNodes: true,
-    ).where((peer) => !controller.isGuestActionBlocked(peer))
+          inventory,
+          guest,
+          includeOtherNodes: true,
+        )
+        .where((peer) => !controller.isGuestActionBlocked(peer))
         .toList(growable: false);
   }
 
@@ -274,9 +275,7 @@ class _GuestPageState extends State<GuestPage> {
 
   Widget _comparisonCard(GuestMetricSeries primary) {
     final peers = _comparisonPeers();
-    final selected = peers.any(_matchesComparisonPeer)
-        ? comparisonPeer
-        : null;
+    final selected = peers.any(_matchesComparisonPeer) ? comparisonPeer : null;
     final now = DateTime.now();
     final ready = GuestHistoryComparison.accepts(
       series: primary,
