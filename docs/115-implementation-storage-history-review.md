@@ -39,3 +39,10 @@ removes only local presentation/evaluation; no data migration is necessary.
 
 Forecasting, allocation-aware estimates, seasonal uncertainty, historical
 cross-resource comparison and production certification remain gated.
+
+Exact feature head `97305ed0b899aedd9ba9857edabb1806aaf45fe3` passed
+[Android CI](https://github.com/s4daharu/VirtHelm/actions/runs/45327213971)
+and [repository checks](https://github.com/s4daharu/VirtHelm/actions/runs/45327213979),
+including 466 Flutter tests and ARM64 debug compilation. The merged `main`
+commit `c3fa58a83dc19602fde515a094ef1d9fc44987a2` has the identical Git tree.
+A separate bounded conditional runway scenario follows in [milestone 116](116-implementation-storage-runway-scenario.md).

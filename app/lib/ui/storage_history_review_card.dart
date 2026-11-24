@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/models.dart';
 import '../core/storage_history_review.dart';
+import '../core/storage_runway.dart';
 
 class StorageHistoryReviewCard extends StatelessWidget {
   const StorageHistoryReviewCard({
@@ -10,12 +11,14 @@ class StorageHistoryReviewCard extends StatelessWidget {
     required this.timeframe,
     required this.now,
     required this.isTrusted,
+    this.currentStorage,
   });
 
   final StorageMetricSeries series;
   final StorageMetricTimeframe timeframe;
   final DateTime now;
   final bool isTrusted;
+  final StoragePool? currentStorage;
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +27,15 @@ class StorageHistoryReviewCard extends StatelessWidget {
             series: series,
             timeframe: timeframe,
             now: now,
+          )
+        : null;
+    final storage = currentStorage;
+    final runway = review != null && storage != null
+        ? StorageRunway.evaluate(
+            series: series,
+            timeframe: timeframe,
+            now: now,
+            storage: storage,
           )
         : null;
     final change = review?.usedByteChange ?? 0;
@@ -68,6 +80,40 @@ class StorageHistoryReviewCard extends StatelessWidget {
               'First-to-last observed change only. Not a continuous trend, '
               'forecast, time-to-full estimate or automatic action.',
             ),
+            if (review != null) ...[
+              const Divider(),
+              Text(
+                'Conditional capacity runway',
+                key: const Key('storage-runway'),
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 6),
+              if (runway == null)
+                const Text(
+                  'Runway scenario unavailable. Requires a recent, well-covered '
+                  '24-hour or 7-day series with consistent positive growth '
+                  'and a compatible current storage reading.',
+                )
+              else ...[
+                Text(
+                  'About ${runway.lowerHours}–${runway.upperHours} hours to '
+                  '100% from the last RRD average, if growth continues '
+                  'at either observed half-window rate.',
+                ),
+                Text(
+                  'Observed rates: '
+                  '${formatBytes(runway.firstRatePerHour.round())}/h and '
+                  '${formatBytes(runway.secondRatePerHour.round())}/h.',
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Illustrative linear scenarios, not a confidence interval '
+                  'or a reliable prediction. Deletions, allocations, '
+                  'resizing, workload changes and backend limits may '
+                  'invalidate them. No action was taken.',
+                ),
+              ],
+            ],
           ],
         ),
       ),
