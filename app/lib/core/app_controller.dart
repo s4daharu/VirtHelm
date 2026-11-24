@@ -28,8 +28,10 @@ class AppController extends ChangeNotifier {
     ForegroundIncidentNotifier? incidentNotifier,
     BackgroundCheckScheduler? backgroundCheckScheduler,
     IncidentNavigationTargetResolver? incidentNavigationTargetResolver,
+    DateTime Function()? inventoryClock,
     this.taskVerificationTtl = const Duration(minutes: 15),
-  }) : _incidentNotifier =
+  }) : _inventoryClock = inventoryClock ?? DateTime.now,
+       _incidentNotifier =
            incidentNotifier ?? const AndroidForegroundIncidentNotifier(),
        _backgroundCheckScheduler =
            backgroundCheckScheduler ?? const AndroidBackgroundCheckScheduler(),
@@ -45,6 +47,8 @@ class AppController extends ChangeNotifier {
   final ForegroundIncidentNotifier _incidentNotifier;
   final BackgroundCheckScheduler _backgroundCheckScheduler;
   final IncidentNavigationTargetResolver _incidentNavigationTargetResolver;
+  final DateTime Function() _inventoryClock;
+  static const _inventoryFreshFor = Duration(minutes: 2);
   final Duration taskVerificationTtl;
 
   List<ConnectionProfile> profiles = [];
@@ -373,6 +377,7 @@ class AppController extends ChangeNotifier {
   int _inventoryRevision = 0;
   Timer? _pollTimer;
   Timer? _autoRefreshTimer;
+  Timer? _inventoryExpiryTimer;
   int? _pollingGeneration;
   bool _foreground = true;
   bool _disposed = false;
@@ -1929,6 +1934,7 @@ class AppController extends ChangeNotifier {
     final generation = ++_generation;
     _pollTimer?.cancel();
     _autoRefreshTimer?.cancel();
+    _inventoryExpiryTimer?.cancel();
     _refreshFuture = null;
     _gateway?.close();
     _gateway = null;
@@ -2086,6 +2092,7 @@ class AppController extends ChangeNotifier {
           ? null
           : 'Ignored ${next.malformedGuestRecords} malformed guest record(s). '
                 'Guest mutations are disabled until a clean inventory refresh.';
+      _scheduleInventoryExpiry();
       final nodes = next.nodes.map((node) => node.name).toList(growable: false);
       await Future.wait<void>([
         _loadStorage(gateway, nodes, generation),
@@ -2197,6 +2204,7 @@ class AppController extends ChangeNotifier {
     } finally {
       if (generation == _generation) {
         refreshing = false;
+        _scheduleInventoryExpiry();
         _notify();
       }
     }
@@ -2296,8 +2304,32 @@ class AppController extends ChangeNotifier {
         message != null) {
       return false;
     }
-    final age = DateTime.now().difference(inventory!.fetchedAt);
-    return age >= Duration.zero && age < const Duration(minutes: 2);
+    final age = _inventoryClock().difference(inventory!.fetchedAt);
+    return age >= Duration.zero && age < _inventoryFreshFor;
+  }
+
+  void _scheduleInventoryExpiry() {
+    _inventoryExpiryTimer?.cancel();
+    if (!_foreground || !isInventoryFresh) return;
+    final inventorySnapshot = inventory!;
+    final generation = _generation;
+    final remaining = inventorySnapshot.fetchedAt
+        .add(_inventoryFreshFor)
+        .difference(_inventoryClock());
+    // Manual refresh still needs a redraw at expiry, but never a network read.
+    _inventoryExpiryTimer = Timer(remaining, () {
+      if (_disposed ||
+          !_foreground ||
+          generation != _generation ||
+          !identical(inventorySnapshot, inventory)) {
+        return;
+      }
+      if (isInventoryFresh) {
+        _scheduleInventoryExpiry();
+      } else {
+        _notify();
+      }
+    });
   }
 
   bool get isInventoryWriteSafe =>
@@ -4139,6 +4171,7 @@ class AppController extends ChangeNotifier {
       _requiresRecovery = true;
       _pollTimer?.cancel();
       _autoRefreshTimer?.cancel();
+      _inventoryExpiryTimer?.cancel();
       if (inventory == null && active != null) {
         cachedOverview = repository.readOfflineOverview(active!.id);
         cachedInventory = repository.readOfflineInventory(active!.id);
@@ -4187,6 +4220,10 @@ class AppController extends ChangeNotifier {
     final resumed = visible && !_foreground;
     _foreground = visible;
     if (visible) {
+      if (resumed) {
+        _scheduleInventoryExpiry();
+        _notify();
+      }
       if (resumed && deviceNetworkState != DeviceNetworkState.unavailable) {
         if (_requiresRecovery && _gateway == null && active != null) {
           unawaited(activate(active!));
@@ -4199,6 +4236,7 @@ class AppController extends ChangeNotifier {
     } else {
       _pollTimer?.cancel();
       _autoRefreshTimer?.cancel();
+      _inventoryExpiryTimer?.cancel();
     }
   }
 
@@ -4441,6 +4479,7 @@ class AppController extends ChangeNotifier {
       _generation++;
       _pollTimer?.cancel();
       _autoRefreshTimer?.cancel();
+      _inventoryExpiryTimer?.cancel();
       _refreshFuture = null;
       _gateway?.close();
       _gateway = null;
@@ -4507,6 +4546,7 @@ class AppController extends ChangeNotifier {
     _generation++;
     _pollTimer?.cancel();
     _autoRefreshTimer?.cancel();
+    _inventoryExpiryTimer?.cancel();
     _refreshFuture = null;
     _gateway?.close();
     super.dispose();

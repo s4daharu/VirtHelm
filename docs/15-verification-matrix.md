@@ -11,6 +11,7 @@ Evidence status codes: **DOC** = official source substantiates the concept; **AU
 | HTTPS-only origin, redirect rejection, explicit TLS failure | AUTO | physical-device valid/wrong-name/expired/private-CA tests |
 | Profile credential isolation and secure-storage metadata separation | AUTO | Android Keystore backup/restore/device-loss tests |
 | Guest detail/confirmation redaction on profile switch and same-profile reconnect | AUTO widget regression and generation guards | physical Android route/dialog race and screen privacy testing |
+| Inventory expiry relabels last-observed data without network I/O; open power and deletion confirmations block stale evidence | AUTO widget regressions; the expiry and power-dialog presentation were checked on Android 17 at maximum text with synthetic data | signed-build device recheck, spoken TalkBack, physical deletion-dialog/keyboard pass, live network recovery and disposable guest mutation matrix |
 | Guest detail tabbed layout and persistent bottom action bar | AUTO widget tests + 320dp/200% text regression | physical Android TalkBack, touch-target and dialog-at-scale review |
 | Node and storage detail tabbed layouts with explicit history tabs | AUTO widget tests + analyzer | physical Android TalkBack, touch-target and 360/393/412dp review |
 | Guest filter bottom sheet and compact active-filter chrome | AUTO widget tests + analyzer | physical Android TalkBack, sheet-at-scale, touch-target and 200-guest performance review |

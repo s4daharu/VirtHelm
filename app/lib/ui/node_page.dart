@@ -4,6 +4,7 @@ import '../core/app_controller.dart';
 import '../core/models.dart';
 import '../core/node_history_comparison.dart';
 import 'components.dart';
+import 'inventory_presentation.dart';
 import 'theme.dart';
 
 class NodePage extends StatefulWidget {
@@ -347,7 +348,10 @@ class _NodePageState extends State<NodePage> {
       foregroundColor: scheme.onPrimaryContainer,
       child: const Icon(Icons.dns_rounded),
     );
-    final status = StatusChip(status: node?.status ?? 'unavailable');
+    final status = StatusChip(
+      status: node?.status ?? 'unavailable',
+      lastObserved: node != null && !widget.controller.isInventoryFresh,
+    );
     if (MediaQuery.textScalerOf(context).scale(12) > 16) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -387,14 +391,15 @@ class _NodePageState extends State<NodePage> {
               if (widget.controller.inventory != null) ...[
                 const SizedBox(height: 14),
                 Text(
-                  'Last refreshed ${formatAge(widget.controller.inventory!.fetchedAt)}',
+                  '${widget.controller.isInventoryFresh ? 'Last refreshed' : 'Last observed'} '
+                  '${formatAge(widget.controller.inventory!.fetchedAt)}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
-              if (!widget.controller.isInventoryFresh) ...[
+              if (widget.controller.inventoryNotice case final notice?) ...[
                 const SizedBox(height: 10),
                 Text(
-                  'STALE / OFFLINE — historical reads require a live connection.',
+                  notice,
                   style: TextStyle(
                     color: scheme.error,
                     fontWeight: FontWeight.w700,
@@ -413,7 +418,7 @@ class _NodePageState extends State<NodePage> {
       ),
       const SizedBox(height: 22),
       Text(
-        'Current utilization',
+        widget.controller.utilizationLabel(hasTarget: node != null),
         style: Theme.of(context).textTheme.titleLarge,
       ),
       const SizedBox(height: 12),

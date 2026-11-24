@@ -155,11 +155,12 @@
       "GET-only smoke testing against one PVE 9.2.26 server exercised HTTP schemas and actual gateway parsers, including server-side free/occupied VMID checks. No mutations were attempted; 8.4, restricted ACL, backend variants, physical-device and production gates remain open."
     ],
     "full_premium_scope_complete": false,
-    "current_flutter_tests_defined": 446,
-    "current_flutter_runtime_tests_passed": 503,
+    "current_flutter_tests_defined": 451,
+    "current_flutter_runtime_tests_passed": 508,
     "current_delivery_tests_defined": 18,
     "current_ci_policy": "Repository checks cover pushes and pull requests. Android CI adds Flutter and ARM64 debug compilation for Android-impacting changes; signed prereleases are built from the checked SHA on main. Automated evidence is not a production release claim.",
     "latest_cross_check": "docs/120-whole-repository-cross-check-2026-11-24.md",
+    "physical_ui_followup": "docs/121-physical-device-ui-review-2026-11-24.md",
     "p0_scope_complete": false,
     "p0_gaps": [
       "Full persistent offline guest/node detail/metrics/config/task cache remains unimplemented; AND-011 implements only a separate opt-in 24-hour display-only node/guest identity/status list",

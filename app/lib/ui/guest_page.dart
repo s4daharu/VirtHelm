@@ -4,6 +4,7 @@ import '../core/app_controller.dart';
 import '../core/guest_history_comparison.dart';
 import '../core/models.dart';
 import 'components.dart';
+import 'inventory_presentation.dart';
 import 'snapshot_action_dialog.dart';
 import 'template_clone_page.dart';
 import 'theme.dart';
@@ -1402,6 +1403,22 @@ class _GuestPageState extends State<GuestPage> {
     final target =
         'Target: ${widget.controller.active?.name ?? 'Unknown connection'} / '
         '${guest.node} / ${guest.kind.toUpperCase()} ${guest.vmid}.';
+    var invalidated = false;
+    String? confirmationBlock() {
+      final current = currentGuest();
+      final guard = _guardReason(
+        current,
+        current != null && widget.controller.isGuestActionBlocked(current),
+      );
+      if (guard != null) return guard;
+      if (invalidated ||
+          !identical(current, guest) ||
+          !action.allowedFor(guest)) {
+        return 'Guest or inventory changed. Cancel and review the action again.';
+      }
+      return null;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AnimatedBuilder(
@@ -1422,6 +1439,8 @@ class _GuestPageState extends State<GuestPage> {
               ],
             );
           }
+          final blocked = confirmationBlock();
+          if (blocked != null) invalidated = true;
           return AlertDialog(
             title: Text('${action.label} ${guest.name}?'),
             content: SingleChildScrollView(
@@ -1431,7 +1450,8 @@ class _GuestPageState extends State<GuestPage> {
                               'without a graceful shutdown and can cause data loss. '
                               'Check the connection, node, VMID, and running services.'
                         : '$target\n\nProxmox will run this operation asynchronously.') +
-                    tlsWarning,
+                    tlsWarning +
+                    (blocked == null ? '' : '\n\n$blocked'),
               ),
             ),
             actions: [
@@ -1440,7 +1460,13 @@ class _GuestPageState extends State<GuestPage> {
                 child: const Text('Cancel'),
               ),
               FilledButton(
-                onPressed: () => Navigator.pop(dialogContext, true),
+                onPressed: blocked == null
+                    ? () {
+                        if (confirmationBlock() == null) {
+                          Navigator.pop(dialogContext, true);
+                        }
+                      }
+                    : null,
                 child: Text(isForce ? 'Force stop' : 'Confirm'),
               ),
             ],
@@ -1448,7 +1474,12 @@ class _GuestPageState extends State<GuestPage> {
         },
       ),
     );
-    if (confirmed != true || !mounted || !_currentSession) return;
+    if (confirmed != true ||
+        !mounted ||
+        !_currentSession ||
+        confirmationBlock() != null) {
+      return;
+    }
     setState(() => submitting = true);
     try {
       await widget.controller.runAction(
@@ -1660,10 +1691,39 @@ class _GuestPageState extends State<GuestPage> {
     final expected = 'DELETE ${source.name} ${source.vmid}';
     var confirmation = '';
     var backupAcknowledged = false;
+    var invalidated = false;
+    String? confirmationBlock() {
+      final current = currentGuest();
+      final guard = _guardReason(
+        current,
+        current != null && widget.controller.isGuestActionBlocked(current),
+      );
+      if (guard != null) return guard;
+      if (invalidated || !identical(current, source)) {
+        return 'Guest or inventory changed. Cancel and review deletion again.';
+      }
+      return null;
+    }
+
     final confirmed = await _showGuestDialog<bool>(
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) {
           final matches = confirmation.trim() == expected;
+          final blocked = confirmationBlock();
+          if (blocked != null) {
+            invalidated = true;
+            return AlertDialog(
+              title: const Text('Deletion confirmation expired'),
+              content: Text(blocked),
+              scrollable: true,
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            );
+          }
           return AlertDialog(
             title: Text('Permanently delete ${source.name}?'),
             content: SingleChildScrollView(
@@ -1671,7 +1731,6 @@ class _GuestPageState extends State<GuestPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _operationConnectionContext(),
                   Text(
                     '${source.kind.toUpperCase()} • ${source.node} • VMID ${source.vmid}',
                     style: Theme.of(context).textTheme.titleMedium,
@@ -1685,6 +1744,7 @@ class _GuestPageState extends State<GuestPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  _operationConnectionContext(),
                   const Text(
                     'The guest must remain stopped. The exact guest identity, clean inventory, and VM.Allocate privilege are revalidated immediately before exactly one DELETE request. VirtHelm never retries a deletion mutation automatically.',
                   ),
@@ -1710,7 +1770,6 @@ class _GuestPageState extends State<GuestPage> {
                   TextFormField(
                     key: const Key('guest-delete-confirmation'),
                     initialValue: confirmation,
-                    autofocus: true,
                     decoration: const InputDecoration(
                       labelText: 'Destructive confirmation',
                       border: OutlineInputBorder(),
@@ -1729,7 +1788,11 @@ class _GuestPageState extends State<GuestPage> {
               FilledButton(
                 key: const Key('guest-delete-submit'),
                 onPressed: matches && backupAcknowledged
-                    ? () => Navigator.of(dialogContext).pop(true)
+                    ? () {
+                        if (confirmationBlock() == null) {
+                          Navigator.of(dialogContext).pop(true);
+                        }
+                      }
                     : null,
                 child: const Text('Delete permanently'),
               ),
@@ -1738,7 +1801,12 @@ class _GuestPageState extends State<GuestPage> {
         },
       ),
     );
-    if (!mounted || !_currentSession || confirmed != true) return;
+    if (!mounted ||
+        !_currentSession ||
+        confirmed != true ||
+        confirmationBlock() != null) {
+      return;
+    }
 
     setState(() => submitting = true);
     try {
@@ -1792,7 +1860,9 @@ class _GuestPageState extends State<GuestPage> {
       return 'An operation is pending or its outcome is uncertain. Check server Tasks before another action.';
     }
     if (!widget.controller.isInventoryFresh) {
-      return 'STALE / OFFLINE — actions are disabled until a fresh refresh.';
+      return widget.controller.isDeviceOffline
+          ? 'No default network — actions are disabled.'
+          : 'A fresh inventory is required — actions are disabled.';
     }
     if (!widget.controller.isInventoryWriteSafe) {
       return widget.controller.inventoryWarning ??
@@ -1850,8 +1920,13 @@ class _GuestPageState extends State<GuestPage> {
           ],
         ),
       ),
-      if (includeStatus) StatusChip(status: guest?.status ?? 'unavailable'),
+      if (includeStatus) _inventoryStatus(guest),
     ],
+  );
+
+  Widget _inventoryStatus(Guest? guest) => StatusChip(
+    status: guest?.status ?? 'unavailable',
+    lastObserved: guest != null && !widget.controller.isInventoryFresh,
   );
 
   Widget _identityCard(Guest? guest, ColorScheme scheme) => Card(
@@ -1863,7 +1938,7 @@ class _GuestPageState extends State<GuestPage> {
           if (MediaQuery.textScalerOf(context).scale(12) > 16) ...[
             _identityHeading(guest, scheme, includeStatus: false),
             const SizedBox(height: 10),
-            StatusChip(status: guest?.status ?? 'unavailable'),
+            _inventoryStatus(guest),
           ] else
             _identityHeading(guest, scheme, includeStatus: true),
           const SizedBox(height: 16),
@@ -1895,20 +1970,13 @@ class _GuestPageState extends State<GuestPage> {
           if (widget.controller.inventory != null) ...[
             const SizedBox(height: 10),
             Text(
-              'Last refreshed ${formatAge(widget.controller.inventory!.fetchedAt)}',
+              '${widget.controller.isInventoryFresh ? 'Last refreshed' : 'Last observed'} '
+              '${formatAge(widget.controller.inventory!.fetchedAt)}',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
-          if (!widget.controller.isInventoryFresh) ...[
-            const SizedBox(height: 10),
-            Text(
-              'STALE / OFFLINE — operations disabled until a fresh refresh.',
-              style: TextStyle(
-                color: scheme.error,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ] else if (!widget.controller.isInventoryWriteSafe) ...[
+          if (widget.controller.isInventoryFresh &&
+              !widget.controller.isInventoryWriteSafe) ...[
             const SizedBox(height: 10),
             Text(
               widget.controller.inventoryWarning ??
@@ -1947,7 +2015,10 @@ class _GuestPageState extends State<GuestPage> {
     children: [
       _identityCard(guest, scheme),
       const SizedBox(height: 22),
-      Text('Live utilization', style: Theme.of(context).textTheme.titleLarge),
+      Text(
+        widget.controller.utilizationLabel(hasTarget: guest != null),
+        style: Theme.of(context).textTheme.titleLarge,
+      ),
       const SizedBox(height: 12),
       MetricBar(
         label: 'CPU',

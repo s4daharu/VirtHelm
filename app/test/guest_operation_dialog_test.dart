@@ -55,7 +55,10 @@ class _Controller extends AppController {
   }) async => restoreGate?.future;
 }
 
-Future<_Controller> _openGuest(WidgetTester tester) async {
+Future<_Controller> _openGuest(
+  WidgetTester tester, {
+  bool largeText = false,
+}) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
   final controller = _Controller(ProfileRepository(prefs, _Vault()));
@@ -97,6 +100,14 @@ Future<_Controller> _openGuest(WidgetTester tester) async {
   ];
   await tester.pumpWidget(
     MaterialApp(
+      builder: largeText
+          ? (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(2)),
+              child: child!,
+            )
+          : null,
       home: GuestPage(
         controller: controller,
         guest: controller.inventory!.guests.single,
@@ -224,8 +235,11 @@ void main() {
             : operation == 'migration'
             ? 'guest-migration-confirmation'
             : 'guest-delete-confirmation';
+        final input = find.byKey(Key(key));
+        await tester.ensureVisible(input);
+        await tester.pumpAndSettle();
         await tester.enterText(
-          find.byKey(Key(key)),
+          input,
           operation == 'snapshot'
               ? 'audit'
               : operation == 'migration'
@@ -239,6 +253,77 @@ void main() {
       },
     );
   }
+
+  testWidgets('large-text deletion starts on the warning and expires safely', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = await _openGuest(tester, largeText: true);
+    await _openDialog(tester, 'delete');
+
+    final dialog = find.byType(AlertDialog);
+    final target = find.text('QEMU • pve1 • VMID 101');
+    final warning = find.textContaining('This permanently destroys the guest');
+    final input = find.byKey(const Key('guest-delete-confirmation'));
+    final checkbox = find.byKey(const Key('guest-delete-backup-ack'));
+    final submit = find.byKey(const Key('guest-delete-submit'));
+    final cancel = find.text('Cancel');
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(target.hitTestable(), findsOneWidget);
+    expect(
+      tester.getTopLeft(warning).dy,
+      lessThan(tester.getTopLeft(cancel).dy),
+    );
+    expect(tester.widget<FilledButton>(submit).onPressed, isNull);
+
+    await tester.ensureVisible(input);
+    await tester.pumpAndSettle();
+    await tester.enterText(input, 'DELETE Web 101');
+    await tester.pump();
+    expect(tester.widget<FilledButton>(submit).onPressed, isNull);
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
+    final acknowledgement = find.descendant(
+      of: checkbox,
+      matching: find.byType(Checkbox),
+    );
+    await Scrollable.ensureVisible(
+      tester.element(acknowledgement),
+      alignment: 0.5,
+    );
+    await tester.pumpAndSettle();
+    expect(acknowledgement.hitTestable(), findsOneWidget);
+    await tester.tap(acknowledgement);
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilledButton>(submit).onPressed, isNotNull);
+
+    final inventory = controller.inventory!;
+    controller.inventory = Inventory(
+      nodes: inventory.nodes,
+      guests: inventory.guests,
+      fetchedAt: DateTime.now().subtract(const Duration(minutes: 3)),
+    );
+    controller.notifyListeners();
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: dialog,
+        matching: find.text(
+          'A fresh inventory is required — actions are disabled.',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(submit, findsNothing);
+    expect(cancel.hitTestable(), findsOneWidget);
+    await tester.tap(cancel);
+    await tester.pumpAndSettle();
+    expect(dialog, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('refreshing archives discards an in-flight restore plan result', (
     tester,

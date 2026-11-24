@@ -2275,9 +2275,7 @@ void main() {
       controller.setDeviceNetworkState(DeviceNetworkState.unavailable);
       await tester.pumpAndSettle();
       final guard = tester.widget<Text>(
-        find.text(
-          'STALE / OFFLINE — actions are disabled until a fresh refresh.',
-        ),
+        find.text('No default network — actions are disabled.'),
       );
       expect(guard.maxLines, isNull);
       expect(guard.overflow, isNull);

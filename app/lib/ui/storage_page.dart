@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/app_controller.dart';
 import '../core/models.dart';
 import 'components.dart';
+import 'inventory_presentation.dart';
 import 'storage_history_review_card.dart';
 import 'theme.dart';
 
@@ -33,6 +34,11 @@ class _StoragePageState extends State<StoragePage> {
   bool get _currentSession =>
       widget.controller.active?.id == widget.profileId &&
       widget.controller.connectionGeneration == widget.generation;
+
+  bool get _storageLastObserved =>
+      !widget.controller.isInventoryFresh ||
+      widget.controller.refreshing ||
+      widget.controller.storageMessage != null;
 
   StoragePool? currentStorage() {
     if (!_currentSession) return null;
@@ -130,7 +136,10 @@ class _StoragePageState extends State<StoragePage> {
       foregroundColor: scheme.onPrimaryContainer,
       child: const Icon(Icons.storage_rounded),
     );
-    final status = StatusChip(status: storage?.stateLabel ?? 'unavailable');
+    final status = StatusChip(
+      status: storage?.stateLabel ?? 'unavailable',
+      lastObserved: storage != null && _storageLastObserved,
+    );
     if (MediaQuery.textScalerOf(context).scale(12) > 16) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,6 +173,8 @@ class _StoragePageState extends State<StoragePage> {
         : storage.contentTypes.join(', ');
     final capacity =
         '${formatBytes(storage?.used)} / ${formatBytes(storage?.total)}';
+    final notice =
+        widget.controller.inventoryNotice ?? widget.controller.storageMessage;
     return _tabList(
       key: const Key('storage-overview-list'),
       children: [
@@ -191,9 +202,13 @@ class _StoragePageState extends State<StoragePage> {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      const Text(
-                        'Capacity',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                      Flexible(
+                        child: Text(
+                          _storageLastObserved
+                              ? 'Last observed capacity'
+                              : 'Capacity',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
                       ),
                       const Spacer(),
                       Flexible(
@@ -208,17 +223,18 @@ class _StoragePageState extends State<StoragePage> {
                   const SizedBox(height: 8),
                   UsageBar(fraction: usage, semanticsLabel: 'Storage usage'),
                 ],
-                if (widget.controller.inventory != null) ...[
+                if (widget.controller.inventory != null &&
+                    !_storageLastObserved) ...[
                   const SizedBox(height: 12),
                   Text(
                     'Last refreshed ${formatAge(widget.controller.inventory!.fetchedAt)}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
-                if (!widget.controller.isInventoryFresh) ...[
+                if (notice != null) ...[
                   const SizedBox(height: 10),
                   Text(
-                    'STALE / OFFLINE — historical reads require a live connection.',
+                    notice,
                     style: TextStyle(
                       color: scheme.error,
                       fontWeight: FontWeight.w700,

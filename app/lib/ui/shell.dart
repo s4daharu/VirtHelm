@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../core/app_controller.dart';
 import 'capacity_review_section.dart';
 import '../core/app_info.dart';
-import '../core/device_connectivity.dart';
 import '../core/foreground_notifications.dart';
 import '../core/app_preferences.dart';
 import '../core/guest_list_filter.dart';
@@ -17,6 +16,7 @@ import '../core/task_history_filter.dart';
 import 'components.dart';
 import 'connect_page.dart';
 import 'connections_page.dart';
+import 'inventory_presentation.dart';
 import 'guest_page.dart';
 import 'incident_center_tab.dart';
 import 'lxc_create_page.dart';
@@ -81,21 +81,16 @@ class _ShellPageState extends State<ShellPage> {
     final profile = controller.active;
     final insecure = profile?.allowInvalidCertificates == true;
     final inventory = controller.inventory;
-    final freshness = profile == null
-        ? null
-        : controller.deviceNetworkState == DeviceNetworkState.unavailable
-        ? 'Network unavailable'
-        : inventory == null
-        ? 'No live snapshot'
-        : controller.isInventoryFresh
-        ? 'Live • ${formatAge(inventory.fetchedAt)}'
-        : 'Stale • ${formatAge(inventory.fetchedAt)}';
+    final textScaler = MediaQuery.textScalerOf(context);
     return Scaffold(
       appBar: AppBar(
         toolbarHeight:
             32 +
-            MediaQuery.textScalerOf(context).scale(20) +
-            MediaQuery.textScalerOf(context).scale(12),
+            textScaler.scale(20) +
+            textScaler.scale(12) +
+            (profile == null || inventory == null
+                ? 0
+                : textScaler.scale(12) + 4),
         titleSpacing: 16,
         title: Row(
           children: [
@@ -112,21 +107,29 @@ class _ShellPageState extends State<ShellPage> {
                   Text(
                     '${insecure ? 'TLS UNVERIFIED • ' : ''}'
                     '${profile?.name ?? 'No connection'}'
-                    '${profile?.lastServerVersion == null ? '' : ' • PVE ${profile!.lastServerVersion}'}'
-                    '${freshness == null ? '' : ' • $freshness'}',
+                    '${profile?.lastServerVersion == null ? '' : ' • PVE ${profile!.lastServerVersion}'}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
-                      color:
-                          controller.deviceNetworkState ==
-                                  DeviceNetworkState.unavailable ||
-                              inventory != null && !controller.isInventoryFresh
-                          ? Theme.of(context).colorScheme.error
-                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
+                  if (profile != null && inventory != null)
+                    Text(
+                      controller.isDeviceOffline
+                          ? 'No default network'
+                          : controller.inventoryLabel,
+                      key: const Key('shell-inventory-freshness'),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: !controller.isInventoryFresh
+                            ? Theme.of(context).colorScheme.error
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -222,7 +225,7 @@ class _ShellPageState extends State<ShellPage> {
       ),
       body: Column(
         children: [
-          if (controller.deviceNetworkState == DeviceNetworkState.unavailable)
+          if (controller.isDeviceOffline)
             const Padding(
               key: Key('device-network-unavailable'),
               padding: EdgeInsets.all(12),
@@ -328,6 +331,9 @@ class _OverviewTab extends StatelessWidget {
     final cached = inv == null ? controller.cachedOverview : null;
     final cachedInventory = inv == null ? controller.cachedInventory : null;
     final hasCounts = inv != null || cached != null || cachedInventory != null;
+    final live = controller.isInventoryFresh;
+    final storageLastObserved =
+        !live || controller.refreshing || controller.storageMessage != null;
     final scheme = Theme.of(context).colorScheme;
     final profileId = controller.active?.id;
     final generation = controller.connectionGeneration;
@@ -354,6 +360,7 @@ class _OverviewTab extends StatelessWidget {
     return RefreshIndicator(
       onRefresh: controller.refresh,
       child: ListView(
+        key: const Key('home-overview-list'),
         padding: const EdgeInsets.fromLTRB(18, 20, 18, 30),
         children: [
           Container(
@@ -408,9 +415,7 @@ class _OverviewTab extends StatelessWidget {
                             : cached == null
                             ? 'Waiting for live inventory'
                             : 'CACHED COUNTS • ${formatAge(cached.fetchedAt)} • not live'
-                      : controller.isInventoryFresh
-                      ? 'Live snapshot • ${formatAge(inv.fetchedAt)}'
-                      : 'STALE snapshot • ${formatAge(inv.fetchedAt)}',
+                      : '${controller.inventoryLabel} • ${formatAge(inv.fetchedAt)}',
                   style: TextStyle(color: scheme.onPrimaryContainer),
                 ),
                 const SizedBox(height: 18),
@@ -491,7 +496,14 @@ class _OverviewTab extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 24),
-          SectionHeading(title: 'Infrastructure', trailing: 'CURRENT SNAPSHOT'),
+          SectionHeading(
+            title: 'Infrastructure',
+            trailing: live
+                ? 'LIVE SNAPSHOT'
+                : hasCounts
+                ? 'LAST OBSERVED'
+                : 'NO SNAPSHOT',
+          ),
           const SizedBox(height: 12),
           GridView(
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -537,7 +549,11 @@ class _OverviewTab extends StatelessWidget {
           const SizedBox(height: 24),
           SectionHeading(
             title: 'Nodes',
-            trailing: inv == null ? '' : '${inv.nodes.length} FOUND',
+            trailing: inv == null
+                ? ''
+                : live
+                ? '${inv.nodes.length} FOUND'
+                : 'LAST OBSERVED',
           ),
           const SizedBox(height: 12),
           if (inv == null && cachedInventory == null)
@@ -565,7 +581,10 @@ class _OverviewTab extends StatelessWidget {
                           'Uptime ${formatUptime(node.uptime)}',
                         )
                       : null,
-                  trailing: StatusChip(status: node.status),
+                  trailing: StatusChip(
+                    status: node.status,
+                    lastObserved: !live,
+                  ),
                   onTap: profileId == null
                       ? null
                       : () => Navigator.of(context).push(
@@ -593,6 +612,8 @@ class _OverviewTab extends StatelessWidget {
             title: 'Storage',
             trailing: controller.storages.isEmpty
                 ? ''
+                : storageLastObserved
+                ? 'LAST OBSERVED / INCOMPLETE'
                 : '${controller.storages.length} VISIBLE',
           ),
           const SizedBox(height: 12),
@@ -610,6 +631,7 @@ class _OverviewTab extends StatelessWidget {
             for (final storage in controller.storages) ...[
               _StorageTile(
                 storage: storage,
+                lastObserved: storageLastObserved,
                 onTap: profileId == null
                     ? null
                     : () => Navigator.of(context).push(
@@ -886,8 +908,13 @@ class _MetricCard extends StatelessWidget {
 }
 
 class _StorageTile extends StatelessWidget {
-  const _StorageTile({required this.storage, this.onTap});
+  const _StorageTile({
+    required this.storage,
+    required this.lastObserved,
+    this.onTap,
+  });
   final StoragePool storage;
+  final bool lastObserved;
   final VoidCallback? onTap;
 
   @override
@@ -909,7 +936,10 @@ class _StorageTile extends StatelessWidget {
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: StatusChip(status: storage.stateLabel),
+        trailing: StatusChip(
+          status: storage.stateLabel,
+          lastObserved: lastObserved,
+        ),
         onTap: onTap,
       ),
     );
@@ -928,7 +958,7 @@ class _OfflineNodeTile extends StatelessWidget {
       leading: const Icon(Icons.history_rounded),
       title: Text(node.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: const Text('CACHED / NOT LIVE • metrics unavailable'),
-      trailing: StatusChip(status: node.status),
+      trailing: StatusChip(status: node.status, lastObserved: true),
     ),
   );
 }
@@ -961,7 +991,7 @@ class _OfflineGuestTile extends StatelessWidget {
         maxLines: 3,
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: StatusChip(status: guest.status),
+      trailing: StatusChip(status: guest.status, lastObserved: true),
     ),
   );
 }
@@ -1024,7 +1054,10 @@ class _GuestTile extends StatelessWidget {
                     : Icons.star_border_rounded,
               ),
             ),
-            StatusChip(status: guest.status),
+            StatusChip(
+              status: guest.status,
+              lastObserved: !controller.isInventoryFresh,
+            ),
           ],
         ),
         onTap: profileId == null
@@ -1668,7 +1701,7 @@ class _GuestsTabState extends State<_GuestsTab> {
                             ? 'No live data'
                             : widget.controller.isInventoryFresh
                             ? 'Live'
-                            : 'STALE',
+                            : 'Last observed',
                         style: TextStyle(
                           fontSize: 12,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,

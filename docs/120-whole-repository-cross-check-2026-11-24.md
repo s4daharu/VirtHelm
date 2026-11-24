@@ -65,5 +65,10 @@ certification evidence was obtained in this pass.
   formatting, analyzer, 503 Flutter tests, 24 Python tests, documentation,
   premium/source checks, workflow lint and generated-runner guards.
 - The worker's new race guards were verified at source level; actual
-  WorkManager edit/disable races still need device verification. Exact-SHA
-  runs verify GitHub caching and build/prerelease delivery for the update.
+  WorkManager edit/disable races still need device verification.
+- Exact 0.1.76 commit `1943108` passed [repository checks](https://github.com/s4daharu/VirtHelm/actions/runs/45422464658),
+  [Android CI](https://github.com/s4daharu/VirtHelm/actions/runs/45422464796),
+  and [signed prerelease verification](https://github.com/s4daharu/VirtHelm/actions/runs/45423620402).
+  The published ARM64 and ARMv7 APKs also passed independent checksum, ABI,
+  and signature checks. The [physical UI follow-up](121-physical-device-ui-review-2026-11-24.md)
+  records device evidence separately from remaining release gates.

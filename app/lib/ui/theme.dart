@@ -285,30 +285,37 @@ _StatusTone _statusTone(String value) {
 /// The label is never replaced by color alone, so status remains readable with
 /// color-vision deficiencies, in high-contrast mode and through TalkBack.
 class StatusChip extends StatelessWidget {
-  const StatusChip({super.key, required this.status});
+  const StatusChip({
+    super.key,
+    required this.status,
+    this.lastObserved = false,
+  });
 
   final String status;
+  final bool lastObserved;
 
   @override
   Widget build(BuildContext context) {
     final colors =
         Theme.of(context).extension<VirtHelmStatusColors>() ??
         _statusColors(Theme.of(context).colorScheme, false);
-    final tone = _statusTone(status);
+    final tone = lastObserved ? _StatusTone.neutral : _statusTone(status);
     final color = switch (tone) {
       _StatusTone.positive => colors.positive,
       _StatusTone.warning => colors.warning,
       _StatusTone.error => colors.error,
       _StatusTone.neutral => colors.neutral,
     };
-    final icon = switch (tone) {
-      _StatusTone.positive => Icons.check_circle_rounded,
-      _StatusTone.warning => Icons.warning_amber_rounded,
-      _StatusTone.error => Icons.error_rounded,
-      _StatusTone.neutral => Icons.help_outline_rounded,
-    };
+    final icon = lastObserved
+        ? Icons.history_rounded
+        : switch (tone) {
+            _StatusTone.positive => Icons.check_circle_rounded,
+            _StatusTone.warning => Icons.warning_amber_rounded,
+            _StatusTone.error => Icons.error_rounded,
+            _StatusTone.neutral => Icons.help_outline_rounded,
+          };
     return Semantics(
-      label: 'Status: $status',
+      label: lastObserved ? 'Last observed status: $status' : 'Status: $status',
       container: true,
       child: ExcludeSemantics(
         child: Container(
